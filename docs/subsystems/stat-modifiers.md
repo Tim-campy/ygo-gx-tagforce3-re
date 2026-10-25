@@ -64,9 +64,9 @@ Pool: index `i` at `0x09e2c7cc + 10 × i`, `i` = 1–255 (index 0 is "none"); a 
 | Kind | Meaning (from the code that reads it) | Conf. |
 | --- | --- | --- |
 | 0 | Free | H |
-| 1, 2 | Temporary effect with a turn counter; ignored by the stat builder when `flags` bit 1 is set | M |
-| 3, 4, 5 | Lasting effect from source card `key` | M |
-| 6–9 | Link to a face-up source card at `key` (a continuous card that affects only this monster, e.g. Miniaturize, Shadow Spell, Weapon Change) | M |
+| 1, 2 | Temporary effect with a turn counter; ignored by the stat builder when `flags` bit 1 is set. The counter (high nibble) is the number of turn changes the record survives: it is decremented at each turn change and the record is freed when it is already 0, so a counter of 0 means "this turn only". Creators pass the whole byte (`0x02`, `0x12`, `0x22`; `duel_core_add_counters` picks `0x12` or `0x22` by whose turn it is). Kind 2 is used by card effects "until the End Phase" (Shrink, Rush Recklessly, Limiter Removal, Graceful Dice, the once-per-turn marker `0xfb6`), kind 1 mostly by player-wide flags on slot 11 (Waboku, Threatening Roar, Asura Priest, Berserker Soul); no reader that distinguishes 1 from 2 has been found | M |
+| 3, 4, 5 | Lasting effect from source card `key`. Kind 3 also stores the counters of types 13–19 (value = count, key = the counter's card; `effect-helpers-values.md`) | H (kind 3 counters), M (rest) |
+| 6–9 | Link to a face-up source card at `key` (a continuous card that affects only this monster, e.g. Miniaturize, Shadow Spell, Weapon Change); created with `duel_effects_attach_effect_to_targets` (key = the source's location) | M |
 | 10, 11 | Equip link: the equip card at `key` is equipped to this monster | H (Heart of Clear Water, the `count_links` callers) |
 | 12 | A monster card equipped to this monster (Cyberdark monsters, Thousand-Eyes Restrict, Relinquished, Destiny Hero – Plasma, Truckroid) | M |
 
@@ -174,9 +174,9 @@ The getters, attachment primitives and the race/attribute/level functions are li
 ## Open questions
 
 - Confirm in PPSSPP: words 6/7 of the stat block for a monster with an equip, a field spell and a temporary boost, and the record pool at `0x09e2c7cc`.
-- The argument packing of command `0x35` (`a` slot and kind, `b` key with bit 15 for instance records, `c` value) is inferred from the instance branch only; the slot branch's registers are lost in the decompilation (M).
-- Exact meaning of kinds 1 vs 2, 3 vs 4 vs 5 and 6–9 (which effects create which; the end-of-turn walk only distinguishes 1/2 and 7).
-- The counting helpers used by the self chain (`0x09c01d64`, `0x09c01cb8`, `0x09bf9578`, `0x09bf94a0`, `0x09c014ac`, `0x09bf9c2c`, `0x09bfc50c` …) are not named.
+- ~~The argument packing of command `0x35`~~: the posters (`duel_effects_attach_effect_to_slot` `0x09c150ec`, `duel_core_add_counters`) give `a = slot | record byte +2 << 8` (kind and turn counter), `b` = key, `c` = value, side in bit 15 of the command code (H; `effect-helpers-values.md`).
+- Kinds 1 vs 2 (no distinguishing reader found), 4 vs 5 and 6–9 (which effects create which). Kind 3 holds counters of types 13–19.
+- Counting helpers of the self chain: `0x09c01cb8` `duel_core_count_graveyard_by_race`, `0x09bf9578` / `0x09bf94a0` `duel_core_count_face_up_monsters_by_race(_except)`, `0x09bf9c2c` `duel_core_count_field_cards` are now named (`effect-helpers-values.md`); `0x09c01d64`, `0x09c014ac`, `0x09bfc50c` are not.
 - Why the Reverse Trap test reads only player 0's player-wide list.
 - `0x09c0a174` (no direct callers; builds a 2 × 11 "affects" matrix with `0x09c09e00`) is presumably the UI's "which cards affect this monster" view.
-- How Kazejin/Suijin and the Alien A-Counter penalty reach ATK (handlers, `0x09c00514`).
+- How Kazejin/Suijin reach ATK (handlers). The A-Counter penalty: `duel_core_get_a_counter_penalty_count` (`0x09c00514`) returns the monster's A-Counters × the number of active Alien monsters on the sides it is not immune to; the Damage-Step code multiplies by −300 (M).

@@ -204,7 +204,7 @@ Chaos Sorcerer's handler adds `0x16c9` and `0xfb6` markers; Spell Counter cards 
 | --- | --- | --- |
 | Activation negated | `+4` bit 1, effect state 1, bit 4; command `0x42`; the card is destroyed (on the field: `0x09c252d8` for a spell/trap activation, `0x09c24f9c` otherwise) or discarded from the hand | `duel_effects_negate_link(ctx, link, 1)` `0x09c7772c` through `duel_effects_resolve_negate_activation` `0x09c7799c` (15 callers: Magic Jammer, Seven Tools of the Bandit, Divine Wrath, Counter Counter, Dark Bribe, Solemn Judgment…); `0x09ca5034`, `0x09ca516c`, `0x09cab0c0`, `0x09caaf90`, `0x09cb399c` |
 | Effect negated | Effect state 1, command `0x42`; the activation stands | `duel_effects_negate_link(ctx, link, 0)`; `0x09c81240` (White Hole, Anti Raigeki, Call of the Grave, Jar Robber), `0x09c8c8f0` (Dark Balter, Blue-Eyes Shining Dragon, Alkana Knight Joker) |
-| Negated at resolution by continuous cards | Effect state 1 in resolution state 2 | `duel_effects_is_negated_on_resolution` `0x09c55d04`: Royal Command (Flip effects), Fiend Skull Dragon, Light-/Shadow-Imprisoning Mirror, Cyber Blader, Necrovalley (Gravekeeper's Chief exempts its controller), Dark Ruler Ha Des, Judgment of Pharaoh, The End of Anubis, per-slot "negated" flag (slot `+0x10` bit 8), Metal Reflect Slime-type markers |
+| Negated at resolution by continuous cards | Effect state 1 in resolution state 2 | `duel_effects_is_negated_on_resolution` `0x09c55d04`: Royal Command (Flip effects), Fiend Skull Dragon, Light-/Shadow-Imprisoning Mirror, Cyber Blader, Necrovalley (Gravekeeper's Chief exempts its controller), Dark Ruler Ha Des, Judgment of Pharaoh, The End of Anubis, per-slot "negated" flag (slot `+0x10` bit 8, recomputed for every field card by `duel_effects_update_negated_slots` `0x09c553e0` from the active Skill Drain, Imperial Order and Jinzo-type cards; `effect-helpers-values.md`), Metal Reflect Slime-type markers |
 | Disabled at activation | Effect state 2 in building state 1 | `duel_effects_is_disabled_at_activation` `0x09c2d9a4`: effects of monsters summoned by Junk Synchron, Revival Gift, Mosaic Manticore…, Rainbow Veil / Advanced Dark battle negation, slot flag bit 2 |
 | Negated on targeting | Effect state 1 in resolution state 4 | Rod of Silence – Kay'est, Frontier Wiseman, Obsidian Dragon, Darkbishop Archfiend |
 
@@ -251,7 +251,7 @@ All addresses are in `rel_duel_eng.prx` at base `0x09be1400`. Callers come from 
 | `0x09c2c578`, `0x09c2c754`, `0x09c2cd0c`, `0x09c2d1ec`, `0x09c2d4a4`, `0x09c2ccf8` | `duel_core_chain_queue_*` | H | 51, 43, 10, 4, 5, 1 |
 | `0x09c539b0` | `duel_effects_can_activate(link, prev) → bool` | H | 11 |
 | `0x09c52c60` | `duel_effects_can_respond_in_window(link, prev) → bool` | H | `0x09c523cc`, `0x09c526d0` |
-| `0x09c52f60` | `duel_effects_is_activation_locked(link, prev) → bool` | M | per-card locks; not read in full |
+| `0x09c52f60` | `duel_effects_is_activation_locked(link, prev) → bool` | H | per-card locks; full list in `effect-helpers-values.md` |
 | `0x09bf275c` | `duel_effects_get_spell_speed(link) → 1..3` | H | 3 |
 | `0x09ce401c` | `duel_effects_get_trigger_kind(link) → 0..2` | H | 7 |
 | `0x09ce3dfc`, `0x09ce3e80`, `0x09ce3fc8` | `duel_effects_get_activation_step_handler`, `_get_target_choice_handler`, `_get_resolve_handler` | H | slot `+10`, `+14`, `+04` pointers |
@@ -285,6 +285,6 @@ All addresses are in `rel_duel_eng.prx` at base `0x09be1400`. Callers come from 
 - Slot flag bits 1 and 4 of field slots in the chain context (bit 4 "send to the Graveyard after the chain" is H; bit 1 and command `0x38` are not understood).
 - Event codes `0x23` (link that cannot be responded to) and `0x24` (activation without cost) need their raisers identified.
 - The copied-effect layout (`+0x06` bit 0 with data at `+0x18`, i.e. in the next link slot) and Trap of Darkness's shifted target indexing.
-- `duel_effects_is_activation_locked` (2,640 bytes) and `duel_core_chain_collect_auto_responses` are only summarised; their per-card lists should be extracted like the other compare chains.
+- `duel_effects_is_activation_locked` is now read in full (`effect-helpers-values.md`); `duel_core_chain_collect_auto_responses` is only summarised; their per-card lists should be extracted like the other compare chains.
 - What the value 2 returned by 274 slot `+0c` handlers (`duel_effects_cond_return_2`) means for the callers that distinguish it.
 - The second-level path `0x09c941a8`, which calls the same activation, target, negation and resolve helpers outside the state machines (AI simulation or a forced resolution?).
