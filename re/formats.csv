@@ -85,3 +85,5 @@ story_runtime_records,Runtime character records (save story block +0x0; 140 x 0x
 story_event_queue,Event driver queue (save story block +0x3264; 0x68 bytes),world,named,104
 story_field_state,Field state (save story block +0x32cc; 0x16c bytes),world,named,364
 island_map_areas,Island map areas and destinations (rel_field.prx),world,documented,
+chain_link,Chain link / effect context (rel_duel_eng 0x09e28cb4; 24 bytes),duel_core,documented,24
+effect_marker,Effect marker node (rel_duel_eng pool 0x09e2c7cc; 10 bytes),duel_core,named,10
