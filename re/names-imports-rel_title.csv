@@ -477,7 +477,7 @@ address,group,name
 0x08edf738,,thunk_FUN_08836718
 0x08edf740,,thunk_FUN_08836724
 0x08edf748,,thunk_FUN_08836734
-0x08edf750,,thunk_FUN_0885aeb0
+0x08edf750,world,thunk_world_get_character_category
 0x08edf758,,thunk_FUN_088367bc
 0x08edf760,,thunk_FUN_088369e0
 0x08edf768,,thunk_FUN_088369f4
@@ -1308,9 +1308,9 @@ address,group,name
 0x08ee1130,,thunk_FUN_08855a40
 0x08ee1138,,thunk_FUN_08855a70
 0x08ee1140,,thunk_FUN_08855ab4
-0x08ee1148,,thunk_FUN_08855ae0
+0x08ee1148,save,thunk_save_set_golden_egg_flag
 0x08ee1150,,thunk_FUN_08855b24
-0x08ee1158,,thunk_FUN_08855b54
+0x08ee1158,save,thunk_save_set_all_sandwiches_flag
 0x08ee1160,,thunk_FUN_08855b98
 0x08ee1168,,thunk_FUN_08855bc8
 0x08ee1170,,thunk_FUN_08855c0c
@@ -1462,7 +1462,7 @@ address,group,name
 0x08ee1600,,thunk_FUN_0885adec
 0x08ee1608,,thunk_FUN_0885ae0c
 0x08ee1610,,thunk_FUN_0885ae2c
-0x08ee1618,,thunk_FUN_0885aeb0
+0x08ee1618,world,thunk_world_get_character_category
 0x08ee1620,audio,thunk_audio_get_voice_bank
 0x08ee1628,audio,thunk_audio_get_voice_extra_bank
 0x08ee1630,,thunk_FUN_0885af64
@@ -1498,7 +1498,7 @@ address,group,name
 0x08ee1720,,thunk_FUN_0885b87c
 0x08ee1728,,thunk_FUN_0885b8ac
 0x08ee1730,world,thunk_world_character_exists
-0x08ee1738,,thunk_FUN_0885b8fc
+0x08ee1738,world,thunk_world_character_can_duel
 0x08ee1740,,thunk_FUN_0885b94c
 0x08ee1748,,thunk_FUN_0885b984
 0x08ee1750,,thunk_FUN_0885b9d0
