@@ -44,6 +44,7 @@ All tools are Python 3 with the standard library only, and each has tests on syn
 | [`tools/sound.py`](tools/sound.py) | List and check the sound banks; export a clip (ATRAC3/ATRAC3plus as stored, PS-ADPCM to WAV). |
 | [`tools/story.py`](tools/story.py) | Export the story text and check the event bytecode and its text references. |
 | [`tools/sym_to_names.py`](tools/sym_to_names.py) | Turn a PPSSPP `.sym` export into Ghidra names. |
+| [`tools/modules.py`](tools/modules.py) | Catalogue the game modules: sections, exports and imports, descriptor tables, runtime bases. |
 | [`tools/prx_imports.py`](tools/prx_imports.py) | Resolve a module's imports against `BOOT.BIN`'s exports and name the stubs. |
 | [`tools/progress.py`](tools/progress.py) | Progress numbers, treemap, badges and history from the registries. |
 | [`tools/ghidra/`](tools/ghidra) | Ghidra scripts to apply names and export the function registry. |

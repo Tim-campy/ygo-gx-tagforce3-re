@@ -15,7 +15,6 @@ tgm_tms,TGMS mesh (.tms),field_3d,reimplemented,
 tgm_tmt,TGMT node animation (.tmt/.tmt.gz/.vtmt.gz),field_3d,reimplemented,
 tgm_tma,TGMA texture animation (.tma),field_3d,reimplemented,
 ydq,YDQ member format (d_tutorial),duel_core,unknown,
-gmodule_prx,Plain ELF game modules in gmodule/,system,named,
 file_index,In-memory disc file index (16-byte entries),container,documented,
 ptrs_txt,EHP resource pointer list (*ptrs.txt),container,documented,
 cardinfo_ehp,cardinfo_<lang>.ehp card database archive,card_db,documented,
@@ -53,3 +52,9 @@ save_collection,Save card collection (3554 x 4 bytes),save,documented,14216
 target_filter_flags,Target filter flag bits (rel_duel_eng.prx),duel_effects,documented,
 effect_param_chains,Per-card parameter compare chains (rel_duel_eng.prx),duel_effects,reimplemented,
 tmf,TMF per-texture flag bytes of an EHF layout,ui,documented,
+gmodule_prx,Plain ELF game modules in gmodule/ (36; scene and library modules),system,documented,
+module_descriptor,Module descriptor record {id; root; name; kind; utility id} (BOOT.BIN 0x0889f57c / 0x0889fea4),system,documented,16
+module_registry_entry,Module registry entry (BOOT.BIN 0x089235b4),system,documented,76
+scene_table,Scene id to module id table (BOOT.BIN 0x088a1478),system,documented,248
+scene_stack,Scene transition stack (BOOT.BIN 0x0883596c),system,named,144
+scene_slot,ehscript scene slot state (BOOT.BIN 0x08920be4),system,documented,100
