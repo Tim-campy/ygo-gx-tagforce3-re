@@ -9,7 +9,7 @@ cip_card8,card8_a.cip index8 128x128 card art (GIM),card_db,reimplemented,665579
 cip_cardj,cardj_a.cip masked 512x512 JPEG card art,card_db,verified,590188544
 gim,Sony GIM texture,field_3d,named,
 pmf,Sony PSMF movie,ui,named,
-snd_bank,SP sound bank (snd/*.bin),audio,unknown,
+snd_bank,SP sound bank chain (snd/psp_snddat.bin),audio,reimplemented,138645504
 ehf,EHF 2D layout (paired with .tmf),ui,named,
 tgm,TGMS/TGMT/TGMA/TMF model family,field_3d,unknown,
 ydq,YDQ member format (d_tutorial),duel_core,unknown,
@@ -41,3 +41,7 @@ same_card_tbl,sameCardTbl.dat alternative artworks,deck,documented,200
 file_tbl,fileTbl.dat card id list (deck editor thumbnails),deck,documented,7006
 deck_tutorial_script,deck_tutorialNN.bin tutorial bytecode,deck,documented,
 effect_lists,8-byte (card id + handler) effect lists (rel_duel_eng.prx),duel_effects,documented,
+snd_cue,Sound bank cue entry,audio,documented,32
+snd_adpcm_layer,PS-ADPCM layer/sample/envelope records,audio,documented,
+story_text,Story text tables EveI/EveL SysMsgI/SysMsgL,dialogue,verified,
+story_bytecode,Event bytecode EveB/EveBI (records and text references),dialogue,reimplemented,390950

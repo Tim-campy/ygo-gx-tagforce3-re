@@ -31,6 +31,7 @@ Independently established here and consistent with its notes: the EHP container,
 
 - `CARD_Prop` word 0 holds ATK/10 and DEF/10 in 9-bit fields: 180 cards have an odd ATK/10 and 75 an odd DEF/10, which a layout with ATK/40 and DEF/20 cannot represent.
 - Attribute values are 1 LIGHT, 2 DARK, 3 WATER, 4 FIRE, 5 EARTH, 6 WIND, 7 DIVINE.
+- Sound: in the 15 banks that also hold PS-ADPCM cues, the toolkit's clip durations are shifted (it takes the duration of the cue at the wave's position); taking it from the cue that points at the wave matches each RIFF `fact` chunk (`sound.md`). Clip totals (18,608) and story line totals (59,985, identical line by line) agree.
 
 ### Leads, not yet verified on this game
 
