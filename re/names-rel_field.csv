@@ -6,3 +6,13 @@ address,group,name
 0x090d1144,world,world_map_id_to_index
 0x090d9f3c,world,world_get_current_map
 0x090d9f48,world,world_bind_map_archive
+0x090ddb74,world,world_field_command_step
+0x090de874,world,world_field_read_command_input
+0x090de6b0,world,world_field_poll_action
+0x090d921c,world,world_field_load_map
+0x090d9c6c,world,world_is_exit_cell
+0x090d9cc8,world,world_get_door_cell_target
+0x090d0cc8,world,world_get_lab_special_cell
+0x090e3854,world,world_island_map_open
+0x090e47d0,world,world_island_area_of_map
+0x090e4710,world,world_island_area_to_map

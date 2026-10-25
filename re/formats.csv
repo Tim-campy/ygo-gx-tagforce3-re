@@ -68,8 +68,16 @@ ai_priority_tables,Duel AI priority tables (rel_duel_eng 0x09dfd2dc-0x09e00800),
 hmp,Field walk grid (.hmp; 0.5-unit height grid and walkable cells),world,documented,
 field_map_table,Field map id to archive and mesh tables (rel_field.prx),world,documented,
 field_door_table,Field door table (rel_field.prx +0x25334; 32 x 10 x 0x2c),world,documented,0x3700
-story_exit_cells,Location selector and exit-cell groups (rel_story.prx +0x1f968 / +0x1fb84),world,named,
+story_exit_cells,Location selector and exit-cell groups (rel_story.prx +0x1f968 / +0x1fb84),world,documented,
 field_strtbl,Field string tables (field_strtbl / _item / _mapname),world,documented,
 story_calendar,Calendar block (save story block +0x3438; 0x24 bytes),world,named,36
 save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,named,348
 shop_unlock_rules,Pack availability rules (rel_shop.prx 0x090d9e5c),shop,named,
+story_char_table,Character table: event keys / pairing flags / item tastes (rel_story.prx +0x2245c; 140 x 228 bytes),world,documented,31920
+story_spot_table,NPC spot table (rel_story.prx +0x2092c; 350 x 16 bytes),world,documented,5600
+story_fixed_spots,Fixed NPC spots (rel_story.prx +0x2238c / +0x21f0c / +0x2e550),world,named,
+story_chapter_table,Partner chapter event table (rel_story.prx +0x2a10c; 64 x 0x110 bytes),world,named,17408
+story_runtime_records,Runtime character records (save story block +0x0; 140 x 0x5c bytes),world,named,12880
+story_event_queue,Event driver queue (save story block +0x3264; 0x68 bytes),world,named,104
+story_field_state,Field state (save story block +0x32cc; 0x16c bytes),world,named,364
+island_map_areas,Island map areas and destinations (rel_field.prx),world,documented,

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-"""Free-roam field data: walk grids (.hmp) of field/map/bg_*.ehp. See docs/formats/hmp.md and
+"""Free-roam field data: walk grids (.hmp) of field/map/bg_*.ehp and the rel_story character and spot tables. See docs/formats/hmp.md and
 docs/subsystems/world.md.
 
   world.py hmp <USRDIR>/field/map --check          # parse every bg_*.ehp walk grid, check the layout
   world.py hmp <USRDIR>/field/map/bg_02_01.ehp --grid   # print the walk grid ('#' walkable, '.' blocked)
+  world.py chars <USRDIR>/gmodule/rel_story.prx --check   # per-character table (event keys, flags, tastes)
+  world.py spots <USRDIR>/gmodule/rel_story.prx           # NPC spot table: spots per story location
 
 Output describes layout only (sizes, extents); keep any dumps of game data under extracted/.
 """
@@ -112,6 +114,100 @@ def cmd_hmp(args):
     return 0
 
 
+# --- rel_story.prx tables (module offsets; file offset = offset + 0x54, docs/subsystems/world.md) -------------
+
+PRX_FILE_OFFSET = 0x54  # one PT_LOAD segment starting right after the ELF and program headers
+CHAR_TABLE = 0x2245C  # 140 rows of 57 u32 (world_get_char_table_value, rel_story 0x08eac124)
+CHAR_ROWS, CHAR_COLUMNS = 140, 57
+SPOT_TABLE = 0x2092C  # 350 x {u32 location, u32 x, u32 y, u32 direction} (world_get_spot, 0x08eac06c)
+SPOT_COUNT = 350
+ITEM_COUNT = 50  # sandwiches 1..50; item k is column 6 + k of the character table (world_item_taste_column)
+DESTINY_ITEM, GOLDEN_EGG_ITEM = 48, 50
+# Points added by the generic reaction records (301, 6, taste) that world_give_item_to_partner queues;
+# taste 6 / the Destiny sandwich draw a taste 1..5 at random, the golden-egg sandwich runs (301, 6, 6).
+GIFT_POINTS = {1: 40, 2: 20, 3: 10, 4: -5, 5: -10}
+GOLDEN_EGG_POINTS = 200
+
+
+class CharacterRow:
+    """One row of the rel_story character table: id, event-key a1 per variant, two flags, 50 tastes."""
+
+    def __init__(self, words):
+        if len(words) != CHAR_COLUMNS:
+            raise ValueError(f"character row: {len(words)} words, expected {CHAR_COLUMNS}")
+        self.character = words[0]
+        self.event_keys = [k for k in words[1:5]]  # header a1 of the character's records, variant 0..3 (0 = none)
+        self.no_free_roam = words[5]  # copied to runtime-record flag 1 at a new partner
+        self.no_pairing = words[6]  # copied to runtime-record flag 5: excluded from the daily spot pairing
+        self.tastes = list(words[7:7 + ITEM_COUNT])  # taste of item k at index k - 1: 1 best .. 5 worst, 6 random
+
+    def taste(self, item):
+        if not 1 <= item <= ITEM_COUNT:
+            raise ValueError(f"item {item} out of range")
+        return self.tastes[item - 1]
+
+
+def gift_points(taste, item):
+    """Partner points of a gift as the reaction records give them; None when the taste is drawn at random."""
+    if item == GOLDEN_EGG_ITEM:
+        return GOLDEN_EGG_POINTS
+    if taste == 6 or item == DESTINY_ITEM:
+        return None
+    return GIFT_POINTS[min(max(taste, 1), 5)]
+
+
+def read_character_table(prx, offset=CHAR_TABLE, rows=CHAR_ROWS):
+    base = PRX_FILE_OFFSET + offset
+    return [CharacterRow(struct.unpack_from(f"<{CHAR_COLUMNS}i", prx, base + 4 * CHAR_COLUMNS * r))
+            for r in range(rows)]
+
+
+def check_character_table(rows):
+    problems = []
+    ids = [row.character for row in rows]
+    if ids != sorted(set(ids)):
+        problems.append("character ids are not unique and ascending")
+    for row in rows:
+        if not row.event_keys[0]:
+            problems.append(f"character {row.character}: no event key for variant 0")
+        if any(t not in range(1, 7) for t in row.tastes):
+            problems.append(f"character {row.character}: taste outside 1..6")
+        if row.no_free_roam not in (0, 1) or row.no_pairing not in (0, 1):
+            problems.append(f"character {row.character}: flag columns are not 0/1")
+    return problems
+
+
+def read_spots(prx, offset=SPOT_TABLE, count=SPOT_COUNT):
+    base = PRX_FILE_OFFSET + offset
+    return [struct.unpack_from("<4i", prx, base + 16 * i) for i in range(count)]
+
+
+def cmd_chars(args):
+    rows = read_character_table(Path(args.prx).read_bytes())
+    for row in rows:
+        counts = [row.tastes.count(t) for t in range(1, 7)]
+        keys = "/".join(str(k) for k in row.event_keys if k)
+        print(f"char {row.character:3d}: keys {keys}, flags {row.no_free_roam}{row.no_pairing}, "
+              f"tastes 1..6 x {counts}")
+    if args.check:
+        problems = check_character_table(rows)
+        for problem in problems:
+            print(problem)
+        print(f"failing: {len(problems)}")
+        return 1 if problems else 0
+    return 0
+
+
+def cmd_spots(args):
+    spots = read_spots(Path(args.prx).read_bytes())
+    per_location = {}
+    for location, _, _, _ in spots:
+        per_location[location] = per_location.get(location, 0) + 1
+    for location in sorted(per_location):
+        print(f"location {location:2d}: {per_location[location]} spots")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -120,6 +216,13 @@ def main(argv=None):
     hmp.add_argument("--check", action="store_true", help="exit 1 if any grid breaks the layout")
     hmp.add_argument("--grid", action="store_true", help="print each walk grid")
     hmp.set_defaults(func=cmd_hmp)
+    chars = sub.add_parser("chars", help="rel_story character table (event keys, flags, item tastes)")
+    chars.add_argument("prx", help="gmodule/rel_story.prx")
+    chars.add_argument("--check", action="store_true", help="exit 1 if the table breaks the documented layout")
+    chars.set_defaults(func=cmd_chars)
+    spots = sub.add_parser("spots", help="rel_story NPC spot table, counted per story location")
+    spots.add_argument("prx", help="gmodule/rel_story.prx")
+    spots.set_defaults(func=cmd_spots)
     args = parser.parse_args(argv)
     return args.func(args)
 

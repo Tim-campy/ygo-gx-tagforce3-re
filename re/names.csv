@@ -223,3 +223,7 @@ address,group,name
 0x0885825c,system,system_wcscpy
 0x088582c0,system,system_wcscat
 0x08858304,system,system_wcsncat
+0x08855ae0,save,save_set_golden_egg_flag
+0x08855b54,save,save_set_all_sandwiches_flag
+0x0885aeb0,world,world_get_character_category
+0x0885b8fc,world,world_character_can_duel
