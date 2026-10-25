@@ -75,3 +75,5 @@ save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,
 shop_unlock_rules,Pack availability rules (rel_shop.prx 0x090d9e5c),shop,named,
 fusion_recipes,Fusion recipe table (rel_duel_eng.prx 0x09debe98),duel_effects,documented,1104
 ritual_table,Ritual monster/spell table (rel_duel_eng.prx 0x09dec4d4),duel_effects,documented,128
+duel_stat_block,Monster stat block (13 words; duel_core_compute_card_stats),duel_core,documented,52
+duel_effect_records,Effect attachment records (0x09e2c7cc; 255 x 10 bytes),duel_core,named,2560
