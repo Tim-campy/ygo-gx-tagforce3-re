@@ -1,0 +1,9 @@
+# Documented functions of gmodule/rel_duel_eng.prx (runtime base 0x09be1400); same columns as re/documented.tsv.
+address	prototype	summary	document
+0x09ce2e54	void * duel_effects_find_record(void *ctx)	Picks one of the four effect tables from the selector bits of ctx, binary-searches it on the card id, walks back to the first duplicate and adds the variant index; returns the 24-byte record or 0. No side effects.	docs/formats/effect-tables.md
+0x09ce3f0c	int duel_effects_resolve(void *ctx, int arg)	Resolves an effect: calls the record's slot +04 handler with (ctx, arg); card 0x1975 is special-cased. Returns the handler's result or 0. Side effects: those of the handler.	docs/subsystems/duel_effects.md
+0x09c78270	int duel_effects_resolve_draw(void *ctx)	Slot +04 handler shared by 44 cards: the controller draws duel_effects_get_draw_count(ctx) cards (a negative count or card 0x12da makes the opponent draw). Returns 0. Side effects: hand and deck.	docs/subsystems/duel_effects.md
+0x09c56d70	int duel_effects_can_activate_draw(void *ctx)	Slot +0c handler shared by 17 cards: 0 when the draw count is 0, else duel_core_can_draw(controller, count). No side effects.	docs/subsystems/duel_effects.md
+0x09c779bc	int duel_effects_get_draw_count(void *ctx)	Per-card draw count: a compare chain on the card id (Pot of Greed 0x12ec gives 2), some counts computed from game state (e.g. 5 minus hand size), negative values mean the opponent. No side effects.	docs/subsystems/duel_effects.md
+0x09c0d920	int duel_core_can_draw(int player, int count)	True when player (the opponent for a negative count) may draw |count| cards: no draw-preventing card (0x178b, 0x1885) applies and the deck holds at least |count| cards. No side effects.	docs/subsystems/duel_core.md
+0x09c29bc8	void duel_core_draw_cards(int player, int count)	Draws count cards for player via duel_core_draw_cards_ex(player, count, 1, 0); 47 callers. Side effects: hand and deck.	docs/subsystems/duel_core.md

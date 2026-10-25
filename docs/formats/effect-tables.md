@@ -7,9 +7,9 @@ Status: `documented` (layout, lookup and dispatch); the meaning of the five hand
 | Offset | Size | Field |
 | --- | --- | --- |
 | `0x00` | 4 | Card id (3720–7993). |
-| `0x04` | 4 | Handler slot `+04` (function address or 0). |
-| `0x08` | 4 | Handler slot `+08`. Called with `(card, player, index)`; skipped when the card's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". |
-| `0x0c` | 4 | Handler slot `+0c`. Called with two arguments; a missing record or handler means "allowed" (returns 1). |
+| `0x04` | 4 | Handler slot `+04`: **resolution** (the effect itself). Called by `duel_effects_resolve` with `(ctx, arg)`. Example: Pot of Greed's handler draws the card's draw count. Confidence high. |
+| `0x08` | 4 | Handler slot `+08`. Called with `(ctx, player, index)` from about 280 call sites; skipped when the card's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". Presumably a continuous or "does it apply" check (hypothesis, medium). |
+| `0x0c` | 4 | Handler slot `+0c`: **activation condition**. Called with two arguments; a missing record or handler means "allowed" (returns 1). Examples: Pot of Greed's handler checks that the deck holds enough cards; Mirror Force's checks that the opponent is attacking. Confidence high. |
 | `0x10` | 4 | Handler slot `+10`. Called with two arguments. |
 | `0x14` | 4 | Handler slot `+14`. Called with two arguments. |
 
@@ -76,7 +76,7 @@ Handlers are widely shared: for example, Pot of Greed's slot `+04` handler serve
 
 ## Open questions
 
-- Role of each slot (activation condition, cost, target, resolution, continuous effect, AI hint?); confirm the table readings above by reading shared handlers.
+- Roles of slots `+08`, `+10` and `+14`; confirm the table readings above by reading more shared handlers.
 - The card-structure fields behind the selector and the `0x24` test.
 - The cards with effects and no record in any table: handled by compare chains (1,379 functions in the module test card ids directly)?
 - `duel_effects_check_rule_list` (`0x09ce27c4`) walks 112 `(function, argument)` pairs at `0x09dedaf8`; what these global rules are.

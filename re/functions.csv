@@ -3450,7 +3450,7 @@ id,name,group,status,size
 0x09c0d6ac,FUN_09c0d6ac,,,276
 0x09c0d7c0,FUN_09c0d7c0,,,60
 0x09c0d7fc,FUN_09c0d7fc,,,292
-0x09c0d920,FUN_09c0d920,,,244
+0x09c0d920,duel_core_can_draw,duel_core,documented,244
 0x09c0da14,FUN_09c0da14,,,180
 0x09c0dac8,FUN_09c0dac8,,,436
 0x09c0dc7c,FUN_09c0dc7c,,,80
@@ -3670,8 +3670,8 @@ id,name,group,status,size
 0x09c28074,FUN_09c28074,,,3036
 0x09c28c50,FUN_09c28c50,,,160
 0x09c28cf0,FUN_09c28cf0,,,596
-0x09c28f44,FUN_09c28f44,,,3204
-0x09c29bc8,FUN_09c29bc8,,,12
+0x09c28f44,duel_core_draw_cards_ex,duel_core,,3204
+0x09c29bc8,duel_core_draw_cards,duel_core,documented,12
 0x09c29bd4,FUN_09c29bd4,,,2736
 0x09c2a69c,FUN_09c2a69c,,,700
 0x09c2a958,FUN_09c2a958,,,528
@@ -3712,7 +3712,7 @@ id,name,group,status,size
 0x09c2bf4c,FUN_09c2bf4c,,,236
 0x09c2c03c,FUN_09c2c03c,,,120
 0x09c2c0b4,FUN_09c2c0b4,,,128
-0x09c2c134,FUN_09c2c134,,,104
+0x09c2c134,duel_core_get_effective_card_id,duel_core,,104
 0x09c2c19c,FUN_09c2c19c,,,988
 0x09c2c578,FUN_09c2c578,,,476
 0x09c2c754,FUN_09c2c754,,,632
@@ -4268,7 +4268,7 @@ id,name,group,status,size
 0x09c56c8c,FUN_09c56c8c,,,88
 0x09c56ce4,FUN_09c56ce4,,,88
 0x09c56d3c,FUN_09c56d3c,,,52
-0x09c56d70,FUN_09c56d70,,,76
+0x09c56d70,duel_effects_can_activate_draw,duel_effects,documented,76
 0x09c56dbc,FUN_09c56dbc,,,60
 0x09c56df8,FUN_09c56df8,,,284
 0x09c56f14,FUN_09c56f14,,,220
@@ -4316,7 +4316,7 @@ id,name,group,status,size
 0x09c58d98,FUN_09c58d98,,,100
 0x09c58dfc,FUN_09c58dfc,,,84
 0x09c58e50,FUN_09c58e50,,,516
-0x09c59054,FUN_09c59054,,,92
+0x09c59054,duel_effects_cond_opponent_attacking,duel_effects,,92
 0x09c590b0,FUN_09c590b0,,,104
 0x09c59118,FUN_09c59118,,,176
 0x09c591c8,FUN_09c591c8,,,224
@@ -5040,8 +5040,8 @@ id,name,group,status,size
 0x09c77648,FUN_09c77648,,,228
 0x09c7772c,FUN_09c7772c,,,624
 0x09c7799c,FUN_09c7799c,,,32
-0x09c779bc,FUN_09c779bc,,,2228
-0x09c78270,FUN_09c78270,,,144
+0x09c779bc,duel_effects_get_draw_count,duel_effects,documented,2228
+0x09c78270,duel_effects_resolve_draw,duel_effects,documented,144
 0x09c78300,FUN_09c78300,,,200
 0x09c783c8,FUN_09c783c8,,,1084
 0x09c78804,FUN_09c78804,,,936
@@ -6557,7 +6557,7 @@ id,name,group,status,size
 0x09ce28dc,FUN_09ce28dc,,,1
 0x09ce28e4,FUN_09ce28e4,,,8
 0x09ce28ec,duel_effects_select_record_variant,duel_effects,,1308
-0x09ce2e54,duel_effects_find_record,duel_effects,,412
+0x09ce2e54,duel_effects_find_record,duel_effects,documented,412
 0x09ce2ff0,duel_effects_has_table3_record,duel_effects,,88
 0x09ce3048,duel_effects_call_handler_0c,duel_effects,,92
 0x09ce30a4,duel_effects_call_handler_08,duel_effects,,208
@@ -6578,7 +6578,7 @@ id,name,group,status,size
 0x09ce3e24,duel_effects_call_handler_14,duel_effects,,92
 0x09ce3e80,FUN_09ce3e80,,,40
 0x09ce3ea8,FUN_09ce3ea8,,,100
-0x09ce3f0c,FUN_09ce3f0c,,,188
+0x09ce3f0c,duel_effects_resolve,duel_effects,documented,188
 0x09ce3fc8,FUN_09ce3fc8,,,84
 0x09ce401c,FUN_09ce401c,,,976
 0x09ce43ec,FUN_09ce43ec,,,828

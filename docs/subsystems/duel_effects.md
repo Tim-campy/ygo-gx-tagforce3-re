@@ -9,6 +9,18 @@
 
 Evidence for the overall picture: the module loads a card id as an immediate 19,597 times (2,861 distinct ids), and normal monsters, which have no effect, almost never appear (82 ids). `BOOT.BIN` has 1,996 such instructions (840 ids), not yet classified.
 
+## How a handler is written: Pot of Greed
+
+Pot of Greed (`0x12ec`) shows the pattern behind both the handler tables and the compare chains.
+
+- Its S/T record's slot `+04` is `duel_effects_resolve_draw` (`0x09c78270`), shared by 44 cards: the controller draws `duel_effects_get_draw_count(ctx)` cards through `duel_core_draw_cards`. A negative count makes the opponent draw, and card `0x12da` swaps the player.
+- Its slot `+0c` is `duel_effects_can_activate_draw` (`0x09c56d70`), shared by 17 cards: the effect may be activated when `duel_core_can_draw(controller, count)` holds.
+- `duel_effects_get_draw_count` (`0x09c779bc`, 2,228 bytes) is a compare chain from card id to the number of cards: Pot of Greed is among the ids that return 2; some cards compute the number from the game state (for example 5 minus the hand size), and some return negative values.
+
+So **handlers implement effect families, and the per-card numbers live in compare chains keyed by card id.** This explains why most effect cards appear as instruction immediates and why handlers are widely shared. For the port, this suggests a data-driven design: one implementation per family plus a per-card parameter table extracted from the chains.
+
+The `ctx` structure passed to handlers starts with the card id (`u16` at `+0`); bit 0 of `+2` is the owner and bit 6 of `+3` a control-switch flag, so the controller is `owner ^ switched`; `(u16 at +2 & 0xfff) >> 6` is a 6-bit event or step code (Mirror Force's condition tests `0x12` together with "the attacker is the opponent"; `duel_effects_find_record` tests `0x24`); bits 4–5 of `+3` are the table selector; when bit 0 of `+6` is set, `+0x18` holds the effective card id (`duel_core_get_effective_card_id`, for copied effects). Confidence: medium for field meanings.
+
 ## Loading the module in Ghidra
 
 `rel_duel_eng.prx` is relocatable. It is imported into `ghidra/TF3.gpr` with the ghidra-allegrex loader at image base `09be1400`, the address it had when the PPSSPP symbol export (`ghidra/symbols.sym`) was taken. The base was found by matching Ghidra's function offsets and sizes against the export: 1,767 functions agree at `0x09be1400`, against at most 3 for any other base. A different load order could move the module; re-check the base with any new export.
@@ -20,7 +32,7 @@ python3 -I tools/sym_to_names.py ghidra/symbols.sym --range 09be1400-09deb598 --
 
 Then `ApplyNames.java` with `re/names-ppsspp-duel_eng.csv` and `re/names-duel_eng.csv`, and `ExportFunctions.java`; the module's functions are appended to `re/functions.csv` (7,208 functions; their addresses do not overlap `BOOT.BIN`).
 
-Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `0x09de415c`–`0x09de71fb` (1,556 import stubs, all from `BOOT.BIN`'s `libehsys_rel`; PPSSPP cannot name them, `tools/prx_imports.py` resolves every one, see `system.md`), `.data` `0x09deb598`–`0x09e01e0f`. After the PPSSPP names, apply `re/names-imports-duel_eng.csv` before `re/names-duel_eng.csv`.
+Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `0x09de415c`–`0x09de71fb` (1,556 import stubs, all from `BOOT.BIN`'s `libehsys_rel`; PPSSPP cannot name them, `tools/prx_imports.py` resolves every one, see `system.md`), `.data` `0x09deb598`–`0x09e01e0f`. After the PPSSPP names, apply `re/names-imports-duel_eng.csv` before `re/names-duel_eng.csv`, then `ApplySignatures.java re/documented-duel_eng.tsv`.
 
 ## Key functions
 
