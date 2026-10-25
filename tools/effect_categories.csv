@@ -46,6 +46,17 @@ store,0x09e2d2b8=0x0d,return_to_deck,effect,Batch destination 0x0d deck
 store,0x09e2d2b8=0x0f,banish,effect,Batch destination 0x0f banished
 store,0x09e2d2b8=0x0e 0x09e2d2bc=0x0,send_to_graveyard,effect,Batch destination 0x0e graveyard with mode 0 (not destroy)
 # --- named helpers: effects
+# --- named helpers from the movement, deck and value helper docs (effect-helpers-*.md); specific rows first
+name,(^|_)tokens?(_|$),token,effect,Token table 0x09e019ec (effect-helpers-deck.md)
+name,(^|_)mill(_|$)|send_deck_ref_to_graveyard|send_named_cards_from_deck|banish_deck_top|banish_deck_ref,mill,effect,Deck to graveyard or banished (effect-helpers-deck.md)
+name,(^|_)revive(_|$)|resolve_special_summon|special_summon_from,special_summon,effect,Revive and summon-from-location handlers (effect-helpers-deck.md)
+name,add_.*to_hand|resolve_add_,add_to_hand,effect,Graveyard/banished/deck to hand (effect-helpers-deck.md)
+name,(^|_)equip(_|$),equip,effect,Equip attach (effect-helpers-movement.md)
+name,(^|_)(coin|dice|die)(_|$),coin_or_dice,effect,Pending-action types 0x12/0x13 (effect-helpers-values.md)
+name,set_face_down|flip_card_face|change_position|resolve_change_target_position,position_change,effect,(effect-helpers-movement.md / -values.md)
+name,resolve_turn_stat_effect|resolve_boost_own_monsters|^duel_effects_attach_effect_to_,atk_change,effect,Attached ATK/DEF records via command 0x35 (effect-helpers-values.md)
+name,resolve_lp_change|resolve_negate_attack_lp,damage,effect,Per-card signed LP change chain (effect-helpers-values.md)
+name,^duel_core_request_(reveal|show)|post_reveal|request_show,reveal,meta,
 name,^duel_core_draw_cards|^duel_effects_resolve_draw$,draw,effect,
 name,^duel_core_inflict_(card_)?damage$,damage,effect,
 name,^duel_core_gain_lp$,gain_lp,effect,
