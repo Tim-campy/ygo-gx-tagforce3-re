@@ -4,7 +4,7 @@
 
 ## Origin and licence
 
-The snapshot format, the base/head comparison and the treemap and badge rendering are adapted from `tools/progress.py` of [AnyPS5](https://github.com/boykopovar/AnyPS5), which is GPL-2.0. AnyPS5's script counts implemented system-library functions and shader opcodes by scanning its own C++ tree, so it cannot be reused as-is for a decompilation project. This version keeps the useful parts and replaces the measurement: instead of scanning source, it reads `re/functions.csv` and `re/formats.csv`. The files under `tools/` therefore stay under GPL-2.0-only (see the SPDX header); decide the licence of the rest of the repository with that in mind.
+The snapshot format, the base/head comparison and the treemap and badge rendering are adapted from `tools/progress.py` of [AnyPS5](https://github.com/boykopovar/AnyPS5), which is GPL-2.0. AnyPS5's script counts implemented system-library functions and shader opcodes by scanning its own C++ tree, so it cannot be reused as-is for a decompilation project. This version keeps the useful parts and replaces the measurement: instead of scanning source, it reads `re/functions.csv` and `re/formats.csv`. The files under `tools/` therefore stay under GPL-2.0-only (see the SPDX header), and the repository as a whole is GPL-2.0-only (`LICENSE`).
 
 ## Registries
 

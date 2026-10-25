@@ -1,48 +1,47 @@
-# Yu-Gi-Oh! GX Tag Force 3 — reverse engineering
+# About
 
-Knowledge base for a future native Nintendo 3DS port of *Yu-Gi-Oh! GX Tag Force 3* (PSP). See `CLAUDE.md` for the rules of this phase and `docs/PROGRESS.md` for how progress is counted.
+Reverse engineering of *Yu-Gi-Oh! GX Tag Force 3* (PSP, Konami, 2008; released in Europe and Japan only), working towards a native Nintendo 3DS remake that uses both screens.
 
-## Layout
+The project is in its **reverse-engineering phase**: the output is knowledge, not a port. File formats, data structures and the game's own code are documented precisely enough that the 3DS version can later be built without reopening the binary.
 
-| Path | Contents | In git |
-| --- | --- | --- |
-| `CLAUDE.md` | Agent instructions: mission, legal boundary, method. | yes |
-| `docs/formats/` | One document per file format or data structure. | yes |
-| `docs/subsystems/` | One document per subsystem (`card_db`, `duel_core`, ...). | yes |
-| `docs/PROGRESS.md` | Counting rules for the progress tool. | yes |
-| `re/functions.csv`, `re/formats.csv` | Registries that feed the progress meter. | yes |
-| `tools/` | Project scripts (`progress.py`, extractors). GPL-2.0-only. | yes |
-| `tools/tests/` | Tests for the scripts. | yes |
-| `tools/ghidra/` | Ghidra scripts (`ExportFunctions.java` feeds `re/functions.csv`). | yes |
-| `game/` | The maintainer's own disc image. | **no** |
-| `extracted/` | Files extracted from the disc image. | **no** |
-| `ghidra/` | The Ghidra project. | **no** |
-| `external/ppsspp/` | PPSSPP portable build, the behavioural oracle. | **no** |
-| `build/` | Generated progress site. | **no** |
+[Setup and extraction](docs/SETUP.md), [file formats](docs/formats), [subsystems](docs/subsystems), [progress rules](docs/PROGRESS.md), [working method](CLAUDE.md)
 
-## Reference dump
+## Status
 
-| Field | Value |
+[![functions](https://tim-campy.github.io/ygo-gx-tagforce3-re/badge-functions.svg)](https://tim-campy.github.io/ygo-gx-tagforce3-re/progress.html) [![formats](https://tim-campy.github.io/ygo-gx-tagforce3-re/badge-formats.svg)](https://tim-campy.github.io/ygo-gx-tagforce3-re/progress.html)
+
+[![progress map](https://tim-campy.github.io/ygo-gx-tagforce3-re/progress.svg)](https://tim-campy.github.io/ygo-gx-tagforce3-re/progress.html)
+
+<sub>* Percentages count entries already in the registries (`re/functions.csv`, `re/formats.csv`) at the `documented` stage, not every function in the game. The function list comes from Ghidra plus PPSSPP's runtime symbols for `BOOT.BIN`; game modules loaded later (`gmodule/*.prx`) are not counted yet.</sub>
+
+| Work package | State |
 | --- | --- |
-| Image | `Yu-Gi-Oh! GX - Tag Force 3 (Europe) (En,Fr,De,Es,It).iso` |
-| Size | 1,792,999,424 bytes |
-| SHA-1 | `379601A07D73374FA4A03272488FD195133D7C0D` |
+| 1. Containers and file formats | Disc layout, the boot-time file index, [EHP archives](docs/formats/ehp.md) (byte-exact rebuild of all 629 on the disc) and gzip (Sony's `libdeflt`, statically linked) are done. Leaf formats (`.cip`, `TGM*`, `.ehf`, the sound bank) are open. |
+| 2. Card database | [`cardinfo`](docs/formats/cardinfo.md) is decoded: 3,553 cards with stats, passcodes, names and Huffman-coded descriptions, verified in all five languages. Packs and limits are open. |
+| 3. Save data | Not started. |
+| 4. Duel core and card effects | Not started. |
+| 5. Tag-duel specifics | Not started. |
+| 6–9. AI, free-roam world, rendering data, audio | Entry points found while working on packages 1–2. |
 
-All offsets and addresses in `docs/` refer to this dump unless stated otherwise.
+## Tools
 
-## Tool setup
+All tools are Python 3 with the standard library only, and each has tests on synthetic data.
 
-- **Ghidra 12.1.4** at `C:\Ghidra` (Java 21). Ghidra rejects project and input paths that contain an element starting with `.`, so keep projects under `ghidra/`, not under a dot-directory.
-- **ghidra-allegrex** (kotcrab, Apache-2.0) adds the Allegrex processor, including VFPU instructions. No prebuilt release exists for 12.1.4, so it is built from the `v21.4` tag:
+| Tool | Purpose |
+| --- | --- |
+| [`tools/iso9660.py`](tools/iso9660.py) | List and extract the UMD image. |
+| [`tools/ehp.py`](tools/ehp.py) | List, extract, rebuild and verify EHP archives (`-r` nested, `-z` gunzip). |
+| [`tools/cardinfo.py`](tools/cardinfo.py) | Export the card database to CSV/JSON and check its structure. |
+| [`tools/sym_to_names.py`](tools/sym_to_names.py) | Turn a PPSSPP `.sym` export into Ghidra names. |
+| [`tools/progress.py`](tools/progress.py) | Progress numbers, treemap, badges and history from the registries. |
+| [`tools/ghidra/`](tools/ghidra) | Ghidra scripts to apply names and export the function registry. |
 
-  ```
-  git clone --depth 1 --branch v21.4 https://github.com/kotcrab/ghidra-allegrex.git
-  cd ghidra-allegrex
-  GHIDRA_INSTALL_DIR=C:/Ghidra ./gradlew buildExtension
-  unzip dist/ghidra_12.1.4_PUBLIC_*_ghidra-allegrex.zip -d C:/Ghidra/Ghidra/Extensions/
-  ```
+## Disclaimer
 
-  The language id is `Allegrex:LE:32:default`. Rebuild after every Ghidra upgrade.
-- **REA** (`rea-agents`) connects the agent to Ghidra; `npx rea-agents setup` registers it.
-- **PPSSPP** portable in `external/ppsspp/`; run the game only there. Its Debug menu exports a `.sym` symbol file (keep it in `ghidra/`), which `tools/sym_to_names.py` turns into Ghidra names; the full sequence is in `docs/subsystems/container.md`.
-- Headless Ghidra refuses paths with a `.`-prefixed element, so copy `tools/ghidra/*.java` and the CSV inputs to a plain directory (for example `%TEMP%\ygo_scripts`) before running them from a worktree under `.claude/`.
+This project is intended for research, preservation and interoperability. It does not include, distribute or require copyrighted game data: no disc images, executables, extracted assets, text dumps or save files. Findings are recorded as knowledge (layouts, offsets, algorithms, names and small illustrative values). Users are responsible for obtaining their own copy of the game and using it in accordance with applicable laws.
+
+This is an independent project and is not affiliated with, authorized or endorsed by Konami or Sony Interactive Entertainment. "Yu-Gi-Oh!" is a trademark of Kazuki Takahashi and Konami; "PlayStation Portable" and "PSP" are trademarks of Sony Interactive Entertainment Inc.
+
+## License
+
+This project is licensed under the GNU General Public License version 2 only. `tools/progress.py` adapts parts of [AnyPS5](https://github.com/boykopovar/AnyPS5)'s progress tool, which is GPL-2.0.
