@@ -126,6 +126,4 @@ address	prototype	summary	document
 0x09c5698c	int duel_effects_not_used_this_turn(void *ctx)	True when the card's field slot has no 0xfb6 marker (once-per-turn key). No side effects. 63 callers (activation conditions).	docs/subsystems/chain.md
 0x09c43148	int duel_effects_mark_used_this_turn(void *ctx)	Slot +10 handler: posts marker 0xfb6 kind 2 on the card's slot; returns 1. 107 records.	docs/subsystems/chain.md
 0x09bf2f30	int duel_effects_is_summon_negation_card(int card_id)	True for the cards that may respond to a summon (Solemn Judgment, Horn of Heaven, Black Horn of Heaven, Forced Back, The Selection, Royal Oppression...). Callers: 0x09c32c5c, 0x09c52c60.	docs/subsystems/chain.md
-0x09be9168	int duel_core_has_marker(int side, int slot, int card)	True if the slot's marker list holds an effect marker (kind < 6) with that card id. No side effects. 252 callers.	docs/subsystems/chain.md
 0x09c150bc	void duel_core_post_add_marker(int side, int slot, int card, int kind, int value)	Posts command 0x35 to add an effect marker to a field slot (slot 11 = player). 168 callers.	docs/subsystems/chain.md
-0x09be6864	void duel_core_expire_turn_markers(void)	End of turn: frees kind 1/2 markers whose turn counter is 0 and decrements the others; per-card rules for kind 7. Caller: duel_core_cmd_end_turn_cleanup.	docs/subsystems/chain.md

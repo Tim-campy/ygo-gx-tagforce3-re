@@ -78,7 +78,7 @@ The packed form used by the queueing functions is `card | location << 16 | selec
 
 Many rules leave a marker on a field slot: a linked list of 10-byte nodes in the pool `0x09e2c7cc` (256 nodes), whose head is the slot's `u16 +0x0a` (`0x09e2a566 + side × 0xb3c + slot × 0x14`; slot 11 is the player). Node: `u16 +0` card id (or a pseudo-key), byte `+2` low nibble kind, high nibble a turn counter, `u16 +4` value (often an instance number), `u16 +8` next. Kinds 0–5 are effect markers; kinds ≥ 6 are used for other links between slots (not studied). (H for the layout.)
 
-Markers are added and removed only through commands `0x35` (`duel_core_post_add_marker(side, slot, card, kind, value)`, `0x09c150bc`) and `0x36` (`duel_core_post_remove_marker`, `0x09c15320`), so that a link-duel peer replays them. `duel_core_expire_turn_markers` (`0x09be6864`, run by the end-of-turn command) frees every kind-1 or kind-2 marker whose counter is 0 and decrements the others; kind 7 has per-card rules. Markers on a slot disappear with the card (`duel_core_zone_remove`). (H)
+Markers are added and removed only through commands `0x35` (`duel_core_post_add_marker(side, slot, card, kind, value)`, `0x09c150bc`) and `0x36` (`duel_core_post_remove_marker`, `0x09c15320`), so that a link-duel peer replays them. `duel_core_expire_turn_effects` (`0x09be6864`, run by the end-of-turn command) frees every kind-1 or kind-2 marker whose counter is 0 and decrements the others; kind 7 has per-card rules. Markers on a slot disappear with the card (`duel_core_zone_remove`). (H)
 
 ## Collecting triggers
 
@@ -122,7 +122,7 @@ States (`0x09e28f54`); "link" is the chain entry `0x09e28e38`:
 | --- | --- |
 | 0 | Wait for `duel_core_check_duel_end` and the forced position changes of `0x09cdd74c` (seven cards listed at `0x09dedadc`); set "chain in progress", reset the indices, sync the timing queue to a link-duel peer. |
 | 1 | Announce the activation (`duel_core_chain_announce_activation`, command `0x2d`) unless the card is in the `BOOT 0x08866788` list. A spell or trap activation (selector 0) leaves markers on cards that react to activations: Royal Magical Library-type counters (`0x161a`, kind 2, value = instance), Spell Absorption, Curse of Darkness, Chain Burst, the Counter Trap reactors (Bountiful Artemis, Layard, Meltiel, Synthetic Seraphim), Dark Horus, Nitro Warrior and others. If `duel_effects_is_disabled_at_activation(link)` holds, effect state 2. |
-| 2–3 | Activation step: if the record has a slot `+10` handler, call it (through `duel_effects_check_optional`, `0x09ce3da0`) every frame until it returns non-zero: > 0 sets `+3` bit 7, < 0 cancels. Without a handler the step counts as done. |
+| 2–3 | Activation step: if the record has a slot `+10` handler, call it (through `duel_effects_call_activation_step`, `0x09ce3da0`) every frame until it returns non-zero: > 0 sets `+3` bit 7, < 0 cancels. Without a handler the step counts as done. |
 | 4–5 | Target choice: the same with slot `+14` (`duel_effects_call_handler_14`) and `+4` bit 0. |
 | 6 | Both bits set: command `0x10` (link `n` activated; the UI shows it), next link; when the second link is activated, Blast Asmodian-type markers (`0x1ae0`) are refreshed. Otherwise the link is cancelled: removed from the chain, the links above move down, and the card's slot is restored with command `0x38` if its slot flag bit 1 is set. When the chain becomes empty building ends. More links to activate → state 1, else state 7. |
 | 7 | Wait for the global rules (`duel_effects_check_rule_list`) and the duel-end check. |
@@ -193,7 +193,7 @@ Chaos Sorcerer's handler adds `0x16c9` and `0xfb6` markers; Spell Counter cards 
 
 ## Once per turn and once per chain
 
-- **Once per turn** (M): 63 activation conditions call `duel_effects_not_used_this_turn(link)` (`0x09c5698c`: no marker `0xfb6` on the card's slot), and the activation steps of these cards add it (`duel_effects_mark_used_this_turn` and 27 other handlers call `duel_core_post_add_marker(…, 0xfb6, 2, 0)`). The marker belongs to the field slot, so it ends at the End Phase (`duel_core_expire_turn_markers`) or when the card leaves the field. Some cards use their own id as the key instead (Exarion Universe). Not yet confirmed in PPSSPP.
+- **Once per turn** (M): 63 activation conditions call `duel_effects_not_used_this_turn(link)` (`0x09c5698c`: no marker `0xfb6` on the card's slot), and the activation steps of these cards add it (`duel_effects_mark_used_this_turn` and 27 other handlers call `duel_core_post_add_marker(…, 0xfb6, 2, 0)`). The marker belongs to the field slot, so it ends at the End Phase (`duel_core_expire_turn_effects`) or when the card leaves the field. Some cards use their own id as the key instead (Exarion Universe). Not yet confirmed in PPSSPP.
 - **Once per chain**: there is no generic counter. Per-chain bookkeeping uses markers that the sweep (state `0x66`) removes: `0x161a` (spell activations seen by Royal Magical Library-type cards), `0x1596` (Spirit Reaper targeted), `0x1518`, `0x1ae0`, `0x1de3`, `0x1d31`, `0x1b61`. The trigger queue also refuses a second entry for the same card instance and selector. (M)
 
 ## Negation
@@ -230,7 +230,7 @@ Solemn Judgment's resolve handler (`duel_effects_resolve_solemn_judgment`, `0x09
 | `0x11` | `duel_core_cmd_chain_link_resolving` `0x09dbcbd8` | UI event `0x34`; sets `0x09e2bba0` bit 3 |
 | `0x12` | `duel_core_cmd_chain_link_resolved` `0x09dbcc68` | Clears `0x09e2bba0` bit 3; folds the players' pending summon counts (`+0x20` high half into the low half) |
 | `0x2d` | `duel_core_cmd_announce_activation` `0x09dba88c` | Shows the card (UI events `0x18`, `0x14`, `0x47`, `0x22`) |
-| `0x35`, `0x36` | `duel_core_cmd_add_marker` `0x09db7208`, `duel_core_cmd_remove_marker` `0x09db7310` | Effect markers |
+| `0x35`, `0x36` | `duel_core_cmd_attach_effect` `0x09db7208`, `duel_core_cmd_remove_marker` `0x09db7310` | Effect markers |
 | `0x38` | `0x09db7490` | Renews the slot's placement serial and calls `0x09c0bb04(side, slot, 1, 0)` (purpose L) |
 | `0x42` | `duel_core_cmd_show_negation` `0x09dbaf94` | UI event `0x23` (negation shown) |
 
@@ -271,8 +271,8 @@ All addresses are in `rel_duel_eng.prx` at base `0x09be1400`. Callers come from 
 | `0x09c5698c` | `duel_effects_not_used_this_turn(ctx) → bool` | H | 63 |
 | `0x09bf2f30` | `duel_effects_is_summon_negation_card(id) → bool` | H | 2 |
 | `0x09c150bc`, `0x09c15320` | `duel_core_post_add_marker`, `duel_core_post_remove_marker` | H | 168, 71 |
-| `0x09be9168`, `0x09be92a4`, `0x09be9348` | `duel_core_has_marker(side, slot, card)`, `_has_marker_value(…, value)`, `_has_marker_kind(…, kind)` | H | 252 and more |
-| `0x09be5660`, `0x09be6864` | `duel_core_free_marker(node)`, `duel_core_expire_turn_markers()` | H | |
+| `0x09be9168`, `0x09be92a4`, `0x09be9348` | `duel_core_slot_has_effect(side, slot, card)`, `_has_marker_value(…, value)`, `_has_marker_kind(…, kind)` | H | 252 and more |
+| `0x09be5660`, `0x09be6864` | `duel_core_detach_effect(node)`, `duel_core_expire_turn_effects()` | H | |
 | `0x09bf7f08`, `0x09bf8140` | `duel_core_count_active_card_on_side(side, card, except_slot)`, `duel_core_count_active_card(card)` | H | face-up, not disabled copies |
 | `0x09c26e38` | `duel_core_request_send_field_card_to_graveyard(side, slot, flip, card)` | M | starts the send batch (`0x09e2d298`) with destination `0x0e` |
 | `0x09c19cf8`, `0x09c276e0` | `duel_core_post_show_negation`, `duel_core_post_announce_field_card` | H | commands `0x42`, `0x2d` |
