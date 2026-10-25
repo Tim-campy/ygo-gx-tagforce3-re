@@ -1,6 +1,6 @@
 # Disc layout (UMD image)
 
-Status: `named` (located; per-file formats not yet documented). Reference dump: see `README.md`.
+Status: `reimplemented`: `tools/iso9660.py` lists and extracts every file of the reference dump (see `README.md`). Not yet `verified` against an independent extractor.
 
 ## Filesystem
 
@@ -22,8 +22,30 @@ Basis: direct ISO 9660 directory walk and header reads of the reference dump (20
 
 Names suggest where later work packages start (hypotheses, low confidence until contents are inspected): `card`/`database` → card database (WP2); `duelsys`/`duel` → duel core (WP4); `script` → possibly a script interpreter for effects or events (WP4/WP7); `field` → 3D field backdrops (WP8); `snd` → audio (WP9); `module`/`gmodule` → additional PRX modules.
 
+## Inventory by file type
+
+The image holds 2,194 entries: 2,131 files plus directories. Extract with `tools/iso9660.py <image> -x extracted/umd`. Sizes are MiB of loose files; "first bytes" is the file's leading magic.
+
+| Directory | Files | MiB | Types (first bytes) |
+| --- | --- | --- | --- |
+| `card` | 12 | 732.4 | `.cip`: `CIP\x1a` ×5, `CPM\x1a` ×5, `CPL\x1a`, `CPJ\x1a`. Unknown; size suggests card artwork. |
+| `movie` | 73 | 243.1 | `.pmf` (`PSMF`): Sony PSMF video. |
+| `duel` | 343 | 143.3 | `.ehp` ×303, `.gim` ×40. |
+| `field` | 937 | 142.2 | `.gim` ×779, `.ehp` ×80, `.gz` ×78 (gzip around EHP). |
+| `snd` | 1 | 132.2 | One `.bin` starting with `SP\0\0`: sound bank, unknown. |
+| `minigame` | 583 | 73.5 | `.gim` ×518, `.ehp` ×65. |
+| `gmodule` | 36 | 7.3 | `.prx`, plain ELF: game code modules, analysable like `BOOT.BIN`. |
+| `module` | 1 | <0.1 | `.prx` starting with `~SCE`: a Sony system module (`sdk`). |
+| `help` | 53 | 0.6 | `.gim`. |
+| all other `USRDIR` directories | 1–18 each | 0.1–18.4 | `.ehp` only. |
+| `PSP_GAME/SYSDIR/UPDATE` | 3 | 24.6 | System update (`PSAR`, `~PSP`, `PSF`); out of scope. |
+| `PSP_GAME` | 3 | 0.3 | `PARAM.SFO` and two PNG icons. |
+| root | 1 | <0.1 | `UMD_DATA.BIN`, starts with the product code `ULES`. |
+
+EHP archives are documented in `ehp.md`.
+
 ## Open questions
 
 - Is `BOOT.BIN` the same program as `EBOOT.BIN`? Hypothesis, medium confidence (sizes differ by 340 bytes). Confirm by comparing BOOT.BIN against the module PPSSPP loads at runtime.
-- Contents and container formats of each `USRDIR` subdirectory (WP1).
-- Which PRX modules live in `module/` and `gmodule/`, and who loads them.
+- Formats still to identify: `.cip` (`card/`), the `snd/` sound bank, and the member types listed in `ehp.md`.
+- Which `gmodule/` PRX modules are loaded, by whom and when.
