@@ -1,0 +1,24 @@
+# Names applied to BOOT.BIN (image base 0x08804000) with tools/ghidra/ApplyNames.java.
+# Evidence and confidence for each name live in docs/subsystems/<group>.md.
+address,group,name
+0x0881e054,container,container_build_file_index
+0x0881dd88,container,container_index_directory
+0x0881dfe0,container,container_lookup_file_index
+0x0881dafc,container,container_get_file_size
+0x0881d8fc,container,container_resolve_path
+0x0881dcd0,container,container_is_disc_path
+0x0881d6a8,container,container_load_file
+0x08832684,card_db,card_db_load_cardinfo
+0x088115e4,system,system_strcpy
+0x088113c0,system,system_strcat
+0x0881166c,system,system_strlen
+0x08810f5c,system,system_sprintf
+0x0880a4a4,system,system_bsearch
+0x0880f844,system,system_qsort
+0x0880d398,system,system_heap_alloc
+0x0880d3c4,system,system_heap_free
+0x0887239c,sdk,sceIoRead
+0x088723b4,sdk,sceIoClose
+0x088723e4,sdk,sceIoGetstat
+0x0887243c,sdk,sceIoOpen
+0x08872454,sdk,sceIoLseek

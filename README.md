@@ -13,6 +13,7 @@ Knowledge base for a future native Nintendo 3DS port of *Yu-Gi-Oh! GX Tag Force 
 | `re/functions.csv`, `re/formats.csv` | Registries that feed the progress meter. | yes |
 | `tools/` | Project scripts (`progress.py`, extractors). GPL-2.0-only. | yes |
 | `tools/tests/` | Tests for the scripts. | yes |
+| `tools/ghidra/` | Ghidra scripts (`ExportFunctions.java` feeds `re/functions.csv`). | yes |
 | `game/` | The maintainer's own disc image. | **no** |
 | `extracted/` | Files extracted from the disc image. | **no** |
 | `ghidra/` | The Ghidra project. | **no** |
