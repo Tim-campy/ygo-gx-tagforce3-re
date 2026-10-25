@@ -109,6 +109,8 @@ The game keeps the state that `DATA0` copies in memory and reaches it only throu
 
 `save_get_player_value(n)` (`0x08854b68`, exported) reads the `u32` at `state + 0xfdfc + 4n`.
 
+**Free-roam fields** (from `docs/subsystems/world.md`, medium unless noted): `0xfd5c` player name (0x32 bytes), `0xfd8e` team name (100 bytes), `0xfdf4` duelist level − 1 and `0xfdf8` EXP (`save_get_duelist_level`, `save_add_duelist_exp`), `0xfdfc` DP (`save_add_dp`, clamp 0–999,999,999), `0x16e12` partner `u16` (bits 4–11 character, 12–15 variant; `save_get_partner`), `0x16e14` story block (calendar at `+0x3438`, field save block at `+0x345c`, flag block at `+0x42d8`; high for the offsets), `0x1bf8c` two flag bytes per character-table row (`save_get_character_flags`), `0x1c0e8`–`0x1c0ea` progress bits read by the shop.
+
 ## Open questions
 
 - What the pack record state and its 20 entries hold, the meaning of the unknown collection and option bits, and the counters at `0xfdfc` and `0x16602`.
