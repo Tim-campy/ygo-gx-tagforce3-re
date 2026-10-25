@@ -33,11 +33,11 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 | word 0, 0–13 | id | Card id (3720–7993). |
 | word 0, 14–22 | ATK / 10 | 9 bits. |
 | word 0, 23–31 | DEF / 10 | 9 bits. |
-| word 1, 0–5 | kind | Values seen with counts: `1` (613), `3` (1,311), `5` (54), `7` (90), `9`–`23` (odd, 148 in total), `27` (723), `29` (552), `31`–`37` (odd, 62). Confirmed: 1 normal monster, 3 effect monster, 5 fusion, 7 effect fusion, 27 spell, 29 trap. Every value is odd. |
-| word 1, 6–9 | attribute | Confirmed: 1 LIGHT, 2 DARK, 4 FIRE, 5 EARTH, 6 WIND, 8 spell, 9 trap. Hypotheses: 3 WATER (248 cards), 7 DIVINE (3 cards). |
+| word 1, 0–5 | kind | Every value is odd. 1 normal monster (613), 3 effect monster (1,311), 5 fusion (54), 7 effect fusion (90), 9 ritual, 11 effect ritual, 13 toon, 15 spirit, 17 union, 19 gemini, 21 token (52), 23 Egyptian god (3), 27 spell (723), 29 trap (552), 31 normal tuner, 33 effect tuner, 35 synchro, 37 effect synchro. Basis: card names in each group (for example 21 = the 52 "… Token" cards, 35 = Gaia Knight, the Force of Earth; 37 includes Brionac, Dragon of the Ice Barrier); the extra-deck lists of the opponent decks hold only 5/7/35/37 (`deck.md`). |
+| word 1, 6–9 | attribute | 1 LIGHT, 2 DARK, 3 WATER, 4 FIRE, 5 EARTH, 6 WIND, 7 DIVINE (the three Egyptian gods), 8 spell, 9 trap. Basis: public card data for each value; this order differs from the one ygotfToolkit gives for other Tag Force games. |
 | word 1, 10–13 | level | 0 for spells and traps. |
-| word 1, 14–16 | icon | Spell/trap sub-type: 0 normal; 5 seen on a quick-play spell; 1–6 otherwise unconfirmed. |
-| word 1, 17–21 | type (race) | Confirmed: 1 Dragon, 3 Fiend, 7 Machine, 15 Warrior, 16 Winged Beast, 17 Fairy, 18 Spellcaster, 23 spell, 24 trap. The other values (2, 4–6, 8–14, 19–22) are unconfirmed; 22 has 3 cards (likely Divine-Beast). |
+| word 1, 14–16 | icon | Spell/trap sub-type: 0 normal, 1 counter (Solemn Judgment), 2 field (Fallen Paradise), 3 equip, 4 continuous, 5 quick-play, 6 ritual (Black Luster Ritual). |
+| word 1, 17–21 | type (race) | 1 Dragon, 2 Zombie, 3 Fiend, 4 Pyro, 5 Sea Serpent, 6 Rock, 7 Machine, 8 Fish, 9 Dinosaur, 10 Insect, 11 Beast, 12 Beast-Warrior, 13 Plant, 14 Aqua, 15 Warrior, 16 Winged Beast, 17 Fairy, 18 Spellcaster, 19 Thunder, 20 Reptile, 21 Psychic, 22 Divine-Beast, 23 spell, 24 trap. Basis: public card data for each value (for example Kairyu-Shin 5, Skull Servant 2, Mind Master 21); the same order, doubled, appears in ygotfToolkit's notes for TF4. |
 | word 1, 22–31 | unknown | Values 0 (2,337), 1 (513), 3 (386), 4 (317). |
 
 ## `CARD_Pass.bin`, `CARD_IntID.bin`
@@ -57,7 +57,7 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 2. **Dictionary** (`card_db_expand_dictionary`). `$d` followed by three characters is replaced with dictionary word `atoi(those three)`; five code units are skipped even if `atoi` stopped early (one Italian text contains `$d02$`). Any other `$` + character is copied unchanged. English uses 51,465 references.
 3. **Card names inside words** (`card_db_get_dictionary_word`). `DICT` is `u32 count`, `u32 table_offset`, `u32 string_base`, then `count` `u32` offsets; word `n` is the UTF-16LE string at `string_base + table[n]`. Inside a word, `%c` followed by four digits is replaced with the name of the card with that id.
 
-Remaining escapes are left to the text renderer; dialog texts use `$C<digit>` (colour, `$C0` resets). English card descriptions contain none after expansion.
+Remaining escapes are left to the text renderer: `$m` followed by four digits names another card by id (1,186 English descriptions contain one; for example a field spell naming the monster it supports), `$C<digit>` sets a colour in dialog texts (`$C0` resets), and `$R` marks furigana in Japanese texts according to ygotfToolkit's notes. `tools/cardinfo.py` keeps these escapes as the game stores them.
 
 ## Sorting and lookup tables
 
@@ -72,7 +72,8 @@ Remaining escapes are left to the text renderer; dialog texts use `$C<digit>` (c
 
 ## Open questions
 
-- Remaining `kind`, `attribute`, `type` and `icon` values; the meaning of word 1 bits 22–31.
+- The meaning of word 1 bits 22–31.
+- Where the renderer expands `$m` (presumably `0x0883349c`, called by `card_db_get_description`).
 - `CARD_Genre` flag meanings.
 - The exact collation behind `CARD_Sort`, and whether `CARD_Top` points to the first card of each letter.
 - Why `CARD_SamePict` lists record 855, which has only one image in the `.cip` files.

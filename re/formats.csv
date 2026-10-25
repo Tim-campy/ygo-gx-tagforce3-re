@@ -2,7 +2,11 @@ id,name,group,status,size
 disc_layout,UMD disc layout (ISO 9660),container,reimplemented,
 ehp,EHP archive,container,verified,
 gzip_member,gzip wrapper around TGMT members and field EHPs,container,verified,
-cip,CIP/CPM/CPL/CPJ card image container,card_db,unknown,
+cip,Card image container directory (card/*.cip),card_db,verified,
+cip_cardh,cardh_<l>.cip DXT1 128x64 card atlas (GIM),card_db,reimplemented,14819328
+cip_cardm,cardm_<l>.cip headerless DXT1 64x64 card face,card_db,reimplemented,7428096
+cip_card8,card8_a.cip index8 128x128 card art (GIM),card_db,reimplemented,66557952
+cip_cardj,cardj_a.cip masked/encrypted card images (not decoded by policy),card_db,named,590188544
 gim,Sony GIM texture,field_3d,named,
 pmf,Sony PSMF movie,ui,named,
 snd_bank,SP sound bank (snd/*.bin),audio,unknown,
@@ -21,9 +25,18 @@ card_desc,CARD_Desc + CARD_Huff Huffman descriptions,card_db,verified,
 card_dict,DICT description dictionary,card_db,documented,
 card_sort,CARD_Sort alphabetical rank,card_db,documented,
 card_top,CARD_Top alphabet jump table,card_db,documented,
-card_samepict,CARD_SamePict cards with several artworks,card_db,named,
+card_samepict,CARD_SamePict cards with several artworks,card_db,documented,
 card_genre,CARD_Genre category flags,card_db,named,
 dlg_text,DLG_Indx + DLG_Text duel prompts,card_db,documented,
 pack_table,Booster pack table and rarity tiers (rel_shop.prx),shop,documented,
 limit_list,Forbidden/limited list (BOOT.BIN),deck,documented,
 effect_tables,Card effect handler tables (rel_duel_eng.prx),duel_effects,documented,
+ydc_recipe,YDC deck recipe (RCP%03d.ydc in BOOT.BIN archive 0x088d77e0),deck,verified,
+recipe_names,recipe_name_<l> string table,deck,documented,
+recipe_owner_table,Recipe owner table (BOOT.BIN 0x08915f28),deck,documented,0x7e0
+recipe_level_table,Recipe level table (BOOT.BIN 0x089143f0),deck,documented,924
+recipe_variant_table,Owner deck variant table (BOOT.BIN 0x08916730),deck,documented,804
+deck_struct,In-memory deck struct (0xc0 bytes),deck,documented,0xc0
+same_card_tbl,sameCardTbl.dat alternative artworks,deck,documented,200
+file_tbl,fileTbl.dat card id list (deck editor thumbnails),deck,documented,7006
+deck_tutorial_script,deck_tutorialNN.bin tutorial bytecode,deck,documented,

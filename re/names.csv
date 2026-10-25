@@ -56,3 +56,11 @@ address,group,name
 0x088723e4,sdk,sceIoGetstat
 0x0887243c,sdk,sceIoOpen
 0x08872454,sdk,sceIoLseek
+0x0885c3dc,deck,deck_load_recipe
+0x0885c314,deck,deck_get_recipe_name
+0x0885c2dc,deck,deck_get_recipe_level
+0x0885cc3c,deck,deck_get_owner_recipe_count
+0x0885cc80,deck,deck_get_owner_recipe
+0x0885cd2c,deck,deck_select_owner_variant
+0x0885ccfc,deck,deck_get_owner_current_recipe
+0x0885ce3c,deck,deck_compare_owner_key

@@ -22,7 +22,7 @@ The game resolves paths under `disc0:` to raw sector addresses itself and then o
 
 | Offset | Size | Field | Source in the ISO 9660 directory record |
 | --- | --- | --- | --- |
-| `0x0` | 4 | Pointer to the NUL-terminated path | Parent path + record name (`+0x21`, length `+0x20`), including the `;1` version suffix. |
+| `0x0` | 4 | Pointer to the NUL-terminated path | Parent path + record name (`+0x21`, length `+0x20`), copied as stored. This disc stores names without the `;1` version suffix (checked on the root directory: `PSP_GAME`, `UMD_DATA.BIN`). |
 | `0x4` | 4 | Extent LBA (sector number) | `+0x02` |
 | `0x8` | 4 | Size in bytes | `+0x0A` |
 | `0xC` | 4 | Not written by the builder | — |
@@ -39,6 +39,6 @@ Entries are sorted with `system_qsort` and searched with `system_bsearch`, both 
 
 ## Open questions
 
-- Comparator `0x0881dfd4`: does it compare up to `;` (so callers can omit `;1`) or the full name? The lookup key is the path after `disc0:` (`buf + 6`).
+- Comparator `0x0881dfd4`: it calls `system_strcasecmp`, so lookups are probably case-insensitive; confirm by reading it. The lookup key is the path after `disc0:` (`buf + 6`).
 - What the device positioning helper `0x0881e448` does before each read (only the descriptor argument survives decompilation).
 - Confirm at runtime in PPSSPP: index size, first entries, and that `0x089218dc` becomes 1 after boot.
