@@ -21,7 +21,9 @@ The project is in its **reverse-engineering phase**: the output is knowledge, no
 | 3. Save data | [`DATA0`](docs/formats/save.md) is a raw 128 KiB copy of game state: the deck slots (the player's and one per partner character) and the card collection with per-card copies and forbidden/limited status are mapped; story progress, characters and DP are open. |
 | 4. Duel core and card effects | The [effect architecture](docs/subsystems/duel_effects.md) is established: native handlers in `rel_duel_eng.prx`, found through id-sorted [handler tables](docs/formats/effect-tables.md) whose slots are resolution (`+04`), target filter (`+08`) and activation condition (`+0c`); handlers implement effect families and per-card numbers live in card-id compare chains; no script interpreter. The [field layout](docs/subsystems/duel_core.md) is partly known. |
 | 5. Tag-duel specifics | The [partner swap](docs/subsystems/tag_duel.md) is established: partners share field and Life Points, and each turn change swaps the active duelist's hand, deck and extra deck with the partner's. |
-| 6–9. AI, free-roam world, rendering data, audio | Entry points found while working on packages 1–2. |
+| 6. AI | [Entry points](docs/subsystems/ai.md): the CPU branch of target choice and its working memory. |
+| 7. Free-roam world | The [story event bytecode](docs/formats/story.md) is decoded: interpreter, control flow (conditions, menus, jumps) and opcode families (dialogue, story flags, DP, card gifts, duels, scene set-up). |
+| 8–9. Rendering data, audio | 3D models, 2D layouts, textures and sound banks are decoded (package 1). |
 
 ## Tools
 

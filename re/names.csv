@@ -73,3 +73,8 @@ address,group,name
 0x0883e3b4,save,save_close
 0x0885ff60,card_db,card_db_is_trap
 0x08832db8,card_db,card_db_get_race
+0x0885654c,card_db,card_db_is_card_marked
+0x08856510,card_db,card_db_mark_card
+0x08854b68,save,save_get_player_value
+0x08857dd0,save,save_get_char_points
+0x08857484,save,save_set_pack_state
