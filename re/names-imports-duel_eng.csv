@@ -266,7 +266,7 @@ address,group,name
 0x09de4994,card_db,thunk_card_db_bind_cardinfo
 0x09de499c,card_db,thunk_card_db_get_name
 0x09de49a4,card_db,thunk_card_db_get_description
-0x09de49ac,,thunk_FUN_08832db8
+0x09de49ac,card_db,thunk_card_db_get_race
 0x09de49b4,,thunk_FUN_08832de0
 0x09de49bc,,thunk_FUN_08832e08
 0x09de49c4,,thunk_FUN_08832e30
@@ -283,7 +283,7 @@ address,group,name
 0x09de4a1c,,thunk_FUN_0885fe2c
 0x09de4a24,,thunk_FUN_0885fef0
 0x09de4a2c,,thunk_FUN_0885ff3c
-0x09de4a34,,thunk_FUN_0885ff60
+0x09de4a34,card_db,thunk_card_db_is_trap
 0x09de4a3c,,thunk_FUN_0885ff84
 0x09de4a44,,thunk_FUN_0885ffc0
 0x09de4a4c,,thunk_FUN_08860060
@@ -418,7 +418,7 @@ address,group,name
 0x09de4e54,,thunk_FUN_08832ce8
 0x09de4e5c,,thunk_FUN_08832d58
 0x09de4e64,,thunk_FUN_08832d88
-0x09de4e6c,,thunk_FUN_08832db8
+0x09de4e6c,card_db,thunk_card_db_get_race
 0x09de4e74,,thunk_FUN_08832de0
 0x09de4e7c,,thunk_FUN_08832e08
 0x09de4e84,,thunk_FUN_08832e30
@@ -558,7 +558,7 @@ address,group,name
 0x09de52b4,,thunk_FUN_0883df4c
 0x09de52bc,,thunk_FUN_0883df88
 0x09de52c4,,thunk_FUN_0883dfc8
-0x09de52cc,,thunk_FUN_088410dc
+0x09de52cc,save,thunk_save_open
 0x09de52d4,,thunk_FUN_0884123c
 0x09de52dc,,thunk_FUN_0884134c
 0x09de52e4,,thunk_FUN_088413f8

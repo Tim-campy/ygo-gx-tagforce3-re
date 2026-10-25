@@ -15,9 +15,9 @@ Two per-player blocks of `0xb3c` bytes; player `p` (0 or 1) starts at about `0x0
 | `+0x124`, `+0x304`, `+0x4e4` | Hand, deck and third list: 4 bytes per card (`u16` card reference with flags in the top bits, more bits in the following `u16`) | `tag_duel_swap_active_duelist`. |
 | `0x09e2a55c + i × 0x14` | Field slot `i`, 20 bytes each: slots 0–4 are the monster zones, 5–9 the spell/trap zones, 10 the field-spell zone | `duel_effects_target_filter` limits zone classes by these index ranges. |
 | slot `+0x00` | Card id (`u16`, low 14 bits) | Read with `& 0x3fff`. |
-| slot `+0x06` | Unknown `u16`; tested by target-filter bits `0x80`/`0x100` (possibly the battle position) | Mirror Force's filter sets `0x80`. |
-| slot `+0x08` | Non-zero when the slot is occupied | Target-filter bits `0x4`/`0x8`. |
-| slot `+0x10` | Flags word: bit 3 disables the card's effect handlers (`duel_effects_call_handler_08`); bit 11 is tested together with occupancy (possibly face-down) | |
+| slot `+0x06` | Battle position (`u16`): 0 = Attack Position, non-zero = Defense Position (confidence high) | Target-filter bits `0x80` / `0x100`: the cards with `0x80` say "Attack Position" (12 of 13), those with `0x100` "Defense Position" (12 of 15); see `effect-tables.md`. |
+| slot `+0x08` | Face-up (`u16`, non-zero = face-up; confidence high). Occupancy is the card id at `+0x00` | Target-filter bits `0x4` / `0x8`: "face-up" in 82 % of the `0x4` cards, "face-down" in 73 % of the `0x8` cards. |
+| slot `+0x10` | Flags word: bit 3 disables the card's effect handlers (`duel_effects_call_handler_08`); bit 11: a face-up card counts as a spell rather than a trap (hypothesis, medium); bit 12: a monster-zone card counts as a spell/trap, e.g. a trap monster (`0x09bee9d0`; hypothesis, medium); bit 4 and bits 1/3 are tested by the "return" filter bit `0x80000` for spell/trap zones; bit 2 is tested by `0x09bfbb38` | `duel_effects_target_filter` zone classes `0x20`–`0x40`. |
 
 `0x09e28620` holds the attacking player (Mirror Force's activation condition compares it with the opponent).
 

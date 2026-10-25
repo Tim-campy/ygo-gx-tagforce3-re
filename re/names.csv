@@ -71,3 +71,5 @@ address,group,name
 0x0881d7b8,container,container_read_async
 0x088410dc,save,save_open
 0x0883e3b4,save,save_close
+0x0885ff60,card_db,card_db_is_trap
+0x08832db8,card_db,card_db_get_race

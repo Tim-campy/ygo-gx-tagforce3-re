@@ -48,3 +48,5 @@ story_bytecode,Event bytecode EveB/EveBI (records and text references),dialogue,
 save_data,DATA0 save buffer (0x20000 bytes),save,documented,131072
 save_decks,Save deck slots (147 x 0x16c),save,documented,0x16c
 save_collection,Save card collection (3554 x 4 bytes),save,documented,14216
+target_filter_flags,Target filter flag bits (rel_duel_eng.prx),duel_effects,documented,
+effect_param_chains,Per-card parameter compare chains (rel_duel_eng.prx),duel_effects,reimplemented,
