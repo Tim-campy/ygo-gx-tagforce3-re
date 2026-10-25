@@ -12,7 +12,8 @@ What the game contains (use it to prioritise): a card-duel engine with thousands
 
 - The maintainer supplies their own copy of the game. Never commit, upload or paste the ISO, EBOOT, extracted assets (card art, models, audio, text dumps), save files or long verbatim excerpts of game data. `.gitignore` already excludes the usual paths; keep it that way.
 - Findings are recorded as knowledge (layouts, offsets, algorithms, names, small illustrative values), not as copies of the content.
-- Do not decrypt, strip protection from, or otherwise circumvent copy protection. If a file arrives encrypted, say so and ask the maintainer for an already-decrypted copy.
+- Do not decrypt, strip protection from, or otherwise circumvent the platform's copy protection: the encrypted `EBOOT.BIN`, encrypted PRX modules and PSP DRM. If an executable arrives encrypted, say so and ask the maintainer for an already-decrypted copy (on this disc `BOOT.BIN` is plain and is used instead).
+- Game data files that the game itself masks or obfuscates (for example the masked JPEG card art in `card/cardj_a.cip`) may be unmasked from the maintainer's own copy, for analysis and for the port. Document the method as knowledge; unmasked output stays in `extracted/` and is never committed, like any other extracted asset.
 - Only run the analysed program inside PPSSPP, never natively.
 
 ## Language and style
