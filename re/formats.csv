@@ -73,3 +73,5 @@ field_strtbl,Field string tables (field_strtbl / _item / _mapname),world,documen
 story_calendar,Calendar block (save story block +0x3438; 0x24 bytes),world,named,36
 save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,named,348
 shop_unlock_rules,Pack availability rules (rel_shop.prx 0x090d9e5c),shop,named,
+chain_link,Chain link / effect context (rel_duel_eng 0x09e28cb4; 24 bytes),duel_core,documented,24
+effect_marker,Effect marker node (rel_duel_eng pool 0x09e2c7cc; 10 bytes),duel_core,named,10

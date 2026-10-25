@@ -104,12 +104,12 @@ Activated effects are pushed on a chain stack of 24-byte links; the link on top 
 
 Link layout (also the effect context): `u16 +0` card id; `u16 +2`: bit 0 the controlling side, bits 1–5 the field slot index (only values below 11 are field slots), bits 6–11 the event code (`0x12` when an attack is declared, `0x24` selects the spell/trap table in `duel_effects_find_record`); byte `+3` bits 4–5 the handler-table selector; further fields not mapped. Confidence: medium-high (the resolver decodes `+2` into side and slot and indexes the player block with them).
 
-`duel_core_chain_step` (`0x09c2f1fc`, 14,148 bytes; callers `0x09c32dac`, `0x09c32e54`) advances that state machine: in state `0x67` it runs `duel_effects_check_rule_list`; in state `0x66` it walks the links from the top down, checks that each link's slot still holds the card, and calls the per-slot handling (`0x09c26e38`); later states handle card `0x190a`, which reacts to chains, among others.
+`duel_core_chain_step` (`0x09c2f1fc`, 14,148 bytes; callers `0x09c32dac`, `0x09c32e54`) is the resolution state machine (states 0–7, 100, `0x65`–`0x68`, LIFO); building, response windows, the trigger queue, spell speed, negation and the full link layout are documented in `chain.md`. Corrections to the table above: `0x09e28e38` is the index of the link being activated or resolved, and `0x09e28f5c` is the resolution state (`0x09e28f54` is the building state).
 
 ## Open questions
 
 - The rest of the player structure (`+0x34`–`+0x11f` besides the field slots, `+0xa0c`–`+0xb3b`). Life Points at `+0x00` are established statically (`battle.md`); confirm in PPSSPP.
 - Argument packing of the field-movement commands `0x30`, `0x31`, `0x3c`, `0x3d`, `0x3f`, `0x40`, `0x45`, and the states of the send batch processor `0x09c232bc` (`0x09e2d298`).
 - Summoning and the action menu: see the open questions in `summon.md`.
-- The states of `duel_core_chain_step`. (Phase values and the turn state machine: `duel-phases.md`.)
-- The remaining event codes in chain links.
+- ~~The states of `duel_core_chain_step`~~: answered in `chain.md`. (Phase values and the turn state machine: `duel-phases.md`.)
+- The remaining event codes in chain links (`0x23` and `0x24` are partly understood, `chain.md`).

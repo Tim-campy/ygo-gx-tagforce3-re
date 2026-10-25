@@ -42,14 +42,15 @@ Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `
 | `0x09ce28ec` | `duel_effects_select_record_variant(card) → index` | M | Called only by the lookup; a chain of per-card-id rules returning a variant index. |
 | `0x09ce30a4`, `0x09ce3174` | `duel_effects_call_handler_08`, `…_08_b` | M | Call slot `+08` with `(card, player, index)` unless the card's state bit 3 is set; separate recursion counters. 25 and 158 callers. |
 | `0x09ce3048`, `0x09ce3c30` | `duel_effects_call_handler_0c`, `…_0c_b` | M | Call slot `+0c` with two arguments; return 1 when there is no handler. |
-| `0x09ce3da0` | `duel_effects_check_optional` | M | Calls slot `+10`; returns 1 without a handler. |
+| `0x09ce3da0` | `duel_effects_check_optional` | H | Calls slot `+10`, the **activation step** (costs, once-per-turn marker, yes/no prompt of optional triggers; `chain.md`); returns 1 without a handler. The name predates that finding. |
 | `0x09ce3e24` | `duel_effects_call_handler_14` | M | Calls slot `+14`. |
 | `0x09ce2ff0` | `duel_effects_has_table3_record(id)` | M | Builds a temporary card with selector 3 and returns whether a record exists. |
 | `0x09ce27c4` | `duel_effects_check_rule_list()` | M | Calls 112 `(function, argument)` pairs at `0x09dedaf8` and returns 1 if any returns non-zero. |
 
 ## Open questions
 
-- What each handler slot and each of the four tables means; which wrapper serves which duel phase.
+- What each handler slot and each of the four tables means; which wrapper serves which duel phase. Slots `+04`, `+10`, `+14` and the selector are now explained by the chain machinery (`chain.md`): `+10` is the activation step, selector 0 = activation of a spell/trap card, 1 = field monster effect, 2 = hand/Graveyard trigger, 3 = ignition effect.
+- Chain building, spell speed, negation and once-per-turn tracking: see `chain.md` and its open questions.
 - The card structure (`card + 0` id, `+2`, `+3` selector bits, `+0x15`): this is WP4's central data structure and should be typed in Ghidra next.
 - The per-player, per-slot state at `0x09e2a56c` (`player × 0xb3c + index × 0x14`): presumably the field/zone state.
 - Classify the `BOOT.BIN` compare chains (AI? deck rules?).

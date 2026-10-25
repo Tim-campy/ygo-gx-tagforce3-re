@@ -10,7 +10,7 @@ Status: `documented` (layout, lookup and dispatch); the meaning of the five hand
 | `0x04` | 4 | Handler slot `+04`: **resolution** (the effect itself). Called by `duel_effects_resolve` with `(ctx, arg)`. Example: Pot of Greed's handler draws the card's draw count. Confidence high. |
 | `0x08` | 4 | Handler slot `+08`: **target filter**, "is field slot `index` of `player` a valid target for this card". Called with `(ctx, player, index)` through five wrappers that have about 280 calling functions between them; skipped when the slot's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". 410 records (406 cards) use a stub that jumps to `duel_effects_target_filter` with card-specific filter bits in a3 (272 short `addiu` stubs, 138 `lui`+`ori` stubs; see "Per-card parameters in code"); the others have their own function. Confidence high. |
 | `0x0c` | 4 | Handler slot `+0c`: **activation condition**. Called with two arguments; a missing record or handler means "allowed" (returns 1). Examples: Pot of Greed's handler checks that the deck holds enough cards; Mirror Force's checks that the opponent is attacking. Confidence high. |
-| `0x10` | 4 | Handler slot `+10`: presumably **"can the optional effect be used"**. Called by `duel_effects_check_optional` with two arguments (1 when there is no handler). Mystic Tomato's handler (shared by 16 cards) returns −1 unless per-card checks pass (for example that the deck holds a suitable card), then continues in `0x09c431ac`; table membership correlates with "you can" (×3.3) and "deck" (×2.7). Confidence medium-low. |
+| `0x10` | 4 | Handler slot `+10`: **activation step**, run every frame while a chain link is being activated, before target choice, until it returns > 0 (continue) or < 0 (cancel). It pays costs (Life Points, discards, Tributes), adds the once-per-turn marker `0xfb6`, or, for optional triggers, asks "activate?" (`0x09c431ac`; Mystic Tomato's handler first checks the Deck). The earlier "optional check" reading covers only the last use. See `docs/subsystems/chain.md`. Confidence high. |
 | `0x14` | 4 | Handler slot `+14`: **target choice**. Called with two arguments. The most shared handler (315 cards, `duel_effects_choose_targets`) branches on the duelist kind: the interactive path opens the target-selection UI with the card's slot `+08` filter as the callback, the CPU path asks the AI (`docs/subsystems/ai.md`). Confidence high. |
 
 In slot `+0c`, the handler shared by 149 cards (`0x09ce28e4`) returns 2, so activation conditions return more than a boolean; 2 plausibly means a mandatory or automatic activation, as for flip effects (hypothesis, low).
@@ -198,7 +198,7 @@ Function sizes from this scan agree with `re/functions.csv` for all listed funct
 
 ## Open questions
 
-- Confirm slots `+10` and `+14`.
+- ~~Confirm slots `+10` and `+14`~~: both are activation-time steps of the chain builder (`chain.md`); `+14` returns > 0 / < 0 like `+10`.
 - Target filter: why the `0x800` cards skip the immunity check; the purpose of bit `0x8000` and of the `0x1de1` test under `0x40000`; confirm slot `+0x10` bits 11 and 12 in PPSSPP.
 - The effect-context fields read by the computed draw counts (`+0x0c`, `+0x12`, `+0x15`, `+0x16`), and the computed cases of the LP-cost chain.
 - The card-structure fields behind the selector and the `0x24` test.
