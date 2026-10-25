@@ -28,7 +28,7 @@ The image holds 2,194 entries: 2,131 files plus directories. Extract with `tools
 
 | Directory | Files | MiB | Types (first bytes) |
 | --- | --- | --- | --- |
-| `card` | 12 | 732.4 | `.cip`: `CIP\x1a` ×5, `CPM\x1a` ×5, `CPL\x1a`, `CPJ\x1a`. Unknown; size suggests card artwork. |
+| `card` | 12 | 732.4 | `.cip`: `CIP\x1a` ×5, `CPM\x1a` ×5, `CPL\x1a`, `CPJ\x1a`. Card images indexed by card id; see `cip.md` (`CPJ` is encrypted). |
 | `movie` | 73 | 243.1 | `.pmf` (`PSMF`): Sony PSMF video. |
 | `duel` | 343 | 143.3 | `.ehp` ×303, `.gim` ×40. |
 | `field` | 937 | 142.2 | `.gim` ×779, `.ehp` ×80, `.gz` ×78 (gzip around EHP). |
@@ -47,5 +47,5 @@ EHP archives are documented in `ehp.md`.
 ## Open questions
 
 - Is `BOOT.BIN` the same program as `EBOOT.BIN`? Hypothesis, medium confidence (sizes differ by 340 bytes). Confirm by comparing BOOT.BIN against the module PPSSPP loads at runtime.
-- Formats still to identify: `.cip` (`card/`), the `snd/` sound bank, and the member types listed in `ehp.md`.
+- Formats still to identify: the `snd/` sound bank, and the member types listed in `ehp.md`.
 - Which `gmodule/` PRX modules are loaded, by whom and when.

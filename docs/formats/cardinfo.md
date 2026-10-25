@@ -63,7 +63,7 @@ Remaining escapes are left to the text renderer; dialog texts use `$C<digit>` (c
 
 - `CARD_Sort_<L>`: `u16` per record, the record's position in the alphabetical card list (record 0 has 0; the others are a permutation of 1–3,553). The order is case-insensitive and keeps spaces but not all punctuation (`30,000-Year …` sorts before `3-Hump …`); 3,511 of 3,552 neighbouring pairs agree with a plain case-insensitive comparison. The exact collation is open.
 - `CARD_Top_<L>`: `u16 count` (27) followed by `count` pairs `(u16 character, u16 card id)`: `*` and `A`–`Z`, each pointing to a card whose name starts with that character (`*` covers names that start with a symbol). Hypothesis: the first card of each letter, for alphabet jumps in card lists.
-- `CARD_SamePict_<L>`: `u16 count` (39) followed by `count` pairs `(u16 record index, u16 n)`. Records with several artworks appear here (Blue-Eyes White Dragon and Dark Magician both have `n = 3`); the meaning of `n` is a hypothesis (number of artworks), low confidence.
+- `CARD_SamePict_<L>`: `u16 count` (39) followed by `count` pairs `(u16 record index, u16 n)`. Records with several artworks appear here (Blue-Eyes White Dragon and Dark Magician both have `n = 3`); `n` is the number of artworks beyond the first: it equals the length of the card's artwork list minus one in every `card/*.cip` file for all 38 cards that have one (see `cip.md`), high confidence. Record 855 is listed but has a single image.
 - `CARD_Genre`: 6 bytes per record, non-zero for 2,885 records; presumably 48 category flags used by deck search. Not decoded.
 
 ## Duel prompts: `DLG_Indx_<L>`, `DLG_Text_<L>`
@@ -75,5 +75,5 @@ Remaining escapes are left to the text renderer; dialog texts use `$C<digit>` (c
 - Remaining `kind`, `attribute`, `type` and `icon` values; the meaning of word 1 bits 22–31.
 - `CARD_Genre` flag meanings.
 - The exact collation behind `CARD_Sort`, and whether `CARD_Top` points to the first card of each letter.
-- `CARD_SamePict` second field.
+- Why `CARD_SamePict` lists record 855, which has only one image in the `.cip` files.
 - What the game does with descriptions longer than its 0x77a-byte buffers (`card_db_get_description` rotates four of them at `0x08924d5c`).
