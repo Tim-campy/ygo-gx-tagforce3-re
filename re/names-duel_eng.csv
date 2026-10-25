@@ -441,7 +441,6 @@ address,group,name
 0x09c56c0c,duel_effects,duel_effects_can_special_summon_hand_candidate
 0x09c56a78,duel_effects,duel_effects_can_special_summon_now
 0x09dc6f98,duel_core,duel_core_show_hint
-0x09c0e8b8,duel_core,duel_core_run_card_request
 0x09c0edf4,duel_core,duel_core_request_discard
 0x09c0f020,duel_core,duel_core_request_discard_cost_ex
 0x09c0effc,duel_core,duel_core_request_discard_cost

@@ -79,7 +79,7 @@ Candidate list globals:
 
 ## 2. Player card requests (discard, random discard, look at a hand, show the Deck)
 
-**Finding (H).** Effects that need the duelist to pick from the hand, or that reveal a hand or Deck, do not drive the UI themselves. They post a **card request**: a small record that `duel_core_run_card_request` (`0x09c0e8b8`, called every frame by `duel_core_run_turn_flow`) executes step by step, then the handler continues. In link duels the request is sent to the peer (`0x09dcc884`, messages `0x1e`/`0x1f`).
+**Finding (H).** Effects that need the duelist to pick from the hand, or that reveal a hand or Deck, do not drive the UI themselves. They post a **card request**: a small record that `duel_core_run_pending_action` (`0x09c0e8b8`, called every frame by `duel_core_run_turn_flow`) executes step by step, then the handler continues. In link duels the request is sent to the peer (`0x09dcc884`, messages `0x1e`/`0x1f`).
 
 | Address | Field |
 | --- | --- |
@@ -124,7 +124,7 @@ Setters (all store side, mode, arguments, clear the step, and arm the remote sta
 | `0x09c0fbcc` | `duel_core_request_select_list_cards` | `void (int side, int a, int b)` | Mode `0x0e`. | Painful Choice, Question, Dimension Jar | L |
 | `0x09c101ec` | `duel_core_filter_discard_candidate` | `int (int side, int location, int index)` | Selection callback of mode 1/2: flag bits 1 monster, 8 spell, 4 trap, `0x10` `duel_core_can_discard_card`, `0x20` must be sendable to the Graveyard; never cards marked by Parasite Paracide; returns `0x800` when selectable. | — | H |
 
-`0x09c0e8b8` is `duel_core_run_card_request()`: returns 1 when idle or finished, 0 while a step is in progress.
+`0x09c0e8b8` is `duel_core_run_pending_action()`: returns 1 when idle or finished, 0 while a step is in progress.
 
 ## 3. Hand primitives
 
