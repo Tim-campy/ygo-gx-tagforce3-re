@@ -1,6 +1,6 @@
 # Deck data: recipes (`.ydc`), owners, artwork tables, tutorial scripts
 
-Tool: `tools/decks.py` (`recipes`, `samecard`, `tutorial`; CSV export and `--check`). Tests: `tools/tests/test_decks.py`. All integers little-endian. Addresses are `BOOT.BIN` virtual addresses (base `0x08804000`; for every section used here, file offset = vaddr − `0x08804000` + `0x54`).
+Tool: `tools/decks.py` (`recipes`, `samecard`, `tutorial`; CSV export and `--check`); `tools/tutorial.py` lists the deck-tutorial scripts with their text. Tests: `tools/tests/test_decks.py`. All integers little-endian. Addresses are `BOOT.BIN` virtual addresses (base `0x08804000`; for every section used here, file offset = vaddr − `0x08804000` + `0x54`).
 
 | Structure | Where | Status |
 | --- | --- | --- |
@@ -12,7 +12,7 @@ Tool: `tools/decks.py` (`recipes`, `samecard`, `tutorial`; CSV export and `--che
 | In-memory deck | 0xc0-byte struct filled by `deck_load_recipe` | documented |
 | `sameCardTbl.dat` | `deck/all_<l>.ehp` | documented |
 | `fileTbl.dat` | `deck/all_<l>.ehp` | documented |
-| `deck_tutorialNN.bin` | `deck/tutorial.ehp` | documented (instruction lengths; semantics mostly open) |
+| `deck_tutorialNN.bin` | `deck/tutorial.ehp` | documented (instruction lengths and handlers; names partly from context) |
 
 `deck_tutorialNN.bin` is **not** a deck format: it is a bytecode script for the deck-construction tutorial (see below).
 
@@ -97,28 +97,39 @@ Relation to `CARD_SamePict_<L>` (`docs/formats/cardinfo.md`, 39 pairs `(record i
 
 ## Deck-tutorial script: `deck_tutorial00.bin`–`04.bin` (`deck/tutorial.ehp`)
 
-Loaded by `rel_decktutorial.prx` (strings `deck/tutorial.ehp`, `deck_tutorial%02d.bin`). Each file is a sequence of instructions: one opcode byte followed by fixed-length arguments, ending with opcode `0x17`. With the length table below all five files (730, 272, 147, 1,520 and 1,591 bytes; 732 instructions) parse exactly, ending at their last byte. Confidence high for the lengths, low for meanings.
+Loaded by `rel_decktutorial.prx` (strings `deck/tutorial.ehp`, `deck_tutorial%02d.bin`). Each file is a sequence of instructions: one opcode byte followed by fixed-length arguments, ending with opcode `0x17`. With the length table below all five files (730, 272, 147, 1,520 and 1,591 bytes; 732 instructions) parse exactly, ending at their last byte. Listing with the text resolved: `tools/tutorial.py <USRDIR>/deck/tutorial.ehp` (see `tutorial.md`).
 
-| Opcode | Length | Arguments | Notes |
-| --- | --- | --- | --- |
-| `0x01` | 9 | `u16 string, u16 x, u16 y, u16 width` | 149 uses; usually `(60, 96, 360)`: a message box. |
-| `0x02` | 7 | `u16 string, u16 x, u16 y` | 51 uses; a positioned text. |
-| `0x04` | 5 | `u16 string, u16 n` | |
-| `0x05` | 3 | `u16` | Values 0–21, mostly ascending: probably a step or page number. |
-| `0x07` | 5 | `u32` | Small bit masks. |
-| `0x09` | 9 | `u32, u32` | First word always 0, second a single bit (`0x10`–`0x8000`): probably a button mask to wait for. |
-| `0x0a` | 5 | `u16, u16` | Often `(0, 30)`, `(0, 16)`, `(0, 8)`: probably a wait in frames. |
-| `0x0b` | 3 | `u16 card id` | Valid card ids (for example Polymerization). |
-| `0x0d` | 3 | `u16` | 0–5. |
-| `0x0f` | 9 | `u16 index, u16 string, u16, u16` | |
-| `0x10` | 5 | `u16, u16` | |
-| `0x13` | 3 | `u16` | |
-| `0x14` | 7 | `u16, u16, u16` | |
-| `0x16` | 9 | `u32, u32` | |
-| `0x03 0x06 0x08 0x0c 0x0e 0x11 0x12 0x15` | 1 | — | |
-| `0x17` | 1 | — | End of script. |
+**Interpreter** (module offsets of `rel_decktutorial`, base unknown). The resources of the archive are looked up by id in a 12-byte table at `+0x21690` (`0x1010` `story_sys02.gim` … `0x1040` `strTbl_%c.bin`, `0x1041` `deck_tutorial%02d.bin`; `+0x3380` formats the name with the script number from `+0x22c30` or the language letter `"jegfis"[0x08857b80()]`). The update function `+0x15b4` switches on the wait state `+0x22c3d`: in state 0 it reads the opcode byte at the program counter `+0x22c40`, advances it by one and calls the handler from the 24-entry table at `+0x2156c` (entry 0 empty); each handler copies its arguments with `memcpy`, advances the counter by their length and may set a wait state. Arguments are little-endian and unaligned. Confidence: high for the dispatch, the argument layouts and the stored fields; medium for the names, which also rest on the text that the scripts show around each instruction.
 
-String arguments index `strTbl_<l>.bin` of the same archive (same string-table layout as above, 229 entries in every language). The scripts reference 223 different strings, each exactly once, all below 229; the six unreferenced entries are 0–3 (menu captions such as "Sample Deck" and "End tutorial?"), 84 and 228.
+| Opcode | Length | Arguments | Uses | Name | Behaviour (from the handler) |
+| --- | --- | --- | --- | --- | --- |
+| `0x01` | 9 | `u16 string, u16 x, u16 y, u16 width` | 149 | message | Message window at (x, y), usually `(60, 96, 360)` (`+0x1b37c`); wait state 1 until it is closed. |
+| `0x02` | 7 | `u16 string, u16 x, u16 y` | 51 | label_text | Persistent instruction text at (x, y) (`+0x2e84`); flag `0x1` of `+0x22c3e`. |
+| `0x03` | 1 | — | 37 | label_off | Removes it. |
+| `0x04` | 5 | `u16 string, u16 style` | 16 | panel | Large text panel (288-byte window object at `+0x22db4`, 400 × 200); `style` 1–3 selects a drawing callback (`+0x2880`, `+0x2960`, `+0x2a40`), 0 none; wait state 4 until it is closed. Used for the summary pages. |
+| `0x05` | 3 | `u16 region` | 24 | highlight | Stores `region` at `+0x22c80`, flag `0x2`; regions 0–3 also set up the editor (`+0x6c50`). The text names them: 0–3 the Deck, Trunk, Extra and Side tabs; 14–21 parts of the edit screen (deck name, counts, contents, the card's name, information, location …). |
+| `0x06` | 1 | — | 18 | highlight_off | Clears flag `0x2`. |
+| `0x07` | 5 | `u32 buttons` | 13 | allow_buttons | Buttons the player may use (`+0x22c84`, flag `0x4`), then **executes the next instruction at once** (it reads and dispatches the following opcode itself). |
+| `0x08` | 1 | — | 9 | allow_off | Clears the mask and the 40-byte input area `+0x22c48`. |
+| `0x09` | 9 | `u32 mode, u32 buttons` | 112 | wait_button | Wait state 9 until one of `buttons` is pressed; draws the button icons. `mode` (`+0x22c74`) is 0 except once (1: a multi-step variant). |
+| `0x0a` | 5 | `u16 kind, u16 n` | 191 | wait | Wait state 10 (`+0x1ab8`, table `+0x20480`): kind 0 = n frames (`(0, 30)` 34×, `(0, 16)` 47×, …); 1 and 2 count frames only while `+0x22c4c` / `+0x22c54` is set (input events); 3 and 4 until the counter `+0x22c34`, advanced elsewhere, reaches n; 5 until `+0x221c0` is 0; 6 until confirm or cancel (`0x6000`) is pressed. |
+| `0x0b` | 3 | `u16 card id` | 5 | show_card | Card picture (`+0x2257c`). |
+| `0x0c` | 1 | — | 2 | card_off | Hides it. |
+| `0x0d` | 3 | `u16 count` | 35 | repeat | Saves the program counter (`+0x22c44`) and the count (`+0x22c82`; 0 or less = forever), flag `0x8`. |
+| `0x0e` | 1 | — | 35 | repeat_end | Decrements the count; jumps back to the saved position until it reaches 0. The body runs `count` times. There is only one saved position, and the 35 pairs never nest. |
+| `0x0f` | 9 | `u16 step, u16 string, u32 items` | 7 | menu_step | Wait state 15 until the editor menu reports a choice (callback `+0x2814`): then replaces the `label_text` with `string` and stores `~items` at `+220` of the menu object (hypothesis: the items the player may not pick; the text before each use names the one item to pick). `step` is not read by the handler (it counts up within a sequence). |
+| `0x10` | 5 | `u32 buttons` | 6 | shoulder_hint | L (`0x100`) or R (`0x200`) button hint, shown after 9 frames (wait state 16, then flag `0x10`). |
+| `0x11` | 1 | — | 6 | shoulder_off | Clears it. |
+| `0x12` | 1 | — | 2 | toggle_swap | Toggles flag `0x20`, which disables the confirm-button swap below. |
+| `0x13` | 3 | `u16 string` | 1 | caption | Text through `+0x142c4` (string 2 in the data). |
+| `0x14` | 7 | `u16 picture, u16 x, u16 y` | 2 | picture | Picture window at (x, y), 147 × 47 for picture 0 and 147 × 65 for picture 1 (the archive holds `large_pict00`–`02_<l>.gim`); flag `0x40`. |
+| `0x15` | 1 | — | 2 | picture_off | Closes it. |
+| `0x16` | 9 | `u16 mode, u16, u32` | 4 | cursor | Mode 0: resets the editor cursor (`+0x6c50(…, 3, 2)`); mode 1: moves it using the `u32` (`+0x7004`). |
+| `0x17` | 1 | — | 5 | end | Clears `+0x221c2`, sets `+0x22c32` = 3 and calls `0x08844ec0(1, 0xff000000, 16)` (a fade to black, hypothesis). |
+
+**Button masks** are the PSP controller bits: `0x10` up, `0x20` right, `0x40` down, `0x80` left, `0x100` L, `0x200` R, `0x1000` △, `0x2000` ○, `0x4000` ×, `0x8000` □ (the instruction text next to each mask names the same buttons; for example `0x50` = up/down). The scripts are written with ○ as the confirm button: `allow_buttons` and `wait_button` swap `0x2000` and `0x4000` when `0x08836a98(0)` returns `0x4000` (the system's confirm button is ×), unless flag `0x20` is set.
+
+String arguments (opcodes `0x01`, `0x02`, `0x04`, `0x0f` second word, `0x13`) index `strTbl_<l>.bin` of the same archive (same string-table layout as above, 229 entries in every language). The scripts reference 224 different strings, each exactly once, all below 229; the five unreferenced entries are 0, 1, 3 (menu captions such as "Sample Deck" and "End tutorial?"), 84 and 228. Caption 2 is the one string of the 0–3 group that a script uses, through `0x13`.
 
 ## Open questions
 
@@ -129,5 +140,5 @@ String arguments index `strTbl_<l>.bin` of the same archive (same string-table l
 - What the recipe level is used for (the deck-recipe viewer `rel_recipeviewer.prx` is the likely reader).
 - The player's deck format in save data, and whether it is the 0xc0-byte in-memory struct.
 - The image container indexed by `fileTbl` / `sameCardTbl` slots (`card/*.cip` headers contain the id range `0xe88`–`0x1f39`).
-- Meanings of the tutorial opcodes; string 84 is never referenced.
+- Deck tutorial: the wait kinds 3/4 (who advances `+0x22c34`), `wait_button` mode 1, the `cursor` argument, and the highlight regions; strings 0, 1, 3, 84 and 228 are not referenced by the scripts.
 - The zero-terminated card lists at `BOOT.BIN` file offsets `0xa3560`–`0xa3c80` and the id runs in `rel_conv_machine.prx`.

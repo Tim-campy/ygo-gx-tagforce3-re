@@ -75,7 +75,7 @@ Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `fiel
 | `.ehf` | `EHF` | 1,184 | 2D layout (converted Flash timeline) bound together with a `.tmf` of the same name; see `ehf.md`. (1,029 in the loose `.ehp` files, 155 in `field/*.gz`.) |
 | `.tmf`, `.tms`, `.tmt`, `.tma` | `TGM?` for `.tms`/`.tmt`/`.tma` | 1,832 | `.tms` mesh, `.tmt` node animation, `.tma` texture animation (`tgm.md`); `.tmf` per-texture flags of an `.ehf` layout (`ehf.md`). |
 | `.txt` | various | 534 | 425 are `*ptrs.txt` resource pointer lists; the rest are text, encoding not yet established. |
-| `.ydq` | — | 50 | Unknown; only in `d_tutorial/`. |
+| `.ydq` | — | 50 | Duel setup text for the tutorial; only in `d_tutorial/` (`tutorial.md`). |
 | `.hmp`, `.efs`, `.dat`, `.png`, `.ehp` | — | small | `.png` is standard PNG; `.ehp` is a nested archive; others unknown. |
 
 ## Open questions

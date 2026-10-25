@@ -122,12 +122,13 @@ class TutorialTest(unittest.TestCase):
         "0b cb 0f"  # card 4043
         "0f 00 00 07 00 08 00 00 00"  # string 7 in the second argument
         "0a 00 00 1e 00"
+        "13 02 00"  # caption: string 2
         "06 17")
 
     def test_parse(self):
         ops = decks.tutorial_parse(self.SCRIPT)
-        self.assertEqual([op for _, op, _ in ops], [0x01, 0x0B, 0x0F, 0x0A, 0x06, 0x17])
-        self.assertEqual(decks.tutorial_strings(ops), [4, 7])
+        self.assertEqual([op for _, op, _ in ops], [0x01, 0x0B, 0x0F, 0x0A, 0x13, 0x06, 0x17])
+        self.assertEqual(decks.tutorial_strings(ops), [4, 7, 2])
         self.assertEqual(ops[1], (9, 0x0B, bytes.fromhex("cb 0f")))
 
     def test_rejects(self):
