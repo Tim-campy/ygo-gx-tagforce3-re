@@ -5893,7 +5893,7 @@ id,name,group,status,size
 0x09cbf228,FUN_09cbf228,,,528
 0x09cbf438,FUN_09cbf438,,,396
 0x09cbf5c4,FUN_09cbf5c4,,,5652
-0x09cc0bd8,FUN_09cc0bd8,,,260
+0x09cc0bd8,duel_effects_choose_targets_ui,duel_effects,,260
 0x09cc0cdc,duel_effects_choose_targets,duel_effects,,100
 0x09cc0d40,FUN_09cc0d40,,,144
 0x09cc0dd0,FUN_09cc0dd0,,,1232
@@ -7446,7 +7446,7 @@ id,name,group,status,size
 0x09d605c8,FUN_09d605c8,,,408
 0x09d60760,FUN_09d60760,,,372
 0x09d608d4,FUN_09d608d4,,,16252
-0x09d649ec,FUN_09d649ec,,,300
+0x09d649ec,ai_decide,ai,,300
 0x09d64b18,FUN_09d64b18,,,80
 0x09d64b68,FUN_09d64b68,,,712
 0x09d64e30,FUN_09d64e30,,,36
@@ -8059,7 +8059,7 @@ id,name,group,status,size
 0x09d9db38,FUN_09d9db38,,,224
 0x09d9dc18,FUN_09d9dc18,,,232
 0x09d9dd00,FUN_09d9dd00,,,252
-0x09d9ddfc,FUN_09d9ddfc,,,268
+0x09d9ddfc,ai_choose_targets,ai,,268
 0x09d9df08,FUN_09d9df08,,,284
 0x09d9e024,FUN_09d9e024,,,228
 0x09d9e108,FUN_09d9e108,,,252
