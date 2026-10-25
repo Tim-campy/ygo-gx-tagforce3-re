@@ -110,6 +110,7 @@ OPCODES = {
     50140: ("exit_112", ()),
     50145: ("halt", ()),
     50150: ("exit_102", ("char",)),
+    50151: ("buy_sandwich", ()),  # a1 (26/27) is not read by the handler
     50152: ("exit_103", ()),
     50153: ("sound_effect", ("id",)),
     50155: ("bgm", ("id",)),

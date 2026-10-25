@@ -140,7 +140,7 @@ All take a test (`test`: 1 true / 2 false) or a comparison (`cmp`: 1 `==`, 2 `!=
 | Opcode | Name | Arguments | Getter | Effect | Conf. |
 | --- | --- | --- | --- | --- | --- |
 | 50014 | `if_counter` | index, test | `0xada4` | W `+0x40 + 4·index` ≠ 0 (counters 1–20, 0–99, changed by 50080). Unused. | H (code) |
-| 50015 | `if_counter_b` | index, test | `0xaf64` | W `+0x94 + 4·index` (counters 1–50, changed by 50081–50083). Unused. | H (code) |
+| 50015 | `if_counter_b` | index, test | `0xaf64` | W `+0x94 + 4·index` (counters 1–50, one per sandwich item, changed by 50081–50083). Unused. | H (code) |
 | 50016, 50017, 50019 | `if_value_34`, `_38`, `_3c` | value, test | `0xae6c`, `0xaea4`, `0xaf20` | W `+0x34` / `+0x38` / `+0x3c` == value. 50019 used 4× with value 49. | H (code), meaning unknown |
 | 50018 | `if_counter_b_total` | test | `0xaf80` | Sum of the 50 counters at `+0x94` ≥ 10. Unused. | H (code) |
 | 50020 | `if_char_points` | char, value, cmp | `0x2f44` → `BOOT.BIN` `0x08857dd0(char)` | Compares a per-character `u16` (`+0x16` of a 24-byte record at save state `+0xfe0c`; `deck_select_owner_variant` tests the same value ≥ 2000 for owner 8). Unused. | M |
@@ -156,7 +156,7 @@ All take a test (`test`: 1 true / 2 false) or a comparison (`cmp`: 1 `==`, 2 `!=
 | Opcode | Name | Arguments | Handler | Effect | Conf. |
 | --- | --- | --- | --- | --- | --- |
 | 50080 | `counter_step` | index, direction | `0xd980` | 1: W counter `+0x40` +1 (max 99); 2: −1 (min 0). Unused. | H (code) |
-| 50081–50083 | `counter_b_step`, … | — | `0xda20`… | Decrement counters at `+0x94`. Unused. | H (code) |
+| 50081–50083 | `counter_b_step`, … | — | `0xda20`… | Decrement the item counters at `+0x94` (`world_decrement_item_count`): 50081 item `a1` when `a2` = 2, 50082 the item at W `+0x38`, 50083 the current item (W `+0x3c`). Unused. | H (code) |
 | 50084 | `partner_points_add` | amount (4–500) | `0xdb14` | `0xb5c(W+0x14, amount)` → `0x2fc0` changes a per-character value, then field request 28 shows up/down/no change. Used e.g. after the menu option "strengthen my bond with my partner". | M |
 | 50085 | `partner_points_sub` | amount (5, 10) | `0xdb5c` | Same with −amount. | M |
 | 50086 | `dp_add` | amount (2,000–10,000) | `0xdba8` | Field request 24 with +amount. Used as a prize after won duels. | M |
@@ -193,11 +193,11 @@ The per-character record is returned by `0x2b94(char)`.
 | 50159 | `scene_player` | direction (8–11), x, y | Player position `(x·0.5 + 0.25, y·0.5 + 0.25)` and direction (`0x453c`: 8→1, 9→3, 10→5, 11→7) into W `+0x8/+0xc/+0x10`. | M |
 | 50160, 50161 | `npc_place`, `npc_place_b` | char, location | Location id → position via `BOOT.BIN` `0x0885ad14`; record `+0x40`. | L |
 | 50162, 50164 | `op_50162`, `op_50164` | char, value | Record `+0x42` / `+0x44`. 50162: 8 uses; 50164 unused. | — |
-| 50166 | `npc_event` | char, group, number | Record `+0x46`–`+0x4a`. `(0, 0)` in 833 uses; otherwise group 301 and a number 204–340. Hypothesis: the event that talking to the character starts (301 is a header `a1`). | L |
+| 50166 | `npc_event` | char, group, number | Record `+0x46`–`+0x4a`: the record the **Duel** command runs for this character during the event (`world_handle_field_action`, high). `(0, 0)` in 833 uses; otherwise group 301 and a number 204–340. Earlier hypothesis: the event that talking to the character starts (301 is a header `a1`). | L |
 | 50168 | `npc_position` | char, x, y | Record `+0x28/+0x2c/+0x30/+0x34/+0x38`. 1,000 uses (one per character on stage). | M |
 | 50169 | `npc_direction` | char, direction (8–11), c (0/5) | Record `+0x3c/+0x3d/+0x3e`; same direction mapping as `scene_player`. | M |
 | 50170 | `op_50170` | char, a2 (always 0) | Record `+0x3f`. | — |
-| 50171 | `npc_event_b` | char, group, number | Record `+0x4c`–`+0x50`; same values as 50166 in every use. | L |
+| 50171 | `npc_event_b` | char, group, number | Record `+0x4c`–`+0x50`: the record the **Talk** command runs during the event (`world_talk_to_character`, high); same values as 50166 in every use. | M |
 | 50163, 50165, 50172 | `nop` | — | Empty. | H (code) |
 
 ### Duels
@@ -228,7 +228,7 @@ The per-character record is returned by `0x2b94(char)`.
 | 50137 | `op_50137` | — | VM `+0xc` = 1. 137 uses, before `end_event`. | — |
 | 50144 | `op_50144` | char | Field request 11 with the character's position; 35 uses in one record. | — |
 | 50148, 50149 | `op_50148`, `op_50149` | — | A counter at field state `+0x65` (5 → system flag 24); system flag 25. | — |
-| 50151 | `op_50151` | a1 (26/27) | Long handler (positions, flags); after buying a sandwich. | — |
+| 50151 | `buy_sandwich` | (a1 26/27, not read) | `world_op_buy_sandwich` (`rel_story` `0x08ea9688`): system flag 15, field request 25 (pick a sandwich) → current item, sandwich-seen bit, golden-egg flags; the driver then runs the give/eat record `(301, 4, 1)` (`docs/subsystems/world.md`). | M |
 | 50105 | `op_50105` | a1 (5) | `0x5ba8(4, a1)`; 2 uses, before `exit_111`. 50104 and 50106 call the same function. | — |
 | 50096, 50101, 50104, 50106, 50124, 50125, 50154 | `op_…` | — | Unused. | — |
 | 50141 | `op_50141` | — | `0xa96c(1)`. Unused. | — |
@@ -250,7 +250,7 @@ The bytecode findings (10-byte instructions, `EveBI` record starts, text referen
 - The driver around `0xb3c8` (how the field module picks the record to run, how the exit codes are consumed).
 - What the field-module requests (33 entries in `rel_field.prx` at `0x2df0c`) do on the field side, in particular 11, 13/14 (talk window), 19 (picture), 20/21, 24 (DP display), 26 and 28; and which save fields the `BOOT.BIN` getters read (DP, per-character points, pack state, picture bits).
 - The meaning of `talk`'s `a3` flag (0/1; 148 uses with 1, often on lines like "..."), of `npc_event`'s `(301, n)` pair, of the `duel_rules`/`duel_option` bytes, and the order of the duel follow-up keys (win/loss/draw?).
-- Opcodes in use whose effect is still unnamed: 50118, 50137, 50144, 50148, 50149, 50151, 50156, 50162, 50170 (and 50105, two uses).
+- Opcodes in use whose effect is still unnamed: 50118, 50137, 50144, 50148, 50149, 50156, 50162, 50170 (and 50105, two uses).
 - The `《Cnnn_k》` forms 1–5, and whether `nnn` equals the speaker id in `a1` of 50001/50002/50009. The ranges overlap (2–141 vs 001–151), but this is not proven.
 - Where `《…》` placeholders and `$M`/`$C` are expanded in code, and whether the bracketed tokens in `SysMsg` are placeholders at all.
 - Whether the empty lines (158 per language) are ever displayed.

@@ -86,7 +86,7 @@ On the disc every record is unconditional, so the selector is a plain `L` → `M
 
 **Cell groups** (`+0x1fb84`, 6-byte records `u16 key, x, y`, terminated by three zeros at `+0x208ec`): a record with `key ≠ 0` starts the group for map `key` (its `x, y` are 0); following records with `key = 0` are the cells `(x, y)` of that group. Groups exist for keys 1–39.
 
-Hypothesis (medium-high): these are the **exit cells** of each map, the cells where walking on asks "Exit from this spot?" (`field_strtbl.bin` entry 128) and opens the island map. Basis: they lie on the grid border or at the door of each room (rooms 101–104: `(12, 5)`, `(12, 6)`, the right-hand column of a 13 × 8 grid; classroom: `(0, 3)`, `(0, 4)`, `(10, 0)`, `(11, 0)`, `(21, 0)`, `(22, 0)`); all are walkable. The list is sent only when `0x08ea51e4()` returns 0 (presumably "no event running", low) or the location is 7–15 or 28; otherwise an empty list is sent.
+These are the **exit cells** of each map (high): `world_field_load_map` (`rel_field` `0x090d921c`, the request 3 handler at `+0xa51c`) copies the list, and `world_is_exit_cell` (`0x090d9c6c`) ends the walk with field action 0 when the player's cell is in it; `rel_story` then returns the player from a dorm room to the dorm outside or, elsewhere, advances one time slot and opens the island map (`docs/subsystems/world.md`, "Island map"; the "Exit from this spot?" prompt, `field_strtbl.bin` entry 128, was not traced). Layout basis: they lie on the grid border or at the door of each room (rooms 101–104: `(12, 5)`, `(12, 6)`, the right-hand column of a 13 × 8 grid; classroom: `(0, 3)`, `(0, 4)`, `(10, 0)`, `(11, 0)`, `(21, 0)`, `(22, 0)`); all are walkable. The list is sent only when `0x08ea51e4()` returns 0 (presumably "no event running", low) or the location is 7–15 or 28; otherwise an empty list is sent.
 
 ## String tables (`field/always*.ehp`)
 
@@ -102,7 +102,6 @@ Hypothesis (medium-high): these are the **exit cells** of each map, the cells wh
 
 ## Open questions
 
-- Which code consumes the exit-cell list on the field side (request 3 handler `rel_field` `0xa51c`) and what it does when the player steps on a cell.
 - The meaning of door `+0x24` and of the unread words `+0x08`, `+0x18`, `+0x20`.
-- How the island map (`field/big_map/world_<period>.ehp`) lists destinations and which `L` each arrow leads to.
+- The island-map areas and destinations are in `docs/subsystems/world.md`; the screen coordinates at `rel_field` `0x090f85b0` and the arrow (`bm_arrow11–14`) navigation code (`0x090e3c58`) are not decoded.
 - Map ids 6–11, 28, 33–35 are absent from the switch (they map to index 0, the main gate).
