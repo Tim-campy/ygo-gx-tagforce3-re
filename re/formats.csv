@@ -73,3 +73,5 @@ field_strtbl,Field string tables (field_strtbl / _item / _mapname),world,documen
 story_calendar,Calendar block (save story block +0x3438; 0x24 bytes),world,named,36
 save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,named,348
 shop_unlock_rules,Pack availability rules (rel_shop.prx 0x090d9e5c),shop,named,
+fusion_recipes,Fusion recipe table (rel_duel_eng.prx 0x09debe98),duel_effects,documented,1104
+ritual_table,Ritual monster/spell table (rel_duel_eng.prx 0x09dec4d4),duel_effects,documented,128
