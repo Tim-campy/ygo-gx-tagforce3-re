@@ -6,22 +6,25 @@
 *.elf
 *.bin
 *.rom
-game/
-extracted/
+/game/
+/extracted/
 assets/
 dumps/
 savedata/
 *.ppst
 
-# Ghidra projects (large, binary, contain game code)
-ghidra/
+# Ghidra projects (large, binary, contain game code) and PPSSPP symbol exports.
+# Anchored so that tools/ghidra/ (our scripts) stays tracked.
+/ghidra/
+*.sym
+*.ppmap
 *.gpr
 *.rep/
 *.lock
 *.lock~
 
 # Third-party tools installed locally (PPSSPP portable, ...)
-external/
+/external/
 
 # Generated output
 build/
