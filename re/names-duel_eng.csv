@@ -141,3 +141,9 @@ address,group,name
 0x09d6b6c0,ai,ai_cond_never
 0x09d6ba6c,ai,ai_cond_has_target
 0x09dca4ac,duel_core,duel_core_random
+0x09d2f908,ai,ai_try_chain_tables
+0x09d2f5a8,ai,ai_try_chain_table_entry
+0x09d30230,ai,ai_chain_table_entry
+0x09d307c4,ai,ai_evaluate_card_in_table
+0x09d30af8,ai,ai_evaluate_card_all_tables
+0x09d309b0,ai,ai_try_card_from_table

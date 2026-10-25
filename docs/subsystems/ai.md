@@ -59,19 +59,19 @@ The phase/step handlers are function-pointer tables at `0x09e01da0` (`0x09de0094
 
 ### Priority tables of `(card id, handler)` pairs
 
-Each entry is 8 bytes: `u32 card id`, `u32` pointer to an AI handler `int handler(ctx, arg)` (H; 1,648 entries, 1,548 distinct cards, 674 distinct handlers). The tables are contiguous in `.data`:
+Each entry is 8 bytes: `u32 card id`, `u32` pointer to an AI handler `int handler(ctx, arg)` (H; 1,648 entries, 1,548 distinct cards, 674 distinct handlers). The tables are contiguous in `.data` (apart from a 56-byte gap of jump tables at `0x09dfe4c8`), have no terminator (all lengths are code constants) and are specified in `docs/formats/ai-tables.md`; `tools/ai_tables.py` lists and checks them:
 
 | Key | Address | Entries | Used by | Content (card kinds from `CARD_Prop`) |
 | --- | --- | --- | --- | --- |
-| T1 | `0x09dfd448` | 345 (`ai_chain_table_length`) | `0x09d2f908` (chain response) | Mostly traps and quick-plays |
-| T2 | `0x09dfdf10` | 0 or 2 | `ai_choose_chain_response` | Response cards, conditional |
-| T3 | `0x09dfdf20` | 0 or 181 | `ai_choose_chain_response` | Response cards, conditional |
+| T1 | `0x09dfd448` | 345 (`ai_chain_table_length`) | `ai_try_chain_tables` `0x09d2f908` (chain response) | Mostly traps and quick-plays |
+| T2 | `0x09dfdf10` | 2 (0 when `ai_chain_table_length` gets flag 0) | `ai_choose_chain_response` | Response cards, tried first when there is a chain link |
+| T3 | `0x09dfdf20` | 181 (0 when `ai_chain_table_length` gets flag 0) | `ai_choose_chain_response` | Response cards, only when the response mode `0x09e0307c` is set or `0x09ccb534` accepts the link |
 | A | `0x09dfe500` | 105 | step 0; also prepended to B when `0x09e03078 != 0` | 84 spells (mass removal etc.) |
 | B | `0x09dfe848` | 681 (786 with A) | `ai_try_main_cards`, `0x09d8c420`, effect handlers | Main-phase spells and monster effects |
 | C | `0x09dffd90` | 7 | `ai_try_summon_enablers` | Teleport, Call of the Mummy, Frontline Base, … |
 | D | `0x09dffdc8` | 199 (0 unless `ai_get_battle_dominance < 0`) | `ai_try_comeback_cards` | Spells used when behind (Graceful Charity, Fusion Sage, …) |
 | E | `0x09e00400` | 16 | `ai_try_battle_cards` | Battle-time cards (Meteorain, …) |
-| F | `0x09e00480` | 12 + T1 (only in the battle phase) | `ai_try_battle_cards` | Battle-time traps |
+| F | `0x09e00480` | T1 then 12 (345 + 12, only in the battle phase; T1 comes first) | `ai_try_battle_cards` | Battle-time traps |
 | G | `0x09e004e0` | 94 | step 6 | End-of-main-phase cards |
 | H | `0x09e007d0` | 6 | step 6 | Last-resort cards |
 
@@ -184,4 +184,4 @@ The following are recorded in `re/documented-duel_eng.tsv` (purpose, side effect
 - Whether `0x09c038a8` is "card revealed" (the no-cheating claim for the opponent's hand); confirm at run time.
 - Who reads the character-table bytes `+0x44`–`+0x74` (`BOOT 0x0885b4ac`, `0x0885b4fc`, `0x0885b56c`, `0x0885b5dc`); if a module outside the current Ghidra project passes them to the duel, the "no personality" finding must be revised.
 - `0x09e02cb0`, `0x09e02cb4` setters: set by the duel manager, meaning unknown.
-- The table of AI handlers is the per-card AI knowledge the port needs; it should be exported as a format (card id → handler address → reimplemented predicate) once the handler semantics are grouped.
+- The priority tables are now exported and checked (`docs/formats/ai-tables.md`, `tools/ai_tables.py`: table, index, card id, handler address and registry name). Still open: grouping the 674 handlers by semantics so that each can be reimplemented as a predicate; the gates `BOOT 0x0885ff3c` / `0x0885fef0`; the chain-state values of `0x09e28fa0` that select the u16 lists R1–R3.

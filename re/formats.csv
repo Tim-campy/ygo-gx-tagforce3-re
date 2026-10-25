@@ -64,3 +64,4 @@ voiceidchgtbl,Character voice change table (*_voiceidchgtbl.bin),audio,documente
 chr_wordstbl,Cut-in voice captions (chr_wordstbl_<l>.bin),audio,named,
 boot_sound_tables,Sound bank offset and first-id tables (BOOT.BIN),audio,documented,
 boot_character_table,Character table (BOOT.BIN 0x088aa510; 174 x 148 bytes),world,named,
+ai_priority_tables,Duel AI priority tables (rel_duel_eng 0x09dfd2dc-0x09e00800),ai,documented,13604

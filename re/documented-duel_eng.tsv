@@ -24,3 +24,4 @@ address	prototype	summary	document
 0x09dca4ac	int duel_core_random(int n)	Linear congruential RNG: seed 0x09e2d1cc = seed * 0x343fd + 0x269ec3; returns n * ((seed & 0x7fffffff) >> 16) >> 15, in [0, n). Side effect: updates the seed. 100 callers.	docs/subsystems/ai.md
 0x09d6b6b8	int ai_cond_always(void)	AI table handler that always accepts (returns 1). No side effects; referenced only from the AI priority tables.	docs/subsystems/ai.md
 0x09d6b6c0	int ai_cond_never(void)	AI table handler that always refuses (returns 0). No side effects.	docs/subsystems/ai.md
+0x09d3023c	int ai_chain_table_length(int side, void * table, int flag)	Length of the chain-response AI tables: 345 for 0x09dfd448; 2 for 0x09dfdf10 and 181 for 0x09dfdf20 when flag != 0, else 0; 0 for any other table. No side effects.	docs/formats/ai-tables.md

@@ -71,7 +71,7 @@ Four further tables hold `(u32 card id, u32 handler)` pairs. They were first rep
 | `0x09dfe500` (`.data` + `0x12f68`) | 1,120 | 1,107 | unsorted |
 | `0x09e010b0` (`.data` + `0x15b18`) | 67 | 66 | unsorted |
 
-`0x09dfd448` is read by `0x09d2f908`, `0x09d30af8`, `0x09d8efc0` and `0x09d8f0c4`. Together with the 24-byte tables, ygotfToolkit reports 2,872 cards bound to at least one record.
+`0x09dfd448` (528 = AI tables T1–T3) and `0x09dfe500` (1,120 = AI tables A–H) are the duel AI's priority tables, not effect tables: see `docs/formats/ai-tables.md`. The "invalid" records in them are 18 card ids that have effect records but no `cardinfo` record. Together with the 24-byte tables, ygotfToolkit reports 2,872 cards bound to at least one record.
 
 ## What the tables are for (hypotheses from card text)
 
