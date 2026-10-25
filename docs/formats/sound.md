@@ -47,7 +47,7 @@ Basis: the chain walk reaches the end of the file exactly; all 728 serials are i
 | `0x18` | 4 | Duration in milliseconds. For RIFF cues it agrees with the `fact` sample count ÷ 44,100 to within 2 ms in all 30,672 cases. For ADPCM cues it is within a few ms of (frames × 28 ÷ rate). |
 | `0x1C` | 4 | Always 0. |
 
-Several cues can share one wave: 30,672 RIFF cues point to 18,608 distinct waves. The cue index, not the wave, is presumably what the game requests. Hypothesis, medium: the 145-cue voice banks below line up with the 145-entry voice tables in `charalist.ehp`.
+Several cues can share one wave: 30,672 RIFF cues point to 18,608 distinct waves. The game requests cues, not waves: a global sound id is a bank's first id plus the cue index (see "Sound ids").
 
 ## Wave area: RIFF waves
 
@@ -92,7 +92,69 @@ The table groups the banks by serial range, label and content.
 
 Treat the labels as build stamps, not as types. Hypothesis, low: the digits look like times. The same label appears in unrelated ranges.
 
-`database/charalist.ehp` holds 95 `chrcutin_<name>_voiceidchgtbl.bin` members of about 944 bytes. Each starts with 16 `u32` byte offsets to `u16` sub-tables. In `chrcutin_aska01` the first three sub-tables have exactly 145 entries, with values below 145. Hypothesis, medium: each sub-table maps a voice event to a cue index in one of the 145-cue voice banks. Not decoded further.
+Banks 48–711 form **voice groups** of seven banks: a voice set of three banks with the same cue layout (145 cues for named characters, 149 for one, 52 for generic students), then four small banks of 2, 1, 1 and 1 cues. Some characters add extra groups of four small banks only (for example banks 129–140 for the three Syrus variants). See "Character voices" below.
+
+## Sound ids (`BOOT.BIN`)
+
+`BOOT.BIN` addresses sounds by a global id, through two tables indexed by bank serial (728 entries each):
+
+| Address | Type | Content |
+| --- | --- | --- |
+| `0x0889cf20` | `u32[728]` | Byte offset of each bank in `psp_snddat.bin` (the file has no directory; this is it). |
+| `0x0889da80` | `u16[728]` | Global sound id of the bank's cue 0. Banks 0–47 (music) have ids 0–47; the cues of banks 48–727 are numbered consecutively from 728, so `id = first[bank] + cue`. |
+
+`0x08868874(bank)` returns `first[bank]` through a pointer in the sound state (`*0x08dd3004`, field `+0x20`), so the table is copied or referenced at run time from this static copy. Both tables match the bank chain exactly (`tools/voices.py --check`). The 16-byte records just before `0x0889cf20` (one per bank, the third word a size-like value) are not decoded.
+
+## Character voices
+
+Status: the mapping below is established from code in `rel_charalist.prx` (the voice test) and `BOOT.BIN`, and cross-checked against every table and bank by `tools/voices.py --check`. How the duel (`rel_duel_draw.prx`) picks among the three banks of a voice set is not traced.
+
+### Character table (`BOOT.BIN` `0x088aa510`)
+
+174 records of 148 bytes, sorted by `(u8 character, u8 variant)` at `+0x00`; `0x0885adb0(character, variant)` finds one with `bsearch` (`0x088064a4`; comparator `0x0885bcd0`). Fields used here:
+
+| Offset | Field |
+| --- | --- |
+| `+0x00` | `u8` character, `u8` variant (for example `07 00` Alexis, `07 01` her second costume). |
+| `+0x04` | Pointer to the record name (`ASUKA_0`, `ZAKO_07_0`, …). |
+| `+0x24` | Pointer to the duel cut-in archive name (`cutin_aska01.ehp`), or 0. |
+| `+0x30` | First bank of the voice set (0 = no voice). Returned by `0x0885aef4(character, variant)` (0 for characters 0 and 1, the player). |
+| `+0x34` | First of the four small banks (3 when there is no voice). Returned by `0x0885af24` when `+0x30 > 0`, else 0. |
+| `+0x38` | Pointer to a voice/profile key (`ASUKA`, `SCHOOLBOY_NOM3`, …). |
+
+### Voice ids
+
+A character's voices are numbered by **voice id** (`rel_charalist` `0x5780`, which turns one into a global sound id):
+
+- ids 0–4: `first[+0x34] + id`. Because the global ids run on across banks, these are cue 0 and 1 of the first small bank, then the single cue of each of the next three.
+- ids 5 and up: `first[+0x30] + id − 5`, cue `id − 5` of the voice set's first bank.
+
+The first bank of a voice set holds the full set of lines; the second and third have the same number of cues but reuse waves for more of them (Alexis: 127, 93 and 61 distinct waves for 145 cues). Hypothesis (medium): reduced sets for situations with less sound memory, for example tag duels with four duellists.
+
+### Voice-test menu (`rel_charalist.prx`)
+
+The menu lists 134 items (`VOICE TEST:%03d:%s`, `strTbl_<l>.bin` entry 43). Two parallel tables give each item its name and voices:
+
+| Module offset | Type | Content |
+| --- | --- | --- |
+| `0xd82c` | `u16[134]` | `strTbl_<l>.bin` entry naming the item (48 distinct names, entries 14–62 except 43). |
+| `0xd938` | `(s16, s16)[134]` | Voice id played first, then a second voice id or −1. |
+
+Items 0–4 are Start Duel, Duel, Win, Lose and Draw (voice ids 0–4). Items 5–16 are the twelve "Own Turn (Ahead/Normal/Behind)" pairs (a line, then "my turn"), and the remaining items follow the voice ids in order: Draw!, Activate (Normal/Chain), Activate From Hand, the spell and trap types, Activate Flip Card, Activate Monster Effect, Pot of Greed, Graceful Charity, Activate Field Spell, Activate Main Spell, the summon types, Summon Main Monster (pairs), attacks, Direct Damage!, Battle Cry Before Attack, Attack With Main Monster (pairs), Set Card, MonsterSet, End Turn, Damage, Battle, Surprise, CounterUP and "2–5 Continuous hits" (voice ids 150–153, which only the 149-cue set has). Together the items cover voice ids 0–153 without gaps. The availability test at module `0x57f8` admits voice ids below 149 for most characters and also ids 149 (and up) only for characters 5, 6 and 18 under per-variant conditions (not fully decoded).
+
+### `*_voiceidchgtbl.bin`: voice → caption
+
+95 tables in `database/charalist.ehp`: 62 `chrcutin_<cut-in>_voiceidchgtbl.bin` and 33 `chrzakov<n>_voiceidchgtbl.bin` (n = 50–82). The same bytes are stored as `chr_voiceidchgtbl.bin` in `duel/cutin_<cut-in>.ehp` and `duel/zakov<n>.ehp`, next to `chr_wordstbl_<l>.bin` (a strTbl-format caption table per language: `u32 count`, `u32 table offset`, `u32 string base`, `count` `u32` offsets).
+
+Layout: 16 `u32` byte offsets, each to a `u16` array that runs to the next offset; only the first seven are non-empty. Sub-table `k` has one entry per cue of the group's bank `k` (0–2 the voice set, 3–6 the small banks), and each entry is the index of that cue's line in `chr_wordstbl` (the caption shown in the cut-in). Evidence: the entry counts equal the cue counts for every table, including the 144-cue and 149-cue banks; cues that share a wave always share a caption index; the captions match the events (Alexis: voice id 5 → caption "I'm not holding anything back.", item "Own Turn (Ahead)"; the Win/Lose/Draw banks → her win, loss and draw lines). High confidence.
+
+`rel_charalist` `0x5fb0(character, variant)` builds the member name as `"chr"` + the record's cut-in name without `.ehp` + `"_voiceidchgtbl.bin"` (format at module `0xddf4`). Exceptions found by the check:
+
+- KAMYURA_1 and TANIYA_1 share their cut-in (and table) with variant 0 but have their own voice sets (banks 422 and 436); the entry counts match, the shared-wave pattern does not.
+- KAGEMARU_1 (voice set 457) names `cutin_kagemaru01.ehp`, for which `charalist.ehp` has no table.
+- Generic students (`ZAKO_*`, voice sets in banks 478–708) have no cut-in name in the record. `chrzakov<n>` matches the voice group starting at bank `478 + 7·(n − 50)` (entry counts and wave sharing agree for all 33). Hypothesis (medium): that is how the game pairs them; the code that picks `zakov%02d.ehp` (string in `rel_duel_draw.prx`) was not traced. The 52-cue sets do not follow the 145-cue voice-id layout, so their events are unknown.
+
+`tools/voices.py <PSP_GAME> --check` runs all of the above; without `--check` it writes one CSV row per (character, voice-test item, voice id) with bank, cue, duration, caption index and caption (game text: keep the output in `extracted/`).
 
 ## Cross-check with ygotfToolkit
 
@@ -107,6 +169,7 @@ Its `sound` command (read-only, run on the maintainer's image on 2026-10-25):
 ## Open questions
 
 - Cue flags (`0x02`), `0x04`, `0x10` and `0x11`, and envelope bytes `0x08`–`0x0B`: how the player uses them (trace the sceSas/sceAtrac calls in PPSSPP).
-- Whether the game addresses sounds as (bank serial, cue index) and where that mapping lives in code. No call site has been traced yet.
-- The voice-bank structure: why there are 145-cue and 52-cue banks, and how `*_voiceidchgtbl.bin` selects among them.
+- The play call itself: which `BOOT.BIN` function takes a global sound id (candidates around `0x08826458`/`0x088265ac`, called from `0x08841514`–`0x0884155c`), and how a bank gets loaded.
+- How the duel chooses among the three banks of a voice set, and which voice ids the duel uses for the 52-cue generic-student sets.
+- Banks 709–711 (28, 19 and 19 cues) and the extra small-bank groups without a voice set: which characters or scenes use them.
 - Whether the `smpl` chunks in 58 waves carry loop points that the game uses for music.

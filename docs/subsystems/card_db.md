@@ -41,8 +41,12 @@ The export is game content: keep it under `extracted/`, never in git.
 | `0x088332e4` | `card_db_decode_huffman(out, desc, bit)` | H | Tree walk described in `cardinfo.md`. |
 | `0x08833390` | `card_db_expand_dictionary(out, in)` | H | `$d` + 3 characters → `card_db_get_dictionary_word(DICT, atoi(…))`, appended with the format `%s` (`0x0889f970`). |
 | `0x08836ed0` | `card_db_get_dictionary_word(dict, n)` | H | Bounds check against `dict[0]`, address `dict + dict[1][n] + dict[2]`, expands `%c` + 4 digits with `card_db_get_name`; results go to one of 50 rotating `0x200`-byte buffers at `0x08ac6580`. |
+| `0x08833004` | `card_db_has_genre(id, n) → bool` | H | `card_db_index_of_id`, then `(Genre[6·index + 2·(n >> 4)] >> (n & 15)) & 1`. Called by the card-detail code at `0x0884e3e4`, `0x0884e7b0`, `0x0884f3a0` (loops `n = 1 … 37`) and by `0x08833638`. |
+| `0x08833064` | `card_db_get_genre_name(n) → UTF-16 string` | H | `0 ≤ n < 40` → `0x08832c94(701 + n)` (DLG string), else the fallback string at `0x088a711c`. Exported (thunk `0x08833650`). |
+| `0x088330a8` | `card_db_get_genres(id, u16 out[3])` | H | Copies the record's three genre words. Exported (thunk `0x08833658`). |
+| `0x08833638` | `card_db_has_genre_mapped(id, k) → bool` | M | `card_db_has_genre(id, table[k])` with the 35-entry `u32` table at `0x0889f980`; imported by `rel_duel_eng`, `rel_story`, `rel_field`, `rel_shop`; `0x0886347c` passes `k = 22` (Flip Effect). |
 
-Readers of the other tables, not yet decompiled: `CARD_Sort` `0x08832bac`, `DLG_*` `0x08832c94`, `CARD_Genre` `0x08833004`/`0x088330a8`, `CARD_Top` `0x088330fc`/`0x0883310c`/`0x08833164`, `CARD_SamePict` `0x08833230`.
+Readers of the other tables, not yet decompiled: `CARD_Sort` `0x08832bac`, `DLG_*` `0x08832c94` (returns DLG string `n`, inferred from the genre-name caller), `CARD_Top` `0x088330fc`/`0x0883310c`/`0x08833164`, `CARD_SamePict` `0x08833230`.
 
 ## Open questions
 
