@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+"""Resolve a game module's imports against BOOT.BIN's exported library and name the import stubs.
+
+BOOT.BIN exports the library "libehsys_rel" (resolved by NID); modules such as rel_duel_eng.prx import
+from it. Each import stub is named "thunk_<target name>" in the target's group, an ApplyNames.java CSV:
+
+  prx_imports.py BOOT.BIN gmodule/rel_duel_eng.prx 09be1400 re/functions.csv > re/names-imports-duel_eng.csv
+
+A stub whose target has no name yet becomes "thunk_FUN_<address>", which the registry still counts as
+unknown. See docs/subsystems/system.md.
+"""
+
+import argparse
+import csv
+import struct
+import sys
+from pathlib import Path
+
+BOOT_BASE = 0x08804000
+
+
+class Elf:
+    """Allocated sections of a PSP PRX; pointers stored in the file are offsets from the module start."""
+
+    def __init__(self, data, base):
+        self.data, self.base = data, base
+        shoff, = struct.unpack_from("<I", data, 0x20)
+        entsize, count, strndx = struct.unpack_from("<HHH", data, 0x2E)
+        headers = [struct.unpack_from("<IIIIII", data, shoff + i * entsize) for i in range(count)]
+        names = headers[strndx][4]
+        self.sections = {data[names + h[0]:data.index(b"\0", names + h[0])].decode(): h for h in headers}
+
+    def offset(self, pointer):
+        """File offset of a module-relative pointer."""
+        for _, _, flags, addr, off, size in self.sections.values():
+            if flags & 2 and addr <= pointer < addr + size:
+                return off + pointer - addr
+        raise ValueError(f"pointer {pointer:#x} is outside every allocated section")
+
+    def u32(self, pointer, count=1):
+        return struct.unpack_from(f"<{count}I", self.data, self.offset(pointer))
+
+    def string(self, pointer):
+        start = self.offset(pointer)
+        return self.data[start:self.data.index(b"\0", start)].decode()
+
+    def library_entries(self, section, stride_bytes):
+        """(entry pointer) for each variable-size library entry in .lib.ent or .lib.stub."""
+        _, _, _, addr, _, size = self.sections[section]
+        pointer = addr
+        while pointer < addr + size:
+            yield pointer
+            pointer += stride_bytes(pointer)
+
+
+def exports(boot):
+    """{nid: (library, absolute function address)} for every function BOOT.BIN exports."""
+    out = {}
+    for entry in boot.library_entries(".lib.ent", lambda p: 4 * boot.data[boot.offset(p) + 8]):
+        name_ptr, = boot.u32(entry)
+        vcount = boot.data[boot.offset(entry) + 9]
+        fcount, = struct.unpack_from("<H", boot.data, boot.offset(entry) + 10)
+        table, = boot.u32(entry + 12)
+        name = boot.string(name_ptr) if name_ptr else "(module)"
+        total = fcount + vcount
+        nids = boot.u32(table, total) if total else ()
+        addrs = boot.u32(table + 4 * total, total) if total else ()
+        for k in range(fcount):
+            out[nids[k]] = (name, boot.base + addrs[k])
+    return out
+
+
+def imports(module):
+    """[(library, nid, absolute stub address)] for every function a module imports."""
+    out = []
+    for entry in module.library_entries(".lib.stub", lambda p: 4 * module.data[module.offset(p) + 8]):
+        name_ptr, = module.u32(entry)
+        fcount, = struct.unpack_from("<H", module.data, module.offset(entry) + 10)
+        nid_table, stub_table = module.u32(entry + 12, 2)
+        library = module.string(name_ptr)
+        for k, nid in enumerate(module.u32(nid_table, fcount) if fcount else ()):
+            out.append((library, nid, module.base + stub_table + 8 * k))
+    return out
+
+
+def stub_names(boot, module, registry):
+    """ApplyNames rows (stub, group, name) plus the count of unresolved imports."""
+    table = exports(boot)
+    rows, unresolved = [], 0
+    for library, nid, stub in imports(module):
+        target = table.get(nid)
+        if target is None:
+            unresolved += 1
+            continue
+        name, group = registry.get(target[1], (f"FUN_{target[1]:08x}", ""))
+        rows.append((stub, group, name if name.startswith("thunk_") else f"thunk_{name}"))
+    return rows, unresolved
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Name a module's import stubs after their BOOT.BIN targets.")
+    parser.add_argument("boot", type=Path, help="PSP_GAME/SYSDIR/BOOT.BIN")
+    parser.add_argument("module", type=Path, help="gmodule/<name>.prx")
+    parser.add_argument("base", help="the module's runtime base address, hex")
+    parser.add_argument("registry", type=Path, help="re/functions.csv (names and groups of BOOT.BIN functions)")
+    args = parser.parse_args(argv)
+
+    registry = {int(r["id"], 16): (r["name"], r["group"])
+                for r in csv.DictReader(open(args.registry, encoding="utf-8"))}
+    boot = Elf(args.boot.read_bytes(), BOOT_BASE)
+    module = Elf(args.module.read_bytes(), int(args.base, 16))
+    rows, unresolved = stub_names(boot, module, registry)
+    print(f"# Generated by tools/prx_imports.py for {args.module.name} at {args.base}; do not edit by hand.")
+    print("address,group,name")
+    for stub, group, name in rows:
+        print(f"0x{stub:08x},{group},{name}")
+    print(f"{len(rows)} stubs named, {unresolved} unresolved", file=sys.stderr)
+    return 1 if unresolved else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

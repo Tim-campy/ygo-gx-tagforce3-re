@@ -46,7 +46,8 @@ public class ApplyNames extends GhidraScript {
 			if (f[2].isEmpty()) {  // create only, keep the default name
 				continue;
 			}
-			Namespace namespace = getNamespace(null, f[1]);
+			// An empty group means the global namespace (e.g. stubs whose target has no group yet).
+			Namespace namespace = f[1].isEmpty() ? currentProgram.getGlobalNamespace() : getNamespace(null, f[1]);
 			if (namespace == null) {
 				namespace = currentProgram.getSymbolTable().createNameSpace(null, f[1], SourceType.USER_DEFINED);
 			}
