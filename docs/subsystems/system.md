@@ -19,6 +19,8 @@ Statically linked C runtime (newlib), libm and VFPU helpers in `BOOT.BIN`. Most 
 
 This also explains functions with no caller inside `BOOT.BIN`, such as `container_gzip_decompress`: they are part of the export library and are called from modules.
 
+`libehsys_rel` has only 1,530 distinct NIDs among its 1,556 entries. 68 entries re-export `BOOT.BIN`'s own firmware import stubs under their Sony NIDs. The module loader (scene slot, module registry, descriptor tables) and the catalogue of all 37 modules are in `modules.md` (`tools/modules.py`).
+
 ## Open questions
 
 - `0x0880ce2c` presumably returns newlib's `_impure_ptr` (reentrancy struct); confirm.
