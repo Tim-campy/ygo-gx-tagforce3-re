@@ -1556,3 +1556,11 @@ address,group,name
 0x08eb1104,deck,thunk_deck_get_owner_recipe
 0x08eb110c,deck,thunk_deck_get_owner_current_recipe
 0x08eb1114,deck,thunk_deck_select_owner_variant
+0x08eb111c,,thunk_FUN_090d7fc0
+0x08eb1124,,thunk_FUN_090d8098
+0x08eb112c,,thunk_FUN_090d8188
+0x08eb1134,,thunk_FUN_090d82c4
+0x08eb113c,world,thunk_world_field_request
+0x08eb1144,world,thunk_world_field_poll
+0x08eb114c,,thunk_FUN_090e12f4
+0x08eb1154,,thunk_FUN_090e1328

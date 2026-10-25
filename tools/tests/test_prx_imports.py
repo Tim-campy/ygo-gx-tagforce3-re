@@ -58,6 +58,28 @@ class PrxImportsTest(unittest.TestCase):
                                 (0x09000308, "container", "thunk_container_open")])
         self.assertEqual(unresolved, 1)
 
+    def test_resolves_imports_from_a_provider_module(self):
+        boot = build([(".lib.ent", 0x200, library_entry(0, 0, 0, 0)), (".rodata", 0x100, bytes(16))])
+        # Provider module "libfield" exports NID 0xCCCC at module offset 0x40; loaded at 0x09100000.
+        prov_rodata = b"libfield\0" + bytes(7) + struct.pack("<2I", 0xCCCC, 0x40)
+        provider = build([(".lib.ent", 0x200, library_entry(0x100, 0, 1, 0x110)), (".rodata", 0x100, prov_rodata)])
+        mod_rodata = b"libfield\0" + bytes(7) + struct.pack("<I", 0xCCCC)
+        module = build([(".lib.stub", 0x400, library_entry(0x100, 0, 1, 0x110, 0x300)),
+                        (".rodata", 0x100, mod_rodata)])
+        registry = {("rel_field", 0x09100040): ("world_field_request", "world")}
+        rows, unresolved = prx_imports.stub_names(
+            prx_imports.Elf(boot, prx_imports.BOOT_BASE), prx_imports.Elf(module, 0x08E9AA00), registry,
+            [(prx_imports.Elf(provider, 0x09100000), "rel_field")])
+        self.assertEqual((rows, unresolved), ([(0x08E9AD00, "world", "thunk_world_field_request")], 0))
+
+    def test_load_registry_prefixed_ids(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "functions.csv"
+            path.write_text("id,name,group,status,size\n0x08804000,a,g,,4\nrel_x:0x09000000,b,h,,4\n", encoding="utf-8")
+            self.assertEqual(prx_imports.load_registry(path),
+                             {0x08804000: ("a", "g"), ("rel_x", 0x09000000): ("b", "h")})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -189,7 +189,9 @@ PPSSPP keeps the symbols of every module loaded so far, so one export holds seve
 
 ### In Ghidra and in the registry
 
-`rel_duel_eng` (`0x09be1400`), `rel_story` (`0x08e9aa00`), `rel_field` and `rel_shop` (both `0x090ced00`) are imported into `ghidra/TF3.gpr` at these bases. Modules that share an address get module-qualified registry ids (`rel_story:0x08ea63f4`), produced by `ExportFunctions.java <csv> <module>`; `BOOT.BIN` and `rel_duel_eng` keep plain addresses. Their import stubs are named with `tools/prx_imports.py` (`re/names-imports-<module>.csv`); `rel_story`'s 55 imports from other game modules are not resolved by that tool yet.
+Imported into `ghidra/TF3.gpr` at these bases: `rel_duel_eng` (`0x09be1400`) and `rel_duel_draw` (`0x0983fb00`), which have their own address ranges and keep plain registry ids, and the shared-slot modules `rel_story`, `rel_deck`, `rel_title`, `rel_duel_mgr` (`0x08e9aa00`), `rel_field` and `rel_shop` (`0x090ced00`), whose registry ids are module-qualified (`rel_story:0x08ea63f4`, produced by `ExportFunctions.java <csv> <module>`).
+
+Import stubs are named with `tools/prx_imports.py` (`re/names-imports-<module>.csv`). Imports from other game modules resolve when the exporting module is passed with `--provider PRX:BASE[:PREFIX]`: `rel_duel_draw` and `rel_duel_mgr` resolve all their `libduel_eng_rel` and `libduel_draw_rel` imports, and `rel_story` its 8 `libfield_rel` imports. What remains unresolved comes from libraries whose module base is still unknown (charalist, cardalbum, tutorial, deck swap and similar): 47 in `rel_story`, 36 in `rel_title`, 16 in `rel_duel_mgr`, 7 in `rel_deck`.
 
 ## Module catalogue
 
