@@ -43,6 +43,7 @@ All tools are Python 3 with the standard library only, and each has tests on syn
 | [`tools/effect_params.py`](tools/effect_params.py) | Extract per-card effect parameters from the duel engine: target filters, draw counts, LP costs and other compare chains. |
 | [`tools/save.py`](tools/save.py) | Read a plaintext `DATA0` save: deck slots, card collection, checks. |
 | [`tools/sound.py`](tools/sound.py) | List and check the sound banks; export a clip (ATRAC3/ATRAC3plus as stored, PS-ADPCM to WAV). |
+| [`tools/voices.py`](tools/voices.py) | Check and list the character voice tables, voice banks and voice-test items. |
 | [`tools/story.py`](tools/story.py) | Export the story text and check the event bytecode and its text references. |
 | [`tools/sym_to_names.py`](tools/sym_to_names.py) | Turn a PPSSPP `.sym` export into Ghidra names. |
 | [`tools/modules.py`](tools/modules.py) | Catalogue the game modules: sections, exports and imports, descriptor tables, runtime bases. |
