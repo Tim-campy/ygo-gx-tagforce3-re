@@ -58,7 +58,7 @@ There is no compression inside the EHP format itself. Compressed data appears as
 
 | Where | Count | gzip flags | Content |
 | --- | --- | --- | --- |
-| `.gz` members inside `duel/*.ehp` | 8,789 | `0x00` (no file name) | Always a `TGMT` file. |
+| `.gz` members inside `duel/*.ehp` | 8,789 | `0x00` (no file name) | Always a `TGMT` file (8,701 `*.tmt.gz`, 88 `*.vtmt.gz`; see `tgm.md`). |
 | Loose `field/*.gz` files | 78 | `0x08` (`FNAME` set; it equals the file name without `.gz`) | Always an EHP archive. |
 
 Every stream decompresses with a valid CRC-32 and an `ISIZE` that matches the output length; the mean ratio is 0.51. The game inflates them with a statically linked copy of Sony's `libdeflt` (`docs/subsystems/sdk.md`). Recompressing byte-identically was not attempted (it depends on the deflate encoder and level and is not needed for extraction).
@@ -80,6 +80,6 @@ Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `fiel
 
 ## Open questions
 
-- Which resource each `*ptrs.txt` list belongs to (names suggest `<resource>-ptrs.txt` next to `<resource>`), and whether a port needs the fixups at all once data is converted offline.
+- In archives with TGM members every non-zero `*ptrs.txt` entry is the offset of a whole member (lists of resources, not fixups inside them; see `tgm.md`). Whether this holds for the other lists, and whether a port needs them once data is converted offline.
 - What `0x0881e6a4` does with the screen-size arguments.
 - Which extensions are registered in the runtime handler table, and by whom.
