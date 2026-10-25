@@ -59,3 +59,11 @@ python3 -I tools/tests/test_progress.py
 ## Filling the registry from Ghidra
 
 Export the function list (address, name, size) from Ghidra, or ask the agent to produce it through REA, and turn it into `re/functions.csv`. Names that still look like `FUN_08804000` start as `unknown`. From then on, update the rows as part of the same work that renames or documents each function.
+
+In this project the registry is regenerated from Ghidra rather than edited by hand:
+
+- `re/names.csv` and `re/names-ppsspp.csv` name functions (`tools/ghidra/ApplyNames.java`).
+- `re/documented.tsv` lists the functions that meet the `documented` stage: prototype, a summary of purpose and side effects, and the document that records them and their callers. `tools/ghidra/ApplySignatures.java` applies the prototype and a plate comment and tags the function `DOCUMENTED`.
+- `tools/ghidra/ExportFunctions.java` writes `re/functions.csv`, setting `status` to `documented` only for tagged functions.
+
+A function therefore reaches `documented` only when Ghidra holds its signature and comment, as the stage definition requires.

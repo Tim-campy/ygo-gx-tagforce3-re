@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Export every function of the current program as re/functions.csv rows (id,name,group,status,size).
-// Group comes from the function's top-level Ghidra namespace (see CLAUDE.md naming), status is left
-// blank so tools/progress.py infers unknown/named. Usage (headless):
+// Group comes from the function's top-level Ghidra namespace (see CLAUDE.md naming). Status is
+// "documented" for functions carrying the DOCUMENTED tag (ApplySignatures.java) and blank otherwise,
+// so tools/progress.py infers unknown/named. Usage (headless):
 //   analyzeHeadless <projdir> <proj> -process BOOT.BIN -noanalysis -scriptPath tools/ghidra
 //       -postScript ExportFunctions.java <output.csv>
 // @category TF3
@@ -31,8 +32,10 @@ public class ExportFunctions extends GhidraScript {
 				if (function.isThunk() && !name.startsWith("thunk_")) {
 					name = "thunk_" + name;
 				}
-				out.printf("0x%08x,%s,%s,,%d%n", function.getEntryPoint().getOffset(), name, group(function),
-					function.getBody().getNumAddresses());
+				// Only functions tagged by ApplySignatures.java are "documented"; the rest is inferred.
+				boolean documented = function.getTags().stream().anyMatch(t -> t.getName().equals("DOCUMENTED"));
+				out.printf("0x%08x,%s,%s,%s,%d%n", function.getEntryPoint().getOffset(), name, group(function),
+					documented ? "documented" : "", function.getBody().getNumAddresses());
 				count++;
 			}
 		}

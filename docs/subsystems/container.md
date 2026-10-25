@@ -25,7 +25,7 @@ Symbols are rebuilt in this order (scripts copied to a path without a `.` elemen
 
 1. Export symbols from PPSSPP with the game running (Debug menu) to `ghidra/symbols.sym` (not committed).
 2. `python3 -I tools/sym_to_names.py ghidra/symbols.sym --range 08804000-08872bfc --create-unnamed > re/names-ppsspp.csv`
-3. `ApplyNames.java re/names-ppsspp.csv`, then `ApplyNames.java re/names.csv` (hand-made names win), then `ExportFunctions.java re/functions.csv`.
+3. `ApplyNames.java re/names-ppsspp.csv`, then `ApplyNames.java re/names.csv` (hand-made names win), then `ApplySignatures.java re/documented.tsv`, then `ExportFunctions.java re/functions.csv`.
 
 This adds the 278 import stubs and about 370 functions that only PPSSPP had found, for 2,898 functions in total.
 

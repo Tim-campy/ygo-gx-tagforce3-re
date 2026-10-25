@@ -1,0 +1,34 @@
+# Functions that meet the "documented" stage (docs/PROGRESS.md): prototype, purpose, side effects and
+# callers recorded here, applied to Ghidra by tools/ghidra/ApplySignatures.java, and described in the doc.
+# Columns are tab-separated: address, C prototype, summary (purpose and side effects), document.
+address	prototype	summary	document
+0x0881e054	void container_build_file_index(int pool_size)	Builds the sorted disc file index from umd1: (PVD, path table, recursive directory walk). Side effects: allocates the pool, sets 0x089218c8/cc/d0/d4/d8, sorts, sets ready flag 0x089218dc.	docs/formats/file-index.md
+0x0881dd88	void container_index_directory(int fd, char *prefix, uint lba, int size)	Appends one 16-byte index entry per file in an ISO 9660 directory and recurses into subdirectories. Side effects: advances 0x089218cc (entries) and 0x089218d0 (name pool).	docs/formats/file-index.md
+0x0881dfe0	int container_lookup_file_index(char *path, uint *out_size)	Binary-searches the file index for path (without the disc0: prefix); returns the extent LBA or -1 and stores the size. No side effects.	docs/subsystems/container.md
+0x0881dafc	int container_get_file_size(int root, char *path)	Size of root-relative path: file index for disc paths, otherwise sceIoGetstat; -1 if missing. No side effects.	docs/subsystems/container.md
+0x0881d8fc	int container_resolve_path(char *buf, int root, char *path, int no_lbn)	Writes roots[root] + path into buf and, for indexed disc paths when no_lbn is 0, rewrites it as disc0:/sce_lbn0x%04x_size0x%04x. Returns 1. Side effects: buf only.	docs/subsystems/container.md
+0x0881dcd0	int container_is_disc_path(char *path)	Non-zero when the path starts with the word "disc". No side effects.	docs/subsystems/container.md
+0x08822340	int container_ehp_is_valid(void *ehp)	Non-zero when the first three bytes are "EHP". No side effects.	docs/formats/ehp.md
+0x08822270	uint * container_ehp_find_entry(void *ehp, char *name)	Case-insensitive binary search of the EHP entry table; returns the (name offset, data offset) entry or 0. No side effects.	docs/formats/ehp.md
+0x08822600	int container_ehp_get_member_size(void *ehp, uint *entry)	Member size: the unaligned u32 after the name for version 3, offset difference for older versions. No side effects.	docs/formats/ehp.md
+0x08822280	void * container_ehp_find_member(void *ehp, char *name, int *out_size)	Returns a pointer to the named member's data (0 if absent or not an EHP) and optionally its size. No side effects.	docs/formats/ehp.md
+0x088220e8	int container_ehp_bind(void *ehp, int flag)	Binds an archive once: writes "BIND" over "NOT ", prepares members, then runs and clears the one-shot callback at 0x08921918. Returns 0 if flag is negative, else 1.	docs/formats/ehp.md
+0x08822360	int container_ehp_bind_members(void *ehp)	Prepares each member in place by extension (ptrs.txt fixups, .tmt/.tma/.tms/.ehf/.gim handlers, runtime handler table). Returns 1. Side effects: member data, handler state.	docs/formats/ehp.md
+0x08832778	int card_db_bind_cardinfo(void)	If cardinfo is loaded: clears 0x1e2c bytes at 0x08924d1c, binds the archive and stores pointers to its 14 members in the globals there. Returns the loaded flag.	docs/subsystems/card_db.md
+0x08832a1c	ushort card_db_index_of_id(int card_id)	Record index of a card id via CARD_IntID; 0 for ids below 0xe88. No side effects.	docs/subsystems/card_db.md
+0x08832a68	ushort * card_db_get_name(int card_id)	Pointer to the card's UTF-16 name in CARD_Name. No side effects.	docs/subsystems/card_db.md
+0x08832b54	uint * card_db_get_prop(int card_id)	Pointer to the card's 8-byte CARD_Prop record. No side effects.	docs/subsystems/card_db.md
+0x08832c04	uint card_db_get_passcode(int card_id)	The card's passcode from CARD_Pass. No side effects.	docs/subsystems/card_db.md
+0x08832aa4	ushort * card_db_get_description(int card_id)	Decodes and expands the card's description into the next of four rotating 0x77a-byte buffers at 0x08924d5c and returns it. Side effects: rotation counter 0x08926b44, that buffer.	docs/subsystems/card_db.md
+0x088332e4	ushort * card_db_decode_huffman(ushort *out, void *desc, int bit_offset)	Huffman-decodes one description with the CARD_Huff tree into out until the zero symbol; returns out. Side effects: out only.	docs/formats/cardinfo.md
+0x08833390	ushort * card_db_expand_dictionary(ushort *out, ushort *in)	Copies in to out, replacing $d + three characters with dictionary words; returns out. Side effects: out only.	docs/formats/cardinfo.md
+0x08836ed0	ushort * card_db_get_dictionary_word(void *dict, uint number)	Returns dictionary word number; when it contains %c + four digits, expands card names into the next of 50 rotating 0x200-byte buffers at 0x08ac6580. 0 when out of range.	docs/formats/cardinfo.md
+0x08835e70	int deck_get_default_limit(int card_id)	Status from the built-in limit list (0 forbidden, 1 limited, 2 semi-limited) or 3 when unlisted. No side effects.	docs/formats/limit-list.md
+0x08835df4	void deck_reset_limits(void)	Sets every card id 0xe88-0x1f39 to unlimited, then applies the 114 built-in limit entries, via deck_set_limit.	docs/formats/limit-list.md
+0x088115e4	char * system_strcpy(char *dst, char *src)	C strcpy. Side effects: dst.	docs/subsystems/system.md
+0x088113c0	char * system_strcat(char *dst, char *src)	C strcat. Side effects: dst.	docs/subsystems/system.md
+0x0881166c	int system_strlen(char *s)	C strlen. No side effects.	docs/subsystems/system.md
+0x088112d8	int system_strcasecmp(char *a, char *b)	C strcasecmp using the ctype table at 0x088779c9. No side effects.	docs/subsystems/system.md
+0x0880a4a4	void * system_bsearch(void *key, void *base, uint count, uint size, void *compare)	C bsearch; returns the matching element or 0. No side effects.	docs/subsystems/system.md
+0x08817bb8	int sceGzipIsValid(void *buf)	1 when buf starts with the gzip magic 1F 8B. No side effects.	docs/subsystems/sdk.md
+0x08817950	int sceGzipDecompress(void *dst, uint dst_size, void *src, uint *crc32)	Inflates a gzip stream into dst; returns the output size or an SCE error code and stores the trailer CRC-32. Side effects: dst, crc32.	docs/subsystems/sdk.md
