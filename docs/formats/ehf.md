@@ -131,7 +131,7 @@ Size 1–40 bytes, no header: one byte per texture-name slot of the `.ehf` with 
 
 Every texture slot resolves to a member `<name>.gim` in the same archive (all 8,234, case-insensitive). 8,126 names are the layout name, truncated so that the whole name fits 15 bytes, followed by a 4-digit number (for example `press_start` → `press_start0001`). Formats and swizzling are in `docs/formats/gim.md`; on screen one texel is one pixel at scale 1.
 
-`*ptrs.txt` fixup lists are not related: none of their 138,113 entries falls inside an `.ehf` or `.tmf` member (they fall in the entry table and inside `.gz`, `.tmt`, `.tms`, `.gim` and `.tma` members).
+`*ptrs.txt` resource lists are not related: none of their 138,113 entries falls inside an `.ehf` or `.tmf` member (they fall in the entry table and inside `.gz`, `.tmt`, `.tms`, `.gim` and `.tma` members).
 
 ## Rendering check
 

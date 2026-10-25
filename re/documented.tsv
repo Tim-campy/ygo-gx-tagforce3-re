@@ -13,7 +13,7 @@ address	prototype	summary	document
 0x08822600	int container_ehp_get_member_size(void *ehp, uint *entry)	Member size: the unaligned u32 after the name for version 3, offset difference for older versions. No side effects.	docs/formats/ehp.md
 0x08822280	void * container_ehp_find_member(void *ehp, char *name, int *out_size)	Returns a pointer to the named member's data (0 if absent or not an EHP) and optionally its size. No side effects.	docs/formats/ehp.md
 0x088220e8	int container_ehp_bind(void *ehp, int flag)	Binds an archive once: writes "BIND" over "NOT ", prepares members, then runs and clears the one-shot callback at 0x08921918. Returns 0 if flag is negative, else 1.	docs/formats/ehp.md
-0x08822360	int container_ehp_bind_members(void *ehp)	Prepares each member in place by extension (ptrs.txt fixups, .tmt/.tma/.tms/.ehf/.gim handlers, runtime handler table). Returns 1. Side effects: member data, handler state.	docs/formats/ehp.md
+0x08822360	int container_ehp_bind_members(void *ehp)	Prepares each member in place by extension (ptrs.txt resource lists turned into pointers, .tmt/.tma/.tms/.ehf/.gim handlers, runtime handler table). Returns 1. Side effects: member data, handler state.	docs/formats/ehp.md
 0x08832778	int card_db_bind_cardinfo(void)	If cardinfo is loaded: clears 0x1e2c bytes at 0x08924d1c, binds the archive and stores pointers to its 14 members in the globals there. Returns the loaded flag.	docs/subsystems/card_db.md
 0x08832a1c	ushort card_db_index_of_id(int card_id)	Record index of a card id via CARD_IntID; 0 for ids below 0xe88. No side effects.	docs/subsystems/card_db.md
 0x08832a68	ushort * card_db_get_name(int card_id)	Pointer to the card's UTF-16 name in CARD_Name. No side effects.	docs/subsystems/card_db.md

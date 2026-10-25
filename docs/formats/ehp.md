@@ -42,7 +42,7 @@ Functions in `BOOT.BIN` (base `0x08804000`), all in the `container` group; evide
 
 | Member | Count on disc | What binding does |
 | --- | --- | --- |
-| `*ptrs.txt` | 425 | Pointer fixup list: `u32` offsets relative to the archive, terminated by `0xFFFFFFFF`; every non-zero value gets the archive's address added. All 425 lists end with the terminator and point inside their archive. |
+| `*ptrs.txt` | 425 | Resource pointer list: `u32` offsets relative to the archive, terminated by `0xFFFFFFFF`; every non-zero value gets the archive's address added. All 425 lists end with the terminator and point inside their archive. |
 | `.tmt` | 453 | `field_3d_bind_tmt` (`0x08830870`); also the target of inflated `.tmt.gz` members. |
 | `.tma` | 126 | `field_3d_bind_tma` (`0x08832378`). |
 | `.tms` | 585 | `field_3d_bind_tms` (`0x0882e524`), with callback `0x08822b44`. |
@@ -58,7 +58,7 @@ There is no compression inside the EHP format itself. Compressed data appears as
 
 | Where | Count | gzip flags | Content |
 | --- | --- | --- | --- |
-| `.gz` members inside `duel/*.ehp` | 8,789 | `0x00` (no file name) | Always a `TGMT` file. |
+| `.gz` members inside `duel/*.ehp` | 8,789 | `0x00` (no file name) | Always a `TGMT` file (8,701 `*.tmt.gz`, 88 `*.vtmt.gz`; see `tgm.md`). |
 | Loose `field/*.gz` files | 78 | `0x08` (`FNAME` set; it equals the file name without `.gz`) | Always an EHP archive. |
 
 Every stream decompresses with a valid CRC-32 and an `ISIZE` that matches the output length; the mean ratio is 0.51. The game inflates them with a statically linked copy of Sony's `libdeflt` (`docs/subsystems/sdk.md`). Recompressing byte-identically was not attempted (it depends on the deflate encoder and level and is not needed for extraction).
@@ -73,13 +73,13 @@ Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `fiel
 | `.gz` | `1F 8B` | 8,789 | gzip around `TGMT` (see above). |
 | `.bin` | various | 2,225 | Unknown; several unrelated formats share the extension. |
 | `.ehf` | `EHF` | 1,184 | 2D layout (converted Flash timeline) bound together with a `.tmf` of the same name; see `ehf.md`. (1,029 in the loose `.ehp` files, 155 in `field/*.gz`.) |
-| `.tmf`, `.tms`, `.tmt`, `.tma` | `TGM?` for `.tms`/`.tmt`/`.tma` | 1,832 | Unknown layouts; each has its own bind handler. |
-| `.txt` | various | 534 | 425 are `*ptrs.txt` fixup lists; the rest are text, encoding not yet established. |
+| `.tmf`, `.tms`, `.tmt`, `.tma` | `TGM?` for `.tms`/`.tmt`/`.tma` | 1,832 | `.tms` mesh, `.tmt` node animation, `.tma` texture animation (`tgm.md`); `.tmf` per-texture flags of an `.ehf` layout (`ehf.md`). |
+| `.txt` | various | 534 | 425 are `*ptrs.txt` resource pointer lists; the rest are text, encoding not yet established. |
 | `.ydq` | — | 50 | Unknown; only in `d_tutorial/`. |
 | `.hmp`, `.efs`, `.dat`, `.png`, `.ehp` | — | small | `.png` is standard PNG; `.ehp` is a nested archive; others unknown. |
 
 ## Open questions
 
-- Which resource each `*ptrs.txt` list belongs to (names suggest `<resource>-ptrs.txt` next to `<resource>`), and whether a port needs the fixups at all once data is converted offline. No fixup entry falls inside an `.ehf` or `.tmf` member (checked on every list on the disc, see `ehf.md`).
+- `*ptrs.txt` lists: in archives with TGM members every non-zero entry is the offset of a whole member, so these are lists of resources (`<anim>-ptrs.txt` groups mesh, animation and texture; `all-ptrs.txt` has one slot per animation), not fixups inside a member; no entry falls inside an `.ehf` or `.tmf` member either (`tgm.md`, `ehf.md`). Confirm for the remaining archives, and decide whether a port needs these lists once data is converted offline.
 - What `0x0881e6a4` does with the screen-size arguments.
 - Which extensions are registered in the runtime handler table, and by whom.
