@@ -46,7 +46,7 @@ Functions in `BOOT.BIN` (base `0x08804000`), all in the `container` group; evide
 | `.tmt` | 453 | `field_3d_bind_tmt` (`0x08830870`); also the target of inflated `.tmt.gz` members. |
 | `.tma` | 126 | `field_3d_bind_tma` (`0x08832378`). |
 | `.tms` | 585 | `field_3d_bind_tms` (`0x0882e524`), with callback `0x08822b44`. |
-| `.ehf` | 1,029 | Looks up the member with the same base name and extension `.tmf`, then `ui_bind_ehf` (`0x0881e56c`) and `0x0881e6a4(480.0, 272.0, 240.0, 136.0, …)`: screen size and centre, so `.ehf` is a 2D layout tied to a `.tmf`. |
+| `.ehf` | 1,029 | Looks up the member with the same base name and extension `.tmf`, then `ui_bind_ehf` (`0x0881e56c`) and `0x0881e6a4(480.0, 272.0, 240.0, 136.0, …)`: screen size and centre, so `.ehf` is a 2D layout tied to a `.tmf` (`docs/formats/ehf.md`). Count over the 531 loose archives. |
 | `.gim` | 10,117 | `field_3d_bind_gim` (`0x08823dc0`). |
 | other | — | A table of handlers registered at runtime by extension (count `0x0892191c`, handlers from `0x08921940`). |
 
@@ -69,10 +69,10 @@ Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `fiel
 
 | Extension | First bytes | Count | Status |
 | --- | --- | --- | --- |
-| `.gim` | `MIG.` | 10,117 | Sony GIM texture; standard format, not yet documented here. |
+| `.gim` | `MIG.` | 12,374 | Sony GIM texture; see `gim.md`. (10,117 of them are in the 531 loose `.ehp` files; an earlier version of this table counted only those.) |
 | `.gz` | `1F 8B` | 8,789 | gzip around `TGMT` (see above). |
 | `.bin` | various | 2,225 | Unknown; several unrelated formats share the extension. |
-| `.ehf` | `EHF` | 1,029 | 2D layout bound together with a `.tmf` of the same name. |
+| `.ehf` | `EHF` | 1,184 | 2D layout (converted Flash timeline) bound together with a `.tmf` of the same name; see `ehf.md`. (1,029 in the loose `.ehp` files, 155 in `field/*.gz`.) |
 | `.tmf`, `.tms`, `.tmt`, `.tma` | `TGM?` for `.tms`/`.tmt`/`.tma` | 1,832 | Unknown layouts; each has its own bind handler. |
 | `.txt` | various | 534 | 425 are `*ptrs.txt` fixup lists; the rest are text, encoding not yet established. |
 | `.ydq` | — | 50 | Unknown; only in `d_tutorial/`. |
@@ -80,6 +80,6 @@ Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `fiel
 
 ## Open questions
 
-- Which resource each `*ptrs.txt` list belongs to (names suggest `<resource>-ptrs.txt` next to `<resource>`), and whether a port needs the fixups at all once data is converted offline.
+- Which resource each `*ptrs.txt` list belongs to (names suggest `<resource>-ptrs.txt` next to `<resource>`), and whether a port needs the fixups at all once data is converted offline. No fixup entry falls inside an `.ehf` or `.tmf` member (checked on every list on the disc, see `ehf.md`).
 - What `0x0881e6a4` does with the screen-size arguments.
 - Which extensions are registered in the runtime handler table, and by whom.
