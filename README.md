@@ -17,9 +17,9 @@ The project is in its **reverse-engineering phase**: the output is knowledge, no
 | Work package | State |
 | --- | --- |
 | 1. Containers and file formats | Disc layout, the boot-time file index, [EHP archives](docs/formats/ehp.md) (byte-exact rebuild of all 629 on the disc) and gzip (Sony's `libdeflt`, statically linked) are done. Leaf formats (`.cip`, `TGM*`, `.ehf`, the sound bank) are open. |
-| 2. Card database | [`cardinfo`](docs/formats/cardinfo.md) is decoded: 3,553 cards with stats, passcodes, names and Huffman-coded descriptions, verified in all five languages. Packs and limits are open. |
+| 2. Card database | [`cardinfo`](docs/formats/cardinfo.md) is decoded: 3,553 cards with stats, passcodes, names and Huffman-coded descriptions, verified in all five languages. The [48 booster packs](docs/formats/packs.md) with their rarity tiers and the [forbidden/limited list](docs/formats/limit-list.md) are decoded. Deck formats are open. |
 | 3. Save data | Not started. |
-| 4. Duel core and card effects | Not started. |
+| 4. Duel core and card effects | First [architectural evidence](docs/subsystems/duel_effects.md): effects look like per-card code in `rel_duel_eng.prx` (2,861 card ids used as constants), not scripts. |
 | 5. Tag-duel specifics | Not started. |
 | 6–9. AI, free-roam world, rendering data, audio | Entry points found while working on packages 1–2. |
 
@@ -32,6 +32,7 @@ All tools are Python 3 with the standard library only, and each has tests on syn
 | [`tools/iso9660.py`](tools/iso9660.py) | List and extract the UMD image. |
 | [`tools/ehp.py`](tools/ehp.py) | List, extract, rebuild and verify EHP archives (`-r` nested, `-z` gunzip). |
 | [`tools/cardinfo.py`](tools/cardinfo.py) | Export the card database to CSV/JSON and check its structure. |
+| [`tools/tables.py`](tools/tables.py) | Export the booster packs (`rel_shop.prx`) and the limit list (`BOOT.BIN`). |
 | [`tools/sym_to_names.py`](tools/sym_to_names.py) | Turn a PPSSPP `.sym` export into Ghidra names. |
 | [`tools/progress.py`](tools/progress.py) | Progress numbers, treemap, badges and history from the registries. |
 | [`tools/ghidra/`](tools/ghidra) | Ghidra scripts to apply names and export the function registry. |

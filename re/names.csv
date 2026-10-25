@@ -40,6 +40,9 @@ address,group,name
 0x088332e4,card_db,card_db_decode_huffman
 0x08833390,card_db,card_db_expand_dictionary
 0x08836ed0,card_db,card_db_get_dictionary_word
+0x08835e70,deck,deck_get_default_limit
+0x08835df4,deck,deck_reset_limits
+0x088566a4,deck,deck_set_limit
 0x088115e4,system,system_strcpy
 0x088113c0,system,system_strcat
 0x0881166c,system,system_strlen

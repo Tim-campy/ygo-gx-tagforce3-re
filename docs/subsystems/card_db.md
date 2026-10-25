@@ -47,6 +47,6 @@ Readers of the other tables, not yet decompiled: `CARD_Sort` `0x08832bac`, `DLG_
 ## Open questions
 
 - See `docs/formats/cardinfo.md` for the open fields.
-- Pack contents (48 themed packs) and deck restrictions are not in `cardinfo`; locate them (candidates: `database/`, `shop/`, the forbidden/limited list).
-- Card effects: no effect data or script references are in `cardinfo`, so effects live elsewhere (WP4).
+- Pack contents and the restriction list are not in `cardinfo`: they are static tables in `gmodule/rel_shop.prx` (`docs/formats/packs.md`) and `BOOT.BIN` (`docs/formats/limit-list.md`).
+- Card effects: no effect data or script references are in `cardinfo`; the evidence points to per-card code in `rel_duel_eng.prx` (`docs/subsystems/duel_effects.md`).
 - `card/*.cip`: card images, format unknown.
