@@ -49,3 +49,8 @@ address,group,name
 0x09cc0bd8,duel_effects,duel_effects_choose_targets_ui
 0x09d9ddfc,ai,ai_choose_targets
 0x09d649ec,ai,ai_decide
+0x09dc94e4,duel_core,duel_core_load_ydq
+0x09dc82cc,duel_core,duel_core_parse_ydq_line
+0x09dc8208,duel_core,duel_core_set_phase
+0x09dc07f8,duel_core,duel_core_push_command
+0x09be184c,duel_core,duel_core_set_turn

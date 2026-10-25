@@ -14,7 +14,6 @@ ehf,EHF 2D layout (converted Flash timeline; paired with .tmf),ui,reimplemented,
 tgm_tms,TGMS mesh (.tms),field_3d,reimplemented,
 tgm_tmt,TGMT node animation (.tmt/.tmt.gz/.vtmt.gz),field_3d,reimplemented,
 tgm_tma,TGMA texture animation (.tma),field_3d,reimplemented,
-ydq,YDQ member format (d_tutorial),duel_core,unknown,
 file_index,In-memory disc file index (16-byte entries),container,documented,
 ptrs_txt,EHP resource pointer list (*ptrs.txt),container,documented,
 cardinfo_ehp,cardinfo_<lang>.ehp card database archive,card_db,documented,
@@ -58,3 +57,6 @@ module_registry_entry,Module registry entry (BOOT.BIN 0x089235b4),system,documen
 scene_table,Scene id to module id table (BOOT.BIN 0x088a1478),system,documented,248
 scene_stack,Scene transition stack (BOOT.BIN 0x0883596c),system,named,144
 scene_slot,ehscript scene slot state (BOOT.BIN 0x08920be4),system,documented,100
+ydq,Tutorial duel setup (.ydq; Shift-JIS INI text),duel_core,documented,
+tuto_cmd,Duel-tutorial script (tuto_cmd_NN.bin),duel_core,documented,
+tuto_text,Duel-tutorial text table (tuto_text_<l>.bin),duel_core,documented,
