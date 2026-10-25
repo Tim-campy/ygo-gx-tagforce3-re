@@ -33,7 +33,7 @@ def synthetic():
 class SaveTest(unittest.TestCase):
     def test_decks(self):
         slots = list(save.decks(synthetic()))
-        self.assertEqual(len(slots), 147)
+        self.assertEqual(len(slots), 127)
         self.assertEqual(slots[1], {"slot": 1, "owner": 2, "recipe": 1, "name": "Test",
                                     "main": [0xE88, 0xE88, 0xE89], "side": [0xE8A], "extra": [0xE8B]})
         self.assertEqual(slots[0]["main"], [])

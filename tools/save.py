@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Read a plaintext DATA0 save (PPSSPP with save encryption off). See docs/formats/save.md.
 
-  save.py decks      DATA0 [--cardinfo cardinfo_eng.ehp]    deck records (147 slots)
+  save.py decks      DATA0 [--cardinfo cardinfo_eng.ehp]    deck records (127 slots)
   save.py collection DATA0                                   per-card copies, flags and limit status
   save.py DATA0 --check                                      structural checks
 
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 SAVE_SIZE = 0x20000
-DECK_BASE, DECK_SIZE, DECK_COUNT = 0x4A30, 0x16C, 147
+DECK_BASE, DECK_SIZE, DECK_COUNT = 0x48C4, 0x16C, 127
 NAME = slice(0x10, 0x50)  # UTF-16, NUL-terminated; the rest of the field holds stale bytes
 COUNTS = 0x50  # u32 main, side, extra
 LISTS = (("main", 0x5C, 60), ("side", 0xD4, 15), ("extra", 0xF2, 15))

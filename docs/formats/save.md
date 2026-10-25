@@ -111,7 +111,6 @@ The game keeps the state that `DATA0` copies in memory and reaches it only throu
 
 ## Open questions
 
-- `tools/save.py` still reads 147 slots from `0x4a30`; by the code there are 127 slots from `0x48c4` (its slots 0–125 are the game's slots 1–126 and its last 21 overlap the player data). Fix the tool and its test against a real save.
 - What the pack record state and its 20 entries hold, the meaning of the unknown collection and option bits, and the counters at `0xfdfc` and `0x16602`.
 - The unmapped regions (after the pack records, up to `0x1c0ec`): story progress, duel records, unlocks and DP. A second save that differs by one known action (for example buying one pack, with the DP before and after) will locate DP and confirm collection updates.
 - Whether the game rejects a save whose OpenPSID at `0x10` differs from the console's.
