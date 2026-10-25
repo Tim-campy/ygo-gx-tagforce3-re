@@ -18,7 +18,7 @@ The project is in its **reverse-engineering phase**: the output is knowledge, no
 | --- | --- |
 | 1. Containers and file formats | Disc layout, the boot-time file index, [EHP archives](docs/formats/ehp.md) (byte-exact rebuild of all 629 on the disc), gzip (Sony's `libdeflt`, statically linked), the [`.cip` card images](docs/formats/cip.md) including the 512×512 JPEG art, the [sound banks](docs/formats/sound.md) (728 banks, 18,608 clips) and the [story text and event bytecode](docs/formats/story.md) are done. `TGM*` models and `.ehf` layouts are open. |
 | 2. Card database | [`cardinfo`](docs/formats/cardinfo.md) is decoded: 3,553 cards with stats and all enumerations, passcodes, names and Huffman-coded descriptions, verified in all five languages. The [48 booster packs](docs/formats/packs.md), the [forbidden/limited list](docs/formats/limit-list.md) and the [661 opponent decks](docs/formats/deck.md) (byte-exact rebuild) are decoded. |
-| 3. Save data | Not started. |
+| 3. Save data | [`DATA0`](docs/formats/save.md) is a raw 128 KiB copy of game state: the deck slots (the player's and one per partner character) and the card collection with per-card copies and forbidden/limited status are mapped; story progress, characters and DP are open. |
 | 4. Duel core and card effects | The [effect architecture](docs/subsystems/duel_effects.md) is established: native handlers in `rel_duel_eng.prx`, found through id-sorted [handler tables](docs/formats/effect-tables.md) whose slots are resolution (`+04`), target filter (`+08`) and activation condition (`+0c`); handlers implement effect families and per-card numbers live in card-id compare chains; no script interpreter. The [field layout](docs/subsystems/duel_core.md) is partly known. |
 | 5. Tag-duel specifics | Not started. |
 | 6–9. AI, free-roam world, rendering data, audio | Entry points found while working on packages 1–2. |
@@ -35,6 +35,7 @@ All tools are Python 3 with the standard library only, and each has tests on syn
 | [`tools/tables.py`](tools/tables.py) | Export the booster packs (`rel_shop.prx`) and the limit list (`BOOT.BIN`). |
 | [`tools/decks.py`](tools/decks.py) | Export the opponent deck recipes, alternative-artwork tables and tutorial scripts. |
 | [`tools/cip.py`](tools/cip.py) | List the card image containers, decode images to PNG and unmask the 512×512 JPEG card art (`jpeg`). |
+| [`tools/save.py`](tools/save.py) | Read a plaintext `DATA0` save: deck slots, card collection, checks. |
 | [`tools/sound.py`](tools/sound.py) | List and check the sound banks; export a clip (ATRAC3/ATRAC3plus as stored, PS-ADPCM to WAV). |
 | [`tools/story.py`](tools/story.py) | Export the story text and check the event bytecode and its text references. |
 | [`tools/sym_to_names.py`](tools/sym_to_names.py) | Turn a PPSSPP `.sym` export into Ghidra names. |
