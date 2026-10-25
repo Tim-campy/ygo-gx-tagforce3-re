@@ -94,12 +94,18 @@ The phase menu (`duel_core_show_phase_menu`, `0x09dc78cc`) is only shown to a hu
 | --- | --- | --- |
 | 0 | `duel_core_battle_step_start` (`0x09dd229c`) | Posts command 13 (enter Battle Phase). Cards `0x16a1`/`0x1502` cancel the Battle Phase: index 12, skip Main 2. (H) |
 | 1 | `duel_core_battle_step_select_attack` (`0x09dd23fc`) | Posts command `0x14`; sets the attacking side `0x09e28620`; CPU: `0x09d9ec64`; human: `begin_player_input(side, 3)`. Chooses the attacker slot `0x09e2863c`, or leaves the Battle Phase: index 11 with `0x09e2d228` = 0 (to Main 2, menu `0x11` / CPU 4) or 1 (to End, menu `0x12` / CPU 5). (H for the exits, M for the attack path) |
-| 2 | `0x09dd2a6c` | Attack declaration: commands `0x18`/`0x19` with the attacker slot; can return to 1. (M) |
-| 3–9 | `0x09dd3574`, `0x09dd3bd4`, `0x09dd4530`, `0x09dd5454`, `0x09dd7528`, `0x09dd7ae4`, `0x09dd82b4` | Damage-step sequence: timing events `0x13`, `0x14`, `0x0d`, `0x0e`; command `0x20` (both monsters), `0x15` (damage). Steps 4 and 5 can jump to 10. (M, roles of individual steps not established) |
-| 10 | `0x09dd889c` | After the attack: returns to step 1, 2 or 3 for further attacks, or to 11. (M) |
+| 2 | `duel_core_battle_step_declare_attack` (`0x09dd2a6c`) | Target choice and attack declaration: command `0x17` (monster) or `0x18` (direct). (H) |
+| 3 | `duel_core_battle_step_attack_costs` (`0x09dd3574`) | Declaration costs (Toll, Dark Elf, Jirai Gumo, …) and the replay check. (H) |
+| 4 | `duel_core_battle_step_attack_declared` (`0x09dd3bd4`) | Attack-declared window, timing event `0x13`; forced negations post command `0x1f`. (H) |
+| 5 | `duel_core_battle_step_damage_start` (`0x09dd4530`) | Start of the Damage Step, timing event `0x14`; face-down target flipped; ends the attack (index 10) if attacker or target changed. (H) |
+| 6 | `duel_core_battle_step_damage_calc` (`0x09dd5454`) | Damage calculation: timing `0x0d`, ATK/DEF comparison, commands `0x15`, `0x16`, `0x20`. (H) |
+| 7 | `duel_core_battle_step_inflict_damage` (`0x09dd7528`) | Timing `0x0e`, battle damage applied (command `0x24`), timing `0x0f`. (H) |
+| 8 | `duel_core_battle_step_after_damage_calc` (`0x09dd7ae4`) | "After damage calculation" triggers (not for direct attacks). (M) |
+| 9 | `duel_core_battle_step_damage_end` (`0x09dd82b4`) | End of the Damage Step: monsters destroyed by battle are sent to the Graveyard. (M) |
+| 10 | `duel_core_battle_step_attack_end` (`0x09dd889c`) | End of the attack: back to step 1, a second attack (2/3), or leave (11). (H) |
 | 11 | `duel_core_battle_step_end` (`0x09ddaa20`) | Posts command `0x1d`, raises timing event `0x17` (end of Battle Phase), runs the 31 `(function, argument)` checks at `0x09e00f5c` twice; cards `0x1ca1` and `0x11ed` restart the Battle Phase at index 0 (an extra Battle Phase). (H) |
 
-`0x09ddac64` (called from the pending-work function `0x09c0e8b8`) enters the same table at index 5 and runs it while the index is at most 7: a battle started by an effect skips the declaration steps (hypothesis, medium).
+`duel_core_run_effect_battle` (`0x09ddac64`, called from the pending-work function `0x09c0e8b8`) enters the same table at index 5 and runs it while the index is at most 7: a battle started by an effect skips the declaration steps and steps 8–10 (medium). Every step is described in detail in `battle.md`.
 
 ## Phase-changing commands
 
@@ -124,7 +130,7 @@ Turn-related commands:
 
 ## Timing events
 
-`duel_core_raise_timing_event(code, arg)` (`0x09ccaae4`, 41 callers) records a timing for trigger-effect checks: the first code goes to byte `0x09e28fa0` with its argument at `0x09e28fc0`, further ones while `0x09e28f90` is set are appended (up to 32). In a link duel it is forwarded to the peer (`0x09dcc884(7, …)`). Codes raised by the turn machine: 1 Draw Phase, 2 Standby Phase, 3 Main → Battle, 4 Main → End, 5 End Phase, `0x13`, `0x14`, `0x0d`, `0x0e` damage-step points, `0x17` end of the Battle Phase, `0x25` Standby upkeep. Confidence: medium (the queue mechanics are read; the consumer was not).
+`duel_core_raise_timing_event(code, arg)` (`0x09ccaae4`, 41 callers) records a timing for trigger-effect checks: the first code goes to byte `0x09e28fa0` with its argument at `0x09e28fc0`, further ones while `0x09e28f90` is set are appended (up to 32). In a link duel it is forwarded to the peer (`0x09dcc884(7, …)`). Codes raised by the turn machine: 1 Draw Phase, 2 Standby Phase, 3 Main → Battle, 4 Main → End, 5 End Phase, `0x13` attack declared, `0x14` start of the Damage Step, `0x0d` damage calculation, `0x0e`/`0x0f` battle damage, `0x10` effect damage, `0x11` LP gain, `0x17` end of the Battle Phase, `0x25` Standby upkeep. The queue is consumed by `duel_core_run_timing_windows` (`0x09ccc494`), which offers response windows to both players, and by activation conditions that scan it; see `battle.md`. Confidence: high.
 
 ## How effects test the phase
 
@@ -181,7 +187,7 @@ So the phase is not passed to the handlers; there is no per-phase handler slot. 
 
 ## Open questions
 
-- The individual roles of Battle steps 2–10 (attack declaration, replay, damage-step sub-steps, damage calculation) and of timing events `0x0d`, `0x0e`, `0x13`, `0x14`; which consumer reads the timing-event queue.
+- Battle steps 2–10, timing events `0x0d`–`0x14` and the timing-queue consumer are now documented in `battle.md`; the remaining battle questions are listed there.
 - Whether the first player's draw on turn 0 is skipped (not seen in `duel_core_step_draw_phase`; the skip conditions there are card- and flag-based). Confirm in PPSSPP.
 - The meaning of player-block flag `+0x120` bit 23 (skips Draw and Main steps; hypothesis: "skip this turn") and bit 0 (skips the draw).
 - `0x09dd0b88`: condition for ending the Main/Battle Phase (checks cards `0x16a1`, `0x1502`, `0x15ff`); not named.
