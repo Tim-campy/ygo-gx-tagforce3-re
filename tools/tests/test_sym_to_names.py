@@ -29,6 +29,7 @@ garbage line
 class SymToNamesTest(unittest.TestCase):
     def test_classify(self):
         self.assertIsNone(sym.classify("z_un_08804000"))
+        self.assertIsNone(sym.classify("zz_[UNK: 0xb4471b5e]"))
         self.assertEqual(sym.classify("zz_sceIoRead"), ("sdk", "sceIoRead"))
         self.assertEqual(sym.classify("sceGuFog"), ("sdk", "sceGuFog"))
         self.assertEqual(sym.classify("_sceGuUpdateStallAddr"), ("sdk", "_sceGuUpdateStallAddr"))

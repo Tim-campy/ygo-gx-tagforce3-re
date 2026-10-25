@@ -20,13 +20,15 @@ from pathlib import Path
 
 LINE = re.compile(r"^([0-9A-Fa-f]{8}) (.+),([0-9A-Fa-f]+)\s*$")
 UNNAMED = re.compile(r"^z_un_[0-9a-fA-F]+$")
+# Imports PPSSPP cannot name, e.g. a module's imports from the game's own BOOT.BIN library.
+UNKNOWN_NID = re.compile(r"^zz_\[UNK: 0x[0-9a-fA-F]+\]$")
 SDK = re.compile(r"^(?:_?sce|dl_write_)")
 VFPU = re.compile(r"^(?:v[a-z0-9]+_[pqts]|vector_\w+|matrix\w*)$")
 
 
 def classify(name):
     """Return (group, name) for a PPSSPP symbol, or None for an unnamed one."""
-    if UNNAMED.match(name):
+    if UNNAMED.match(name) or UNKNOWN_NID.match(name):
         return None
     if name.startswith("zz_"):
         return "sdk", name[3:]

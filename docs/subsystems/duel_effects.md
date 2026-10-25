@@ -1,26 +1,44 @@
 # Card effects (work package 4)
 
-Not started. This file records the first architectural evidence, before any function-level work, as CLAUDE.md asks.
+## Architecture
 
-## Effect architecture: first evidence
+**Card effects are native code in the duel-engine module `gmodule/rel_duel_eng.prx`, reached through per-card handler tables and, for the rest, through card-id compare chains. There is no script interpreter.** Confidence: high for the table mechanism, medium for "no other mechanism".
 
-**Hypothesis (medium-high): card effects are implemented as code in the duel-engine module `gmodule/rel_duel_eng.prx`, selected by comparing card ids, not as data tables or scripts.**
+1. **Handler tables.** Four tables of 24-byte records `(card id, five handler addresses)`, sorted by id, are searched by `duel_effects_find_record`; small wrappers call one handler slot each. Layout, lookup and the selector rules are in `docs/formats/effect-tables.md`. 2,233 of the 2,940 cards with effects have at least one record.
+2. **Compare chains.** 1,379 functions in the module compare a card id with constants (17,223 instructions). The largest have hundreds of distinct ids and no jump tables, so they are `if (id == A || id == B …)` chains: card-group predicates and per-card exceptions (for example `duel_effects_select_record_variant`). 571 functions test exactly one id; 358 of them have no direct caller, i.e. they are handlers reached through the tables.
 
-Basis: counting MIPS instructions that load a card id as an immediate (`addiu rt, $zero, id` or `ori rt, $zero, id`, with `id` an existing card id):
+Evidence for the overall picture: the module loads a card id as an immediate 19,597 times (2,861 distinct ids), and normal monsters, which have no effect, almost never appear (82 ids). `BOOT.BIN` has 1,996 such instructions (840 ids), not yet classified.
 
-| Module | Instructions | Distinct card ids | Of which normal monsters |
+## Loading the module in Ghidra
+
+`rel_duel_eng.prx` is relocatable. It is imported into `ghidra/TF3.gpr` with the ghidra-allegrex loader at image base `09be1400`, the address it had when the PPSSPP symbol export (`ghidra/symbols.sym`) was taken. The base was found by matching Ghidra's function offsets and sizes against the export: 1,767 functions agree at `0x09be1400`, against at most 3 for any other base. A different load order could move the module; re-check the base with any new export.
+
+```
+analyzeHeadless ghidra TF3 -import extracted/umd/PSP_GAME/USRDIR/gmodule/rel_duel_eng.prx -loader-imagebase 09be1400
+python3 -I tools/sym_to_names.py ghidra/symbols.sym --range 09be1400-09deb598 --create-unnamed > re/names-ppsspp-duel_eng.csv
+```
+
+Then `ApplyNames.java` with `re/names-ppsspp-duel_eng.csv` and `re/names-duel_eng.csv`, and `ExportFunctions.java`; the module's functions are appended to `re/functions.csv` (7,208 functions; their addresses do not overlap `BOOT.BIN`).
+
+Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `0x09de415c`–`0x09de71fb` (1,556 import stubs from a single library, presumably `BOOT.BIN`'s exports, which PPSSPP cannot name), `.data` `0x09deb598`–`0x09e01e0f`.
+
+## Key functions
+
+| Address | Name | Conf. | Evidence |
 | --- | --- | --- | --- |
-| `rel_duel_eng.prx` | 19,597 | 2,861 | 82 |
-| `BOOT.BIN` | 1,996 | 840 | 47 |
-| `rel_title.prx` | 103 | 5 | 1 |
-| ten other modules | 21–66 each | 3–40 each | — |
+| `0x09ce2e54` | `duel_effects_find_record(card, …) → record` | H | Table choice from the selector, binary search on the id with a 6-word stride, walk back to the first duplicate, add the variant index. 18 callers. |
+| `0x09ce28ec` | `duel_effects_select_record_variant(card) → index` | M | Called only by the lookup; a chain of per-card-id rules returning a variant index. |
+| `0x09ce30a4`, `0x09ce3174` | `duel_effects_call_handler_08`, `…_08_b` | M | Call slot `+08` with `(card, player, index)` unless the card's state bit 3 is set; separate recursion counters. 25 and 158 callers. |
+| `0x09ce3048`, `0x09ce3c30` | `duel_effects_call_handler_0c`, `…_0c_b` | M | Call slot `+0c` with two arguments; return 1 when there is no handler. |
+| `0x09ce3da0` | `duel_effects_call_handler_10` | M | Calls slot `+10`. |
+| `0x09ce3e24` | `duel_effects_call_handler_14` | M | Calls slot `+14`. |
+| `0x09ce2ff0` | `duel_effects_has_table3_record(id)` | M | Builds a temporary card with selector 3 and returns whether a record exists. |
+| `0x09ce27c4` | `duel_effects_check_rule_list()` | M | Calls 112 `(function, argument)` pairs at `0x09dedaf8` and returns 1 if any returns non-zero. |
 
-2,797 of the 2,940 cards that are not normal monsters (that is, cards with effects) appear as an immediate somewhere, almost all in `rel_duel_eng.prx`; normal monsters, which have no effect, almost never do. A random 16-bit value hits a valid id with about 5% probability, so these counts are not noise. A sample at file offset `0x1100a0` shows the pattern `li v0, <id>; beq s1, v0, <target>` repeated for Monster Reborn, Mirror Force, Pot of Greed, Harpie's Feather Duster and others, which is a compare chain on a card id held in `s1`.
+## Open questions
 
-What this does not settle: part of the comparisons may belong to the AI (which also needs per-card knowledge) rather than to effect resolution; whether the module dispatches through jump tables, handler tables or compare chains; and whether a generic layer (shared effect primitives) sits underneath.
-
-## Next steps
-
-1. Import `rel_duel_eng.prx` into the Ghidra project with the ghidra-allegrex loader at its runtime address (from the PPSSPP symbol export, which lists functions in the module ranges loaded at the time).
-2. Classify the functions that contain card-id immediates: compare chains vs. table lookups, and AI vs. resolution.
-3. Document the dispatch mechanism before any individual effect.
+- What each handler slot and each of the four tables means; which wrapper serves which duel phase.
+- The card structure (`card + 0` id, `+2`, `+3` selector bits, `+0x15`): this is WP4's central data structure and should be typed in Ghidra next.
+- The per-player, per-slot state at `0x09e2a56c` (`player × 0xb3c + index × 0x14`): presumably the field/zone state.
+- Resolve the 1,556 imports against `BOOT.BIN`'s export table (`.lib.ent`, `.rodata.sceResident`) to name them.
+- Classify the `BOOT.BIN` compare chains (AI? deck rules?).

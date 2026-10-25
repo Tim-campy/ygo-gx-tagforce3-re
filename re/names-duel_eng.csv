@@ -1,0 +1,13 @@
+# Names applied to gmodule/rel_duel_eng.prx (runtime base 0x09be1400) with tools/ghidra/ApplyNames.java.
+# Evidence and confidence for each name live in docs/subsystems/duel_effects.md.
+address,group,name
+0x09ce2e54,duel_effects,duel_effects_find_record
+0x09ce28ec,duel_effects,duel_effects_select_record_variant
+0x09ce27c4,duel_effects,duel_effects_check_rule_list
+0x09ce2ff0,duel_effects,duel_effects_has_table3_record
+0x09ce3048,duel_effects,duel_effects_call_handler_0c
+0x09ce3c30,duel_effects,duel_effects_call_handler_0c_b
+0x09ce30a4,duel_effects,duel_effects_call_handler_08
+0x09ce3174,duel_effects,duel_effects_call_handler_08_b
+0x09ce3da0,duel_effects,duel_effects_call_handler_10
+0x09ce3e24,duel_effects,duel_effects_call_handler_14
