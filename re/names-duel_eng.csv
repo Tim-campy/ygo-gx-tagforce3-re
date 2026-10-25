@@ -9,7 +9,6 @@ address,group,name
 0x09ce3c30,duel_effects,duel_effects_call_handler_0c_b
 0x09ce30a4,duel_effects,duel_effects_call_handler_08
 0x09ce3174,duel_effects,duel_effects_call_handler_08_b
-0x09ce3da0,duel_effects,duel_effects_call_handler_10
 0x09ce3e24,duel_effects,duel_effects_call_handler_14
 0x09ce3f0c,duel_effects,duel_effects_resolve
 0x09c78270,duel_effects,duel_effects_resolve_draw
@@ -23,3 +22,12 @@ address,group,name
 0x09c32fb8,duel_effects,duel_effects_target_filter
 0x09cc0cdc,duel_effects,duel_effects_choose_targets
 0x09ce28e4,duel_effects,duel_effects_cond_return_2
+0x09dc7cb0,duel_core,duel_core_reset
+0x09dc8088,duel_core,duel_core_start_mode2
+0x09dc8148,duel_core,duel_core_start_mode3
+0x09dc7fcc,duel_core,duel_core_start_plain
+0x09dc7ff4,tag_duel,tag_duel_start_with_partner_decks
+0x09dbc184,duel_core,duel_core_next_turn
+0x09bf21e4,tag_duel,tag_duel_swap_active_duelist
+0x09bf1f74,duel_core,duel_core_load_deck
+0x09ce3da0,duel_effects,duel_effects_check_optional

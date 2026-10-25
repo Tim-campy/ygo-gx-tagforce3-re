@@ -3176,8 +3176,8 @@ id,name,group,status,size
 0x09bf1b30,FUN_09bf1b30,,,172
 0x09bf1bdc,FUN_09bf1bdc,,,180
 0x09bf1c90,FUN_09bf1c90,,,740
-0x09bf1f74,FUN_09bf1f74,,,624
-0x09bf21e4,FUN_09bf21e4,,,996
+0x09bf1f74,duel_core_load_deck,duel_core,,624
+0x09bf21e4,tag_duel_swap_active_duelist,tag_duel,,996
 0x09bf25c8,FUN_09bf25c8,,,56
 0x09bf2600,FUN_09bf2600,,,104
 0x09bf2668,FUN_09bf2668,,,144
@@ -6573,7 +6573,7 @@ id,name,group,status,size
 0x09ce3a6c,FUN_09ce3a6c,,,208
 0x09ce3b3c,FUN_09ce3b3c,,,244
 0x09ce3c30,duel_effects_call_handler_0c_b,duel_effects,,368
-0x09ce3da0,duel_effects_call_handler_10,duel_effects,,92
+0x09ce3da0,duel_effects_check_optional,duel_effects,,92
 0x09ce3dfc,FUN_09ce3dfc,,,40
 0x09ce3e24,duel_effects_call_handler_14,duel_effects,,92
 0x09ce3e80,FUN_09ce3e80,,,40
@@ -8222,7 +8222,7 @@ id,name,group,status,size
 0x09dbbe48,FUN_09dbbe48,,,136
 0x09dbbed0,FUN_09dbbed0,,,104
 0x09dbbf38,FUN_09dbbf38,,,588
-0x09dbc184,FUN_09dbc184,,,528
+0x09dbc184,duel_core_next_turn,duel_core,,528
 0x09dbc394,FUN_09dbc394,,,228
 0x09dbc478,FUN_09dbc478,,,8
 0x09dbc480,FUN_09dbc480,,,8
@@ -8319,12 +8319,12 @@ id,name,group,status,size
 0x09dc7c28,FUN_09dc7c28,,,64
 0x09dc7c68,FUN_09dc7c68,,,64
 0x09dc7ca8,FUN_09dc7ca8,,,8
-0x09dc7cb0,FUN_09dc7cb0,,,276
+0x09dc7cb0,duel_core_reset,duel_core,,276
 0x09dc7dc4,FUN_09dc7dc4,,,520
-0x09dc7fcc,FUN_09dc7fcc,,,40
-0x09dc7ff4,FUN_09dc7ff4,,,148
-0x09dc8088,FUN_09dc8088,,,192
-0x09dc8148,FUN_09dc8148,,,192
+0x09dc7fcc,duel_core_start_plain,duel_core,,40
+0x09dc7ff4,tag_duel_start_with_partner_decks,tag_duel,,148
+0x09dc8088,duel_core_start_mode2,duel_core,,192
+0x09dc8148,duel_core_start_mode3,duel_core,,192
 0x09dc8208,FUN_09dc8208,,,196
 0x09dc82cc,FUN_09dc82cc,,,4632
 0x09dc94e4,FUN_09dc94e4,,,1604

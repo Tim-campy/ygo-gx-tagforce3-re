@@ -42,7 +42,7 @@ Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `
 | `0x09ce28ec` | `duel_effects_select_record_variant(card) → index` | M | Called only by the lookup; a chain of per-card-id rules returning a variant index. |
 | `0x09ce30a4`, `0x09ce3174` | `duel_effects_call_handler_08`, `…_08_b` | M | Call slot `+08` with `(card, player, index)` unless the card's state bit 3 is set; separate recursion counters. 25 and 158 callers. |
 | `0x09ce3048`, `0x09ce3c30` | `duel_effects_call_handler_0c`, `…_0c_b` | M | Call slot `+0c` with two arguments; return 1 when there is no handler. |
-| `0x09ce3da0` | `duel_effects_call_handler_10` | M | Calls slot `+10`. |
+| `0x09ce3da0` | `duel_effects_check_optional` | M | Calls slot `+10`; returns 1 without a handler. |
 | `0x09ce3e24` | `duel_effects_call_handler_14` | M | Calls slot `+14`. |
 | `0x09ce2ff0` | `duel_effects_has_table3_record(id)` | M | Builds a temporary card with selector 3 and returns whether a record exists. |
 | `0x09ce27c4` | `duel_effects_check_rule_list()` | M | Calls 112 `(function, argument)` pairs at `0x09dedaf8` and returns 1 if any returns non-zero. |

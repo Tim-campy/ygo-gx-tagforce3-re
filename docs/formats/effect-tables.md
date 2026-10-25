@@ -10,7 +10,7 @@ Status: `documented` (layout, lookup and dispatch); the meaning of the five hand
 | `0x04` | 4 | Handler slot `+04`: **resolution** (the effect itself). Called by `duel_effects_resolve` with `(ctx, arg)`. Example: Pot of Greed's handler draws the card's draw count. Confidence high. |
 | `0x08` | 4 | Handler slot `+08`: **target filter**, "is field slot `index` of `player` a valid target for this card". Called with `(ctx, player, index)` through five wrappers that have about 280 calling functions between them; skipped when the slot's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". 272 cards use an 8-byte stub `j duel_effects_target_filter; li a3, FLAGS` that passes card-specific filter bits (see below); the others have their own function. Confidence high. |
 | `0x0c` | 4 | Handler slot `+0c`: **activation condition**. Called with two arguments; a missing record or handler means "allowed" (returns 1). Examples: Pot of Greed's handler checks that the deck holds enough cards; Mirror Force's checks that the opponent is attacking. Confidence high. |
-| `0x10` | 4 | Handler slot `+10`. Called with two arguments. Role unknown. |
+| `0x10` | 4 | Handler slot `+10`: presumably **"can the optional effect be used"**. Called by `duel_effects_check_optional` with two arguments (1 when there is no handler). Mystic Tomato's handler (shared by 16 cards) returns −1 unless per-card checks pass (for example that the deck holds a suitable card), then continues in `0x09c431ac`; table membership correlates with "you can" (×3.3) and "deck" (×2.7). Confidence medium-low. |
 | `0x14` | 4 | Handler slot `+14`. Called with two arguments. The most shared handler (315 cards, `0x09cc0cdc`) branches on the player type at `0x09e02998[player]` (1 → `0x09d9ddfc(ctx, arg, card id)`, else `0x09cc0bd8`), which suggests target or option choice with an AI path and an interactive path (hypothesis, medium). |
 
 In slot `+0c`, the handler shared by 149 cards (`0x09ce28e4`) returns 2, so activation conditions return more than a boolean; 2 plausibly means a mandatory or automatic activation, as for flip effects (hypothesis, low).
@@ -56,7 +56,7 @@ The selector is bits 4–5 of byte `+3` of the card structure passed in; "field 
 4. adds the variant index from `duel_effects_select_record_variant` (`0x09ce28ec`), a chain of per-card rules (for example, card `0x1eea` uses `u16 card[6] − 1`; card `0x1da5` picks variant 1 or 2 from the same `>> 6` field);
 5. returns the record, or 0.
 
-Wrappers then call one slot each: `duel_effects_call_handler_08` / `_08_b` (`0x09ce30a4`, `0x09ce3174`; 25 and 158 callers, each with its own recursion counter at `0x09e28f80` / `0x09e28f7c`), `duel_effects_call_handler_0c` / `_0c_b` (`0x09ce3048`, `0x09ce3c30`), `duel_effects_call_handler_10` (`0x09ce3da0`), `duel_effects_call_handler_14` (`0x09ce3e24`); `duel_effects_has_table3_record` (`0x09ce2ff0`) only tests whether an M3 record exists. Eighteen functions call the lookup; the slot used by the other eight is not yet established.
+Wrappers then call one slot each: `duel_effects_call_handler_08` / `_08_b` (`0x09ce30a4`, `0x09ce3174`; 25 and 158 callers, each with its own recursion counter at `0x09e28f80` / `0x09e28f7c`), `duel_effects_call_handler_0c` / `_0c_b` (`0x09ce3048`, `0x09ce3c30`), `duel_effects_check_optional` (`0x09ce3da0`), `duel_effects_call_handler_14` (`0x09ce3e24`); `duel_effects_has_table3_record` (`0x09ce2ff0`) only tests whether an M3 record exists. Eighteen functions call the lookup; the slot used by the other eight is not yet established.
 
 ## 8-byte lists
 
@@ -92,7 +92,7 @@ Handlers are widely shared: for example, Pot of Greed's slot `+04` handler serve
 
 ## Open questions
 
-- Role of slot `+10`; confirm `+14`; decode the remaining target-filter bits and extract every card's filter constant into a table for the port.
+- Confirm slots `+10` and `+14`; decode the remaining target-filter bits and extract every card's filter constant into a table for the port.
 - The card-structure fields behind the selector and the `0x24` test.
 - The cards with effects and no record in any table: handled by compare chains (1,379 functions in the module test card ids directly)?
 - `duel_effects_check_rule_list` (`0x09ce27c4`) walks 112 `(function, argument)` pairs at `0x09dedaf8`; what these global rules are.
