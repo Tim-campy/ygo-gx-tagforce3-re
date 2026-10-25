@@ -48,9 +48,23 @@ Two per-player blocks of `0xb3c` bytes; player `p` (0 or 1) starts at about `0x0
 
 `0x09e2bbcc` is a table of 6-byte entries indexed by the `u16` card references stored in hand, deck and field lists; its low 14 bits are the card id.
 
+## The chain
+
+Activated effects are pushed on a chain stack of 24-byte links; the link on top is the `ctx` that effect handlers receive (`duel_effects.md`).
+
+| Address | Meaning |
+| --- | --- |
+| `0x09e28cb4 + (n − 1) × 0x18` | Chain link `n` (1-based); the link below is at `− 0x18`. |
+| `0x09e28e34` | Number of links. |
+| `0x09e28e38` | Index walked downwards while resolving. |
+| `0x09e28f5c` | State of the resolution state machine (`0x66`, `0x67` among its values). |
+
+Link layout (also the effect context): `u16 +0` card id; `u16 +2`: bit 0 the controlling side, bits 1–5 the field slot index (only values below 11 are field slots), bits 6–11 the event code (`0x12` when an attack is declared, `0x24` selects the spell/trap table in `duel_effects_find_record`); byte `+3` bits 4–5 the handler-table selector; further fields not mapped. Confidence: medium-high (the resolver decodes `+2` into side and slot and indexes the player block with them).
+
+`duel_core_chain_step` (`0x09c2f1fc`, 14,148 bytes; callers `0x09c32dac`, `0x09c32e54`) advances that state machine: in state `0x67` it runs `duel_effects_check_rule_list`; in state `0x66` it walks the links from the top down, checks that each link's slot still holds the card, and calls the per-slot handling (`0x09c26e38`); later states handle card `0x190a`, which reacts to chains, among others.
+
 ## Open questions
 
 - The rest of the player structure (graveyard, banished cards; confirm Life Points at `+0x00`) and the per-slot card state.
-- What phase values mean (7 at the start of a turn).
-- Phases and the chain: where the turn loop and chain resolution live, and which code calls `duel_effects_resolve`.
-- The meaning of the 6-bit event code in the effect context.
+- What phase values mean (7 at the start of a turn), and the states of `duel_core_chain_step`.
+- The remaining event codes in chain links.

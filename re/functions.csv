@@ -3730,7 +3730,7 @@ id,name,group,status,size
 0x09c2dc2c,FUN_09c2dc2c,,,400
 0x09c2ddbc,FUN_09c2ddbc,,,1132
 0x09c2e244,FUN_09c2e244,,,3920
-0x09c2f1fc,FUN_09c2f1fc,,,14148
+0x09c2f1fc,duel_core_chain_step,duel_core,,14148
 0x09c329e8,FUN_09c329e8,,,628
 0x09c32c5c,FUN_09c32c5c,,,336
 0x09c32dac,FUN_09c32dac,,,168

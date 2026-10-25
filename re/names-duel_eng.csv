@@ -45,3 +45,4 @@ address,group,name
 0x09c42310,duel_effects,duel_effects_get_counter_cost
 0x09de2310,duel_effects,duel_effects_get_standby_lp_cost
 0x09bf4774,duel_effects,duel_effects_get_affected_players
+0x09c2f1fc,duel_core,duel_core_chain_step
