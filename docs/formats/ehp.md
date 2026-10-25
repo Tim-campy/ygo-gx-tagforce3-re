@@ -36,7 +36,7 @@ There is no compression inside the EHP format itself. Compressed data appears as
 | `.gz` members inside `duel/*.ehp` | 8,789 | `0x00` (no file name) | Always a `TGMT` file. |
 | Loose `field/*.gz` files | 78 | `0x08` (`FNAME` set; it equals the file name without `.gz`) | Always an EHP archive. |
 
-Every stream decompresses with a valid CRC-32 and an `ISIZE` that matches the output length; the mean ratio is 0.51. Recompressing byte-identically was not attempted (it depends on the deflate encoder and level and is not needed for extraction).
+Every stream decompresses with a valid CRC-32 and an `ISIZE` that matches the output length; the mean ratio is 0.51. The game inflates them with a statically linked copy of Sony's `libdeflt` (`docs/subsystems/sdk.md`). Recompressing byte-identically was not attempted (it depends on the deflate encoder and level and is not needed for extraction).
 
 ## Member types seen
 

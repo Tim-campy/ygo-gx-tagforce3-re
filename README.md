@@ -44,4 +44,5 @@ All offsets and addresses in `docs/` refer to this dump unless stated otherwise.
 
   The language id is `Allegrex:LE:32:default`. Rebuild after every Ghidra upgrade.
 - **REA** (`rea-agents`) connects the agent to Ghidra; `npx rea-agents setup` registers it.
-- **PPSSPP** portable in `external/ppsspp/`; run the game only there.
+- **PPSSPP** portable in `external/ppsspp/`; run the game only there. Its Debug menu exports a `.sym` symbol file (keep it in `ghidra/`), which `tools/sym_to_names.py` turns into Ghidra names; the full sequence is in `docs/subsystems/container.md`.
+- Headless Ghidra refuses paths with a `.`-prefixed element, so copy `tools/ghidra/*.java` and the CSV inputs to a plain directory (for example `%TEMP%\ygo_scripts`) before running them from a worktree under `.claude/`.
