@@ -115,6 +115,27 @@ Scene transitions use a scene id, not a module id. The scene table at `0x088a147
 | `0x0883dd4c` | `system_scene_get_caller(scene)` | M | `from` of the top entry if its `to` is `scene`, else 31. Exported. |
 | `0x0883dda8` | `system_scene_get_transition(buf)` | M | Copies the current 8-byte transition. Exported. |
 
+### Remaining loader functions
+
+All in `re/documented.tsv`. "Exported" means no direct caller in `BOOT.BIN` (reached through `libehsys_rel` or a pointer).
+
+| Address | Name | Conf. | Evidence and callers |
+| --- | --- | --- | --- |
+| `0x0881d18c` | `system_scene_on_module_loaded(slot, uid) → uid > 0` | H | Stores `uid` at `slot + 0x50` when positive. Passed as the load callback by `system_scene_thread`. |
+| `0x0881cfb0` | `system_scene_set_static(fn) → 1` | H | Requests `"staticmodule"` and stores `fn` at `0x08920c38`, or 0 when `fn`'s first word has opcode 2 (`j`, an unresolved stub). Caller `system_scene_init`. |
+| `0x0881d9c4` | `system_load_module(root, name) → uid` | H | `container_resolve_path(buf, root, name, 0)` + `sceKernelLoadModule(buf, 0, 0)`. Callers `container_file_thread`, `system_font_init`. |
+| `0x0881d9fc` | `system_queue_module_load(root, name, callback, arg) → 1` | H | Type-1 request in the file queue (`container.md`). Callers `system_scene_thread`, `system_module_load_ex`, `0x0884c850`. |
+| `0x08827c54` | `system_module_registry_init(root_a, root_b)` | H | Clears the registry (`0x1304` bytes), patches roots −1/−2 of the Sony table `0x0889f57c`, registers it. Caller `0x0881d1a8`. |
+| `0x08827f4c` | `system_module_register_table(table) → duplicate` | H | Appends descriptors `{id, root, name, u16 kind, u16}` (16 bytes, list ends at a null name) as 76-byte entries unless the id exists, then `system_qsort` with `system_module_compare_id`; returns 1 if an id was a duplicate. Callers `system_module_registry_init`, `system_main`. |
+| `0x08828144` | `system_module_find(id) → entry or 0` | H | `system_bsearch` with `system_module_compare_id`. Callers `system_module_load_ex`, `system_module_unload`, `system_module_get_basename`, `system_module_get_filename`. |
+| `0x088281d8` | `system_module_compare_id(a, b)` | H | `*b − *a`: the registry is sorted by descending id. |
+| `0x0882b834`, `0x0882b874` | `system_load_movie_modules()`, `system_unload_movie_modules()` | H | Load ids 2–5 / unload 5–2; return 0. Exported. |
+| `0x088415f4` | `system_load_audio_modules()` | H | Loads ids 3, 7, 6, waits with `system_module_all_loaded` (pumping `0x0881d21c`), creates the `0x280000`-byte heap at `0x08acda40` (`system_heap_create`), registers callbacks `0x088414a0`/`0x08841514`/`0x08841554` with `0x08869290`, and calls `0x08867a84(0, 0)`, `0x08868ab8(2, 2)`, `0x08841724(n, 12)` for n = 0–2. Caller `system_main`. |
+| `0x088453e4` | `system_font_init(root, alt_font) → 1` | H | Retries `system_load_module(root, "libfont.prx")` until it succeeds, starts it, `sceFontNewLib`, `sceFontOpen` (and `sceFontFindOptimumFont` for a 20 × 20 font when `alt_font`), stores the font metrics at `0x08d9ea78`–`0x08d9ea9c`, sets alt character `0x25a1`, scale 1.0 or 0.9. Caller `system_main` with `(0, 1)`. |
+| `0x0883dbb0` | `system_scene_get_module_name(scene) → name` | H | Sorts the scene table once (flag `0x08acd9c8`), `bsearch` with `system_scene_compare_id`, then `system_module_get_basename(module_id)`; `"unknown id"` otherwise. Callers `system_scene_call`, `system_scene_return`, `system_scene_jump`. |
+| `0x0883de64` | `system_scene_compare_id(a, b)` | H | `*b − *a`. |
+| `0x0883596c` | `system_get_scene_stack()` | H | Returns `0x08aa56a4`. Callers: the scene transition functions above and `0x0883de74`, `0x0883de9c`. |
+
 Scene → module table:
 
 | Scene | Module |

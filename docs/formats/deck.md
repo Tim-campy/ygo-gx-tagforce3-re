@@ -54,7 +54,7 @@ Observations: 611 of 661 main decks list monsters before spells before traps, an
 | `0xa2` | 2 × 15 | extra deck ids |
 | `0xc0` | | end |
 
-Note that memory order (main, side, extra) differs from file order (main, extra, side). Confidence high (store offsets read from `0x0885c43c`–`0x0885c4f8`). Whether the player's own decks in save data use this struct is open.
+Note that memory order (main, side, extra) differs from file order (main, extra, side). Confidence high (store offsets read from `0x0885c43c`–`0x0885c4f8`). The deck slots in the game state use the same struct at slot `+0x50` (`deck_get_slot_cards`, `deck_copy_slot_cards` copies `0xc0` bytes; `save.md`).
 
 ## Recipe names: `recipe_name_<l>.bin`
 

@@ -41,15 +41,23 @@ Addresses are in `BOOT.BIN` at base `0x08804000`. Confidence: H high, M medium.
 | `0x0881d8fc` | `container_resolve_path(buf, root, rel, no_lbn)` | H | `strcpy(buf, roots[root]); strcat(buf, rel)`; when `no_lbn == 0`, the path is on `disc` and the index is ready, rewrites `buf` as `disc0:/sce_lbn0x%04x_size0x%04x`. Root table pointer at `0x08920cac`. |
 | `0x0881dafc` | `container_get_file_size(root, rel) → size or -1` | H | Index lookup on `disc` paths, else `sceIoGetstat` and the stat size field. |
 | `0x0881dcd0` | `container_is_disc_path(path)` | H | Compares the first word with `"disc"` (`0x0889ede0`). |
-| `0x0881d6a8` | `container_load_file(root, rel, dest, size, callback, arg)` | M | Forwards to `0x0881d7b8`; argument roles inferred from the `card_db_load_cardinfo` call site. |
-| `0x0881dce8` | `container_gzip_decompress` | M | 28-byte wrapper that only calls `sceGzipDecompress`; no direct callers (called through a pointer). |
+| `0x0881d6a8` | `container_load_file(root, rel, dest, size, callback, arg)` | H | Tail call `container_read_async(root, rel, dest, 0, size, callback, arg)` (register shuffle + `li a3,0`). Callers `card_db_load_cardinfo`, `save_open`, `0x08821e00`, `0x0884c808`. |
+| `0x0881d7b8` | `container_read_async(root, rel, dest, offset, size, callback, arg)` | H | Takes the next slot of the request ring under semaphore `0x089218b8`, fills it as type 0 and signals `0x089218bc`. Returns 1. Callers include `container_load_file`, `card_db_read_next_cip_slot`, `0x08822a28`, `0x0883cafc`–`0x0883d980` (card art), `0x088414a0`, `0x08841564` (sound). |
+| `0x0881d574` | `container_init_file_thread(config)` | H | Clears `0xc1c` bytes at `0x08920cac`, stores `config[0]` (the root path table) at `0x08920cac`, starts the file thread (priority `0x6f`, `0x2000`-byte stack) and creates semaphores `ehfile_sema` (1/1) and `ehfile_queue` (0/32). Caller `0x0881d1a8` (boot). |
+| `0x0881dba0` | `container_file_thread` | H | Loop: wait on `0x089218bc`, `container_take_request`, run it (type 0: `container_read_file`; type 1: `system_load_module`), call `callback(arg, result)`; while the callback returns 0 the operation is repeated; then the slot's busy word is cleared. |
+| `0x0881dc70` | `container_take_request() → slot or 0` | H | Scans the ring from the write index `0x089218b4` for a busy slot. Caller `container_file_thread`. |
+| `0x0881d6c0` | `container_read_file(root, rel, dest, offset, size) → bytes, −1, −2` | H | `container_resolve_path`; disc paths go to `container_read_disc_file`, others to `sceIoOpen`/`sceIoLseek` (only when `offset > 0`)/`sceIoRead`/`sceIoClose`. −1 open failed, −2 seek failed. Callers `container_file_thread`, `0x0881d69c`, `0x08822a28`. |
+| `0x0881e210` | `container_read_disc_file(path, dest, offset, size)` | M | Same sequence through `0x0881e2c4`, `0x0881e448`, `0x0881e378` (not read; presumably sector-level wrappers for `sce_lbn` paths). Caller `container_read_file`. |
+
+**Request ring.** 32 slots of `0x60` bytes at `0x08920cb4` (inside the state block at `0x08920cac`): `+0x00` busy, `+0x04` type (0 read, 1 module load), `+0x08` root, `+0x0c` dest, `+0x10` offset, `+0x14` size, `+0x18` callback, `+0x1c` arg, `+0x20` path (up to 63 characters, `system_strncpy`). The write index is `0x089218b4`. All file reads and module loads are serialised on the one file thread; callers learn of completion only through the callback, which receives `(arg, bytes read or error)` and must return non-zero to accept the result (`card_db_on_cardinfo_loaded` and `save_on_resources_loaded` always return 1).
+| `0x0881dce8` | `container_gzip_decompress(dst, dst_size, src)` | H | 28-byte wrapper: `sceGzipDecompress(dst, dst_size, src, &crc)` with the CRC on the stack discarded; returns the inflated size or the error. No direct callers (exported). |
 | `0x08822340` | `container_ehp_is_valid(ehp)` | H | `(*(u32 *)ehp & 0xffffff) == 0x504845` (`"EHP"`). |
 | `0x08822270` | `container_ehp_find_entry(ehp, name) → entry or 0` | H | Binary search over entries `ehp + 8 + 8i` for `i` in `1..N` (`N` at `+0x0C`), comparing `ehp + name_offset` with `system_strcasecmp`. |
 | `0x08822600` | `container_ehp_get_member_size(ehp, entry)` | H | Version byte `< 3`: next data offset (or total size) minus own data offset; otherwise the unaligned `u32` after the NUL of the name, assembled byte by byte. |
 | `0x08822280` | `container_ehp_find_member(ehp, name, out_size) → data or 0` | H | Validity check, `find_entry`, returns `ehp + data_offset`; 16 callers, including lookups of `loading.ehf` and `RCP_%03d.ydc`. |
 | `0x088220e8` | `container_ehp_bind(ehp, flag)` | H | Writes `"BIND"` over `"NOT "` at `+8` and calls `bind_members` unless already bound; then runs and clears the one-shot callback at `0x08921918`. |
 | `0x08822360` | `container_ehp_bind_members(ehp)` | H | Walks the entry table until a zero name offset; dispatches on the name's last four characters (`ptrs.txt`, `.tma`, `.tmt`, `.tms`, `.ehf`, `.gim`, runtime table); see `docs/formats/ehp.md`. |
-| `0x08821f40` | `container_ehp_bind_with_callback(callback, ehp)` | M | Stores `callback` in `0x08921918` if free, then `container_ehp_bind(ehp, 1)`. The six embedded archives are bound this way with no callback by `0x08835c68`. |
+| `0x08821f40` | `container_ehp_bind_with_callback(callback, ehp) → 1 or 0` | H | Only if the slot `0x08921918` is free: stores `callback`, `container_ehp_bind(ehp, 1)`, returns 1; otherwise returns 0 and does not bind. Callers `card_db_bind_cardinfo`, `save_on_resources_loaded`, `system_init_game_globals` (`0x08835c68`, the six embedded archives, no callback). |
 
 gzip is inflated by a statically linked copy of Sony's `libdeflt` (`sceGzipDecompress` at `0x08817950`, see `sdk.md`). `TGMT` members are inflated on use by `field_3d_set_tgmt_data` (`field_3d.md`).
 
@@ -57,7 +65,7 @@ Library code these depend on is listed in `system.md` and `sdk.md`.
 
 ## Open questions
 
-- `container_load_file` / `0x0881d7b8`: synchronous or queued? Which thread performs the read, and what does the callback receive?
+- What the disc wrappers `0x0881e2c4`, `0x0881e378`, `0x0881e448` add over plain `sceIo` calls (retries, sector alignment?).
 - Contents of the root-directory table at `*0x08920cac` (filled at runtime by `0x0881d574` and `0x0881d63c`); root index 5 is used for `cardinfo`.
 - `0x08822774` returns a pointer into a member name from which the four-character extension is read; confirm whether it is `strrchr(name, '.')`.
 - The file-index comparator `0x0881dfd4` also calls `system_strcasecmp`, so disc paths are probably matched case-insensitively; confirm by reading the comparator.
