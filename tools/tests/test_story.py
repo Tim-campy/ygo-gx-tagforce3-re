@@ -42,11 +42,16 @@ def ins(*fields):
 
 
 END = ins(0)
-# Record 0: header, two talk lines, end. Record 1: header, narration, choice, a non-text opcode, end.
+# Record 0: header, two talk lines, end. Record 1: header, narration, a one-option menu (choice, case 1,
+# case 11), end.
 RECORDS = [
     [ins(1, 201, 1, 1), ins(50001, 4, 7, 0, 0), ins(50002, 3, 13, 0, 1), END],
-    [ins(1, 201, 1, 2), ins(50008, 0, 0, 0, 2), ins(50011, 0, 0, 0, 3), ins(50012, 1), END],
+    [ins(1, 201, 1, 2), ins(50008, 0, 0, 0, 2), ins(50011, 0, 0, 0, 3), ins(50012, 1), ins(50012, 11), END],
 ]
+# A record with set-up, an if block, a two-way menu and a jump to record 0.
+CONTROL = [ins(1, 7, 1, 1), ins(50158, 3, 2), ins(50023, 54, 1), ins(50090, 54, 2), ins(50056),
+           ins(50011, 0, 0, 0, 4), ins(50012, 1), ins(50086, 500), ins(50012, 2), ins(50087, 100),
+           ins(50012, 11), ins(50138, 201, 1, 1), END]
 
 
 def event_archive(records=RECORDS):
@@ -97,7 +102,7 @@ class EventTest(unittest.TestCase):
     def test_records_and_references(self):
         program = story.Events(event_archive())
         self.assertEqual(program.starts, (0, 4))
-        self.assertEqual(program.record_span(1), (4, 9))
+        self.assertEqual(program.record_span(1), (4, 10))
         self.assertEqual(program.text_references(), [(1, 0), (2, 1), (5, 2), (6, 3)])
         self.assertEqual(program.check(len(LINES)), [])
 
@@ -117,14 +122,63 @@ class EventTest(unittest.TestCase):
             text.write_bytes(text_archive())
             with contextlib.redirect_stdout(io.StringIO()) as printed:
                 self.assertEqual(story.main(["events", str(events), "--text", str(text), "--check"]), 0)
-            self.assertIn("2 records, 9 instructions, 4 text references", printed.getvalue())
+            self.assertIn("2 records, 10 instructions, 4 text references", printed.getvalue())
             self.assertEqual(story.main(["events", str(events), "--text", str(text), "-o", str(out)]), 0)
             with open(out, encoding="utf-8", newline="") as handle:
                 rows = list(csv.DictReader(handle))
-            self.assertEqual(len(rows), 9)
+            self.assertEqual(len(rows), 10)
             self.assertEqual((rows[1]["opcode"], rows[1]["name"], rows[1]["a1"]), ("50001", "talk", "4"))
             self.assertEqual(story.unescape(rows[1]["text"]), LINES[0])
             self.assertEqual((rows[0]["name"], rows[3]["name"], rows[7]["text"]), ("header", "end", ""))
+            self.assertEqual((rows[1]["args"], rows[7]["name"], rows[7]["args"]),
+                             ("speaker=4 expression=7 flag=0 line=0", "case", "n=1"))
+
+    def test_names_and_arguments(self):
+        self.assertEqual(story.opcode_name(50023), "if_flag")
+        self.assertEqual(story.opcode_name(50056), "endif")
+        self.assertEqual(story.opcode_name(50024), "if_50024")
+        self.assertEqual(story.opcode_name(50157), "op_50157")
+        self.assertEqual(story.opcode_name(50033), "nop")
+        self.assertEqual(story.format_args((50022, 200, 3, 0, 0)), "value=200 cmp=>=")
+        self.assertEqual(story.format_args((50090, 54, 2, 0, 0)), "flag=54 op=clear")
+        self.assertEqual(story.format_args((50157, 0, 9, 0, 0)), "a2=9")  # undecoded: non-zero arguments
+        self.assertEqual(story.format_args((50175, 0, 0, 5, 0)), "a3=5")  # unread argument that is set
+
+    def test_control_structure_and_listing(self):
+        lines = LINES + ["Yes\nNo\n"]
+        program = story.Events(event_archive(RECORDS[:1] + [CONTROL]))
+        self.assertEqual(program.control_problems(), [])
+        self.assertEqual(program.keys(), {(201, 1, 1): 0, (7, 1, 1): 1})
+        eve = story.TextTable(*table(lines))
+        listing = program.listing(1, eve)
+        self.assertEqual(listing[1], "   1  scene_map map=3 b=2  [set-up]")
+        self.assertEqual(listing[2], "   2  if_flag flag=54 test=true")
+        self.assertEqual(listing[3], "   3    set_flag flag=54 op=clear")
+        self.assertEqual(listing[4], "   4  endif")
+        self.assertEqual(listing[5], "   5  choice line=4  | Yes\\nNo\\n")
+        self.assertEqual([listing[k][6:] for k in (6, 7, 8, 9, 10)],
+                         ["case n=1", "  dp_add amount=500", "case n=2", "  dp_sub amount=100", "case n=11"])
+        self.assertEqual(listing[11], "  11  goto key_a=201 key_b=1 key_c=1  -> record 0")
+
+    def test_control_problems(self):
+        def problems(body):
+            return story.Events(event_archive([RECORDS[0], [ins(1, 7, 1, 1)] + body + [END]])).control_problems()
+        self.assertTrue(any("not closed" in p for p in problems([ins(50023, 1, 1)])))
+        self.assertTrue(any("innermost" in p for p in problems([ins(50023, 1, 1), ins(50052)])))
+        self.assertTrue(any("case 1" in p for p in problems([ins(50011, 0, 0, 0, 0), ins(50007)])))
+        self.assertTrue(any("case groups" in p for p in problems([ins(50012, 1), ins(50012, 2)])))
+        self.assertTrue(any("missing key" in p for p in problems([ins(50138, 9, 9, 9)])))
+        self.assertEqual(problems([ins(50131, 0, 0, 0), ins(50132, 201, 1, 1)]), [])
+
+    def test_cli_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            events, out = Path(tmp) / "story_scr_b.ehp", Path(tmp) / "e.txt"
+            events.write_bytes(event_archive(RECORDS[:1] + [CONTROL]))
+            self.assertEqual(story.main(["events", str(events), "--list", "--record", "1", "-o", str(out)]), 0)
+            text = out.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("record 1 key 7,1,1\n   0  header key_a=7 key_b=1 key_c=1\n"))
+            self.assertIn("-> record 0", text)
+            self.assertNotIn("record 0 key", text)
 
 
 if __name__ == "__main__":
