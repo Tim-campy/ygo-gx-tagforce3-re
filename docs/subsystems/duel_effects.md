@@ -20,7 +20,7 @@ python3 -I tools/sym_to_names.py ghidra/symbols.sym --range 09be1400-09deb598 --
 
 Then `ApplyNames.java` with `re/names-ppsspp-duel_eng.csv` and `re/names-duel_eng.csv`, and `ExportFunctions.java`; the module's functions are appended to `re/functions.csv` (7,208 functions; their addresses do not overlap `BOOT.BIN`).
 
-Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `0x09de415c`–`0x09de71fb` (1,556 import stubs from a single library, presumably `BOOT.BIN`'s exports, which PPSSPP cannot name), `.data` `0x09deb598`–`0x09e01e0f`.
+Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `0x09de415c`–`0x09de71fb` (1,556 import stubs, all from `BOOT.BIN`'s `libehsys_rel`; PPSSPP cannot name them, `tools/prx_imports.py` resolves every one, see `system.md`), `.data` `0x09deb598`–`0x09e01e0f`. After the PPSSPP names, apply `re/names-imports-duel_eng.csv` before `re/names-duel_eng.csv`.
 
 ## Key functions
 
@@ -40,5 +40,4 @@ Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `
 - What each handler slot and each of the four tables means; which wrapper serves which duel phase.
 - The card structure (`card + 0` id, `+2`, `+3` selector bits, `+0x15`): this is WP4's central data structure and should be typed in Ghidra next.
 - The per-player, per-slot state at `0x09e2a56c` (`player × 0xb3c + index × 0x14`): presumably the field/zone state.
-- Resolve the 1,556 imports against `BOOT.BIN`'s export table (`.lib.ent`, `.rodata.sceResident`) to name them.
 - Classify the `BOOT.BIN` compare chains (AI? deck rules?).
