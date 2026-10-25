@@ -89,11 +89,27 @@ A slot is exactly 2,048 bytes = one 64×64 DXT1 texture in the layout above, wit
 
 ### CPJ (`cardj_a.cip`): masked JPEG, the high-resolution card art
 
-Each 163,840-byte slot holds one **baseline JPEG of 512×512 pixels**, the largest card art in the game, stored masked: according to ygotfToolkit's notes (`docs/PRIOR_ART.md`), the first 160 bytes of each JPEG (JFIF header and quantisation tables) are left out of the file and kept, themselves XOR-stored, in the executable; two of the covered bytes carry a 16-bit seed; the rest of the slot is XOR-ed with a mask from a 16-bit generator, including the fill after the end of the JPEG. The routine sits in the shared `.cip` read-completion callback and is found through its test for the `CPJ\x1a` magic.
+Each 163,840-byte slot holds one **baseline JPEG of 512×512 pixels**, the largest card art in the game, stored masked. The method below was read from the instructions of `BOOT.BIN` (European disc; module-relative addresses, absolute = `0x08804000 +` address) and confirms ygotfToolkit's description (`docs/PRIOR_ART.md`); `tools/cip.py jpeg` implements it.
 
-Verified here with ygotfToolkit used as an external tool (`cardpics … --archive cardj`): 400 slots unmask to valid baseline JPEGs, and card 4007 (Blue-Eyes White Dragon, artwork 1) shows the expected art at 512×512. The slot statistics measured earlier (entropy 7.997 bits/byte, 16-byte aligned blocks that repeat within a slot but never across slots) are consistent with a per-slot mask whose generator output repeats, applied over JPEG data and fill.
+**Where (high).** The test for the magic is a two-instruction leaf, `0x39b1c` (`lw v1,0xac(a0)`; `lui v0,0x1a4a`; `ori v0,v0,0x5043`; return `v1 == 0x1a4a5043`): the reader context keeps the `.cip` header at `+0xac`. Its sibling `0x39b04` tests `CPM` (`0x1a4d5043`). `0x39b1c` is called from `0x390f4` (an image lookup that skips CPJ) and from `0x39694`, inside `0x39658`, the read-completion callback: `0x394a0` starts an asynchronous read of the next pending slot through `0x197b8` (`a2` = buffer, `a3` = byte offset `sector << 11`, `t0` = length `spi << 11`, `t1` = callback `0x39658`, built with `lui t1,0x4` + `addiu t1,t1,-27048`); `0x39658(ctx, bytes_read)` unmasks the buffer when the context is a CPJ file, marks the slot loaded and calls `0x394a0` again for the next one.
 
-Unmasking game data is allowed by `CLAUDE.md`; output stays in `extracted/`. `tools/cip.py` does not implement it yet; until it does, use ygotfToolkit.
+**Algorithm (high; every step is an instruction in `0x39658`).** With `buf` = the slot buffer (`ctx+0x90`) and `n = ctx[0xcc] << 11` = 163,840 bytes:
+
+1. `seed = buf[0x9e] << 8 | buf[0x9f]` (`lbu` at `0x396b4`/`0x396b8`, `sll 8`, `addu`), read **before** step 2. In the plain JPEG these two bytes are the `FF C0` (SOF0) marker, which the slot does not need to store.
+2. `memcpy(buf, 0x9d3d8, 160)` (`jal 0x9e84` with `lui a1,0xa` + `addiu a1,a1,-11304`, `a2 = 160`), then `buf[i] ^= 0x5c` for `i < 160` (`xori 0x5c`, loop unrolled ×8). The 160 bytes at `.data` address `0x9d3d8` are the JPEG head (SOI, JFIF APP0, DQT tables, up to the SOF0 marker) XOR `0x5c`; they start `a3 84 a3 bc 5c 4c …` = `FF D8 FF E0 00 10 …`. The slot's own first 160 bytes are discarded except for the seed.
+3. If `n > 160`: for `i = 160 … n−1`: `s = ((s × 0xc6a1 + 0xd0f) >> 1) & 0xffff`; `buf[i] ^= (s >> 2) & 0xff`, starting from `s = seed`. In the code: `ori v0,zero,0xc6a1`; `mult`; `mflo`; `addiu 3343`; `ext t,x,1,16` (bits 1–16); `ext y,t,2,8` (bits 2–9); `xor`; `sb` (loop unrolled ×8 at `0x397d0`, tail loop at `0x398f0`). The product fits in 32 bits, so the signed `mult` changes nothing.
+
+The generator has a short cycle (for card 3720, seed `0x6431`: 174 steps into a cycle of 183), which explains the repeating 16-byte blocks measured earlier.
+
+**Slot layout (measured).** After unmasking, the JPEG ends at its EOI marker and the rest of the slot is not zero: the stored (masked) slot is the masked JPEG of length `L` repeated cyclically, `slot[k] = slot[k mod L]`, for every byte from `L` to the end (checked on cards 3720, 3721, 4007, 5000). `tools/cip.py jpeg` therefore cuts the output at EOI (found by walking the marker segments, then the entropy data, where `FF 00` and `FF D0`–`FF D7` do not end it); `--full` keeps the whole unmasked slot.
+
+**Verification.** `tools/cip.py jpeg` reads the stored head from the maintainer's `BOOT.BIN` at run time (at `0x9d3d8`, or by searching for the masked JFIF start, then checked); no game bytes are in the repository. Its output is byte-identical to ygotfToolkit's `cardpics --archive cardj` (run as an external tool) for all 3,602 slots (3,553 cards, including the 87 images of the 38 cards with alternative artworks), and for the 400 reference files made earlier.
+
+```
+python3 -I tools/cip.py jpeg card/cardj_a.cip extracted/cardj --boot PSP_GAME/SYSDIR/BOOT.BIN [--ids 4007 …] [--limit N] [--full]
+```
+
+Files are `<id>.jpg` (artwork 0) and `<id>_<n>.jpg` (alternative artwork `n`), ids zero-padded to five digits. Output stays in `extracted/`.
 
 `cardj` has images for exactly the 3,553 card ids of the card database (the same set as `CARD_IntID`); the other files have 7 more (see below).
 
@@ -109,6 +125,7 @@ Unmasking game data is allowed by `CLAUDE.md`; output stays in `extracted/`. `to
 python3 -I tools/cip.py list <file.cip>            # id,images,sectors per card
 python3 -I tools/cip.py list <file.cip> --check     # structural check (all 12 files pass)
 python3 -I tools/cip.py png <file.cip> <card id> [--art N] [--size WxH] -o extracted/....png
+python3 -I tools/cip.py jpeg cardj_a.cip <outdir> --boot BOOT.BIN [--ids …] [--limit N] [--full]   # CPJ
 ```
 
 `png` decodes GIM slots (DXT1, index4/8 with palette, 5650/5551/4444/8888, swizzled or not) and headerless `cardm` slots (`--size`, default 64×64). Output must stay outside the repository (for example under `extracted/`).
@@ -117,7 +134,7 @@ python3 -I tools/cip.py png <file.cip> <card id> [--art N] [--size WxH] -o extra
 
 - Which screens use `cardh`, `cardm` and `card8`, and how the `cardh` atlas pieces are assembled on screen (needs the loader and a PPSSPP trace).
 - The exact placement of each piece in the `cardh` atlas, and whether the 128 truncated bytes at its end are ever sampled.
-- `CPJ`: locate the unmasking routine and the stored 160-byte header in `BOOT.BIN` to confirm the method independently, then implement it in `tools/cip.py`.
+- `CPJ`: what the slot's first 158 bytes (before the seed) hold; they are neither the JPEG head nor generator output from any seed and the game overwrites them. Whether other code paths (for example `0x390f4`'s caller) ever read a CPJ slot without unmasking it.
 - What the 7 ids without a database record are, and why `CARD_SamePict` lists record 855, which has only one image.
 - Meaning of the per-entry `reserved` word (always 0) and of the palette alpha bytes in `card8` (always 0).
 - `cis_all.gim` cell geometry and whether `fileTbl.dat` index `i` is cell `i`.

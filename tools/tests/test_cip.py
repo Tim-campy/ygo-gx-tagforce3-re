@@ -157,5 +157,87 @@ class PixelTest(unittest.TestCase):
             cip.decode_slot(container, bytes(SECTOR))
 
 
+def fake_jpeg(entropy=b"\x12\xff\x00\x34\xff\xd0\x56"):
+    """A syntactically plausible JPEG (not decodable): SOI, JFIF APP0, a filler DQT, SOF0 at 0x9e, SOS,
+    entropy data with a stuffed byte and a restart marker, EOI."""
+    app0 = b"\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+    dqt_body = bytes(range(0x9e - 2 - len(app0) - 4))
+    dqt = b"\xff\xdb" + struct.pack(">H", 2 + len(dqt_body)) + dqt_body
+    sof = b"\xff\xc0\x00\x0b\x08\x00\x10\x00\x10\x01\x01\x11\x00"
+    sos = b"\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00"
+    out = b"\xff\xd8" + app0 + dqt + sof + sos + entropy + b"\xff\xd9"
+    assert out[0x9e:0xa0] == b"\xff\xc0"
+    return out
+
+
+def fake_elf(payload, addr=0x1000):
+    """Minimal ELF with one allocated section at module address `addr` holding `payload`."""
+    names = b"\0.data\0.shstrtab\0"
+    data_off = 0x34
+    names_off = data_off + len(payload)
+    shoff = (names_off + len(names) + 3) & ~3
+    head = bytearray(b"\x7fELF".ljust(0x34, b"\0"))
+    struct.pack_into("<I", head, 0x20, shoff)
+    struct.pack_into("<HHH", head, 0x2E, 40, 3, 2)
+    sections = bytes(40)
+    sections += struct.pack("<IIIIII", 1, 1, 2, addr, data_off, len(payload)).ljust(40, b"\0")
+    sections += struct.pack("<IIIIII", 7, 3, 0, 0, names_off, len(names)).ljust(40, b"\0")
+    return (bytes(head) + payload + names).ljust(shoff, b"\0") + sections
+
+
+class CpjTest(unittest.TestCase):
+    def test_generator_vectors(self):
+        # seed 0: s = 0xd0f >> 1 = 0x687, byte = 0x687 >> 2 & 0xff = 0xa1
+        self.assertEqual(cip.cpj_mask(0, 4), bytes.fromhex("a13e9dd4"))
+        self.assertEqual(cip.cpj_mask(0xFFFF, 4), bytes.fromhex("cd94280a"))
+        self.assertEqual(cip.cpj_mask(0x1234, 300)[:10], cip.cpj_mask(0x1234, 10))
+
+    def test_round_trip(self):
+        jpeg = fake_jpeg()
+        slot_content = jpeg.ljust(0x1000, b"\xaa")
+        stored = bytes(b ^ 0x5C for b in jpeg[:160])
+        for seed in (0, 1, 0xBEEF, 0xFFFF):
+            slot = cip.cpj_mask_slot(slot_content, seed, filler=bytes(range(160)))
+            self.assertEqual(slot[0x9E:0xA0], struct.pack(">H", seed))
+            self.assertNotEqual(slot[160:len(jpeg)], jpeg[160:])
+            self.assertEqual(cip.cpj_unmask(slot, stored), slot_content)
+
+    def test_jpeg_length_skips_stuffing_and_restarts(self):
+        jpeg = fake_jpeg()
+        self.assertEqual(cip.jpeg_length(jpeg + b"\xff\xd9junk"), len(jpeg))
+        with self.assertRaises(ValueError):
+            cip.jpeg_length(b"\0" + jpeg)
+
+    def test_stored_head_from_elf(self):
+        stored = bytes(b ^ 0x5C for b in fake_jpeg()[:160])
+        elf = fake_elf(b"\x11" * 8 + stored, addr=0x2000)
+        self.assertEqual(cip.elf_offset(elf, 0x2008), 0x34 + 8)
+        self.assertEqual(cip.cpj_stored_head(elf), stored)  # found by search (not at CPJ_HEAD_ADDRESS)
+        with self.assertRaises(ValueError):
+            cip.cpj_stored_head(fake_elf(bytes(200)))
+
+    def test_jpeg_command(self):
+        jpeg = fake_jpeg()
+        stored = bytes(b ^ 0x5C for b in jpeg[:160])
+        data = bytearray(build_cip(b"CPJ\x1a", 10, {10: 1, 12: 2}))
+        container = cip.Cip(bytes(data))
+        slots = [(10, 0), (12, 0), (12, 1)]
+        for (card_id, art), seed in zip(slots, (7, 0x8001, 0xFFFE)):
+            sector = container.sectors(card_id)[art]
+            data[sector * SECTOR:(sector + 1) * SECTOR] = cip.cpj_mask_slot(jpeg.ljust(SECTOR, b"\x5a"), seed)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "card.cip").write_bytes(bytes(data))
+            (tmp / "BOOT.BIN").write_bytes(fake_elf(stored))
+            self.assertEqual(cip.main(["jpeg", str(tmp / "card.cip"), str(tmp / "out"), "--boot", str(tmp / "BOOT.BIN")]), 0)
+            self.assertEqual(sorted(p.name for p in (tmp / "out").iterdir()), ["00010.jpg", "00012.jpg", "00012_1.jpg"])
+            for name in ("00010.jpg", "00012_1.jpg"):
+                self.assertEqual((tmp / "out" / name).read_bytes(), jpeg)
+            self.assertEqual(cip.main(["jpeg", str(tmp / "card.cip"), str(tmp / "full"), "--boot", str(tmp / "BOOT.BIN"),
+                                       "--ids", "12", "--limit", "1", "--full"]), 0)
+            self.assertEqual((tmp / "full" / "00012.jpg").read_bytes(), jpeg.ljust(SECTOR, b"\x5a"))
+            self.assertEqual(len(list((tmp / "full").iterdir())), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

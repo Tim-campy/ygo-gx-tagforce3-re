@@ -6,6 +6,7 @@ Examples (write images outside the repository, for example under extracted/):
     python3 -I tools/cip.py list card/cardh_e.cip
     python3 -I tools/cip.py list card/card8_a.cip --check
     python3 -I tools/cip.py png card/card8_a.cip 4007 -o extracted/cip_check/4007.png
+    python3 -I tools/cip.py jpeg card/cardj_a.cip --boot PSP_GAME/SYSDIR/BOOT.BIN extracted/cardj --ids 4007
 """
 
 import argparse
@@ -23,7 +24,7 @@ MAGICS = {
     b"CIP\x1a": "cardh",  # GIM, DXT1 128x64, per language
     b"CPM\x1a": "cardm",  # headerless DXT1, per language
     b"CPL\x1a": "card8",  # GIM, 8-bit indexed 128x128, shared
-    b"CPJ\x1a": "cardj",  # encrypted, 80 sectors per image, shared
+    b"CPJ\x1a": "cardj",  # masked 512x512 baseline JPEG, 80 sectors per image, shared
 }
 RAW_DXT1_SIZE = (64, 64)  # width, height of headerless CPM slots (2,048 bytes of DXT1; see cip.md)
 
@@ -256,10 +257,118 @@ def write_png(path, width, height, rgba):
     Path(path).write_bytes(png)
 
 
+# --- CPJ masked JPEG ------------------------------------------------------------------------------
+# The game unmasks a CPJ slot in its .cip read-completion callback (BOOT.BIN 0x0883d658, module offset
+# 0x39658; see docs/formats/cip.md). The 160-byte JPEG head is not in the slot: the game copies
+# it from its own data (module address 0x9d3d8), XOR 0x5c, over the slot's first 160 bytes; the seed of
+# the byte generator is the big-endian u16 at slot offset 0x9e, read before that copy.
+
+CPJ_HEAD_SIZE = 160
+CPJ_HEAD_XOR = 0x5C
+CPJ_SEED_OFFSET = 0x9E
+CPJ_MUL, CPJ_ADD = 0xC6A1, 0x0D0F
+CPJ_HEAD_ADDRESS = 0x9D3D8  # module-relative address of the stored head in BOOT.BIN (EU)
+JPEG_HEAD = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00"
+
+
+def cpj_mask(seed, length):
+    """The generator's `length` mask bytes: s = ((s * 0xc6a1 + 0xd0f) >> 1) & 0xffff; byte = s >> 2 & 0xff."""
+    out = bytearray(length)
+    s = seed & 0xFFFF
+    for i in range(length):
+        s = (s * CPJ_MUL + CPJ_ADD) >> 1 & 0xFFFF
+        out[i] = s >> 2 & 0xFF
+    return bytes(out)
+
+
+def xor_bytes(data, mask):
+    return (int.from_bytes(data, "little") ^ int.from_bytes(mask, "little")).to_bytes(len(data), "little")
+
+
+def cpj_unmask(slot, stored_head):
+    """Return the unmasked slot (JPEG followed by fill), as the game leaves it in memory.
+    `stored_head` is the 160 bytes as stored in BOOT.BIN (still XOR-ed with 0x5c)."""
+    if len(stored_head) != CPJ_HEAD_SIZE:
+        raise ValueError("the stored CPJ head must be 160 bytes")
+    seed = slot[CPJ_SEED_OFFSET] << 8 | slot[CPJ_SEED_OFFSET + 1]
+    head = bytes(b ^ CPJ_HEAD_XOR for b in stored_head)
+    body = slot[CPJ_HEAD_SIZE:]
+    return head + xor_bytes(body, cpj_mask(seed, len(body)))
+
+
+def cpj_mask_slot(jpeg_and_fill, seed, filler=b""):
+    """Inverse of cpj_unmask for tests and tools: mask bytes 160.. and put `seed` at 0x9e (the other 158 head
+    bytes of a slot are not used by the game; `filler` supplies them, zeros by default)."""
+    body = jpeg_and_fill[CPJ_HEAD_SIZE:]
+    head = bytearray(filler[:CPJ_HEAD_SIZE].ljust(CPJ_HEAD_SIZE, b"\0"))
+    head[CPJ_SEED_OFFSET:CPJ_SEED_OFFSET + 2] = struct.pack(">H", seed)
+    return bytes(head) + xor_bytes(body, cpj_mask(seed, len(body)))
+
+
+def jpeg_length(data):
+    """Length of the JPEG at the start of `data` up to and including EOI (markers, then entropy data)."""
+    if data[:2] != b"\xff\xd8":
+        raise ValueError("not a JPEG (no SOI)")
+    pos = 2
+    while pos + 4 <= len(data):
+        if data[pos] != 0xFF:
+            raise ValueError(f"bad JPEG marker at {pos:#x}")
+        marker = data[pos + 1]
+        if marker == 0xFF:
+            pos += 1
+            continue
+        if marker == 0xD9:
+            return pos + 2
+        length = struct.unpack_from(">H", data, pos + 2)[0]
+        pos += 2 + length
+        if marker == 0xDA:  # entropy-coded data follows: FF00 is a stuffed byte, FFD0-FFD7 are restarts
+            while True:
+                pos = data.index(b"\xff", pos)
+                following = data[pos + 1]
+                if following == 0 or 0xD0 <= following <= 0xD7:
+                    pos += 2
+                else:
+                    break
+    raise ValueError("JPEG has no EOI")
+
+
+def cpj_stored_head(boot):
+    """The stored 160-byte head from the maintainer's BOOT.BIN: at CPJ_HEAD_ADDRESS, or else searched for in
+    the file (any 160 bytes that unmask to a JFIF start), checked before use."""
+    data = boot if isinstance(boot, (bytes, bytearray)) else Path(boot).read_bytes()
+    masked_start = bytes(b ^ CPJ_HEAD_XOR for b in JPEG_HEAD)
+    candidates = []
+    try:
+        candidates.append(elf_offset(data, CPJ_HEAD_ADDRESS))
+    except ValueError:
+        pass
+    found = data.find(masked_start)
+    if found >= 0:
+        candidates.append(found)
+    for offset in candidates:
+        head = data[offset:offset + CPJ_HEAD_SIZE]
+        if head.startswith(masked_start) and len(head) == CPJ_HEAD_SIZE:
+            return head
+    raise ValueError("no stored CPJ head (JFIF XOR 0x5c) found in the executable")
+
+
+def elf_offset(data, pointer):
+    """File offset of a module-relative pointer in a PRX (allocated sections from the ELF section headers)."""
+    if data[:4] != b"\x7fELF":
+        raise ValueError("not an ELF file")
+    shoff, = struct.unpack_from("<I", data, 0x20)
+    entsize, count = struct.unpack_from("<HH", data, 0x2E)
+    for i in range(count):
+        _, kind, flags, addr, off, size = struct.unpack_from("<IIIIII", data, shoff + i * entsize)
+        if flags & 2 and kind != 8 and addr <= pointer < addr + size:  # SHF_ALLOC, not NOBITS
+            return off + pointer - addr
+    raise ValueError(f"pointer {pointer:#x} is outside every allocated section")
+
+
 def decode_slot(cip, slot, raw_size=RAW_DXT1_SIZE):
     """Decode one image slot to (width, height, rgba)."""
     if cip.kind == "cardj":
-        raise ValueError("CPJ slots are encrypted; decoding them is out of scope (see docs/formats/cip.md)")
+        raise ValueError("CPJ slots are masked JPEGs; use the `jpeg` command (see docs/formats/cip.md)")
     if cip.kind == "cardm":
         width, height = raw_size
         return width, height, decode_dxt1(slot, width, height)
@@ -288,6 +397,30 @@ def read_slot(path, cip, sector):
         return handle.read(cip.image_bytes)
 
 
+def write_jpegs(args, cip):
+    """`jpeg` command: <outdir>/<id>.jpg for artwork 0, <id>_<n>.jpg for alternative artwork n."""
+    if cip.kind != "cardj":
+        print(f"{args.file.name} is not a CPJ file", file=sys.stderr)
+        return 1
+    head = cpj_stored_head(args.boot)
+    args.outdir.mkdir(parents=True, exist_ok=True)
+    written = 0
+    with open(args.file, "rb") as handle:
+        for card_id in args.ids or cip.ids():
+            for art, sector in enumerate(cip.sectors(card_id)):
+                if args.limit is not None and written >= args.limit:
+                    return 0
+                handle.seek(sector * SECTOR)
+                data = cpj_unmask(handle.read(cip.image_bytes), head)
+                if not args.full:
+                    data = data[:jpeg_length(data)]
+                name = f"{card_id:05d}.jpg" if art == 0 else f"{card_id:05d}_{art}.jpg"
+                (args.outdir / name).write_bytes(data)
+                written += 1
+    print(f"wrote {written} images to {args.outdir}")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="List and decode card/*.cip card-image containers.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -300,9 +433,18 @@ def main(argv=None):
     png.add_argument("--art", type=int, default=0, help="alternative artwork number (default 0)")
     png.add_argument("--size", default="%dx%d" % RAW_DXT1_SIZE, help="WxH for headerless CPM slots")
     png.add_argument("-o", "--output", type=Path, required=True)
+    jpeg = sub.add_parser("jpeg", help="unmask CPJ slots to JPEG files (keep the output out of git)")
+    jpeg.add_argument("file", type=Path)
+    jpeg.add_argument("outdir", type=Path)
+    jpeg.add_argument("--boot", type=Path, required=True, help="the game's BOOT.BIN (holds the 160-byte head)")
+    jpeg.add_argument("--ids", nargs="+", type=int, help="only these card ids (default: every id with art)")
+    jpeg.add_argument("--limit", type=int, help="stop after this many images")
+    jpeg.add_argument("--full", action="store_true", help="write the whole unmasked slot, fill included")
     args = parser.parse_args(argv)
 
     cip = open_cip(args.file)
+    if args.command == "jpeg":
+        return write_jpegs(args, cip)
     if args.command == "list":
         if args.check:
             problems = cip.check(args.file.stat().st_size)
