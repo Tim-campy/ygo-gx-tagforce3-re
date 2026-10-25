@@ -45,3 +45,4 @@ snd_cue,Sound bank cue entry,audio,documented,32
 snd_adpcm_layer,PS-ADPCM layer/sample/envelope records,audio,documented,
 story_text,Story text tables EveI/EveL SysMsgI/SysMsgL,dialogue,verified,
 story_bytecode,Event bytecode EveB/EveBI (records and text references),dialogue,reimplemented,390950
+save_data,DATA0 save buffer (0x20000 bytes),save,named,131072

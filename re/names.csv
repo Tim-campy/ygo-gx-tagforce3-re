@@ -69,3 +69,5 @@ address,group,name
 0x0883d658,card_db,card_db_on_cip_slot_read
 0x0883d4a0,card_db,card_db_read_next_cip_slot
 0x0881d7b8,container,container_read_async
+0x088410dc,save,save_open
+0x0883e3b4,save,save_close
