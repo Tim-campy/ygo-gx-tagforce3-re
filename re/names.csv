@@ -30,6 +30,16 @@ address,group,name
 0x08817bf0,sdk,sceDeflateDecompress
 0x0882f2f0,field_3d,field_3d_set_tgmt_data
 0x08832684,card_db,card_db_load_cardinfo
+0x08832778,card_db,card_db_bind_cardinfo
+0x08832718,card_db,card_db_append_language_suffix
+0x08832a1c,card_db,card_db_index_of_id
+0x08832a68,card_db,card_db_get_name
+0x08832aa4,card_db,card_db_get_description
+0x08832b54,card_db,card_db_get_prop
+0x08832c04,card_db,card_db_get_passcode
+0x088332e4,card_db,card_db_decode_huffman
+0x08833390,card_db,card_db_expand_dictionary
+0x08836ed0,card_db,card_db_get_dictionary_word
 0x088115e4,system,system_strcpy
 0x088113c0,system,system_strcat
 0x0881166c,system,system_strlen
