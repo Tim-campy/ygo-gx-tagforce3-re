@@ -10,7 +10,11 @@ Two per-player blocks of `0xb3c` bytes; player `p` (0 or 1) starts at about `0x0
 | --- | --- | --- |
 | `0x09e2a534` | Hand size | Draw-count rules such as "5 minus" and "7 minus" this value (`duel_effects_get_draw_count`). |
 | `0x09e2a538` | Cards left in the deck | `duel_core_can_draw` compares the requested count with it. |
-| `0x09e2a56c + i × 0x14` | Per-slot card state, 20 bytes each | Bit 3 of the first word disables effect handlers (`duel_effects_call_handler_08`). |
+| `0x09e2a55c + i × 0x14` | Field slot `i`, 20 bytes each: slots 0–4 are the monster zones, 5–9 the spell/trap zones, 10 the field-spell zone | `duel_effects_target_filter` limits zone classes by these index ranges. |
+| slot `+0x00` | Card id (`u16`, low 14 bits) | Read with `& 0x3fff`. |
+| slot `+0x06` | Unknown `u16`; tested by target-filter bits `0x80`/`0x100` (possibly the battle position) | Mirror Force's filter sets `0x80`. |
+| slot `+0x08` | Non-zero when the slot is occupied | Target-filter bits `0x4`/`0x8`. |
+| slot `+0x10` | Flags word: bit 3 disables the card's effect handlers (`duel_effects_call_handler_08`); bit 11 is tested together with occupancy (possibly face-down) | |
 
 `0x09e28620` holds the attacking player (Mirror Force's activation condition compares it with the opponent).
 

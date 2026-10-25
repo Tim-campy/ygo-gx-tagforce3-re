@@ -8,10 +8,26 @@ Status: `documented` (layout, lookup and dispatch); the meaning of the five hand
 | --- | --- | --- |
 | `0x00` | 4 | Card id (3720–7993). |
 | `0x04` | 4 | Handler slot `+04`: **resolution** (the effect itself). Called by `duel_effects_resolve` with `(ctx, arg)`. Example: Pot of Greed's handler draws the card's draw count. Confidence high. |
-| `0x08` | 4 | Handler slot `+08`. Called with `(ctx, player, index)` through five wrappers that have about 280 calling functions between them; skipped when the card's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". Presumably a continuous or "does it apply" check (hypothesis, medium). |
+| `0x08` | 4 | Handler slot `+08`: **target filter**, "is field slot `index` of `player` a valid target for this card". Called with `(ctx, player, index)` through five wrappers that have about 280 calling functions between them; skipped when the slot's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". 272 cards use an 8-byte stub `j duel_effects_target_filter; li a3, FLAGS` that passes card-specific filter bits (see below); the others have their own function. Confidence high. |
 | `0x0c` | 4 | Handler slot `+0c`: **activation condition**. Called with two arguments; a missing record or handler means "allowed" (returns 1). Examples: Pot of Greed's handler checks that the deck holds enough cards; Mirror Force's checks that the opponent is attacking. Confidence high. |
-| `0x10` | 4 | Handler slot `+10`. Called with two arguments. |
-| `0x14` | 4 | Handler slot `+14`. Called with two arguments. |
+| `0x10` | 4 | Handler slot `+10`. Called with two arguments. Role unknown. |
+| `0x14` | 4 | Handler slot `+14`. Called with two arguments. The most shared handler (315 cards, `0x09cc0cdc`) branches on the player type at `0x09e02998[player]` (1 → `0x09d9ddfc(ctx, arg, card id)`, else `0x09cc0bd8`), which suggests target or option choice with an AI path and an interactive path (hypothesis, medium). |
+
+In slot `+0c`, the handler shared by 149 cards (`0x09ce28e4`) returns 2, so activation conditions return more than a boolean; 2 plausibly means a mandatory or automatic activation, as for flip effects (hypothesis, low).
+
+### Target filter flags
+
+`duel_effects_target_filter(ctx, player, index, flags)` (`0x09c32fb8`) checks one field slot against `flags`:
+
+| Bits | Test |
+| --- | --- |
+| `0x3` | Side: 1 = the card's controller only, 2 = the opponent only, 3 = a special case (`0x09bfbb38`), 0 = either. |
+| `0x4` / `0x8` | The slot must be occupied / must be empty (`u16` at slot `+0x08`). |
+| `0x80` / `0x100` | The `u16` at slot `+0x06` must be zero / non-zero. |
+| `0x70` | Zone class: `0x10` monster zones (0–4); `0x50` spell/trap zones (5–9); `0x20`, `0x30`, `0x40` combinations up to the field zone (10) with face-up tests. |
+| higher bits | Not yet decoded (`0x400`, `0x1000` occur in the examples). |
+
+Examples, consistent with the card texts: Man-Eater Bug passes `0x1410` (any side, monster zone; it destroys any monster); Mirror Force passes `0x1092` (opponent's side, monster zone, and `0x80`, which matches "attack position" in its text).
 
 In the module file the handler words are unrelocated module offsets; the PRX relocation table turns them into addresses at load time.
 
@@ -76,7 +92,7 @@ Handlers are widely shared: for example, Pot of Greed's slot `+04` handler serve
 
 ## Open questions
 
-- Roles of slots `+08`, `+10` and `+14`; confirm the table readings above by reading more shared handlers.
+- Role of slot `+10`; confirm `+14`; decode the remaining target-filter bits and extract every card's filter constant into a table for the port.
 - The card-structure fields behind the selector and the `0x24` test.
 - The cards with effects and no record in any table: handled by compare chains (1,379 functions in the module test card ids directly)?
 - `duel_effects_check_rule_list` (`0x09ce27c4`) walks 112 `(function, argument)` pairs at `0x09dedaf8`; what these global rules are.

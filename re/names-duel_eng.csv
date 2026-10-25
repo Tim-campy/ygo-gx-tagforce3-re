@@ -20,3 +20,6 @@ address,group,name
 0x09c28f44,duel_core,duel_core_draw_cards_ex
 0x09c0d920,duel_core,duel_core_can_draw
 0x09c2c134,duel_core,duel_core_get_effective_card_id
+0x09c32fb8,duel_effects,duel_effects_target_filter
+0x09cc0cdc,duel_effects,duel_effects_choose_targets
+0x09ce28e4,duel_effects,duel_effects_cond_return_2
