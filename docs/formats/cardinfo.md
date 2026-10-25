@@ -9,7 +9,7 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 | `CARD_Prop.bin` | shared | documented | 8 × 3,554 |
 | `CARD_Pass.bin` | shared | verified | 4 × 3,554 |
 | `CARD_IntID.bin` | shared | verified | 2 × 4,274 |
-| `CARD_Genre.bin` | shared | named | 6 × 3,554 |
+| `CARD_Genre.bin` | shared | documented | 6 × 3,554 |
 | `CARD_Indx_<L>.bin` | per language | verified | 8 × 3,555 |
 | `CARD_Name_<L>.bin` | per language | verified | 126,084 |
 | `CARD_Desc_<L>.bin` | per language | verified | 209,706 |
@@ -22,7 +22,7 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 
 ## How it was verified
 
-- Structure: `tools/cardinfo.py --check` passes for all five languages (every id maps back to its index, every description decodes and ends at or before the next one, every dictionary reference exists, sentinels match).
+- Structure: `tools/cardinfo.py --check` passes for all five languages (every id maps back to its index, every description decodes and ends at or before the next one, every dictionary reference exists, sentinels match, `CARD_Sort` equals the collation rule and every `CARD_Top` entry points to the first card of its letter).
 - Descriptions are bit-exact: in English all 3,553 Huffman streams end exactly at the next record's start bit.
 - Content, against public card data: 28 well-known cards found by passcode (for example `89631139`, Blue-Eyes White Dragon, index 116, id 4007) all have the expected ATK/DEF; all 21 monsters among them have the expected level, and their attributes, types and card kinds are consistent; their decoded English names match, and Blue-Eyes White Dragon's description starts with its published text.
 
@@ -61,10 +61,75 @@ Remaining escapes are left to the text renderer: `$m` followed by four digits na
 
 ## Sorting and lookup tables
 
-- `CARD_Sort_<L>`: `u16` per record, the record's position in the alphabetical card list (record 0 has 0; the others are a permutation of 1–3,553). The order is case-insensitive and keeps spaces but not all punctuation (`30,000-Year …` sorts before `3-Hump …`); 3,511 of 3,552 neighbouring pairs agree with a plain case-insensitive comparison. The exact collation is open.
-- `CARD_Top_<L>`: `u16 count` (27) followed by `count` pairs `(u16 character, u16 card id)`: `*` and `A`–`Z`, each pointing to a card whose name starts with that character (`*` covers names that start with a symbol). Hypothesis: the first card of each letter, for alphabet jumps in card lists.
+- `CARD_Sort_<L>`: `u16` per record, the record's position in the alphabetical card list (record 0 has 0; the others are a permutation of 1–3,553). The collation is below; it reproduces the table exactly in all five languages.
+- `CARD_Top_<L>`: `u16 count` (27) followed by `count` pairs `(u16 character, u16 card id)`: `*` and `A`–`Z`. Each letter points to the first card in `CARD_Sort` order whose collation key starts with that letter, and `*` to the first card of the whole list (a symbol- or digit-initial name where one exists, for example `"A" Cell …` in English and the card named `7` in French). Checked for all 27 entries in all five languages by `tools/cardinfo.py --check`, high confidence. Presumably used for alphabet jumps in card lists.
 - `CARD_SamePict_<L>`: `u16 count` (39) followed by `count` pairs `(u16 record index, u16 n)`. Records with several artworks appear here (Blue-Eyes White Dragon and Dark Magician both have `n = 3`); `n` is the number of artworks beyond the first: it equals the length of the card's artwork list minus one in every `card/*.cip` file for all 38 cards that have one (see `cip.md`), high confidence. Record 855 is listed but has a single image.
-- `CARD_Genre`: 6 bytes per record, non-zero for 2,885 records; presumably 48 category flags used by deck search. Not decoded.
+### Collation of `CARD_Sort`
+
+Ranking the records by `(key(name), record index)` gives `CARD_Sort` exactly, for all 3,553 records in each of the five languages (`collation_key` in `tools/cardinfo.py`; `--check` compares the whole table). The key:
+
+1. Case-insensitive (Unicode case folding).
+2. Hyphens `-` and apostrophes `'` are skipped (`Alligator's …` before `All-Out …`, `Catnipped …` before `Cat's Ear …`, `D- Time` before `D. …`).
+3. Diacritics are dropped: an accented letter sorts as its base letter (`é` = `e`, `ü` = `u`, not `ue`); `œ` expands to `oe` and `ß` to `ss`.
+4. The remaining characters compare one by one by class, then by code point: class 0 is everything that is not a digit or a letter (space, `.`, `,`, `!`, `"`, `#`, `¡`, `¿`, `„`, `«`, …), class 1 digits, class 2 letters. A shorter key that is a prefix of a longer one sorts first.
+5. Equal keys (only the seven pairs of identical token names, for example the four "Sheep Token" records) keep record order.
+
+How much of this the data pin down: dropping `-`/`'` is forced (treating them as low or high symbols breaks 21–120 pairs per language), as are case folding (90–362 pairs), accent folding (5–246 pairs, umlaut-as-`ue` breaks 5) and `œ` → `oe` (11 French pairs). Space and `.` must be kept (ignoring either breaks 5–170 pairs). Symbols before digits is forced by one Spanish pair (`¿…` before `7`); otherwise the order inside class 0 and of the other punctuation (`:`, `!`) is not exercised, and `ß` is only constrained to sort between `s…` and `t…`. The game ships the table precomputed; no runtime collation code is needed.
+
+## `CARD_Genre`: 6 bytes per record
+
+Three `u16` words per record, read as one 48-bit flag set: genre `n` is bit `n & 15` of word `n >> 4`. 2,885 records have at least one flag; bits 38–47 are never set.
+
+Readers (`docs/subsystems/card_db.md`): `card_db_has_genre(id, n)` (`0x08833004`) returns `(word[n >> 4] >> (n & 15)) & 1`; `card_db_get_genres(id, out)` (`0x088330a8`) copies the three words; `card_db_get_genre_name(n)` (`0x08833064`) returns DLG string `701 + n` (`0x08832c94`) for `0 ≤ n < 40` and a fixed fallback string otherwise. So the genre names are `DLG_Text` entries 701–740 of the same archive, in the card language, which makes the meanings direct evidence (high confidence). The card-detail code at `0x0884e3e4`, `0x0884e7b0` and `0x0884f3a0` loops over `n = 1 … 37` and lists each set genre.
+
+| Bit | English name (DLG 701 + n) | Records | Notes from the card data |
+| --- | --- | --- | --- |
+| 0 | New Card | 0 | Never set in the file; presumably set at run time. |
+| 1 | Remove card from play | 176 | |
+| 2 | Destroy Spell/Trap | 233 | |
+| 3 | Destroy monster | 361 | |
+| 4 | Deck destruction | 57 | Milling the opponent's Deck (Needle Worm). |
+| 5 | Hand destruction | 84 | |
+| 6 | LV Monsters | 33 | 28 of the 30 names with "LV<n>", plus support cards. |
+| 7 | Toon | 12 | The 9 toon-kind monsters (kind 13) plus support. |
+| 8 | Spirit | 22 | The 14 spirit-kind monsters (kind 15) plus support. |
+| 9 | Union | 32 | All 18 union-kind monsters (kind 17) plus partners such as X-Head Cannon. |
+| 10 | Gemini | 26 | All 21 gemini-kind monsters (kind 19) plus support. |
+| 11 | Tuner | 41 | 36 tuners (kinds 31/33) plus support. |
+| 12 | Synchro | 35 | |
+| 13 | Fusion Material | 198 | Mostly Normal Monsters named in fusion recipes. |
+| 14 | Token | 103 | 51 of the 52 token records (kind 21) plus token makers. |
+| 15 | Flip Effect | 112 | |
+| 16 | Change card position | 136 | |
+| 17 | Get control | 52 | |
+| 18 | Cancel out Effect | 150 | Negation. |
+| 19 | Attribute | 226 | Cards that refer to an Attribute. |
+| 20 | Type | 354 | Cards that refer to a Type. |
+| 21 | Return card | 80 | Bounce. |
+| 22 | Increase draw | 150 | |
+| 23 | Search Deck | 265 | |
+| 24 | Recover cards from Graveyard | 301 | |
+| 25 | Increase/Decrease ATK/DEF | 512 | |
+| 26 | Pierce | 54 | |
+| 27 | Cannot be destroyed | 117 | |
+| 28 | Restrict Attack | 157 | |
+| 29 | Direct Attack | 57 | |
+| 30 | Multiple Attack | 50 | |
+| 31 | Reduce Life Points | 278 | Burn and LP costs. |
+| 32 | Recover Life Points | 89 | |
+| 33 | Counter | 93 | Counters placed on cards. |
+| 34 | Gamble | 61 | Coin tosses and dice. |
+| 35 | Special Summon | 564 | |
+| 36 | Cannot perform Normal Summon | 299 | All 144 fusion monsters (kinds 5/7), 28 of 31 ritual monsters, plus effect monsters that can only be Special Summoned. |
+| 37 | Game Original | 94 | Anime/game cards such as Slash Draw and Fallen Paradise. |
+| 38 | Card with a different artwork | 0 | Never set; presumably derived from `CARD_SamePict`. |
+| 39 | (empty string) | 0 | |
+
+The names are the game's own (English `DLG_Text`); the other languages translate them at the same indices. The flags look hand-assigned rather than derived from the text: keyword searches over names and descriptions agree with the bits only approximately (for example 530 of the 564 "Special Summon" records contain that phrase, but 875 records do).
+
+A second accessor, `card_db_has_genre_mapped(id, k)` (`0x08833638`), maps `k` through the 35-entry `u32` table at `0x0889f980` (`32, 31, 22, 35, 18, 23, 24, 25, 16, 17, 3, 2, 5, 4, 1, 21, 26, 29, 30, 27, 28, 36, 15, 7, 8, 9, 10, 6, 0, 13, 14, 33, 34, 19, 20`) before testing the bit. It is exported to the modules (`rel_duel_eng`, `rel_story`, `rel_field`, `rel_shop` import it); `BOOT.BIN` `0x0886347c` calls it with `k = 22` (bit 15, Flip Effect). The table omits bits 11, 12, 37 and 38. Hypothesis (medium): it is the order of the deck editor's genre filter list.
+
+`tools/cardinfo.py` exports the mask as `genre` (hex) and the names as `genres` (`; `-separated, in the archive's language).
 
 ## Duel prompts: `DLG_Indx_<L>`, `DLG_Text_<L>`
 
@@ -74,7 +139,6 @@ Remaining escapes are left to the text renderer: `$m` followed by four digits na
 
 - The meaning of word 1 bits 22–31.
 - Where the renderer expands `$m` (presumably `0x0883349c`, called by `card_db_get_description`).
-- `CARD_Genre` flag meanings.
-- The exact collation behind `CARD_Sort`, and whether `CARD_Top` points to the first card of each letter.
+- `CARD_Genre`: who sets bits 0 (New Card) and 38 (different artwork) at run time, and whether the table at `0x0889f980` is the deck editor's filter order (trace the deck editor in PPSSPP).
 - Why `CARD_SamePict` lists record 855, which has only one image in the `.cip` files.
 - What the game does with descriptions longer than its 0x77a-byte buffers (`card_db_get_description` rotates four of them at `0x08924d5c`).

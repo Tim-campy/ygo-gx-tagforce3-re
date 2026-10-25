@@ -13,6 +13,7 @@ import importlib.util
 import json
 import struct
 import sys
+import unicodedata
 from pathlib import Path
 
 SPEC = importlib.util.spec_from_file_location("re_ehp", Path(__file__).resolve().parent / "ehp.py")
@@ -21,6 +22,29 @@ SPEC.loader.exec_module(ehp)
 
 FIRST_ID = 0xE88  # card ids below this have no entry (CARD_IntID starts here)
 LANG_SUFFIX = {"eng": "E", "fra": "F", "ger": "G", "ita": "I", "spa": "S"}
+GENRE_FIRST_DLG = 701  # genre n is named by DLG entry 701 + n (0x08833064, n = 0..39)
+GENRE_COUNT = 40
+# Characters CARD_Sort ignores; other punctuation and spaces sort before digits, digits before letters.
+SORT_IGNORED = "-'"
+SORT_EXPANSIONS = {"œ": "oe"}  # oe ligature; casefold already turns sharp s into "ss"
+
+
+def collation_key(name):
+    """Sort key that reproduces CARD_Sort in all five languages (ties are broken by record index).
+
+    Case-insensitive; '-' and apostrophes are ignored; accents are dropped (e -> e, u-umlaut -> u);
+    then each character is weighed as (class, character) with class 0 for spaces and punctuation,
+    1 for digits and 2 for letters. See docs/formats/cardinfo.md for which parts the data constrain.
+    """
+    key = []
+    for char in name.casefold():
+        if char in SORT_IGNORED:
+            continue
+        for c in SORT_EXPANSIONS.get(char, char):
+            base = unicodedata.normalize("NFD", c)[0]
+            c = base if base.isascii() else c
+            key.append((1 if c.isdigit() else 2 if c.isalpha() else 0, c))
+    return tuple(key)
 
 
 def unpack_prop(w0, w1):
@@ -63,6 +87,54 @@ class CardInfo:
         self.desc = member(f"CARD_Desc_{suffix}.bin")
         self.huff = member(f"CARD_Huff_{suffix}.bin")
         self.dict = member(f"DICT_{suffix}.bin")
+        # Optional members (a hand-built test archive may leave them out).
+        self.genre = members.get("CARD_Genre.bin")
+        self.sort = members.get(f"CARD_Sort_{suffix}.bin")
+        self.top = members.get(f"CARD_Top_{suffix}.bin")
+        dlg_indx, dlg_text = members.get(f"DLG_Indx_{suffix}.bin"), members.get(f"DLG_Text_{suffix}.bin")
+        self.dialog = ([utf16z(dlg_text, offset) for offset in struct.unpack(f"<{len(dlg_indx) // 4}I", dlg_indx)]
+                       if dlg_indx and dlg_text else [])
+
+    # ------------------------------------------------------------------ genres and sorting
+
+    def genre_mask(self, index):
+        """The 48 CARD_Genre bits of a record as an int (three u16, bit n = u16[n >> 4] bit n & 15,
+        as 0x08833004 tests them)."""
+        if not self.genre:
+            return 0
+        low, mid, high = struct.unpack_from("<3H", self.genre, 6 * index)
+        return low | mid << 16 | high << 32
+
+    def genre_name(self, bit):
+        """Name of genre bit n: DLG entry 701 + n in the archive's language (0x08833064)."""
+        number = GENRE_FIRST_DLG + bit
+        if bit < GENRE_COUNT and number < len(self.dialog) and self.dialog[number]:
+            return self.dialog[number]
+        return f"genre{bit}"
+
+    def genres(self, index):
+        mask = self.genre_mask(index)
+        return [self.genre_name(bit) for bit in range(48) if mask >> bit & 1]
+
+    def sort_positions(self):
+        """CARD_Sort as a list (record -> position in the alphabetical list), or None."""
+        return list(struct.unpack(f"<{self.count}H", self.sort)) if self.sort else None
+
+    def collated_positions(self):
+        """Positions computed with collation_key; equal to CARD_Sort on the disc in all languages."""
+        order = sorted(range(1, self.count), key=lambda index: (collation_key(self.name(index)), index))
+        positions = [0] * self.count
+        for position, index in enumerate(order, 1):
+            positions[index] = position
+        return positions
+
+    def top_entries(self):
+        """CARD_Top: [(character, card id)]."""
+        if not self.top:
+            return []
+        count = struct.unpack_from("<H", self.top, 0)[0]
+        return [(chr(c), card_id) for c, card_id in
+                (struct.unpack_from("<HH", self.top, 2 + 4 * k) for k in range(count))]
 
     # ------------------------------------------------------------------ lookups
 
@@ -148,6 +220,7 @@ class CardInfo:
     def records(self):
         for index in range(1, self.count):
             row = {"index": index, **self.properties(index), "passcode": self.passes[index],
+                   "genre": f"{self.genre_mask(index):#014x}", "genres": "; ".join(self.genres(index)),
                    "name": self.name(index), "description": self.description(index)}
             yield row
 
@@ -170,6 +243,30 @@ class CardInfo:
         last_name, last_desc = self.entry(self.count)
         if last_name != len(self.names) or not 8 * (len(self.desc) - 1) < last_desc <= 8 * len(self.desc):
             problems.append("sentinel index entry does not mark the end of CARD_Name/CARD_Desc")
+        problems += self.check_sorting()
+        return problems
+
+    def check_sorting(self):
+        """CARD_Sort must equal the collation rule; each CARD_Top letter must point to the first card
+        whose sort key starts with that letter, and '*' to the first card of the whole list."""
+        stored = self.sort_positions()
+        if stored is None:
+            return []
+        problems = []
+        computed = self.collated_positions()
+        wrong = [index for index in range(1, self.count) if stored[index] != computed[index]]
+        if wrong:
+            problems.append(f"CARD_Sort differs from the collation rule at {len(wrong)} records, "
+                            f"first {wrong[0]} ({self.name(wrong[0])!r})")
+        order = sorted(range(1, self.count), key=lambda index: stored[index])
+        for char, card_id in self.top_entries():
+            if char == "*":
+                expected = order[0]
+            else:
+                expected = next((index for index in order
+                                 if collation_key(self.name(index))[:1] == ((2, char.lower()),)), None)
+            if self.index_of(card_id) != expected:
+                problems.append(f"CARD_Top {char!r} points to id {card_id}, not to the first card of its letter")
         return problems
 
 
