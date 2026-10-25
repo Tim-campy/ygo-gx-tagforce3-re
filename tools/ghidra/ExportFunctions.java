@@ -4,7 +4,7 @@
 // "documented" for functions carrying the DOCUMENTED tag (ApplySignatures.java) and blank otherwise,
 // so tools/progress.py infers unknown/named. Usage (headless):
 //   analyzeHeadless <projdir> <proj> -process BOOT.BIN -noanalysis -scriptPath tools/ghidra
-//       -postScript ExportFunctions.java <output.csv>
+//       -postScript ExportFunctions.java <output.csv> [module id prefix, e.g. rel_story]
 // @category TF3
 
 import java.io.PrintWriter;
@@ -17,9 +17,11 @@ public class ExportFunctions extends GhidraScript {
 	@Override
 	protected void run() throws Exception {
 		String[] args = getScriptArgs();
-		if (args.length != 1) {
-			throw new IllegalArgumentException("usage: ExportFunctions.java <output.csv>");
+		if (args.length < 1 || args.length > 2) {
+			throw new IllegalArgumentException("usage: ExportFunctions.java <output.csv> [module id prefix]");
 		}
+		// Modules that share a load address (the scene and library slots) need module-qualified ids.
+		String prefix = args.length == 2 ? args[1] + ":" : "";
 		int count = 0;
 		try (PrintWriter out = new PrintWriter(args[0], "UTF-8")) {
 			out.println("id,name,group,status,size");
@@ -34,7 +36,7 @@ public class ExportFunctions extends GhidraScript {
 				}
 				// Only functions tagged by ApplySignatures.java are "documented"; the rest is inferred.
 				boolean documented = function.getTags().stream().anyMatch(t -> t.getName().equals("DOCUMENTED"));
-				out.printf("0x%08x,%s,%s,%s,%d%n", function.getEntryPoint().getOffset(), name, group(function),
+				out.printf("%s0x%08x,%s,%s,%s,%d%n", prefix, function.getEntryPoint().getOffset(), name, group(function),
 					documented ? "documented" : "", function.getBody().getNumAddresses());
 				count++;
 			}

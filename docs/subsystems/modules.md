@@ -176,6 +176,21 @@ The method finds the known `rel_duel_eng` base `0x09be1400` with 2,007/2,007 sta
 
 Every other module reaches at most 6–58 % of its starts. That is the noise level of this export, which is dense around `0x08e9aa00`, so those modules are not in this export. For modules with fewer than about 50 starts (`labo` 8, `throw_starter` 7, `movie_viewer` 10, `html_view` 13), the vote cannot tell a match from noise. The bases are specific to this one session's load order: re-vote with every new export.
 
+Later exports taken on the field map, in the deck editor and in the shop (`ghidra/mapa.sym`, `loja.sym`; the deck-editor and dormitory exports are byte-identical to the map one) add:
+
+| Module | Base | Starts matched |
+| --- | --- | --- |
+| `rel_story` | `0x08e9aa00` | 552/552 |
+| `rel_deck` | `0x08e9aa00` | 325/325 |
+| `rel_field` | `0x090ced00` | 497/497 |
+| `rel_shop` | `0x090ced00` | 230/230 |
+
+PPSSPP keeps the symbols of every module loaded so far, so one export holds several modules at the same address. Two slots stand out: `0x08e9aa00` is the scene slot (title, story, deck editor, duel manager) and `0x090ced00` holds `rel_field` or `rel_shop`.
+
+### In Ghidra and in the registry
+
+`rel_duel_eng` (`0x09be1400`), `rel_story` (`0x08e9aa00`), `rel_field` and `rel_shop` (both `0x090ced00`) are imported into `ghidra/TF3.gpr` at these bases. Modules that share an address get module-qualified registry ids (`rel_story:0x08ea63f4`), produced by `ExportFunctions.java <csv> <module>`; `BOOT.BIN` and `rel_duel_eng` keep plain addresses. Their import stubs are named with `tools/prx_imports.py` (`re/names-imports-<module>.csv`); `rel_story`'s 55 imports from other game modules are not resolved by that tool yet.
+
 ## Module catalogue
 
 Columns: size in bytes; slot (scene id / registry id); exported library (function count) and which modules import it; role. The evidence is BOOT.BIN calls actually made (names from `re/functions.csv`) and file names referenced (named only). All modules call `card_db_get_dictionary_word` and `container_ehp_find_member` heavily.

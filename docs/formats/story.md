@@ -72,7 +72,7 @@ The names are the ones `tools/story.py` prints; the full opcode table is under "
 
 ## The interpreter (`gmodule/rel_story.prx`)
 
-Addresses in this section are **module offsets** of `rel_story.prx` (its runtime base is not known yet; file offset = offset + `0x54`, one `PT_LOAD` segment, like the other gmodules). The module was read with a small MIPS decoder; nothing is in Ghidra yet. Imports were resolved with `tools/prx_imports.py` (base 0): 1,556 stubs come from `BOOT.BIN`'s `libehsys_rel` (about 210 of them have names yet); the other 55 come from other modules' libraries, among them `libfield_rel` (`rel_field.prx`).
+Addresses in this section are **module offsets** of `rel_story.prx` (runtime address = `0x08e9aa00` + offset, the base found in the PPSSPP exports and used in Ghidra, `docs/subsystems/modules.md`; file offset = offset + `0x54`, one `PT_LOAD` segment, like the other gmodules). The module was read with a small MIPS decoder; nothing is in Ghidra yet. Imports were resolved with `tools/prx_imports.py` (base 0): 1,556 stubs come from `BOOT.BIN`'s `libehsys_rel` (about 210 of them have names yet); the other 55 come from other modules' libraries, among them `libfield_rel` (`rel_field.prx`).
 
 | Offset | What | Conf. | Evidence |
 | --- | --- | --- | --- |
@@ -247,7 +247,7 @@ The bytecode findings (10-byte instructions, `EveBI` record starts, text referen
 
 ## Open questions
 
-- Runtime base of `rel_story.prx`, so the offsets above can go into Ghidra and the registry; the driver around `0xb3c8` (how the field module picks the record to run, how the exit codes are consumed).
+- The driver around `0xb3c8` (how the field module picks the record to run, how the exit codes are consumed).
 - What the field-module requests (33 entries in `rel_field.prx` at `0x2df0c`) do on the field side, in particular 11, 13/14 (talk window), 19 (picture), 20/21, 24 (DP display), 26 and 28; and which save fields the `BOOT.BIN` getters read (DP, per-character points, pack state, picture bits).
 - The meaning of `talk`'s `a3` flag (0/1; 148 uses with 1, often on lines like "..."), of `npc_event`'s `(301, n)` pair, of the `duel_rules`/`duel_option` bytes, and the order of the duel follow-up keys (win/loss/draw?).
 - Opcodes in use whose effect is still unnamed: 50118, 50137, 50144, 50148, 50149, 50151, 50156, 50162, 50170 (and 50105, two uses).

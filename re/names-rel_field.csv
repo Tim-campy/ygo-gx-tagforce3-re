@@ -1,0 +1,5 @@
+# Names applied to gmodule/rel_field.prx (runtime base 0x090ced00, shared slot: registry ids are prefixed with the module name).
+# Evidence in docs/formats/story.md and docs/subsystems/modules.md.
+address,group,name
+0x090d83c4,world,world_field_request
+0x090d8444,world,world_field_poll

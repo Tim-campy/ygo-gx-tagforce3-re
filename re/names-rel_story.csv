@@ -1,0 +1,13 @@
+# Names applied to gmodule/rel_story.prx (runtime base 0x08e9aa00, shared slot: registry ids are prefixed with the module name).
+# Evidence in docs/formats/story.md and docs/subsystems/modules.md.
+address,group,name
+0x08ea63f4,dialogue,dialogue_run_event_script
+0x08ea507c,dialogue,dialogue_find_event_record
+0x08ea9d70,dialogue,dialogue_skip_to_opcode
+0x08ea9f54,dialogue,dialogue_test_bool
+0x08ea9ec4,dialogue,dialogue_compare
+0x08ea5164,dialogue,dialogue_get_line_text
+0x08eaad54,world,world_set_story_flag
+0x08eaae28,world,world_test_story_flag
+0x08eaa73c,audio,audio_play_bgm
+0x08ea41f4,world,world_setup_single_duel
