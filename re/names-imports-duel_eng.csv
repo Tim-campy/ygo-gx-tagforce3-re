@@ -13,7 +13,7 @@ address,group,name
 0x09de41ac,,thunk_FUN_0881d69c
 0x09de41b4,container,thunk_container_load_file
 0x09de41bc,,thunk_FUN_0881d6c0
-0x09de41c4,,thunk_FUN_0881d7b8
+0x09de41c4,container,thunk_container_read_async
 0x09de41cc,,thunk_FUN_0881d8dc
 0x09de41d4,,thunk_FUN_0881d8f4
 0x09de41dc,,thunk_FUN_0881d9c4

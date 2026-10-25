@@ -64,3 +64,8 @@ address,group,name
 0x0885cd2c,deck,deck_select_owner_variant
 0x0885ccfc,deck,deck_get_owner_current_recipe
 0x0885ce3c,deck,deck_compare_owner_key
+0x0883db1c,card_db,card_db_is_cpj_file
+0x0883db04,card_db,card_db_is_cpm_file
+0x0883d658,card_db,card_db_on_cip_slot_read
+0x0883d4a0,card_db,card_db_read_next_cip_slot
+0x0881d7b8,container,container_read_async

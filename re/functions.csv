@@ -623,7 +623,7 @@ id,name,group,status,size
 0x0881d69c,FUN_0881d69c,,,12
 0x0881d6a8,container_load_file,container,,24
 0x0881d6c0,FUN_0881d6c0,,,248
-0x0881d7b8,FUN_0881d7b8,,,292
+0x0881d7b8,container_read_async,container,,292
 0x0881d8dc,FUN_0881d8dc,,,24
 0x0881d8fc,container_resolve_path,container,documented,200
 0x0881d9c4,FUN_0881d9c4,,,56
@@ -1360,14 +1360,14 @@ id,name,group,status,size
 0x0883d390,FUN_0883d390,,,12
 0x0883d39c,FUN_0883d39c,,,100
 0x0883d400,FUN_0883d400,,,160
-0x0883d4a0,FUN_0883d4a0,,,284
+0x0883d4a0,card_db_read_next_cip_slot,card_db,,284
 0x0883d5bc,FUN_0883d5bc,,,140
 0x0883d648,FUN_0883d648,,,16
-0x0883d658,FUN_0883d658,,,808
+0x0883d658,card_db_on_cip_slot_read,card_db,,808
 0x0883d980,FUN_0883d980,,,132
 0x0883da04,FUN_0883da04,,,256
-0x0883db04,FUN_0883db04,,,24
-0x0883db1c,FUN_0883db1c,,,24
+0x0883db04,card_db_is_cpm_file,card_db,,24
+0x0883db1c,card_db_is_cpj_file,card_db,,24
 0x0883db34,FUN_0883db34,,,124
 0x0883dbb0,FUN_0883dbb0,,,164
 0x0883dc54,FUN_0883dc54,,,132
@@ -8562,7 +8562,7 @@ id,name,group,status,size
 0x09de41ac,thunk_FUN_0881d69c,,,1
 0x09de41b4,thunk_container_load_file,container,,1
 0x09de41bc,thunk_FUN_0881d6c0,,,1
-0x09de41c4,thunk_FUN_0881d7b8,,,1
+0x09de41c4,thunk_container_read_async,container,,1
 0x09de41cc,thunk_FUN_0881d8dc,,,1
 0x09de41d4,thunk_FUN_0881d8f4,,,1
 0x09de41dc,thunk_FUN_0881d9c4,,,1

@@ -6,7 +6,7 @@ cip,Card image container directory (card/*.cip),card_db,verified,
 cip_cardh,cardh_<l>.cip DXT1 128x64 card atlas (GIM),card_db,reimplemented,14819328
 cip_cardm,cardm_<l>.cip headerless DXT1 64x64 card face,card_db,reimplemented,7428096
 cip_card8,card8_a.cip index8 128x128 card art (GIM),card_db,reimplemented,66557952
-cip_cardj,cardj_a.cip masked 512x512 JPEG card art,card_db,documented,590188544
+cip_cardj,cardj_a.cip masked 512x512 JPEG card art,card_db,verified,590188544
 gim,Sony GIM texture,field_3d,named,
 pmf,Sony PSMF movie,ui,named,
 snd_bank,SP sound bank (snd/*.bin),audio,unknown,

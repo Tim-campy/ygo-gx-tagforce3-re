@@ -40,5 +40,5 @@ Independently established here and consistent with its notes: the EHP container,
 | `snd/psp_snddat.bin` is a chain of `SP` banks padded to 2048 bytes, with 32-byte cue entries and RIFF ATRAC3/ATRAC3plus waves. | TF3 EU |
 | `script/story_scr_<l>.ehp` holds paired offset/text tables (`EveI`/`EveL`, `SysMsgI`/`SysMsgL`); `story_scr_b.ehp` holds event bytecode. | TF3 onward |
 | 8-byte `{card, handler}` lists next to the 24-byte effect tables. | TF1 |
-| The `CPJ` card images are masked JPEGs rather than block-encrypted data (confirmed on TF3 EU with the toolkit; see `cip.md`). | TF2 onward |
+| The `CPJ` card images are masked JPEGs rather than block-encrypted data. Confirmed on TF3 EU: the method was then derived independently from `BOOT.BIN` and implemented in `tools/cip.py jpeg`, whose output is byte-identical to the toolkit's for all 3,602 slots (`cip.md`). | TF2 onward |
 | Export NIDs of the limit-list functions (lookup, copies allowed, save status, setter). | "every build" |

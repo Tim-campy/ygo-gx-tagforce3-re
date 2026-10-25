@@ -34,7 +34,7 @@ All tools are Python 3 with the standard library only, and each has tests on syn
 | [`tools/cardinfo.py`](tools/cardinfo.py) | Export the card database to CSV/JSON and check its structure. |
 | [`tools/tables.py`](tools/tables.py) | Export the booster packs (`rel_shop.prx`) and the limit list (`BOOT.BIN`). |
 | [`tools/decks.py`](tools/decks.py) | Export the opponent deck recipes, alternative-artwork tables and tutorial scripts. |
-| [`tools/cip.py`](tools/cip.py) | List the card image containers and decode an image to PNG. |
+| [`tools/cip.py`](tools/cip.py) | List the card image containers, decode images to PNG and unmask the 512×512 JPEG card art (`jpeg`). |
 | [`tools/sym_to_names.py`](tools/sym_to_names.py) | Turn a PPSSPP `.sym` export into Ghidra names. |
 | [`tools/prx_imports.py`](tools/prx_imports.py) | Resolve a module's imports against `BOOT.BIN`'s exports and name the stubs. |
 | [`tools/progress.py`](tools/progress.py) | Progress numbers, treemap, badges and history from the registries. |
