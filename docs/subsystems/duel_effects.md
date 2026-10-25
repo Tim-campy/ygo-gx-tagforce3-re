@@ -21,6 +21,10 @@ So **handlers implement effect families, and the per-card numbers live in compar
 
 The `ctx` structure passed to handlers starts with the card id (`u16` at `+0`); bit 0 of `+2` is the owner and bit 6 of `+3` a control-switch flag, so the controller is `owner ^ switched`; `(u16 at +2 & 0xfff) >> 6` is a 6-bit event code, and bits 1–5 of `+2` the field slot (the context is a chain link, `duel_core.md`) (Mirror Force's condition tests `0x12` together with "the attacker is the opponent"; `duel_effects_find_record` tests `0x24`); bits 4–5 of `+3` are the table selector; when bit 0 of `+6` is set, `+0x18` holds the effective card id (`duel_core_get_effective_card_id`, for copied effects). Confidence: medium for field meanings.
 
+## Classification by callees
+
+`tools/effect_classify.py` classifies every record by the helpers, engine commands and send-batch stores its handlers reach (92 % of the records get at least one category on the resolve slot at depth 3) and ranks the unnamed helpers by how many records reach them; see `effect-classification.md`.
+
 ## Loading the module in Ghidra
 
 `rel_duel_eng.prx` is relocatable. It is imported into `ghidra/TF3.gpr` with the ghidra-allegrex loader at image base `09be1400`, the address it had when the PPSSPP symbol export (`ghidra/symbols.sym`) was taken. The base was found by matching Ghidra's function offsets and sizes against the export: 1,767 functions agree at `0x09be1400`, against at most 3 for any other base. A different load order could move the module; re-check the base with any new export.

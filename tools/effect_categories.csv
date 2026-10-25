@@ -1,0 +1,86 @@
+kind,pattern,category,role,note
+# Mapping for tools/effect_classify.py (see docs/subsystems/effect-classification.md). Lines starting with # are comments.
+# kind: name = Python regex searched in the callee's registry name (a leading "thunk_" is removed first);
+#       addr = callee address in hex; cmd = engine command code (op & 0xfff) posted through a "queue" callee;
+#       arg  = "<name regex>|<register>&<mask>": the callee is called with that register holding a value whose
+#              mask bits are all known to be set.
+#       store = space-separated conditions "<address>=<value>" or "<address>&<mask>" that must all hold for
+#              constant stores (sb/sh/sw of a known value to a known address) of one scanned function.
+# role: effect = counts for coverage, callee is a leaf (not descended); meta = recorded, not counted, leaf;
+#       stop = no category, leaf (infrastructure); queue = the callee posts engine commands (a0 = op), leaf.
+# name and addr rows: the FIRST matching row decides (put specific rows before general ones).
+# cmd, arg and store rows: every matching row adds its category; they never change whether a callee is a leaf.
+#
+# --- command queue
+name,^duel_core_push_command$,,queue,Appends (op a b c) to the engine queue 0x09e29100; op & 0xfff = command code (duel-phases.md)
+# --- meta helpers that would otherwise fall under a stop row
+name,^duel_effects_not_used_this_turn$,once_per_turn,meta,Activation condition: once-per-turn marker absent (chain.md)
+name,^ai_ask_yes_no$,optional,meta,
+# --- infrastructure and predicates: do not descend
+name,^duel_effects_target_filter$,,stop,Per-card filter; its flag word (a3) is decoded by the arg rows
+name,^duel_core_(get|is|can|count|has|find|filter)_|^duel_effects_(get|is|can|count|has|find|cond|filter|match)_,,stop,Predicates and getters
+name,^duel_effects_call_handler|^duel_effects_call_activation_step$|^duel_effects_find_record$|^duel_effects_select_record_variant$,,stop,Handler dispatch
+name,^duel_core_post_ui_event$|^duel_core_random$|^duel_core_compute_|^duel_core_slot_has_effect$|^duel_core_sum_effect_values$,,stop,
+name,^ai_|^card_db_|^system_|^sce|^audio_|^container_|^save_|^deck_|^dl_|^field_3d_,,stop,
+# --- engine commands (codes from duel-phases.md battle.md chain.md summon.md duel_core.md stat-modifiers.md)
+cmd,0x23,gain_lp,effect,LP gain (battle.md)
+cmd,0x24,lp_loss,effect,LP loss: damage or cost; the reason is in b (battle.md)
+cmd,0x25,set_lp,effect,LP set (battle.md)
+cmd,0x30,send_to_graveyard,effect,Field or list card to the graveyard or banished (duel_core.md)
+cmd,0x32,banish,effect,Graveyard to banished (duel_core.md)
+cmd,0x33,position_change,effect,duel_core_cmd_change_position (summon.md)
+cmd,0x34,position_change,effect,Turn face-up or face-down (summon.md)
+cmd,0x35,attach_effect,effect,Attach an effect record or marker (stat-modifiers.md chain.md)
+cmd,0x36,detach_effect,meta,Remove a marker (chain.md)
+cmd,0x3e,move_list_card,effect,List-to-list move: hand deck extra graveyard banished (duel_core.md)
+cmd,0x42,negate,effect,Negation shown (chain.md)
+cmd,0x51,place_spell_trap,effect,Place a spell/trap from the hand (summon.md)
+cmd,0x56,draw,effect,Draw (duel_core.md)
+# --- field-card send batch (started by the request family 0x09c24790-0x09c274a4, run by 0x09c232bc):
+#     0x09e2d298 = 1 starts it, 0x09e2d2b8 = destination location (duel_core.md), 0x09e2d2bc = mode
+#     (bit 1 destroy as in duel_core_send_field_card's flags, 0x1000 Tribute: duel_core_tribute_monsters; 4 battle).
+store,0x09e2d2bc&0x2,destroy,effect,Batch mode bit 1 (destroy); five request functions incl. 0x09c24790 (Dark Hole/Raigeki resolve)
+store,0x09e2d2bc&0x1000,tribute,effect,Batch mode 0x1000 (duel_core_tribute_monsters and two others)
+store,0x09e2d2b8=0x0b,return_to_hand,effect,Batch destination 0x0b hand
+store,0x09e2d2b8=0x0d,return_to_deck,effect,Batch destination 0x0d deck
+store,0x09e2d2b8=0x0f,banish,effect,Batch destination 0x0f banished
+store,0x09e2d2b8=0x0e 0x09e2d2bc=0x0,send_to_graveyard,effect,Batch destination 0x0e graveyard with mode 0 (not destroy)
+# --- named helpers: effects
+name,^duel_core_draw_cards|^duel_effects_resolve_draw$,draw,effect,
+name,^duel_core_inflict_(card_)?damage$,damage,effect,
+name,^duel_core_gain_lp$,gain_lp,effect,
+name,^duel_core_(pay|lose)_lp$|^duel_effects_cost_pay_lp$,pay_lp,effect,
+name,^duel_core_tribute_monsters$|^duel_effects_cost_tribute$,tribute,effect,
+name,(^|_)discard(_|$),discard,effect,
+name,^duel_core_send_field_card$,send_field_card,effect,Destroy/send/banish a field card; the destination is an argument
+name,(^|_)destroy(_|$)|destruction,destroy,effect,
+name,send_.*to_graveyard|request_send_field_card_to_graveyard,send_to_graveyard,effect,
+name,^duel_core_send_hand_card$,send_from_hand,effect,
+name,(^|_)banish(_|$),banish,effect,
+name,return_.*to_deck|(^|_)to_deck(_|$),return_to_deck,effect,
+name,return_.*to_hand|(^|_)to_hand(_|$)|bounce,return_to_hand,effect,
+name,(^|_)search(_|$),search_deck,effect,
+name,(^|_)shuffle(_|$),shuffle,effect,
+name,^duel_core_special_summon|resolve_.*(fusion|ritual|summon|miracle_contact)|resolve_advanced_ritual_art,special_summon,effect,
+name,^duel_core_attach_(instance_)?effect$|^duel_core_post_add_marker$,attach_effect,effect,
+name,^duel_core_detach_|^duel_core_post_remove_marker$,detach_effect,meta,
+name,negate|resolve_solemn_judgment|^duel_core_post_show_negation$,negate,effect,
+name,^duel_core_change_position$,position_change,effect,
+name,take_control|control_change|switch_control,control_change,effect,
+name,(^|_)counters?(_|$),counter,effect,
+name,^duel_core_run_effect_battle$,battle,effect,
+# --- named helpers: meta (not counted for coverage)
+name,^duel_effects_mark_used_this_turn$,once_per_turn,meta,
+name,^duel_effects_confirm_(optional|recruiter)_trigger$,optional,meta,
+name,^duel_effects_choose_targets,choose_targets,meta,
+name,^duel_core_raise_timing_event$,timing_event,meta,
+name,^duel_core_post_set_(player|slot)_flag$,set_flag,meta,
+name,^duel_core_begin_select_|^duel_core_open_card_list$,select_ui,meta,
+# --- target-filter flag word (duel_effects_target_filter a3; effect-tables.md)
+arg,^duel_effects_target_filter$|a3&0x1000,destroy,effect,
+arg,^duel_effects_target_filter$|a3&0x2000,banish,effect,
+arg,^duel_effects_target_filter$|a3&0x4000,send_to_graveyard,effect,
+arg,^duel_effects_target_filter$|a3&0x10000,control_change,effect,
+arg,^duel_effects_target_filter$|a3&0x40000,position_change,effect,
+arg,^duel_effects_target_filter$|a3&0x80000,return_to_hand_or_deck,effect,
+arg,^duel_effects_target_filter$|a3&0x400,targets,meta,
