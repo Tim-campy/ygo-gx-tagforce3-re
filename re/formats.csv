@@ -7,10 +7,10 @@ cip_cardh,cardh_<l>.cip DXT1 128x64 card atlas (GIM),card_db,reimplemented,14819
 cip_cardm,cardm_<l>.cip headerless DXT1 64x64 card face,card_db,reimplemented,7428096
 cip_card8,card8_a.cip index8 128x128 card art (GIM),card_db,reimplemented,66557952
 cip_cardj,cardj_a.cip masked 512x512 JPEG card art,card_db,verified,590188544
-gim,Sony GIM texture,field_3d,named,
+gim,Sony GIM texture,field_3d,documented,
 pmf,Sony PSMF movie,ui,named,
 snd_bank,SP sound bank chain (snd/psp_snddat.bin),audio,reimplemented,138645504
-ehf,EHF 2D layout (paired with .tmf),ui,named,
+ehf,EHF 2D layout (converted Flash timeline; paired with .tmf),ui,reimplemented,
 tgm,TGMS/TGMT/TGMA/TMF model family,field_3d,unknown,
 ydq,YDQ member format (d_tutorial),duel_core,unknown,
 gmodule_prx,Plain ELF game modules in gmodule/,system,named,
@@ -50,3 +50,4 @@ save_decks,Save deck slots (147 x 0x16c),save,documented,0x16c
 save_collection,Save card collection (3554 x 4 bytes),save,documented,14216
 target_filter_flags,Target filter flag bits (rel_duel_eng.prx),duel_effects,documented,
 effect_param_chains,Per-card parameter compare chains (rel_duel_eng.prx),duel_effects,reimplemented,
+tmf,TMF per-texture flag bytes of an EHF layout,ui,documented,
