@@ -1,6 +1,6 @@
 # Duel core (work package 4)
 
-Rules machinery in `gmodule/rel_duel_eng.prx` (runtime base `0x09be1400`). Card effects are covered in `duel_effects.md`.
+Rules machinery in `gmodule/rel_duel_eng.prx` (runtime base `0x09be1400`). Card effects are covered in `duel_effects.md`; the Battle Phase, Life Points and the end of the duel in `battle.md`.
 
 ## Player state
 
@@ -8,9 +8,12 @@ Two per-player blocks of `0xb3c` bytes; player `p` (0 or 1) starts at about `0x0
 
 | Address (player 0) | Meaning | Basis |
 | --- | --- | --- |
-| `0x09e2a528` (`+0x00`) | Life Points (hypothesis, medium) | `duel_core_next_turn` compares this word of the two sides. |
+| `0x09e2a528` (`+0x00`) | Life Points (`int`; confidence high) | Only written by commands `0x23`/`0x24`/`0x25` and the duel start; `duel_core_check_win` returns 1 when the opponent's value is 0 (`battle.md`). |
 | `0x09e2a534` (`+0x0c`) | Hand size | Draw-count rules such as "5 minus" and "7 minus" this value (`duel_effects_get_draw_count`); count of the list at `+0x124`. |
 | `0x09e2a538` (`+0x10`) | Cards left in the deck | `duel_core_can_draw` compares the requested count with it; count of the list at `+0x304`. |
+| `0x09e2a54c` (`+0x24`) | Lost flag: the other side wins with reason 2 when it is set (hypothesis: deck-out; no direct writer found) | `duel_core_check_win`. |
+| `0x09e2a554` (`+0x2c`) | Card id of a special-victory monster whose battle damage won the duel (reason 8) | `duel_core_cmd_lp_loss`. |
+| `0x09e2a558` (`+0x30`) | Win reason of this side after the duel is decided | `duel_core_check_duel_end`, command 5. |
 | `0x09e2a540` (`+0x18`) | Size of a third card list, presumably the extra deck | Count of the list at `+0x4e4`; swapped with the hand and deck in tag duels. |
 | `+0x124`, `+0x304`, `+0x4e4` | Hand, deck and third list: 4 bytes per card (`u16` card reference with flags in the top bits, more bits in the following `u16`) | `tag_duel_swap_active_duelist`. |
 | `0x09e2a55c + i × 0x14` | Field slot `i`, 20 bytes each: slots 0–4 are the monster zones, 5–9 the spell/trap zones, 10 the field-spell zone | `duel_effects_target_filter` limits zone classes by these index ranges. |
@@ -65,6 +68,6 @@ Link layout (also the effect context): `u16 +0` card id; `u16 +2`: bit 0 the con
 
 ## Open questions
 
-- The rest of the player structure (graveyard, banished cards; confirm Life Points at `+0x00`) and the per-slot card state.
+- The rest of the player structure (graveyard, banished cards) and the per-slot card state. Life Points at `+0x00` are established statically (`battle.md`); confirm in PPSSPP.
 - The states of `duel_core_chain_step`. (Phase values and the turn state machine: `duel-phases.md`.)
 - The remaining event codes in chain links.
