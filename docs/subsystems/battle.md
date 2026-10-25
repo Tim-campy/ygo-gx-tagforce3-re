@@ -37,12 +37,12 @@ Filled by `duel_core_battle_compute_stats`; offsets relative to the record.
 | `+0x00`, `+0x04` | Side, slot (5 for the player in a direct attack) | H |
 | `+0x08` | Battle position (slot `+0x06`; 0 = Attack Position) | H |
 | `+0x0c`, `+0x10` | Card instance and its generation | H |
-| `+0x14` | Value from `0x09bf0328(side, slot)` (card data handle) | L |
-| `+0x18` | Card id | H |
-| `+0x1c`, `+0x20` | Two further stat words (stats `[6]`, `[7]`; hypothesis: original ATK/DEF) | L |
+| `+0x14` | Name id the card is treated as (`duel_core_get_slot_name_id`, stat-block word 0; `stat-modifiers.md`) | M |
+| `+0x18` | Effective card id (`duel_core_get_slot_card_id`, stat-block word 1) | H |
+| `+0x1c`, `+0x20` | Original ATK / DEF (stat-block words 8/9), clamped at 0 | H |
 | `+0x24` | Final ATK used by the damage calculation, clamped at 0 | H (compared in `duel_core_battle_resolve`; sent in command `0x15`, timing `0x0d`) |
 | `+0x28` | Final DEF, clamped at 0 | H |
-| `+0x2c`, `+0x30` | Stats `[2]`, `[5]` of the stat block (compared with small constants such as 1, 4, 6, 0x15; hypothesis: Type/Attribute) | L |
+| `+0x2c`, `+0x30` | Current Type and current Level (stat-block words 2 and 5) | H |
 | `+0x34` | Destroyed by battle | H |
 | `+0x38` | Destruction handled by a card effect instead (Mystical Beast Serket, Thunder Nyan Nyan set it in step 9) | M |
 | `+0x40` | Destruction mode from `0x09dc5150`; command `0x20` sets slot byte `+0x36` bit 6 when > 0 | L |
@@ -193,7 +193,7 @@ Consumers:
 | `0x09ddac64` | `duel_core_run_effect_battle(a, cancel_cmd, no_windows)` | M | Runs entries 5–7. |
 | `0x09dd177c` | `duel_core_battle_check_replay()` | H | Snapshot `memcmp`, replay or cancel. |
 | `0x09dd1544` | `duel_core_battle_snapshot_targets(int *out)` | H | Writes the 12-word snapshot. |
-| `0x09dc15c8` | `duel_core_battle_compute_stats(apply, simulate)` | M | Fills the battle records; 11,616 bytes of per-card modifiers, read only in part. |
+| `0x09dc15c8` | `duel_core_battle_compute_stats(apply, simulate)` | H | Fills the battle records from `duel_core_compute_card_stats` plus the Damage-Step modifiers (`stat-modifiers.md`). |
 | `0x09dc4328` | `duel_core_battle_compute_stats_live(apply)` | H | `compute_stats(apply, 0)`. |
 | `0x09dc5a4c` | `duel_core_battle_resolve(apply, simulate)` | H | Table above. |
 | `0x09dc6f90` | `duel_core_battle_resolve_live(apply)` | H | `resolve(apply, 0)`. |
@@ -225,8 +225,8 @@ Consumers:
 ## Open questions
 
 - Confirm at runtime (PPSSPP): LP at `0x09e2a528`/`0x09e2b064`, the step sequence through `0x09e2d220`, and the damage records at `0x09e286e0` for one ATK-vs-DEF attack with piercing.
-- The full list of per-card modifiers in `duel_core_battle_compute_stats` (11,616 bytes) and their order; for the port they should be extracted into a table like the other compare chains (`docs/formats/effect-tables.md`).
-- Record fields `+0x1c`, `+0x20`, `+0x2c`, `+0x30`, `+0x40` (hypotheses above).
+- Resolved: the per-card modifiers and their order are in `stat-modifiers.md` and extracted by `tools/stat_mods.py`; record fields `+0x14`–`+0x30` are stat-block words.
+- Record field `+0x40` (hypothesis above) and what the Clear Vice Dragon / Wicked Avatar flag of `duel_core_battle_compute_stats` changes.
 - Who writes player block `+0x24` (win reason 2, presumably deck-out); it is not referenced directly.
 - The second record written by `resolve` when the attacker carries one of the piercing equips controlled by the opponent (`add_damage(A, A, …)`); the rule it implements is unclear.
 - Event code `0x2a2` used by after-battle trigger registrations (`0x09c2c578`) and the other timing codes raised elsewhere (`0x03`, `0x04`, `0x08`, `0x09`, `0x1e`, `0x20`–`0x22`, `0x25`).

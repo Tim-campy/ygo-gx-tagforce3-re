@@ -41,6 +41,7 @@ All tools are Python 3 with the standard library only, and each has tests on syn
 | [`tools/ehf.py`](tools/ehf.py) | List, check and render the 2D layouts (`.ehf` + `.tmf`) to PNG. |
 | [`tools/tutorial.py`](tools/tutorial.py) | Check and list the duel-tutorial setups (`.ydq`), scripts and text. |
 | [`tools/effect_params.py`](tools/effect_params.py) | Extract per-card effect parameters from the duel engine: target filters, draw counts, LP costs and other compare chains. |
+| [`tools/stat_mods.py`](tools/stat_mods.py) | List the per-card ATK/DEF modifiers of the duel engine by layer (own effect, other cards, field spell, attached effects, equips, Damage Step) and their coverage. |
 | [`tools/ai_tables.py`](tools/ai_tables.py) | List and check the duel AI's per-card priority tables (card id, handler, situation). |
 | [`tools/save.py`](tools/save.py) | Read a plaintext `DATA0` save: deck slots, card collection, checks. |
 | [`tools/sound.py`](tools/sound.py) | List and check the sound banks; export a clip (ATRAC3/ATRAC3plus as stored, PS-ADPCM to WAV). |

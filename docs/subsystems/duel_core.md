@@ -1,6 +1,6 @@
 # Duel core (work package 4)
 
-Rules machinery in `gmodule/rel_duel_eng.prx` (runtime base `0x09be1400`). Card effects are covered in `duel_effects.md`; summoning, setting, battle positions and the action menu in `summon.md`; the Battle Phase, Life Points and the end of the duel in `battle.md`.
+Rules machinery in `gmodule/rel_duel_eng.prx` (runtime base `0x09be1400`). Card effects are covered in `duel_effects.md`; current ATK/DEF, Type, Attribute, Level and effect attachments in `stat-modifiers.md`; summoning, setting, battle positions and the action menu in `summon.md`; the Battle Phase, Life Points and the end of the duel in `battle.md`.
 
 ## Player state
 
