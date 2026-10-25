@@ -38,7 +38,7 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 | word 1, 10–13 | level | 0 for spells and traps. |
 | word 1, 14–16 | icon | Spell/trap sub-type: 0 normal, 1 counter (Solemn Judgment), 2 field (Fallen Paradise), 3 equip, 4 continuous, 5 quick-play, 6 ritual (Black Luster Ritual). |
 | word 1, 17–21 | type (race) | 1 Dragon, 2 Zombie, 3 Fiend, 4 Pyro, 5 Sea Serpent, 6 Rock, 7 Machine, 8 Fish, 9 Dinosaur, 10 Insect, 11 Beast, 12 Beast-Warrior, 13 Plant, 14 Aqua, 15 Warrior, 16 Winged Beast, 17 Fairy, 18 Spellcaster, 19 Thunder, 20 Reptile, 21 Psychic, 22 Divine-Beast, 23 spell, 24 trap. Basis: public card data for each value (for example Kairyu-Shin 5, Skull Servant 2, Mind Master 21); the same order, doubled, appears in ygotfToolkit's notes for TF4. |
-| word 1, 22–31 | unknown | Values 0 (2,337), 1 (513), 3 (386), 4 (317). |
+| word 1, 22–31 | unknown | Values 0 (2,337), 1 (513), 3 (386), 4 (317). The game reads it as a 3-bit field, bits 22–24 (`card_db_get_prop_bits22`, `0x08832bdc`, exported); bits 25–31 are not read by any getter. |
 
 ## `CARD_Pass.bin`, `CARD_IntID.bin`
 
@@ -56,8 +56,9 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 1. **Huffman** (`card_db_decode_huffman`). Bits are read most significant first within each byte, starting at `desc_offset`. `CARD_Huff` is a `u16` array holding a tree: start at node index 0; for each bit `b`, read `child = huff[node + b]`; if `child != 0`, consume the bit and continue at `node = child >> 1` (children are stored as byte offsets); if `child == 0` the node is a leaf, the bit is not consumed, and `huff[node + 2]` is the UTF-16 code unit. Internal nodes take two `u16`, leaves three (`0, 0, symbol`). Symbol 0 ends the text.
 2. **Dictionary** (`card_db_expand_dictionary`). `$d` followed by three characters is replaced with dictionary word `atoi(those three)`; five code units are skipped even if `atoi` stopped early (one Italian text contains `$d02$`). Any other `$` + character is copied unchanged. English uses 51,465 references.
 3. **Card names inside words** (`card_db_get_dictionary_word`). `DICT` is `u32 count`, `u32 table_offset`, `u32 string_base`, then `count` `u32` offsets; word `n` is the UTF-16LE string at `string_base + table[n]`. Inside a word, `%c` followed by four digits is replaced with the name of the card with that id.
+4. **Card references** (`card_db_expand_card_refs`, `0x0883349c`, the last step of `card_db_get_description`). `$m` followed by four digits names another card by id (1,186 English descriptions contain one; for example a field spell naming the monster it supports) and is replaced with that card's name; any other `$` + character pair is copied unchanged.
 
-Remaining escapes are left to the text renderer: `$m` followed by four digits names another card by id (1,186 English descriptions contain one; for example a field spell naming the monster it supports), `$C<digit>` sets a colour in dialog texts (`$C0` resets), and `$R` marks furigana in Japanese texts according to ygotfToolkit's notes. `tools/cardinfo.py` keeps these escapes as the game stores them.
+The remaining escapes are left to the text renderer: `$C<digit>` sets a colour in dialog texts (`$C0` resets), and `$R` marks furigana in Japanese texts according to ygotfToolkit's notes. `tools/cardinfo.py` keeps all escapes, including `$m`, as the game stores them.
 
 ## Sorting and lookup tables
 
@@ -137,8 +138,7 @@ A second accessor, `card_db_has_genre_mapped(id, k)` (`0x08833638`), maps `k` th
 
 ## Open questions
 
-- The meaning of word 1 bits 22–31.
-- Where the renderer expands `$m` (presumably `0x0883349c`, called by `card_db_get_description`).
+- The meaning of word 1 bits 22–24 (read only through the export `0x08832bdc`; trace a module caller).
 - `CARD_Genre`: who sets bits 0 (New Card) and 38 (different artwork) at run time, and whether the table at `0x0889f980` is the deck editor's filter order (trace the deck editor in PPSSPP).
 - Why `CARD_SamePict` lists record 855, which has only one image in the `.cip` files.
 - What the game does with descriptions longer than its 0x77a-byte buffers (`card_db_get_description` rotates four of them at `0x08924d5c`).

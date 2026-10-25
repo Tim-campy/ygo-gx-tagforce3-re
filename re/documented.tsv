@@ -32,3 +32,165 @@ address	prototype	summary	document
 0x0880a4a4	void * system_bsearch(void *key, void *base, uint count, uint size, void *compare)	C bsearch; returns the matching element or 0. No side effects.	docs/subsystems/system.md
 0x08817bb8	int sceGzipIsValid(void *buf)	1 when buf starts with the gzip magic 1F 8B. No side effects.	docs/subsystems/sdk.md
 0x08817950	int sceGzipDecompress(void *dst, uint dst_size, void *src, uint *crc32)	Inflates a gzip stream into dst; returns the output size or an SCE error code and stores the trailer CRC-32. Side effects: dst, crc32.	docs/subsystems/sdk.md
+0x08832684	void card_db_load_cardinfo(void)	Builds "cardinfo_" + language code + ".ehp" and queues its load from root 5 (duelsys) into 0x08926b50 with completion callback card_db_on_cardinfo_loaded. Side effects: clears the loaded flag 0x08926b48, sets 0x08926b4c.	docs/subsystems/card_db.md
+0x08832a04	int card_db_on_cardinfo_loaded(void *arg, int result)	File-thread completion callback of card_db_load_cardinfo: sets the loaded flag 0x08926b48 to 1 and returns 1 (accept the read).	docs/subsystems/card_db.md
+0x08832718	void card_db_append_language_suffix(char *name)	Appends the upper-cased first letter of the current language code (table 0x08878c88) and the suffix string at 0x0889f8b0 to name. Side effects: name only.	docs/subsystems/card_db.md
+0x08832b80	int card_db_is_valid(int card_id)	Returns 0xffff when bit 0 of CARD_Prop word 1 (the odd card kind) is set, which holds for every real record, else 0 (record 0, unused ids). No side effects.	docs/subsystems/card_db.md
+0x08832bac	ushort card_db_get_sort_position(int card_id)	The card's position in the alphabetical list, CARD_Sort[index]. No side effects.	docs/subsystems/card_db.md
+0x08832bdc	uint card_db_get_prop_bits22(int card_id)	CARD_Prop word 1 bits 22-24 (meaning unknown; values 0, 1, 3, 4). Exported. No side effects.	docs/subsystems/card_db.md
+0x08832c34	int card_db_find_by_passcode(uint passcode)	Linear search of ids 0xe88-0x1f39 for the passcode; returns the card id or -1 (also for passcode 0). No side effects.	docs/subsystems/card_db.md
+0x08832c94	ushort * card_db_get_dialog_string(int number)	Pointer to UTF-16 DLG string number: DLG_Text + DLG_Indx[number]. No bounds check. No side effects.	docs/subsystems/card_db.md
+0x08832cb8	ushort * card_db_get_race_name(int race)	Name of a monster type (race): DLG 500 + race, or the empty fallback string 0x088a711c for 0. No side effects.	docs/subsystems/card_db.md
+0x08832ce8	ushort * card_db_get_kind_name(int kind)	Kind suffix ("/Effect", "/Fusion", ...): DLG 550 + kind after mapping tuner kinds 15/16 to 11, synchro 17 to 12, 18 to 13 and other kinds above 10 to 1; fallback string for kind 0. No side effects.	docs/subsystems/card_db.md
+0x08832d58	ushort * card_db_get_attribute_name(int attribute)	Attribute name: DLG 530 + attribute (1 LIGHT ... 9 TRAP), fallback string for 0. No side effects.	docs/subsystems/card_db.md
+0x08832d88	ushort * card_db_get_icon_name(int icon)	Spell/trap icon name: DLG 570 + icon (1 Counter ... 7 Normal), fallback string for 0. No side effects.	docs/subsystems/card_db.md
+0x08832db8	uint card_db_get_race(int card_id)	Monster type (race), CARD_Prop word 1 bits 17-21 (23 spell, 24 trap). No side effects.	docs/subsystems/card_db.md
+0x08832de0	uint card_db_get_attribute(int card_id)	Attribute, CARD_Prop word 1 bits 6-9. No side effects.	docs/subsystems/card_db.md
+0x08832e08	uint card_db_get_level(int card_id)	Level, CARD_Prop word 1 bits 10-13. No side effects.	docs/subsystems/card_db.md
+0x08832e30	uint card_db_get_icon(int card_id)	Spell/trap icon, CARD_Prop word 1 bits 14-16. No side effects.	docs/subsystems/card_db.md
+0x08832e58	uint card_db_get_kind(int card_id)	Card kind index, CARD_Prop word 1 bits 1-5 (stored kind >> 1: 0 normal, 1 effect, ... 10 token, 13 spell, 14 trap); ids 0x1386-0x1388 always return 11. No side effects.	docs/subsystems/card_db.md
+0x08832e94	int card_db_get_atk(int card_id)	ATK = 10 x CARD_Prop word 0 bits 14-22; the value 0x1ff ("?") returns 0. No side effects.	docs/subsystems/card_db.md
+0x08832ed8	short card_db_get_def(int card_id)	DEF = 10 x CARD_Prop word 0 bits 23-31; 0x1ff ("?") returns 0. No side effects.	docs/subsystems/card_db.md
+0x08832f1c	int card_db_get_atk_or_unknown(int card_id)	Like card_db_get_atk but returns 0xffff for "?". No side effects.	docs/subsystems/card_db.md
+0x08832f60	short card_db_get_def_or_unknown(int card_id)	Like card_db_get_def but returns -1 for "?". No side effects.	docs/subsystems/card_db.md
+0x08833004	int card_db_has_genre(int card_id, uint genre)	Non-zero when CARD_Genre bit genre is set: word genre >> 4, bit genre & 15 of the record's three u16. No side effects.	docs/subsystems/card_db.md
+0x08833064	ushort * card_db_get_genre_name(int genre)	Genre name, DLG 701 + genre for 0 <= genre < 40, else the fallback string 0x088a711c. No side effects.	docs/subsystems/card_db.md
+0x088330a8	void card_db_get_genres(int card_id, ushort *out)	Copies the record's three CARD_Genre words to out[0..2]. Side effects: out.	docs/subsystems/card_db.md
+0x08833638	int card_db_has_genre_mapped(int card_id, int filter)	card_db_has_genre(card_id, table[filter]) with the 35-entry u32 table at 0x0889f980. No side effects.	docs/subsystems/card_db.md
+0x088330fc	ushort card_db_get_top_count(void)	Number of CARD_Top entries (27). No side effects.	docs/subsystems/card_db.md
+0x0883310c	ushort card_db_get_top_letter(uint n)	Character of CARD_Top entry n (0 when n > count). No side effects.	docs/subsystems/card_db.md
+0x08833164	ushort card_db_get_top_card(uint n)	First card id of CARD_Top entry n (0 when n > count). No side effects.	docs/subsystems/card_db.md
+0x088331bc	int card_db_get_top_group(int card_id)	Index of the CARD_Top letter group that contains the card: last n whose first card sorts at or before it. No side effects.	docs/subsystems/card_db.md
+0x08833230	short card_db_get_artwork_count(uint card_id)	Number of artworks: binary search of CARD_SamePict by record index, n + 1 when listed, 1 otherwise, 0 if the table is missing. No side effects.	docs/subsystems/card_db.md
+0x0883349c	short * card_db_expand_card_refs(short *out, short *in)	Copies in to out, replacing "$m" + four digits with the name of that card id (format 0x0889f978); other "$x" pairs are copied unchanged. Returns out. Side effects: out.	docs/subsystems/card_db.md
+0x0886010c	int card_db_is_token(int card_id)	1 when card_db_get_kind is 10 (token). No side effects.	docs/subsystems/card_db.md
+0x0885ff60	int card_db_is_trap(int card_id)	1 when the card's race is 24 (trap). No side effects.	docs/subsystems/card_db.md
+0x0883db1c	int card_db_is_cpj_file(void *reader)	1 when the .cip header held at reader+0xac has magic "CPJ\x1a". No side effects.	docs/formats/cip.md
+0x0883db04	int card_db_is_cpm_file(void *reader)	1 when the .cip header held at reader+0xac has magic "CPM\x1a". No side effects.	docs/formats/cip.md
+0x0883d4a0	int card_db_read_next_cip_slot(void *reader)	Finds the next pending slot (state 1) in the reader's slot table, picks a buffer, marks the slot 2 and queues container_read_async of its sectors with callback card_db_on_cip_slot_read. Returns 1 if a read was queued.	docs/formats/cip.md
+0x0883d658	int card_db_on_cip_slot_read(void *reader, int bytes_read)	Read-completion callback: unmasks the buffer for CPJ files (XOR head, then LCG stream), stores the buffer pointer in the slot and queues the next slot; clears reader flag bit 1 when none is left. Returns 1.	docs/formats/cip.md
+0x0883d648	void * card_db_cip_get_slot_table(void *reader)	Pointer to the reader's slot table, reader + 0xac + *(reader+0xc8): pairs (sector, state or buffer) ending in -1. No side effects.	docs/formats/cip.md
+0x0883d5bc	void * card_db_cip_next_buffer(void *reader)	Returns the next of the reader's rotating image buffers (base +0x94, count +0x98, index +0x9c, size spi x 0x800) and resets slots whose data lived in it. Side effects: index, slot table.	docs/formats/cip.md
+0x088566a4	void deck_set_limit(int card_id, uint status)	Writes status (0-3) into bits 0-1 of byte 2 of the card's save collection record; ignored for status >= 4 or cards without a record. Side effects: game state.	docs/subsystems/deck.md
+0x08856704	uint deck_get_limit(int card_id)	The save's limit status of the card (byte 2 bits 0-1 of its collection record); 3 (unlimited) when it has no record. No side effects.	docs/subsystems/deck.md
+0x08832fa4	uint deck_get_card_limit(int use_builtin, int card_id)	Limit status for deck building: the built-in list (deck_get_default_limit) when the flag 0x08aa5688 is set or use_builtin is 1, else the save copy (deck_get_limit). No side effects.	docs/subsystems/deck.md
+0x08833624	uint deck_get_current_card_limit(int card_id)	deck_get_card_limit(0, card_id). Exported. No side effects.	docs/subsystems/deck.md
+0x0885660c	void deck_set_limit_list_name(ushort *name)	Clears the 0x80-byte UTF-16 field at game state +0x16582 and copies up to 63 units of name into it. Called by deck_reset_limits. Side effects: game state.	docs/subsystems/deck.md
+0x08856674	ushort * deck_get_limit_list_name(void)	Pointer to the limit-list name at game state +0x16582. No side effects.	docs/subsystems/deck.md
+0x08856780	void * deck_get_slot_cards(int slot)	Pointer to the 0xc0-byte card lists (counts, main, side, extra) of deck slot slot: game state + 0x4914 + 0x16c x slot. No side effects.	docs/subsystems/deck.md
+0x088567e8	void deck_copy_slot_cards(int slot, void *out)	Copies the 0xc0-byte card lists of deck slot slot to out. Side effects: out.	docs/subsystems/deck.md
+0x0885684c	void deck_get_slot_name(int slot, ushort *out)	Copies the 64-byte UTF-16 deck name of slot slot (game state + 0x48d4 + 0x16c x slot) to out and forces a terminating NUL. Side effects: out.	docs/subsystems/deck.md
+0x088568d4	void deck_set_slot_name(int slot, ushort *name)	Copies 64 bytes of name into the deck name of slot slot and forces a terminating NUL. Side effects: game state.	docs/subsystems/deck.md
+0x0885c3dc	void deck_load_recipe(int recipe, void *deck)	Fills the 0xc0-byte deck struct from member RCP<recipe>.ydc of the embedded archive 0x088d77e0 (main, extra, side with limits 60/15/15); clears it if the member is missing or a count is too large. Side effects: deck.	docs/subsystems/deck.md
+0x0885c314	ushort * deck_get_recipe_name(int recipe)	UTF-16 name of a recipe from recipe_name_<l>.bin (letter from "jegfis" by language), or 0 when RCP<recipe>.ydc does not exist. Result in the dictionary word buffers.	docs/subsystems/deck.md
+0x0885c2dc	ushort deck_get_recipe_level(int recipe)	Level of a recipe from the u16 table at 0x089143f0 for 0 <= recipe < 462, else 1. No side effects.	docs/subsystems/deck.md
+0x0885cc3c	int deck_get_owner_recipe_count(int owner)	Number of recipes of an owner (bsearch of the 126 x 16-byte table at 0x08915f28, field +8), 0 if unknown. No side effects.	docs/subsystems/deck.md
+0x0885cc80	int deck_get_owner_recipe(int owner, int n)	Recipe number first + n of an owner when 0 <= n < count, else -1. No side effects.	docs/subsystems/deck.md
+0x0885cd2c	int deck_select_owner_variant(int owner, int stage)	Variant index of an owner's deck for a stage from the 67 x 12-byte table at 0x08916730 (owner 8 stage 1 adds 1 when the character has 2000 points or more); -1, 0 or 1 for other character modes. No side effects.	docs/subsystems/deck.md
+0x0885ccfc	int deck_get_owner_current_recipe(int owner, int stage)	deck_get_owner_recipe(owner, deck_select_owner_variant(owner, stage)). No side effects.	docs/subsystems/deck.md
+0x0885ce3c	int deck_compare_owner_key(int *a, int *b)	bsearch comparator of the owner table: *a - *b. No side effects.	docs/subsystems/deck.md
+0x08835dc4	void * save_get_state(void)	Base of the in-memory game state that DATA0 mirrors: 0x08aa5794 + 4 x (u32 at 0x08ac18c0, a random 0-15 chosen at boot). No side effects.	docs/formats/save.md
+0x08853e80	void save_init_new_game(void)	Clears 0x1c0ec bytes of game state and builds a new game: language kept, system nickname (at most 8 units, "$" doubled) at +0xfd5c, starting deck from recipe 0 (cards added to the collection, name in slot 1), OpenPSID at +0x10, default options, default limits, version 0x30000 at +0.	docs/formats/save.md
+0x0885442c	void save_reset_options(void)	Writes the default option bits of the settings block and default volumes (0x08841724) and a 12-word block from 0x0885c084. Callers system_init_game_globals, save_init_new_game. Side effects: game state.	docs/formats/save.md
+0x088560e4	void * save_get_card_record(int card_id)	Pointer to the card's 4-byte collection record at game state + 0x11ba4 + 4 x index; 0 for index 0 and for tokens. No side effects.	docs/formats/save.md
+0x0885615c	uint save_get_card_count(int card_id)	Copies owned: collection byte 1 bits 0-6 (0 without a record). No side effects.	docs/formats/save.md
+0x08856188	void save_set_card_count(int card_id, int count)	Sets the copies owned (bits 0-6 of byte 1) and the state bits 1-2 of byte 0: 2 if the card already had copies, else 1 (count > 0) or 0. Side effects: game state.	docs/formats/save.md
+0x08856248	void save_change_card_count(int card_id, int add)	add != 0: one more copy (max 99), state 0 becomes 1 (new); add == 0: one copy fewer (not below 0). Side effects: game state.	docs/formats/save.md
+0x088562fc	void save_clear_card_new(int card_id)	Sets the state bits 1-2 of collection byte 0 to 2 (owned, no longer new). Side effects: game state.	docs/formats/save.md
+0x08856338	int save_is_card_new(int card_id)	1 when the collection state (byte 0 bits 1-2) is 1. No side effects.	docs/formats/save.md
+0x08856370	uint save_get_card_state(int card_id)	Collection state, byte 0 bits 1-2: 0 never obtained, 1 new, 2 owned. No side effects.	docs/formats/save.md
+0x0885654c	uint card_db_is_card_marked(int card_id)	Bit 3 of collection byte 0 (0 without a record). No side effects.	docs/formats/save.md
+0x08856510	void card_db_mark_card(int card_id)	Sets bit 3 of collection byte 0. Side effects: game state.	docs/formats/save.md
+0x088573d4	void * save_get_pack_record(int pack)	Pointer to the 0x2a-byte record of pack pack at game state + 0x16604 + 0x2a x pack, 0 for pack >= 48. No side effects.	docs/formats/save.md
+0x08857484	void save_set_pack_state(int pack, uint state)	Writes state into bits 0-2 of pack record byte 1 (keeping bit 2 if it was set). Side effects: game state.	docs/formats/save.md
+0x088574d8	uint save_get_pack_state(int pack)	Pack record byte 1 bits 0-2 (0 for an invalid pack). No side effects.	docs/formats/save.md
+0x08857504	ushort * save_get_pack_entries(int pack)	Pointer to the 20 u16 entries at pack record +2 (0 for an invalid pack). No side effects.	docs/formats/save.md
+0x0885752c	void save_set_pack_entry(int pack, int n, ushort value)	Stores value in entry n (< 20) of a pack record. Side effects: game state.	docs/formats/save.md
+0x0885757c	ushort save_get_pack_entry(int pack, int n)	Entry n (< 20) of a pack record, 0 when out of range. No side effects.	docs/formats/save.md
+0x088575c8	void save_reset_packs(void)	For all 48 packs: byte 0 = 0xaa, entries cleared (0x28 bytes). Side effects: game state.	docs/formats/save.md
+0x08857698	void * save_get_settings(void)	Pointer to the settings bytes at game state + 0xfe04. No side effects.	docs/formats/save.md
+0x08857b80	uint save_get_language(void)	Language index, settings byte 0 bits 0-2 (0 J, 1 E, 2 G, 3 F, 4 I, 5 S, after the "jegfis" letters). No side effects.	docs/formats/save.md
+0x08857ba4	void save_set_language(uint language)	Writes settings byte 0 bits 0-2, then calls 0x088373c8. Side effects: game state.	docs/formats/save.md
+0x088578f0	void save_set_option_flag(int option, int on)	Sets or clears one of six option bits: options 0-2 settings byte 1 bits 5-7, options 3-5 byte 2 bits 0, 3, 4. Side effects: game state.	docs/formats/save.md
+0x08857a00	uint save_get_option_flag(int option)	Reads the option bit written by save_set_option_flag; 0 for other options. No side effects.	docs/formats/save.md
+0x08854b68	uint save_get_player_value(int n)	u32 n at game state + 0xfdfc + 4n (meaning not established). No side effects.	docs/formats/save.md
+0x08857c10	void * save_get_character_table(void)	Pointer to the 0x18-byte per-character records at game state + 0xfe0c. No side effects.	docs/formats/save.md
+0x08857d9c	void * save_get_character_record(int character)	Pointer to the character's 0x18-byte record. No side effects.	docs/formats/save.md
+0x08857d0c	void save_add_character_entry(int character, uint value)	Appends value to the character record's u16 list (count at +0, up to 10 entries at +2) unless already present. Side effects: game state.	docs/formats/save.md
+0x08857dd0	ushort save_get_char_points(int character)	The character's points, u16 at record +0x16. No side effects.	docs/formats/save.md
+0x08857e08	void save_set_char_points(int character, int points)	Sets the points clamped to 0-8000. Side effects: game state.	docs/formats/save.md
+0x08857e68	void save_add_char_points(int character, int delta)	Adds delta to the points, clamped to 0-8000. Side effects: game state.	docs/formats/save.md
+0x08857ed8	int save_find_top_character(void)	Character 2-142 with the most points (first one on ties). No side effects.	docs/formats/save.md
+0x088410dc	int save_open(int request, void *heap)	Starts a save-data session: allocates from heap a 0x200 work block, a buffer for msd_e.ehp, the 0x9d0-byte SceUtilitySavedataParam and the 0x20000 save buffer, and queues msd_e.ehp from root 6. Returns 0 (and frees) on failure, else 1.	docs/formats/save.md
+0x0883e3b4	void save_close(void)	Frees the four save-session blocks to their heap and clears the pointers 0x08acda04-0x08acda10.	docs/formats/save.md
+0x088410a8	int save_on_resources_loaded(void *arg, int result)	Completion callback of save_open: sets 0x08acd9f0 and binds the loaded msd_e.ehp archive. Returns 1.	docs/formats/save.md
+0x088413ec	char * save_get_resource_name(void)	Returns the file name "msd_e.ehp" (0x088a15cc). No side effects.	docs/formats/save.md
+0x0881d6a8	int container_load_file(int root, char *path, void *dest, int size, void *callback, void *arg)	Queues a whole-file read: container_read_async(root, path, dest, 0, size, callback, arg). Returns 1.	docs/subsystems/container.md
+0x0881d7b8	int container_read_async(int root, char *path, void *dest, int offset, int size, void *callback, void *arg)	Claims the next of 32 0x60-byte request slots at 0x08920cb4 under semaphore 0x089218b8, fills it as type 0 (read) and signals the queue semaphore 0x089218bc. Returns 1.	docs/subsystems/container.md
+0x0881dce8	int container_gzip_decompress(void *dst, uint dst_size, void *src)	sceGzipDecompress with the CRC discarded; returns the output size or an SCE error. Exported. Side effects: dst.	docs/subsystems/container.md
+0x08821f40	int container_ehp_bind_with_callback(void *callback, void *ehp)	If the one-shot callback slot 0x08921918 is free, stores callback and runs container_ehp_bind(ehp, 1); returns 1 then, else 0 without binding.	docs/subsystems/container.md
+0x0881d574	int container_init_file_thread(void **config)	Clears the 0xc1c-byte file-queue state at 0x08920cac, stores config[0] as the root path table, starts the file thread (priority 0x6f, 8 KiB stack) and creates "ehfile_sema" and "ehfile_queue". Returns 1.	docs/subsystems/container.md
+0x0881dba0	void container_file_thread(void)	File thread: waits on the queue semaphore, takes a request, runs it (type 0 container_read_file, type 1 system_load_module), passes the result to callback(arg, result) and repeats the operation until the callback returns non-zero; then frees the slot.	docs/subsystems/container.md
+0x0881dc70	void * container_take_request(void)	First busy request slot, scanning the 32-slot ring from the write index 0x089218b4; 0 if none. No side effects.	docs/subsystems/container.md
+0x0881d6c0	int container_read_file(int root, char *path, void *dest, int offset, int size)	Synchronous read of size bytes at offset: resolves the path; non-disc paths via sceIoOpen/Lseek/Read/Close, disc paths via container_read_disc_file. Returns bytes read, -1 if the open fails, -2 if the seek fails.	docs/subsystems/container.md
+0x0881e210	int container_read_disc_file(char *path, void *dest, int offset, int size)	Same as container_read_file for a resolved disc path, through the wrappers 0x0881e2c4 (open), 0x0881e448 (seek), 0x0881e378 (read). Returns bytes read, -1 or -2.	docs/subsystems/container.md
+0x0881ce04	int system_scene_init(char *name, int root, void *static_fn)	Clears the scene slot 0x08920be4, requests module name (or the static function when name is 0), creates and starts thread "ehscript" at the caller's priority + 1 and runs it once. Returns 1.	docs/subsystems/modules.md
+0x0881d028	void system_scene_thread(void)	Scene thread state machine on 0x08920c3c (1 load, 2 start, 3 enter, 5 run/exit); wakes the main thread after every step.	docs/subsystems/modules.md
+0x0881d18c	int system_scene_on_module_loaded(void *slot, int uid)	Load callback of the scene thread: stores uid at slot+0x50 when positive; returns uid > 0.	docs/subsystems/modules.md
+0x0881cf00	int system_scene_run_slice(void)	Resumes the scene thread and sleeps until it wakes the caller, then suspends it again. Returns 1.	docs/subsystems/modules.md
+0x0881cf54	int system_scene_register(void *start, void *end, int arg)	Stores the scene's start and end callbacks and argument at 0x08920c28/2c/30. Returns 1.	docs/subsystems/modules.md
+0x0881cf74	int system_scene_request(char *basename)	Copies basename plus the suffix at 0x0889ed84 into the requested-name buffer 0x08920be8. Returns 1.	docs/subsystems/modules.md
+0x0881cfb0	int system_scene_set_static(void *fn)	Requests the "staticmodule" pseudo-scene with fn as its function; fn is dropped (0) when its first word is a MIPS j instruction. Returns 1.	docs/subsystems/modules.md
+0x0881d9c4	int system_load_module(int root, char *path)	Resolves root + path and calls sceKernelLoadModule(path, 0, 0); returns the module UID or an error.	docs/subsystems/modules.md
+0x0881d9fc	int system_queue_module_load(int root, char *path, void *callback, void *arg)	Queues a type-1 request (module load) in the file-thread queue. Returns 1.	docs/subsystems/modules.md
+0x08827c54	void system_module_registry_init(int root_a, int root_b)	Clears the 0x1304-byte registry at 0x089235b4, replaces roots -1/-2 of the built-in table 0x0889f57c by root_a/root_b and registers it.	docs/subsystems/modules.md
+0x08827f4c	int system_module_register_table(void *table)	Adds each 16-byte descriptor (id, root, name, kind) not yet registered as a 76-byte entry, then sorts the registry by id. Returns 1 if an id was already present.	docs/subsystems/modules.md
+0x08828144	void * system_module_find(int id)	bsearch of the registry by id; entry or 0. No side effects.	docs/subsystems/modules.md
+0x08827cec	int system_module_load(int id)	system_module_load_ex(id, 0, 0, 0x089248b8, 0). Returns 1 for an unknown id, else 0.	docs/subsystems/modules.md
+0x08827d04	int system_module_load_ex(int id, int argsize, void *argp, int *status, void *option)	Increments the reference count and, when not loaded, queues the load (kind 0) with start arguments or loads a utility module (kind 4). Returns 1 for an unknown id, else 0.	docs/subsystems/modules.md
+0x08828180	int system_module_on_loaded(void *entry, int uid)	Load callback: stores uid, sceKernelStartModule with the saved arguments, state 2. Returns uid > 0.	docs/subsystems/modules.md
+0x08827e18	int system_module_all_loaded(void)	0 while any registry entry is in state 1 (loading), else 1. No side effects.	docs/subsystems/modules.md
+0x08827e60	int system_module_unload(int id)	Decrements the reference count of a loaded module and stops/unloads it at 0. Returns 1 for an unknown id or a module still loading, else 0.	docs/subsystems/modules.md
+0x08828068	char * system_module_get_basename(int id)	Module file name without its 4-character extension, copied to 0x089248c0; 0 for an unknown id.	docs/subsystems/modules.md
+0x088280d8	char * system_module_get_filename(int id)	Module file name copied to 0x089248e0; 0 for an unknown id.	docs/subsystems/modules.md
+0x0882b834	int system_load_movie_modules(void)	system_module_load of ids 2-5 (video playback). Returns 0.	docs/subsystems/modules.md
+0x0882b874	int system_unload_movie_modules(void)	system_module_unload of ids 5-2. Returns 0.	docs/subsystems/modules.md
+0x088415f4	void system_load_audio_modules(void)	Loads module ids 3, 7, 6 and waits for them, creates the 0x280000-byte heap at 0x08acda40, installs three callbacks (0x088414a0, 0x08841514, 0x08841554) through 0x08869290 and calls 0x08841724(n, 12) for n = 0-2.	docs/subsystems/modules.md
+0x088453e4	int system_font_init(int root, int alt_font)	Loads and starts libfont.prx, opens the default font (and an optimum 20 x 20 font when alt_font), stores its metrics and sets the alternative character 0x25a1. Returns 1.	docs/subsystems/modules.md
+0x0883dbb0	char * system_scene_get_module_name(int scene)	Module base name of a scene id through the 31-entry table 0x088a1478 (sorted on first use); "unknown id" otherwise.	docs/subsystems/modules.md
+0x0883dc54	void system_scene_call(int from, int to, int arg)	Pushes transition {1, from, to, arg} on the scene stack and requests to's module.	docs/subsystems/modules.md
+0x0883dcd8	void system_scene_return(int from, int arg)	Sets the current transition to {2, from, caller, arg}, pops the stack and requests the caller's module.	docs/subsystems/modules.md
+0x0883dddc	void system_scene_jump(int from, int to, int arg)	Clears the scene stack, sets {3, from, to, arg} and requests to's module.	docs/subsystems/modules.md
+0x0883dd4c	int system_scene_get_caller(int scene)	from of the top stack entry when its to is scene, else 31. No side effects.	docs/subsystems/modules.md
+0x0883dda8	void system_scene_get_transition(void *out)	Copies the current 8-byte transition to out. Side effects: out.	docs/subsystems/modules.md
+0x0883596c	void * system_get_scene_stack(void)	Returns the 144-byte scene stack at 0x08aa56a4. No side effects.	docs/subsystems/modules.md
+0x0883de64	int system_scene_compare_id(int *a, int *b)	Comparator of the scene table: *b - *a. No side effects.	docs/subsystems/modules.md
+0x088281d8	int system_module_compare_id(int *a, int *b)	Comparator of the module registry: *b - *a. No side effects.	docs/subsystems/modules.md
+0x08833734	void system_main(void)	Boot sequence and main loop: callbacks, UMD activation, file index, file thread, module registries, audio, game globals, font, scene "rel_title"; then per frame rand step, scene slice and housekeeping. Never returns.	docs/subsystems/system.md
+0x08833688	int system_exit_callback(int arg1, int arg2, void *common)	Exit callback ("EXIT_CALLBACK"): calls 0x0882b8c0, then sceKernelExitGame. Returns 0.	docs/subsystems/system.md
+0x088336b0	int system_power_callback(int unknown, int power_flags, void *common)	Power callback ("POWER_CALLBACK"): stores power_flags at 0x08ac24bc. Returns 0.	docs/subsystems/system.md
+0x088336d0	void system_check_soft_reset(void)	When the pad state from 0x088284b8 (+0x24) holds SELECT+START+L+R (0x309) and 0x0881dd48 and 0x08835aac both return 0, reboots with sceKernelLoadExec("disc0:/PSP_GAME/SYSDIR/BOOT.BIN").	docs/subsystems/system.md
+0x08835c68	void system_init_game_globals(void)	Binds the six embedded EHP archives, clears 0x1cefc bytes at 0x08aa5680, creates a 16 KiB heap, seeds rand, picks the random game-state offset 0x08ac18c0, finds loading.ehf and writes default options.	docs/subsystems/system.md
+0x08859688	int system_rand_shifted(void)	system_rand() >> 4. No side effects beyond the generator.	docs/subsystems/system.md
+0x0880ce2c	void * system_get_reent(void)	newlib reentrancy struct: the one at *(k0+4) when the thread has one, else the global at 0x0889e5b0. No side effects.	docs/subsystems/system.md
+0x08811804	char * system_strncpy(char *dst, char *src, uint n)	C strncpy (pads with NUL up to n). Returns dst. Side effects: dst.	docs/subsystems/system.md
+0x0885827c	ushort * system_wcsncpy(ushort *dst, ushort *src, uint n)	strncpy for UTF-16: copies up to n units and pads with 0. Returns dst. Side effects: dst.	docs/subsystems/system.md
+0x08810f5c	int system_sprintf(char *buf, char *format, ...)	C sprintf through system_vfprintf_r with a string FILE of unlimited size; NUL-terminates buf.	docs/subsystems/system.md
+0x0880f844	void system_qsort(void *base, uint count, uint size, void *compare)	C qsort (BSD-style median-of-three quicksort with insertion sort below 7 elements). Side effects: base.	docs/subsystems/system.md
+0x0880d398	void * system_malloc(uint size)	C malloc: system_malloc_r(system_get_reent(), size).	docs/subsystems/system.md
+0x0880d3c4	void system_free(void *ptr)	C free: system_free_r(system_get_reent(), ptr).	docs/subsystems/system.md
+0x0882622c	void * system_heap_create(void *memory, uint size)	Initialises a "HOGE" (0x45474f48) heap header with its block list inside memory (when memory is 0, allocates a 16-byte header through 0x0880d1a0 instead). Returns the heap or 0.	docs/subsystems/system.md
+0x08826450	void * system_heap_alloc(void *heap, int size)	Allocates size bytes rounded up to 16 from a HOGE heap (tail call to 0x08826458 with flag 1); 0 on failure or size < 1.	docs/subsystems/system.md
+0x088265ac	int system_heap_free(void *heap, void *ptr)	Marks the block of ptr free (header bit 31), bumps the heap's free counter and relinks the block through 0x08826fb8 (twice) and 0x088270ac. Returns 1.	docs/subsystems/system.md
+0x0885adb0	void * world_find_character(int character, int variant)	bsearch of the 174 x 148-byte character records at 0x088aa510 by (u8 character, s8 variant); record or 0. No side effects.	docs/formats/sound.md
+0x0885bcd0	int world_compare_character_key(uchar *a, uchar *b)	Comparator of the character records: by u8 character, then signed u8 variant. No side effects.	docs/formats/sound.md
+0x0885b8dc	int world_character_exists(int character, int variant)	1 when world_find_character finds a record. No side effects.	docs/formats/sound.md
+0x0885aef4	int audio_get_voice_bank(int character, int variant)	First bank of the character's voice set (record +0x30); 0 for characters 0 and 1. No side effects.	docs/formats/sound.md
+0x0885af24	int audio_get_voice_extra_bank(int character, int variant)	First of the four small voice banks (record +0x34) when the record has a voice set, else 0; 0 for characters 0 and 1. No side effects.	docs/formats/sound.md
+0x08868874	ushort audio_get_bank_first_sound_id(int bank)	Global sound id of the bank's first cue: first[bank] through *(*0x08dd3004 + 0x20). No side effects.	docs/formats/sound.md
+0x08830870	void * field_3d_bind_tmt(int *tmt)	Once per TMT ("TGMT", flag bit 0 at +0x34): turns the six section offsets into pointers and the per-entry data offsets into addresses. Returns tmt, or 0 when it is not a TGMT.	docs/subsystems/field_3d.md
+0x08832378	void * field_3d_bind_tma(int *tma)	Once per TMA ("TGMA", flag at +0x20): turns three section offsets and the entry data offsets into pointers. Returns tma, or 0 when the magic differs.	docs/subsystems/field_3d.md
+0x0882e524	void * field_3d_bind_tms(int *tms)	Once per TMS ("TGMS", flag at +0x5c): relocates its sections, links each object's four sub-entries to their 0x28-byte records, replaces sub-entry type codes 2/1 by the functions 0x0882f050/0x0882ef50 and passes each record name through the hook 0x08924b14. Returns tms or 0.	docs/subsystems/field_3d.md
+0x08823dc0	void field_3d_bind_gim(void *gim)	Clears words +8 and +0xc of a GIM member at bind time. Side effects: gim.	docs/subsystems/field_3d.md
+0x0882f2f0	void field_3d_set_tgmt_data(void *ctx, void *data)	Sets ctx+0x14 to a TGMT: used in place, or gunzipped into one of two alternating buffers and bound; 0 for null data.	docs/subsystems/field_3d.md
+0x0881e56c	int ui_bind_ehf(void *ehf, uchar *tmf, void *callback, void *arg)	For each 16-byte record of the EHF table (+0x30 offset, +0x34 size): callback(arg, record) and record+0xc = next tmf byte (0 without tmf). Returns 1.	docs/subsystems/ui.md

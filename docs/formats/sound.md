@@ -111,7 +111,7 @@ Status: the mapping below is established from code in `rel_charalist.prx` (the v
 
 ### Character table (`BOOT.BIN` `0x088aa510`)
 
-174 records of 148 bytes, sorted by `(u8 character, u8 variant)` at `+0x00`; `0x0885adb0(character, variant)` finds one with `bsearch` (`0x088064a4`; comparator `0x0885bcd0`). Fields used here:
+174 records of 148 bytes, sorted by `(u8 character, u8 variant)` at `+0x00`; `0x0885adb0(character, variant)` finds one with `bsearch` (`world_find_character`; comparator `world_compare_character_key`, `0x0885bcd0`: `u8` character, then the variant as a signed byte); `world_character_exists` (`0x0885b8dc`) tests that a record exists. `world_find_character` has 28 callers in `0x0885aca0`–`0x0885b984`, among them `audio_get_voice_bank` and `audio_get_voice_extra_bank`, whose callers are `0x08836c78`, `0x08841a6c` and `0x08841d88`. `audio_get_bank_first_sound_id` (`0x08868874`) is called by `0x088418b8`, `0x088419c4`, `0x08841a6c`, `0x08841d88` and `0x08868890`. Fields used here:
 
 | Offset | Field |
 | --- | --- |
