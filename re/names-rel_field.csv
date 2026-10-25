@@ -3,3 +3,6 @@
 address,group,name
 0x090d83c4,world,world_field_request
 0x090d8444,world,world_field_poll
+0x090d1144,world,world_map_id_to_index
+0x090d9f3c,world,world_get_current_map
+0x090d9f48,world,world_bind_map_archive
