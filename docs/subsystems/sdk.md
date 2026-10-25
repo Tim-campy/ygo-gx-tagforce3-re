@@ -43,4 +43,4 @@ No deflate library is imported, but `BOOT.BIN` contains its own copy of Sony's `
 
 ## Open questions
 
-- PPSSPP saw about 17,500 more function entries in user memory outside `BOOT.BIN` (`0x08E…`, `0x098…`, `0x09B…`–`0x09D…`); these are presumably the `gmodule/*.prx` modules loaded at runtime. Map each range to its module.
+- ~~PPSSPP saw about 17,500 more function entries in user memory outside `BOOT.BIN`; map each range to its module.~~ Mapped in `modules.md`: `0x08e9aa00` holds `rel_title` and `rel_duel_mgr` (loaded one after the other into the same block), `0x0983fb00` is `rel_duel_draw`, `0x09be1400` is `rel_duel_eng`.

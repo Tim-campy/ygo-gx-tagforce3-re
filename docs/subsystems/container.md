@@ -65,4 +65,4 @@ Library code these depend on is listed in `system.md` and `sdk.md`.
 - Ghidra cannot create the function PPSSPP reports at `0x0881d8f4`, 8 bytes before `container_resolve_path`; check whether it is a real 8-byte function or a misdetection.
 - `.cip` card-image containers in `card/` (732 MiB, magics `CIP`, `CPM`, `CPL`, `CPJ`); `BOOT.BIN` references them as `card/cardh_<lang>.cip` among others.
 - The `snd/` sound bank (`SP\0\0`, 132 MiB).
-- Whether `gmodule/*.prx` are overlays loaded on demand (the path `disc0:/PSP_GAME/USRDIR/module/` is referenced at `0x0889fb24`).
+- ~~Whether `gmodule/*.prx` are overlays loaded on demand.~~ Answered in `modules.md`: they are loaded on demand, either as the single current scene module (`ehscript` thread) or as reference-counted library modules. The kernel chooses each module's address. Module loads go through the same file-thread queue as `container_read_async`. `0x0889fb24` is the root path table (`module/`, `kmodule/`, `gmodule/`, `USRDIR/`, `duel/`, `duelsys/`, `main/`, `snd/`, `minigame/`).
