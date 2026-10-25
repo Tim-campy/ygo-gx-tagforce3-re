@@ -1,6 +1,6 @@
 # Card image containers (`card/*.cip`)
 
-Status: directory layout `verified` on all 12 files (every image slot is accounted for, in id order, with no gap or overlap); image formats of `cardh`, `cardm` and `card8` decoded and checked visually; `cardj` is **encrypted** and was not decoded (see below). Tool: `tools/cip.py` (`list`, `list --check`, `png`). Tests: `tools/tests/test_cip.py` (synthetic data only).
+Status: directory layout `verified` on all 12 files (every image slot is accounted for, in id order, with no gap or overlap); image formats of `cardh`, `cardm` and `card8` decoded and checked visually; `cardj` holds masked 512×512 JPEGs, unmasked with ygotfToolkit (see below). Tool: `tools/cip.py` (`list`, `list --check`, `png`). Tests: `tools/tests/test_cip.py` (synthetic data only).
 
 All integers are little-endian. One sector is 0x800 bytes.
 
@@ -13,7 +13,7 @@ All integers are little-endian. One sector is 0x800 bytes.
 | `cardh_<l>.cip` ×5 | `CIP\x1a` | 14,819,328 | 2 | 3,609 | 3,560 | GIM, DXT1, 128×64: an atlas holding the card's artwork plus the card's name banner cut into pieces. Language-specific (the name). |
 | `cardm_<l>.cip` ×5 | `CPM\x1a` | 7,428,096 | 1 | 3,609 | 3,560 | Headerless DXT1, 64×64: the whole card face (frame, name, stars, art, text box) squeezed into a square. Language-specific. |
 | `card8_a.cip` | `CPL\x1a` | 66,557,952 | 9 | 3,609 | 3,560 | GIM, 8-bit indexed (256-colour RGBA8888 palette), swizzled, 128×128: the artwork alone. |
-| `cardj_a.cip` | `CPJ\x1a` | 590,188,544 | 80 | 3,602 | 3,553 | 163,840 bytes per image, encrypted (see "CPJ"). |
+| `cardj_a.cip` | `CPJ\x1a` | 590,188,544 | 80 | 3,602 | 3,553 | 163,840 bytes per image: masked 512×512 baseline JPEG (see "CPJ"). |
 
 The magic's fourth byte `0x1a` follows a three-letter tag; the tool maps each tag to its file family. The letters in the file names (`h`, `m`, `8`, `j`) are not explained by any evidence yet; `m` fits "mini" and `8` fits "8-bit".
 
@@ -87,15 +87,13 @@ Image block header (offsets relative to the start of the image or palette block'
 
 A slot is exactly 2,048 bytes = one 64×64 DXT1 texture in the layout above, with no header. Width and height are not stored in the file; 64×64 is established by decoding (at 64×32 only the top half of a card appears, continuing seamlessly into the second half at 64×64) and by the arithmetic `64 × 64 / 2 = 2,048`. Confidence high for the layout; the dimensions the game passes to the GE are not traced.
 
-### CPJ (`cardj_a.cip`): encrypted
+### CPJ (`cardj_a.cip`): masked JPEG, the high-resolution card art
 
-Each 163,840-byte slot is fully used (no trailing padding), has a byte entropy of 7.997–7.998 bits/byte, and carries no known magic (`MIG.`, PNG, JPEG `FF D8`, gzip, zlib). Evidence that it is a 16-byte block cipher in ECB-like mode with a key or tweak that changes per slot (confidence medium-high):
+Each 163,840-byte slot holds one **baseline JPEG of 512×512 pixels**, the largest card art in the game, stored masked: according to ygotfToolkit's notes (`docs/PRIOR_ART.md`), the first 160 bytes of each JPEG (JFIF header and quantisation tables) are left out of the file and kept, themselves XOR-stored, in the executable; two of the covered bytes carry a 16-bit seed; the rest of the slot is XOR-ed with a mask from a 16-bit generator, including the fill after the end of the JPEG. The routine sits in the shared `.cip` read-completion callback and is found through its test for the `CPJ\x1a` magic.
 
-- Over 40 consecutive slots, 22,092 distinct 16-byte aligned blocks occur more than once **within** a slot, and none occurs in two different slots. Over the first 20 slots, 8-byte aligned repeats (11,484) are exactly accounted for by the 16-byte repeats (5,741 × 2 = 11,482, give or take coincidences), so the repeating unit is 16 bytes, not 8.
-- The repeats are distributed symmetrically over the slot (most near the start and end, fewest in the middle), the profile expected from encrypting raw pixels of a card face whose top and bottom borders are more uniform than the art. Compressed data would not repeat aligned 16-byte blocks at this rate.
-- The slots do not share a common first block, so a shared plaintext header (such as a GIM header) under one key is excluded.
+Verified here with ygotfToolkit used as an external tool (`cardpics … --archive cardj`): 400 slots unmask to valid baseline JPEGs, and card 4007 (Blue-Eyes White Dragon, artwork 1) shows the expected art at 512×512. The slot statistics measured earlier (entropy 7.997 bits/byte, 16-byte aligned blocks that repeat within a slot but never across slots) are consistent with a per-slot mask whose generator output repeats, applied over JPEG data and fill.
 
-163,840 bytes would fit, for example, 256×320 at 16 bits per pixel or 320×256; this is speculation until the plaintext is available. Per the project's legal boundary the data was not decrypted. `tools/cip.py` lists the directory of this file but refuses to decode its images. Next step: ask the maintainer whether a decrypted copy can be obtained, or document only the call site (which decryption routine and key derivation the game uses) without applying it.
+Unmasking game data is allowed by `CLAUDE.md`; output stays in `extracted/`. `tools/cip.py` does not implement it yet; until it does, use ygotfToolkit.
 
 `cardj` has images for exactly the 3,553 card ids of the card database (the same set as `CARD_IntID`); the other files have 7 more (see below).
 
@@ -119,7 +117,7 @@ python3 -I tools/cip.py png <file.cip> <card id> [--art N] [--size WxH] -o extra
 
 - Which screens use `cardh`, `cardm` and `card8`, and how the `cardh` atlas pieces are assembled on screen (needs the loader and a PPSSPP trace).
 - The exact placement of each piece in the `cardh` atlas, and whether the 128 truncated bytes at its end are ever sampled.
-- `CPJ`: cipher, key derivation and plaintext format (out of scope until the maintainer decides how to handle encrypted data).
+- `CPJ`: locate the unmasking routine and the stored 160-byte header in `BOOT.BIN` to confirm the method independently, then implement it in `tools/cip.py`.
 - What the 7 ids without a database record are, and why `CARD_SamePict` lists record 855, which has only one image.
 - Meaning of the per-entry `reserved` word (always 0) and of the palette alpha bytes in `card8` (always 0).
 - `cis_all.gim` cell geometry and whether `fileTbl.dat` index `i` is cell `i`.

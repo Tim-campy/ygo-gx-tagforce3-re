@@ -55,6 +55,7 @@ python3 -I tools/cardinfo.py extracted/umd/PSP_GAME/USRDIR/duelsys/cardinfo_eng.
   The language id is `Allegrex:LE:32:default`; import `BOOT.BIN` with the `PSP Executable (ELF)` loader and image base `08804000`. Rebuild the extension after every Ghidra upgrade.
 - **PPSSPP** is the behavioural oracle; run the game only there. Its Debug menu exports a `.sym` symbol file (keep it in `ghidra/`), which `tools/sym_to_names.py` turns into Ghidra names. The full sequence is in `docs/subsystems/container.md`.
 - **REA** (`rea-agents`) can connect an agent to Ghidra; `npx rea-agents setup` registers it.
+- **ygotfToolkit** (optional, external) extracts and cross-checks data, including the masked `cardj` art; see `docs/PRIOR_ART.md` for how it is run.
 - Headless Ghidra refuses paths with a `.`-prefixed element, so copy `tools/ghidra/*.java` and the CSV inputs to a plain directory before running them from a checkout under a dot-directory.
 
 ## Progress
