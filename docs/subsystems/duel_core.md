@@ -27,7 +27,7 @@ Two per-player blocks of `0xb3c` bytes; player `p` (0 or 1) starts at about `0x0
 | --- | --- | --- |
 | `0x09e2d1d8` | Side whose turn it is (0/1); 510 reads | `duel_core_next_turn` toggles it. |
 | `0x09e2d1e0` | Turn counter | Incremented by `duel_core_next_turn`; set to 9 or 0 by the start functions. |
-| `0x09e2d1e8` | Phase or step; set to 7 at reset and at each turn change | Written by the reset, the turn change and phase code; 203 reads. |
+| `0x09e2d1e8` | Current phase: 0 Draw, 1 Standby, 2 Main 1, 3 Battle, 4 Main 2, 5 End, 7 none (turn transition) | `duel-phases.md`; 203 reads. |
 | `0x09e2d1f4` | Duel mode: 2 or 3 depending on the start function | `duel_core_start_mode2` / `_mode3`. |
 | `0x09e2d1fc` | Tag-duel flag | `tag_duel.md`. |
 | `0x09e2d200` | Set when a duelist value at `0x09e02998`/`0x09e0299c` is 2 | `duel_core_reset`. |
@@ -66,5 +66,5 @@ Link layout (also the effect context): `u16 +0` card id; `u16 +2`: bit 0 the con
 ## Open questions
 
 - The rest of the player structure (graveyard, banished cards; confirm Life Points at `+0x00`) and the per-slot card state.
-- What phase values mean (7 at the start of a turn), and the states of `duel_core_chain_step`.
+- The states of `duel_core_chain_step`. (Phase values and the turn state machine: `duel-phases.md`.)
 - The remaining event codes in chain links.
