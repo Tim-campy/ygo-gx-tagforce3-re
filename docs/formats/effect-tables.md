@@ -8,7 +8,7 @@ Status: `documented` (layout, lookup and dispatch); the meaning of the five hand
 | --- | --- | --- |
 | `0x00` | 4 | Card id (3720–7993). |
 | `0x04` | 4 | Handler slot `+04`: **resolution** (the effect itself). Called by `duel_effects_resolve` with `(ctx, arg)`. Example: Pot of Greed's handler draws the card's draw count. Confidence high. |
-| `0x08` | 4 | Handler slot `+08`. Called with `(ctx, player, index)` from about 280 call sites; skipped when the card's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". Presumably a continuous or "does it apply" check (hypothesis, medium). |
+| `0x08` | 4 | Handler slot `+08`. Called with `(ctx, player, index)` through five wrappers that have about 280 calling functions between them; skipped when the card's state flag (bit 3 of the word at `0x09e2a56c + index × 0x14 + player × 0xb3c`) is set, presumably "effect negated". Presumably a continuous or "does it apply" check (hypothesis, medium). |
 | `0x0c` | 4 | Handler slot `+0c`: **activation condition**. Called with two arguments; a missing record or handler means "allowed" (returns 1). Examples: Pot of Greed's handler checks that the deck holds enough cards; Mirror Force's checks that the opponent is attacking. Confidence high. |
 | `0x10` | 4 | Handler slot `+10`. Called with two arguments. |
 | `0x14` | 4 | Handler slot `+14`. Called with two arguments. |
