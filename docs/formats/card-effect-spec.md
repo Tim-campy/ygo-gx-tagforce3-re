@@ -14,7 +14,7 @@ The tool imports the other extractors with `importlib` from `tools/` and copies 
 
 Outputs:
 
-- `card_effects.jsonl`: the first line is a header `{"schema": 2, "meta": {...}}`, which records the depth, whether `--boot` and `--draw` were given and the search-filter source. Then one object per card id, sorted by id.
+- `card_effects.jsonl`: the first line is a header `{"schema": 3, "meta": {...}}`, which records the depth, whether `--boot` and `--draw` were given and the search-filter source. Then one object per card id, sorted by id.
 - `card_effects.csv`: one summary row per card id (columns at the end of this document).
 
 ## Sources
@@ -36,6 +36,7 @@ Outputs:
 | Token table `0x09e019ec` | parsed in `card_effects.py` | Token id, count, position | `tokens`, `token_of` |
 | Fallback records S/T 0-2 (placeholder id `0x0e74`) | `card_effects.py` | The generic record a spell without its own record uses | `fallback_effect` |
 | Search filters of `0x09dec554` | `tools/search_filters.py` (optional) | Whatever per-card filter the tool decodes | `params.search_filters` |
+| Per-card branches of shared resolve handlers, LP chain | `tools/family_split.py` (`effect-classification.md`, "Per-card split of family handlers") | The categories that the card's own branch of a family handler reaches, and the signed LP amounts of `duel_effects_get_lp_change_amounts` | `effects[].slots.resolve.categories_refined`, `.refinement` |
 
 ### Token table
 
@@ -79,16 +80,16 @@ The tool writes the placeholder as a separate object (`spec_status` `placeholder
    - an iterable of dicts that each carry a `card_id` key.
 3. In every other case, including a failed import, a missing function or an exception, the input is skipped. The reason is printed in the `--check` summary line `search filters: ...` and stored in the JSONL header.
 
-## Object schema (schema 2)
+## Object schema (schema 3)
 
-Schema 2 adds fields to schema 1 and removes or renames none:
+Schema 3 adds `slots.resolve.categories_refined` and `slots.resolve.refinement` to schema 2 (records whose resolve handler `tools/family_split.py` examines), the `family_split` key of `sources` and `confidence`, and the CSV column `resolve_categories_refined` at the end. `slots.*.categories` is unchanged: it stays the static reach of the handler. Schema 2 added fields to schema 1 and removed or renamed none:
 
 - `engine_refs`;
 - `params.chains[].class`;
 - chains that are not parameter chains;
 - the status `engine_only`.
 
-A schema-1 reader that ignores unknown keys keeps working. It only needs to accept the new status value.
+A schema-1 or schema-2 reader that ignores unknown keys keeps working. A schema-1 reader only needs to accept the new status value. A reader that wants the per-card categories uses `categories_refined` when present and `categories` otherwise.
 
 | Field | Type | Source | Notes |
 | --- | --- | --- | --- |
@@ -102,6 +103,8 @@ A schema-1 reader that ignores unknown keys keeps working. It only needs to acce
 | `slots.*.handler`, `.name`, `.named` | | registry | Address; registry name, or `FUN_…`; whether the name is meaningful |
 | `slots.*.shared_by_cards` | int | effect tables + L1/L4 | Number of distinct card ids whose records use this handler |
 | `slots.*.categories`, `.meta` | lists | `effect_classify` | Categories with role `effect`, and with role `meta` (`once_per_turn`, `optional`, …) |
+| `slots.resolve.categories_refined` | list | `family_split` | The `categories` that the card's own branch reaches (schema 3). A subset of `categories`, except that the LP decode may add `damage` or `gain_lp` that the depth limit hid. Present only for records whose resolve handler is shared by several cards with at least two categories, or reaches `duel_effects_resolve_lp_change` |
+| `slots.resolve.refinement` | object | `family_split` | `method` (`branch`: the card id selected the paths; `lp_chain`: the LP amounts were decoded; `unchanged`: the closure does not read the card id through the link; `reveal`: only the temporary face-up pair was dropped), `confidence` (high/medium), `removed[]`, `added[]`, and `lp_amounts[]` for LP records: `side:amount` with side `self`, `opponent`, `player0`, `player1` or `either`, and amount `-800`, `+1000`, `-`/`+` (computed, sign known) or `?` (sign unknown) |
 | `slots.*.filter_calls[]` | list | `effect_params` | Constant flag words passed to `duel_effects_target_filter` inside this handler (heuristic function bounds) |
 | `effects[].commands` | list | `effect_classify` | Engine command codes reached from the resolve slot |
 | `effects[].unnamed_resolve_callees`, `.unnamed_callees` | int | `effect_classify` | Unnamed functions reached (resolve slot only; any slot) |
@@ -143,7 +146,8 @@ Every other chain that `effect_params.compare_chains` reports gets a label from 
 | Field | Rule |
 | --- | --- |
 | `identity`, `lists`, `target_filter`, `fusion`, `ritual`, `ai`, `tokens`, `fallback_effect` | high: direct table reads with structural checks |
-| `effects[].confidence` | low: no slot reaches an `effect` category. Medium: the resolve handler serves more than one card (its categories are the union of the family, see below), or the resolve closure reaches unnamed callees, or there is no resolve handler. High: otherwise |
+| `effects[].confidence` | low: no slot reaches an `effect` category. Medium: the resolve handler serves more than one card and its per-card split is not high (its categories are the union of the family, see below), or the resolve closure reaches unnamed callees, or there is no resolve handler. High: otherwise |
+| `refinement.confidence`, `confidence.family_split` | High: an LP decode whose amounts are all constants, or a closure that reads the card id from the link with no unresolved computed jump (every path that the card id excludes is dropped). Medium: computed LP amounts (taken as non-negative before their sign), or a closure that never reads the card id. `confidence.family_split` is high when every refinement of the card is high |
 | `confidence.effects` | The lowest of the card's records |
 | `draw_count` | high for a constant, medium for a computed case |
 | `chains` | high if all cases are high, low if all are low, otherwise medium |
@@ -173,7 +177,8 @@ Every other chain that `effect_params.compare_chains` reports gets a label from 
 | Output | 3,614 ids for 3,553 `cardinfo` cards (8 more unreleased ids than schema 1, from the cases of non-parameter chains) |
 | Released cards with own effect records | 2,251, of which 781 are `full` (34.7 %) |
 | Fallback spells | 126, none `full` yet: the field and equip fallback resolve handlers reach unnamed callees |
-| Effect record confidence | high 215, medium 2,314, low 71 |
+| Effect record confidence | high 1,289, medium 1,269, low 42 (before the family split, same registry: high 604, medium 1,954, low 42) |
+| Family split | 915 resolve slots examined, 394 refined (425 labels removed); split confidence high 689, medium 226 |
 | Cards per source | target filter 406, draw count 120, LP cost 103, any chain 2,702 (681 in parameter chains), engine references 2,960 (medium 2,866, low 94), stat modifiers 543, fusion/ritual role 386, AI tables 1,660, token makers 46 |
 | Spec status (`--boot --draw`) | full 1,730, partial 812, engine_only 273, missing 0, vanilla 738, unreleased 60, placeholder 1 |
 | `engine_only` by kind | effect 188, trap 30, spell 26, effect fusion 15, Gemini 6, effect tuner 4, Toon 2, effect synchro 2 |
@@ -183,7 +188,7 @@ Run `--check` for the current status counts; they move as helpers are named.
 
 ## Known gaps
 
-- **Family handlers.** Handlers are shared by card families: Pot of Greed's resolve handler serves 73 cards, and a handler can branch on the card id. Categories are static reach, so a shared handler reports the union of its family's categories (`effect-classification.md`, "Limits"). The per-card part lives in compare chains and in the parameters above. Where neither isolates it, the record stays at medium confidence. `shared_by_cards` shows how wide the family is.
+- **Family handlers.** Handlers are shared by card families: Pot of Greed's resolve handler serves 73 cards, and a handler can branch on the card id. Categories are static reach, so a shared handler reports the union of its family's categories in `categories` (`effect-classification.md`, "Limits"). `categories_refined` gives the card's own share where `tools/family_split.py` can isolate it (resolve slot only; 96 % label precision on a judged sample of family records, against 83 % for `categories`). Unions remain where the branch depends on run-time state: state carried between the steps of a handler (every fusion spell keeps `banish`, which applies only under a field effect), targets and choices, and data-driven handlers that never test the id. Those records stay at medium confidence. `shared_by_cards` shows how wide the family is.
 - **Data-driven searches.** The builders of list `0x09dec554` select deck cards through a filter word that is not yet decoded. Until `tools/search_filters.py` exists, searches such as Reinforcement of the Army show only `move_list_card` plus the list membership in `lists`.
 - **Engine-only cards.** `engine_only` cards (273 on the disc) are located, not decoded. `engine_refs` names the functions that test the id: 185 of these cards have an `eq`/`switch` test in a named `rel_duel_eng` function, 30 only in unnamed functions, 52 appear only as a call argument (another effect or helper names them), and 6 only in `BOOT.BIN`. The behaviour is the branch that the test selects inside that function. `card_refs.py` now gives each `eq`/`switch`/`arg` reference a semantic tag and phrase from `tools/engine_ref_semantics.csv` (266 of the 273 cards get a descriptive tag; precision about 0.95 for the best tag, see `card-refs.md`, "Semantics"). Decoding the conditional branches themselves is still open.
 - **Unresolved chains.** 244 of the 306 compare chains have fewer than half of their cases evaluating to a constant. Their cases are joined with `value` null, labelled from the registry when the function is named.
@@ -204,7 +209,7 @@ No other change is needed: `all_refs()` loads `tools/engine_ref_semantics.csv` b
 
 ## CSV summary columns
 
-`card_id name kind released spec_status effect_records tables fallback resolve_categories target_filters draw_count lp_cost chains stat_mod_sections fusion_role ai_tables tokens search_filters effects_confidence engine_ref_functions engine_ref_groups`. Multi-valued cells are space-separated. `engine_ref_functions` is the number of functions in `engine_refs`; `engine_ref_groups` lists their registry groups (`unnamed` for default names).
+`card_id name kind released spec_status effect_records tables fallback resolve_categories target_filters draw_count lp_cost chains stat_mod_sections fusion_role ai_tables tokens search_filters effects_confidence engine_ref_functions engine_ref_groups resolve_categories_refined`. Multi-valued cells are space-separated. `resolve_categories_refined` (schema 3) is the union over the card's records of `categories_refined`, or of `categories` where a record has no refinement. `engine_ref_functions` is the number of functions in `engine_refs`; `engine_ref_groups` lists their registry groups (`unnamed` for default names).
 
 ## Open questions
 
