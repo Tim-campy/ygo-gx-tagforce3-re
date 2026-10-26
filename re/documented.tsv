@@ -194,3 +194,86 @@ address	prototype	summary	document
 0x08823dc0	void field_3d_bind_gim(void *gim)	Clears words +8 and +0xc of a GIM member at bind time. Side effects: gim.	docs/subsystems/field_3d.md
 0x0882f2f0	void field_3d_set_tgmt_data(void *ctx, void *data)	Sets ctx+0x14 to a TGMT: used in place, or gunzipped into one of two alternating buffers and bound; 0 for null data.	docs/subsystems/field_3d.md
 0x0881e56c	int ui_bind_ehf(void *ehf, uchar *tmf, void *callback, void *arg)	For each 16-byte record of the EHF table (+0x30 offset, +0x34 size): callback(arg, record) and record+0xc = next tmf byte (0 without tmf). Returns 1.	docs/subsystems/ui.md
+0x0885fef0	int card_db_is_monster(int card_id)	id != 0 and kind (halved) not 13 (spell) or 14 (trap). Imported by every module; the most reached predicate of the effect handlers.	docs/subsystems/effect-helpers-predicates.md
+0x0885ff3c	int card_db_is_spell(int card_id)	card_db_get_race(id) == 23.	docs/subsystems/effect-helpers-predicates.md
+0x0885ffc0	int card_db_is_effect_monster(int card_id)	Kind in {1, 3, 5, 6, 7, 8, 9, 11, 16, 18}: effect, effect fusion, effect ritual, toon, spirit, union, gemini, Egyptian god, effect tuner, effect synchro.	docs/subsystems/effect-helpers-predicates.md
+0x0885ff84	int card_db_is_normal_monster(int card_id)	Kind 0 or 15 (normal tuner).	docs/subsystems/effect-helpers-predicates.md
+0x088601c0	int card_db_is_tuner(int card_id)	Kind 15 or 16.	docs/subsystems/effect-helpers-predicates.md
+0x08860130	int card_db_is_toon(int card_id)	Kind 6.	docs/subsystems/effect-helpers-predicates.md
+0x08860154	int card_db_is_spirit(int card_id)	Kind 7.	docs/subsystems/effect-helpers-predicates.md
+0x08860178	int card_db_is_union(int card_id)	Kind 8.	docs/subsystems/effect-helpers-predicates.md
+0x0886019c	int card_db_is_gemini(int card_id)	Kind 9.	docs/subsystems/effect-helpers-predicates.md
+0x0885f864	int card_db_get_frame(int card_id)	Card frame class from the kind: 0 normal (kinds 0, 12, 15), 1 effect (1, 6â€“9, 16), 2 ritual (4, 5), 3 fusion (2, 3), 4â€“6 the three Egyptian gods (id âˆ’ 0x1382), 7 spell, 8 trap, 9 token, 10 synchro (17, 18).	docs/subsystems/effect-helpers-predicates.md
+0x08860060	int card_db_is_fusion(int card_id)	card_db_get_frame == 3.	docs/subsystems/effect-helpers-predicates.md
+0x088600e8	int card_db_is_ritual(int card_id)	card_db_get_frame == 2.	docs/subsystems/effect-helpers-predicates.md
+0x08860084	int card_db_is_synchro(int card_id)	card_db_get_frame == 10.	docs/subsystems/effect-helpers-predicates.md
+0x0885fb5c	int card_db_is_same_name(int a, int b)	a == b, or both in one alias group: the Fluff, Ojama, Lamb and Sheep token variants; Neo-Spacian Glow Moss / Twinkle Moss; Aqua / Marine Dolphin; Umi / A Legendary Ocean; Harpie Lady / Harpie Lady 1â€“3 / Cyber Harpie Lady; and alternative-artwork ids of Dark Magician, Polymerization and Blue-Eyes White Dragon.	docs/subsystems/effect-helpers-predicates.md
+0x08866af8	int card_db_is_effect_copier(int card_id)	Elemental Hero Divine Neos, Phantom of Chaos, Neo-Spacian Dark Panther: monsters that take another monster's name and effect (duel_core_get_slot_card_id_ex).	docs/subsystems/effect-helpers-predicates.md
+0x08863d98	int card_db_is_special_summon_only(int card_id)	Fusion, ritual and synchro frames, plus a list of Nomi monsters (Cyber Laser Dragon, Armed Dragon LV7, Yubel, Dark Armed Dragon, Judgment Dragon â€¦): cards that cannot be Normal Summoned/Set (summon.md).	docs/subsystems/effect-helpers-predicates.md
+0x08866820	int card_db_is_usable_by_opponent(int card_id)	Royal Oppression, Mausoleum of the Emperor, Fusion Gate, Magical Labyrinth, Fallen Paradise (summon.md).	docs/subsystems/effect-helpers-predicates.md
+0x08866a90	int card_db_get_guardian_equip(int card_id)	Equip spell a Guardian needs (Guardian Elma â†’ Butterfly Dagger - Elma â€¦ Guardian Tryce â†’ Twin Swords of Flashing Light - Tryce), 0 otherwise.	docs/subsystems/effect-helpers-predicates.md
+0x088633f8	int card_db_is_in_archetype(int card_id, int archetype)	Dispatch through the 63-entry predicate table at 0x0889e2d8 (archetype â‰¥ 63 â†’ 0). Index 8 is Elemental Hero (E - Emergency Call passes 8).	docs/subsystems/effect-helpers-predicates.md
+0x08861ca0	int card_db_is_six_samurai_monster(int card_id)	The six Six Samurai, Grandmaster, Chamberlain and Spirit of the Six Samurai.	docs/subsystems/effect-helpers-predicates.md
+0x08862f5c	int card_db_is_morphtronic_monster(int card_id)	Morphtronic monsters 0x1ec2â€“0x1ec8.	docs/subsystems/effect-helpers-predicates.md
+0x08860200	int card_db_is_toon_archetype(int card_id)	Archetype 0 of card_db_is_in_archetype: Toon monsters and Toon support (Toon World, Toon Table of Contents). Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088602bc	int card_db_is_archfiend(int card_id)	Archetype 1 of card_db_is_in_archetype: Archfiends and Fiend support (Summoned Skull line). Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860444	int card_db_is_gravekeeper(int card_id)	Archetype 2 of card_db_is_in_archetype: Gravekeeper's. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088604dc	int card_db_is_guardian(int card_id)	Archetype 3 of card_db_is_in_archetype: Guardian monsters. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088605c8	int card_db_is_dark_scorpion(int card_id)	Archetype 4 of card_db_is_in_archetype: Dark Scorpion. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860648	int card_db_is_amazoness(int card_id)	Archetype 5 of card_db_is_in_archetype: Amazoness. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088606d4	int card_db_is_ninja(int card_id)	Archetype 6 of card_db_is_in_archetype: Ninja monsters. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860918	int card_db_is_lv_monster(int card_id)	Archetype 7 of card_db_is_in_archetype: LV monsters (computes the LV number, returns != 0). Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860af8	int card_db_is_elemental_hero(int card_id)	Archetype 8 of card_db_is_in_archetype: Elemental Hero. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860f94	int card_db_is_destiny_hero(int card_id)	Archetype 9 of card_db_is_in_archetype: Destiny Hero. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860d70	int card_db_is_neos_monster(int card_id)	Archetype 10 of card_db_is_in_archetype: Elemental Hero Neos, its contact fusions and Rainbow Neos. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860e14	int card_db_is_neos_fusion(int card_id)	Archetype 11 of card_db_is_in_archetype: Fusion frame and card_db_is_neos_card. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08860e6c	int card_db_is_neos_card(int card_id)	Archetype 12 of card_db_is_in_archetype: Neos monsters plus Divine Neos, Neos Wiseman, Neo Space and Neos support. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861068	int card_db_is_ojama(int card_id)	Archetype 13 of card_db_is_in_archetype: Ojama. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861118	int card_db_is_batteryman(int card_id)	Archetype 14 of card_db_is_in_archetype: Batteryman. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861174	int card_db_is_dark_world(int card_id)	Archetype 15 of card_db_is_in_archetype: Dark World. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861248	int card_db_is_bes(int card_id)	Archetype 16 of card_db_is_in_archetype: B.E.S. and Big Core. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861298	int card_db_is_ancient_gear(int card_id)	Archetype 17 of card_db_is_in_archetype: Ancient Gear. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861378	int card_db_is_sphinx(int card_id)	Archetype 18 of card_db_is_in_archetype: Sphinx monsters. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088613d4	int card_db_is_machiners(int card_id)	Archetype 19 of card_db_is_in_archetype: Machiners. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861418	int card_db_is_harpie(int card_id)	Archetype 20 of card_db_is_in_archetype: Harpie cards. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088614bc	int card_db_is_roid(int card_id)	Archetype 21 of card_db_is_in_archetype: "roid" monsters (Vehicroids). Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861614	int card_db_is_super_vehicroid(int card_id)	Archetype 22 of card_db_is_in_archetype: Super Vehicroid fusions and Vehicroid Connection Zone. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088616a8	int card_db_is_neo_spacian(int card_id)	Archetype 23 of card_db_is_in_archetype: Neo-Spacian. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x0886164c	int card_db_is_chrysalis(int card_id)	Archetype 24 of card_db_is_in_archetype: Chrysalis. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x0886171c	int card_db_is_alien(int card_id)	Archetype 25 of card_db_is_in_archetype: Alien. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088617b4	int card_db_is_phantom_beast(int card_id)	Archetype 26 of card_db_is_in_archetype: Phantom Beasts and Mythical Beast fusions. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861810	int card_db_is_hero(int card_id)	Archetype 27 of card_db_is_in_archetype: Elemental, Destiny and Evil Heroes plus 0x1a81. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861bac	int card_db_is_allure_queen(int card_id)	Archetype 28 of card_db_is_in_archetype: Allure Queen. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861be4	int card_db_is_gadget(int card_id)	Archetype 29 of card_db_is_in_archetype: Gadget. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861c40	int card_db_is_six_samurai(int card_id)	Archetype 30 of card_db_is_in_archetype: Six Samurai monsters and their three support cards. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861d6c	int card_db_is_crystal_beast(int card_id)	Archetype 31 of card_db_is_in_archetype: Crystal Beast monsters (not Crystal Beacon). Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861dac	int card_db_is_volcanic(int card_id)	Archetype 32 of card_db_is_in_archetype: Volcanic. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861e50	int card_db_is_blaze_accelerator(int card_id)	Archetype 33 of card_db_is_in_archetype: Blaze Accelerator, Tri-Blaze Accelerator. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861e7c	int card_db_is_venom(int card_id)	Archetype 34 of card_db_is_in_archetype: Venom. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861ee4	int card_db_is_cloudian(int card_id)	Archetype 35 of card_db_is_in_archetype: Cloudian. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08861f94	int card_db_is_gladiator_beast(int card_id)	Archetype 36 of card_db_is_in_archetype: Gladiator Beast. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088620bc	int card_db_is_gladiator_beast_battle_equip(int card_id)	Archetype 37 of card_db_is_in_archetype: Gladiator Beast's Battle equip spells. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862100	int card_db_is_broken_bamboo_sword(int card_id)	Archetype 38 of card_db_is_in_archetype: Broken Bamboo Sword only. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862118	int card_db_is_evil_hero(int card_id)	Archetype 39 of card_db_is_in_archetype: Evil Hero. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862198	int card_db_is_dizzy(int card_id)	Archetype 40 of card_db_is_in_archetype: Dizzy Tiger, Dizzy Angel. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088621c4	int card_db_is_arcana_force(int card_id)	Archetype 41 of card_db_is_in_archetype: Arcana Force. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862274	int card_db_is_fossil_knight(int card_id)	Archetype 42 of card_db_is_in_archetype: Skull Fossil Knights. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088622b8	int card_db_is_skyblaster(int card_id)	Archetype 43 of card_db_is_in_archetype: Phantom Skyblaster and its token. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088622e4	int card_db_is_forbidden_one(int card_id)	Archetype 44 of card_db_is_in_archetype: Exodia pieces. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862334	int card_db_is_rainbow_dragon(int card_id)	Archetype 45 of card_db_is_in_archetype: Rainbow Dragon, Rainbow Dark Dragon. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862360	int card_db_is_cyber_dragon_fusion(int card_id)	Archetype 46 of card_db_is_in_archetype: Cyber Twin/End Dragon, Chimeratech Overdragon/Fortress Dragon. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088623a4	int card_db_is_ice_barrier(int card_id)	Archetype 47 of card_db_is_in_archetype: Ice Barrier. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862418	int card_db_is_ally_of_justice(int card_id)	Archetype 48 of card_db_is_in_archetype: Ally of Justice. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088624d4	int card_db_is_saber(int card_id)	Archetype 49 of card_db_is_in_archetype: X-Saber and Saber monsters. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x0886256c	int card_db_is_worm(int card_id)	Archetype 50 of card_db_is_in_archetype: Worm monsters. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862688	int card_db_is_lightsworn(int card_id)	Archetype 51 of card_db_is_in_archetype: Lightsworn. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862738	int card_db_is_frog(int card_id)	Archetype 52 of card_db_is_in_archetype: Frog monsters. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088627a0	int card_db_is_nitro_warrior(int card_id)	Archetype 53 of card_db_is_in_archetype: Nitro Warrior only. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088627b8	int card_db_is_genex(int card_id)	Archetype 54 of card_db_is_in_archetype: Genex. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862880	int card_db_is_mist_valley(int card_id)	Archetype 55 of card_db_is_in_archetype: Mist Valley. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x088628e8	int card_db_is_flamvell(int card_id)	Archetype 56 of card_db_is_in_archetype: Flamvell. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862f00	int card_db_is_morphtronic(int card_id)	Archetype 58 of card_db_is_in_archetype: Morphtronic. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08862f9c	int card_db_is_iron_chain(int card_id)	Archetype 59 of card_db_is_in_archetype: Iron Chain. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x0886303c	int card_db_is_clear(int card_id)	Archetype 61 of card_db_is_in_archetype: Clear monsters and Clear World/Wall. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x0886307c	int card_db_is_red_eyes(int card_id)	Archetype 62 of card_db_is_in_archetype: Red-Eyes. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
+0x08866398	int card_db_get_spell_counter_capacity(int card_id)	Spell Counter capacity per card id: 1, 3 or 5, 0xff (unlimited) for the Spell Counter cards, 0 otherwise; used by the counter command clamp. No side effects.	docs/subsystems/effect-helpers-predicates.md
