@@ -110,3 +110,17 @@ Fresh setup with two breakpoints only: the command log (`0x09dc07f8`) and a writ
 
 - Writers of the index: `0x09ddac50` (normal advance), `0x09dd9be4` (10 → 1), `0x09db310c` (→ 1 at `0x14`), `0x09db4234` (1 → 11), `0x09de0cec` (12 → 0 on entering Battle), `0x09dd1a10` (4 → 1 after the attacker left); AI look-ahead writes from `0x09d1695c`/`0x09d16a00` restore the value.
 - Damage equals the ATK difference (or DEF − ATK reflect), applied through `0x24` with reason 1. The direct-attack question (does step 8 run?) stays open: the attack was stopped at step 4.
+
+## A10. The AI does not read hidden cards: pass
+
+Method: entry breakpoint with condition `a0 == 0` (human side), enabled during the CPU's Main Phase; when it stopped, a temporary unconditional breakpoint on the function's single `jr ra` (`0x09c03960` for `duel_core_is_hand_card_revealed`, `0x09ce4720` for `ai_mask_hidden_card_id`) gave `v0`.
+
+| Function | Arguments | `v0` | Meaning |
+| --- | --- | --- | --- |
+| `duel_core_is_hand_card_revealed` (`0x09c038a8`) | side 0, index 0 | 0 | not revealed |
+| | side 0, index 5 | 0 | not revealed |
+| | side 0, index 3 | 0 | not revealed |
+| `ai_mask_hidden_card_id` (`0x09ce43ec`) | side 0, slot 2, card `0x1c6c` (Chamberlain of the Six Samurai, Level 3, set face-down) | `0x1748` (Avatar of The Pot, Level 3) | level-based stand-in for Level < 5 |
+| | side 0, slot 7, card `0x1581` (Enemy Controller, set) | `0x16a7` | spell/trap-zone placeholder |
+
+Confirms `ai.md` ("Board view") and `ai-helpers.md`: the AI's board view never contains the human's real hidden cards. The Level < 5 stand-in is Avatar of The Pot (`0x1748`) at the viewer's LP of this duel (the LP-dependent variants were not exercised).
