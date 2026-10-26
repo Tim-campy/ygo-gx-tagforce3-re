@@ -91,3 +91,67 @@ card_effect_spec,Per-card effect specification (tools/card_effects.py JSON Lines
 card_refs,Card ids tested directly in engine code (tools/card_refs.py; rel_duel_eng + BOOT.BIN + rel_duel_draw),duel_effects,documented,
 search_filter_word,Candidate search filter and options words (rel_duel_eng builder list 0x09dec554; scanners 0x09ccecbc-0x09ccfcdc),duel_effects,documented,
 family_split,Per-card categories of family-shared resolve handlers and LP chain amounts (tools/family_split.py),duel_effects,documented,
+duel_player_block,Duel player block (rel_duel_eng 0x09e2a528 + side x 0xb3c),duel_core,documented,0xb3c
+duel_field_slot,Field slot (player block +0x34 + i x 0x14; slots 0-10; slot 11 is the player flag word),duel_core,documented,20
+duel_card_list_entry,Card list entry of hand/deck/extra deck/graveyard/banished lists (card id + instance),duel_core,named,4
+duel_card_instance,Card instance table (rel_duel_eng 0x09e2bbcc; 6-byte entries),duel_core,named,0xc00
+duel_turn_state,Turn and phase globals (phase 0x09e2d1e8; turn side 0x09e2d1d8; turn counter 0x09e2d1e0; 0x09e2d1d8-0x09e2d22b),duel_core,documented,84
+duel_flow_steps,Duel-flow step table (rel_duel_eng 0x09e01dbc; NULL-terminated),duel_core,documented,12
+turn_steps,Turn step table (rel_duel_eng 0x09e01da0; 6 steps + NULL),duel_core,documented,28
+battle_steps,Battle Phase step table (rel_duel_eng 0x09e01dcc; 12 steps + NULL),duel_core,documented,52
+duel_command_queue,Engine command queue (0x09e29100; 256 x {u16 op a b c}; count 0x09e29900; current command 0x09e290f8),duel_core,named,2048
+duel_command_dispatch,Engine command jump table (rel_duel_eng 0x09e00944; codes 1-0x68),duel_core,named,416
+phase_override_stack,Phase override stack (0x09e27fe4 u16[4]; depth 0x09e27fec),duel_core,named,
+end_phase_checks,End Phase check table (rel_duel_eng 0x09e014f4; 8 function/argument pairs),duel_core,named,64
+battle_end_checks,Battle Phase end check table (rel_duel_eng 0x09e00f5c; 31 function/argument pairs),duel_core,named,248
+attack_state,Attack globals (rel_duel_eng 0x09e28620-0x09e2864b),duel_core,documented,44
+battle_replay_snapshot,Battle replay snapshot (0x09e28730; 12 words),duel_core,documented,48
+battle_record,Battle record (0x09e28650 + side x 0x48),duel_core,documented,72
+battle_damage_record,Battle damage record (0x09e286e0 + i x 0x14; 2 entries),duel_core,named,20
+timing_event_queue,Timing event queue (codes 0x09e28fa0; arguments 0x09e28fc0; 32 entries; count 0x09e28f98),duel_core,named,160
+trigger_queue,Trigger queue (0x09e289b4; 32 x 24-byte links; count 0x09e28e48),duel_core,documented,768
+chain_state,Chain building and resolution globals (0x09e28e34-0x09e2904c),duel_core,documented,
+chain_extra_targets,Chain extra-target ring (0x09e28e50; 128 x u16),duel_core,named,256
+summon_record,Summon record (0x09e290bc; queued copy at 0x09e29080),duel_core,documented,60
+card_action_mask,Card action mask and player action codes (duel_core_get_card_action_mask),duel_core,documented,4
+player_input_state,Player input and answer globals (0x09e2d248-0x09e2d288),duel_core,named,
+summon_material_state,Fusion and Synchro material state (0x09e29050-0x09e2906c),duel_core,named,
+list_activation_table,List activation table (rel_duel_eng 0x09e00dbc; 23 records),duel_core,named,
+send_batch_request,Send-batch request block (0x09e2d298-0x09e2d2bf; slot mask 0x09e2bba4),duel_core,named,40
+card_request_block,Card request / pending action block (0x09e2d2dc-0x09e2d2ff),duel_core,documented,36
+prompt_request_block,Prompt request block (0x09e2d2c0-0x09e2d2d9; kind handlers 0x09debad4),duel_core,named,26
+zone_preference_tables,Free-zone preference tables (rel_duel_eng 0x09deba0c monster / 0x09deba20 spell-trap),duel_core,named,
+duel_setup_params,Duel setup parameters (seed 0x09e02990; duelist kinds 0x09e02998; first player 0x09e029a8; LP mode 0x09e02cac),duel_core,named,
+tag_waiting_area,Tag partner waiting area (0x09e02cb8 + side x 300),tag_duel,named,300
+candidate_list,Candidate list (index 0x09e2991c; count 0x09e29920; entries 0x09e29928; meta 0x09e2a128),duel_effects,documented,3084
+token_table,Token table (rel_duel_eng 0x09e019ec; 46 x 8 bytes),duel_effects,reimplemented,368
+counter_type_table,Counter type table (rel_duel_eng 0x09deb97c; 20 words),duel_effects,documented,80
+archetype_predicates,Archetype predicate table (BOOT.BIN 0x0889e2d8; 63 functions),card_db,documented,252
+genre_map_table,Genre index map (BOOT.BIN 0x0889f980; 35 u32),card_db,documented,140
+cardinfo_globals,cardinfo member pointer globals (BOOT.BIN 0x08924d1c),card_db,documented,64
+card_language_suffixes,Language suffix table (BOOT.BIN 0x08878c88; 8 bytes per language),card_db,named,48
+ai_snapshot_slot,AI state snapshot slot (0x09dff93c + n x 0x39f8; 10 slots),ai,named,0x39f8
+ai_stat_snapshot,AI stat snapshot for simulated battles (0x09e0308c; 0x154 per side),ai,named,680
+ai_battle_plan,AI battle plan (0x09e276e4 and 0x09e279c8 + side x 0x2e4),ai,named,740
+ai_board_view,AI board view (0x09e28008 + side x 0x30c),ai,named,780
+ai_context,AI main-phase state and context stack (0x09e02ff8-0x09e03030),ai,named,
+ai_summon_choice,AI summon choice record (0x09e03080),ai,named,12
+ai_main_steps,AI main-phase step table (rel_duel_eng 0x09e01ba4),ai,named,
+ai_candidate_stack,AI candidate card stack (0x09e03004; depth 0x09e03024),ai,named,32
+ai_combat_tricks,AI combat trick list (0x09e27ff8; up to 8 card ids),ai,named,
+save_settings,Save settings bits (game state +0xfe04),save,documented,
+save_character_records,Save character records (game state +0xfe0c; 143 x 0x18),save,named,24
+save_pack_records,Save pack records (game state +0x16604; 48 x 0x2a),save,named,42
+save_player_profile,Player profile: name / team / level / EXP / DP (game state +0xfd5c-0xfdff),save,documented,164
+save_duel_record,Duel-record block (game state +0x10f10),save,named,
+save_partner_word,Partner word (game state +0x16e12),save,named,2
+story_block,Story block (game state +0x16e14),world,named,
+story_field_save_block,Field save block: stage / chapter step / flags / pairing order (story block +0x345c),world,named,168
+story_flag_block,Story and system flag block (story block +0x42d8),world,named,16
+story_calendar_tables,Calendar tables: light period (rel_story +0x208ec) / day off (+0x2e50c) / points cap (+0x2e528),world,named,
+story_vm_state,Event interpreter state (rel_story +0x33b30),dialogue,named,24
+field_request_table,Field request table (rel_field +0x2df0c; 33 x {start poll busy}),world,named,396
+shop_opponent_list,Opponent list of the pack rules (rel_shop 0x090ef208; 104 entries),shop,named,
+file_request_ring,File thread request ring (BOOT.BIN 0x08920cb4; 32 x 0x60),container,named,96
+root_path_table,Root path table (BOOT.BIN 0x0889fb24; 9 roots),container,named,
+heap_header,HOGE heap header and block list (system_heap_create),system,named,16

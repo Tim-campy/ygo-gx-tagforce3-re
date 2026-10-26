@@ -7,7 +7,7 @@ Evidence is static (Ghidra decompilation of the functions named below, their cal
 ## Summary
 
 - **Three engines.** A trigger queue collects effects that want to activate (`0x09e289b4`, up to 32). A *building* state machine (`duel_core_chain_build_step`, `0x09c2e244`) activates links one by one (announce, activation step, target choice), then offers response windows. A *resolution* state machine (`duel_core_chain_step`, `0x09c2f1fc`) resolves the links last-in first-out and cleans up. Both are driven once per frame from the pending-work function `duel_core_chain_pending_work` (`0x09c32dac`). (H)
-- **Maximum chain length 16.** The chain array at `0x09e28cb4` holds 32 links but responses are only offered while the chain has fewer than 16 links (state `0x0b`), and at most 16 queued triggers are moved onto a chain. (H)
+- **Maximum chain length 16.** The chain array at `0x09e28cb4` has room for exactly 16 links (the count at `0x09e28e34` follows it), and responses are only offered while the chain has fewer than 16 links (state `0x0b`), and at most 16 queued triggers are moved onto a chain. (H)
 - **Spell speed** (`duel_effects_get_spell_speed`, `0x09bf275c`): normal spells and monster effects 1, quick-play spells, normal and continuous traps and listed quick-effect monsters 2, counter traps 3. A response needs a speed at least equal to the link it responds to and at least 2 (`duel_effects_can_respond_in_window`, `0x09c52c60`), so only counter traps can respond to a counter trap. (H)
 - **Handler slot `+10` is the activation step**, run once while a link is being activated, before target choice: it pays costs (Life Points, discards, Tributes), marks once-per-turn use, or, for optional trigger effects, asks the player "activate?". The earlier "optional check" hypothesis is refuted as a full description and survives only as one use of the slot. (H)
 - **Negation** marks the negated link in its byte `+4`: bit 1 "activation negated", bits 2–3 "effect state" (1 = negated). A negated link stays on the chain; at resolution its handler is skipped and the card goes to the Graveyard. Counter traps negate the link immediately below them. (H)
@@ -22,7 +22,7 @@ Evidence is static (Ghidra decompilation of the functions named below, their cal
 | --- | --- | --- |
 | `0x09e289b4 + i × 0x18` | Trigger queue (pending activations), up to 32 links | H |
 | `0x09e28e48` | Number of queued triggers | H |
-| `0x09e28cb4 + i × 0x18` | Chain, link `i + 1` (`= 0x09e289b4 + 0x300`); 32 slots, 16 used | H |
+| `0x09e28cb4 + i × 0x18` | Chain, link `i + 1` (`= 0x09e289b4 + 0x300`); room for 16 links only, since the count follows at `0x09e28e34 = 0x09e28cb4 + 16 × 0x18` (an earlier reading said 32 slots; address arithmetic, H) | H |
 | `0x09e28e34` | Number of links on the chain (counts down while resolving) | H |
 | `0x09e28e38` | Building: index of the link being activated; resolving: index of the link being resolved (top), then the sweep index | H |
 | `0x09e28e3c` | Building: first link not yet checked for automatic responses | M |
@@ -279,7 +279,7 @@ All addresses are in `rel_duel_eng.prx` at base `0x09be1400`. Callers come from 
 
 ## Open questions
 
-- Confirm in PPSSPP: the 16-link limit, the SEGOC order with two simultaneous triggers per player, the once-per-turn marker `0xfb6` and its expiry, and the activation-negated bit on Magic Jammer.
+- Confirm in PPSSPP: the 16-link limit (Session D of `docs/verification/ppsspp-plan.md`), the SEGOC order with two simultaneous triggers per player, the once-per-turn marker `0xfb6` and its expiry, and the activation-negated bit on Magic Jammer.
 - The exchange sort may reorder triggers with equal keys; the official rules let the player choose. Check whether the game ever asks.
 - `0x09cdd74c` (building state 0): forced position changes for seven listed cards (`0x09dedadc`) before a chain starts; which cards and why.
 - Slot flag bits 1 and 4 of field slots in the chain context (bit 4 "send to the Graveyard after the chain" is H; bit 1 and command `0x38` are not understood).

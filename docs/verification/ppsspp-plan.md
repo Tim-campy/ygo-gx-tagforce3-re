@@ -7,9 +7,10 @@ The checks are grouped into four sessions so that each needs as little play as p
 | Session | Where in the game | Checks | Play time (estimate) |
 | --- | --- | --- | --- |
 | 0 | Any duel and the free-roam field | M1, M2: module bases and the save-state address | 10 min, then 2 min at the start of every later session |
-| A | One single duel against a CPU | A1–A11: phases, turn, draw, LP, battle, summon, ATK/DEF, chain, once per turn, trigger order, AI visibility | 1 duel, about 40 min |
+| A | One single duel against a CPU | A1–A10: phases, turn, draw, LP, battle, summon, ATK/DEF, chain, once per turn, trigger order, AI visibility | 1 duel, about 40 min |
 | B | One tag duel | B1, B2: partner swap and tag state | Two turn changes, about 15 min |
 | C | Free roam with a partner | C1–C6: calendar, daily pairing, gift points, item counters, DP, partner word | One in-game day, about 20 min |
+| D | One single duel against a CPU, with staged hands | D1, D2: the 16-link chain limit and the 16-trigger limit (replaces the former optional A11) | 1 duel, about 30 min |
 
 Legal boundary (`CLAUDE.md`): savestates, `.sym` exports, `DATA0` files and memory dumps contain game data. They stay under `external/ppsspp/` or `ghidra/` (both git-ignored; `*.ppst` and `*.sym` are ignored as well) and are never committed. Result tables record only addresses, small numbers and card ids, never dumps.
 
@@ -30,6 +31,61 @@ Everything below uses the classic Windows debugger windows: **Debug → Disassem
 A memory breakpoint on a write may fire **before** the store completes, so a value read from memory in that log line can still be the old one. Log the storing register, or break and single-step once (F10) before reading.
 
 Expressions and addresses in this plan are runtime addresses. Values in `[...]` are memory reads. "Side 0/1" are the two duel sides. The human's side is the one with `[0x09e02998 + 4 × side] == 0` (`ai.md`).
+
+## Memory edits: policy and shortcuts
+
+Decision of 2026-10-26: a check that uses memory edits **counts as `verified`** when the edits only speed the test up or set up a situation that rarely arises in normal play. The behaviour that the check observes must still be produced by the game's own code.
+
+### Policy
+
+1. **Allowed edits** (and only these):
+   - replacing the card id of a card that already exists in a hand, Deck or Graveyard list (shortcut S1), together with its card-instance entry, without changing any count;
+   - setting Life Points to a non-zero value (S2);
+   - setting the turn counter (S3), only in checks that do not test the turn counter or a rule that depends on it;
+   - nothing else unless a check below names it explicitly.
+2. **Never edit** what the check observes or anything the engine derives on its own: chain links (`0x09e28cb4`), the trigger queue (`0x09e289b4`), the timing queue (`0x09e28fa0`), the command queue (`0x09e29100`), the phase (`0x09e2d1e8`), the turn and Battle step indices (`0x09e2d210`, `0x09e2d220`), field slots (`+0x34 + i × 0x14`), flag words (slot `+0x10`, player `+0x120`), effect records (`0x09e2c7cc`), list counts (`+0x0c`–`+0x1c`), or the AI blocks (snapshot slots `0x09dff93c + n × 0x39f8`, battle plans `0x09e276e4`–`0x09e27f8f`, board view `0x09e28008 + side × 0x30c`).
+3. **When to edit**: only while emulation is paused (Pause, or stopped at a breakpoint), in a frame where the game waits for the human (Main Phase menu, response prompt) and the AI is not simulating. The AI copies the whole duel state into a snapshot slot and restores it afterwards (`ai.md`, "State snapshots"), so an edit made while the snapshot depth `u16 [0x09e27fee]` is non-zero is silently undone. Check that it is 0 before every edit.
+4. **Record every edit** in the results file, one line each: address, old value, new value, the moment (savestate name, turn, phase) and the purpose. Example: `0x09e2a64c u16 0x52ec → 0x5b44 (turn 4, Main 1, hand[0] Pot of Greed → D.D. Crow)`. A check whose results file lacks an edit that was made does not count.
+5. **What must come from the game**: every value in the "Record" line of the check (counts, links, commands, states) is read after the game's own code has run on the edited state. If a result could only be explained by the edit itself (for example a count that is inconsistent with the list), report it as an edit artefact, not as a pass or a fail.
+6. No checksum over the duel state is known: static analysis found none, and the save checksum, if any, is outside the duel. If the game behaves as if it detected an edit (the duel aborts, a card vanishes, the display freezes), reload the savestate and report it.
+
+### Formats used by the shortcuts
+
+Player block `P = 0x09e2a528 + side × 0xb3c` (`duel_core.md`, player state):
+
+| What | Offset | Side 0 | Side 1 |
+| --- | --- | --- | --- |
+| Life Points (`int`) | `+0x00` | `0x09e2a528` | `0x09e2b064` |
+| Hand count | `+0x0c` | `0x09e2a534` | `0x09e2b070` |
+| Deck count | `+0x10` | `0x09e2a538` | `0x09e2b074` |
+| Graveyard count | `+0x14` | `0x09e2a53c` | `0x09e2b078` |
+| Hand list (entry `i` at `+4i`) | `+0x124` | `0x09e2a64c` | `0x09e2b188` |
+| Deck list (entry 0 = top) | `+0x304` | `0x09e2a82c` | `0x09e2b368` |
+| Graveyard list | `+0x55c` | `0x09e2aa84` | `0x09e2b5c0` |
+
+**List entry (4 bytes)**: `u16 +0`: bits 0–13 card id, bit 14 bit 0 of the instance number, bit 15 a flag; `u16 +2`: bits 7–14 bits 1–8 of the instance number, the other bits flags. So `instance = ((u16[+2] >> 7) & 0xff) << 1 | (u16[+0] >> 14) & 1`.
+
+**Card-instance entry (6 bytes)** at `0x09e2bbcc + 6 × instance`: `u16 +0` bits 0–13 card id (bits 14–15 kept), byte `+2` bits 0–1 the incarnation counter, `u16 +4` the head of the effect records that follow the card. Only the id bits are ever changed.
+
+### S1. Replace the card id of an existing card
+
+For a hand, Deck or Graveyard entry at address `E`:
+
+1. Read `w0 = u16 [E]` and `w2 = u16 [E + 2]`. Compute the instance `n` and `I = 0x09e2bbcc + 6n`.
+2. Check that `u16 [I] & 0x3fff == w0 & 0x3fff` (the entry and the instance agree). If not, do not edit; report it.
+3. Write `u16 [E] = (w0 & 0xc000) | new_id` and `u16 [I] = (u16 [I] & 0xc000) | new_id`. Leave `w2`, the counts and every other byte alone.
+
+Worked example: `w0 = 0x52ec`, `w2 = 0x0380` → id `0x12ec` (Pot of Greed), bit 14 = 1, `(0x0380 >> 7) & 0xff = 7`, `n = 7 × 2 + 1 = 15`, `I = 0x09e2bbcc + 0x5a = 0x09e2bc26`. New id `0x1b44` (D.D. Crow): `u16 [E] = 0x4000 | 0x1b44 = 0x5b44`.
+
+Cautions: never raise a count (`+0x0c`, `+0x10`, `+0x14`) to make a list longer; a count must always equal the number of real entries, and every entry must own its instance. The presentation module (`rel_duel_draw`) keeps its own picture of the hand, so the card art shown for an edited hand card can stay stale until the card moves; the engine (menus, activation checks, the action mask queried by `duel_core_get_card_action_mask`) uses the edited id. Deck entries are not shown, so editing the top of the Deck before a draw avoids stale art: replace Deck entries 0…k−1 and let the game draw them. Deck index 0 = top is itself a hypothesis checked in A2; if A2 fails, use the last entries instead.
+
+### S2. Set Life Points
+
+Write the `int` at `P + 0x00` (side 0 `0x09e2a528`, side 1 `0x09e2b064`). Use it to pay repeated costs or to survive a long test, never in A3. Cautions: never write 0 or a negative value (`duel_core_check_win` ends the duel on LP 0, `battle.md`); the LP counter on screen stays stale until the next LP command (`0x23`–`0x25`), and the duel statistics are not updated; values above 99,999 may not fit the display.
+
+### S3. Set the turn counter
+
+Write `[0x09e2d1e0]`. Use it only to leave turn 0 (where the first player cannot battle, `duel_core_can_conduct_battle`) in checks that do not test that rule (A4, A6), never in A2. Cautions: the turn-limit logic compares the counter with `[0x09e2d1e4]` (`0xffff` = not started) and posts command 9 at milestones; keep the new value small (1–3) and check that `[0x09e2d1e4]` is `0xffff`. The turn side `0x09e2d1d8` is never edited.
 
 ## Session 0: module bases and the save-state address
 
@@ -75,6 +131,8 @@ Modules are loaded wherever the kernel allocator places them (`modules.md`, "Add
 | `A5-main` | Your Main Phase with a monster in hand and the Normal Summon unused |
 | `A6-stats` | Your Main Phase with the monster on the field and the equip, field spell and temporary boost in hand |
 | `A7-chain` | Just before you activate a card the CPU is likely to respond to (a set trap on the CPU side) |
+
+If the deck lacks a card a check needs, shortcut S1 (replace a hand or Deck card's id, "Memory edits") gets it into the hand without waiting for a lucky draw; S2 (Life Points) and S3 (turn counter) may shorten A4 and A6. Do not use S2 in A3 or S3 in A2, which test those values.
 
 **Standing instrumentation for the whole session** (set it once and leave it on):
 
@@ -162,9 +220,13 @@ Modules are loaded wherever the kernel allocator places them (`modules.md`, "Add
 
 - **Hypothesis**: `duel_core_chain_build_from_triggers` (`0x09c329e8`) sorts the trigger queue (`0x09e289b4 + i × 0x18`, count `0x09e28e48`) by key `(controller ≠ turn player) + 2 × (optional)`: turn player's mandatory, opponent's mandatory, turn player's optional, opponent's optional. The order within a group is not chosen by the player (`chain.md`, "Forming a chain from triggers"; high for the key, medium for the reading).
 - **Opportunistic**: a breakpoint at `0x09c329e8` with condition `[0x09e28e48] >= 2`, **Break on**, catches any moment two or more triggers are queued. Leave it enabled through the whole session.
-- **Steps**: when it breaks, read the queued links (card id, `+0x02` side), Step Out, and read the chain links. If it never fires naturally, stage it: a battle in which both destroyed monsters have "when destroyed" effects, or one mandatory and one optional trigger on the same event.
-- **Record**: queue order (card, side, mandatory/optional from the card text) and chain order after the sort; whether the game asked the player to choose an order.
-- **Expected**: chain link 1 holds the lowest key, in the group order above. The game does not ask.
+- **Steps**: when it breaks, read the queued links (card id, `+0x02` side), Step Out, and read the chain links. If it never fires naturally, stage it with shortcut S1 (one own turn, about 5 minutes):
+  1. In your Main Phase 1 (no chain, `u16 [0x09e27fee] == 0`), replace two of your hand cards with Broww, Huntsman of Dark World (`0x1966`) and one with Card Destruction (`0x12d5`), and two of the CPU's hand cards with Broww as well. Optionally replace a third own card with Beiige, Vanguard of Dark World (`0x1965`) to mix two trigger kinds. Record every edit (policy, rule 4).
+  2. Enable an execute log at `0x09ce401c` (`duel_effects_get_trigger_kind`, text `kind? link={a0}`) and read `v0` on Step Out for each queued link, so that "mandatory" (0) and "optional" (1/2) come from the game rather than the card text.
+  3. Activate Card Destruction. Both hands are discarded by a card effect, which queues the Dark World triggers (Broww and Beiige are compared in `duel_core_send_hand_card`, `0x09c18550`, at `0x09c18850`/`0x09c1885c`; static, medium). The breakpoint at `0x09c329e8` fires with four or five queued links.
+  This staging is the small version of D2.
+- **Record**: queue order (card, side, trigger kind from `0x09ce401c`) and chain order after the sort; whether the game asked the player to choose an order; the edits made.
+- **Expected**: chain link 1 holds the lowest key `(controller ≠ turn player) + 2 × (kind > 0)`, in the group order above (in the staged version, with equal kinds: your two Browws first, then the CPU's). The game does not ask.
 
 ### A10. The AI does not read hidden cards
 
@@ -176,10 +238,7 @@ Modules are loaded wherever the kernel allocator places them (`modules.md`, "Add
 - **Record**: `(a0, a1)` and `v0` for `0x09c038a8`; `(a0, a1, a2)` and `v0` for `0x09ce43ec` next to the real card id.
 - **Expected**: `v0 = 0` for every hand index in normal play (1 only after a reveal effect or with a card that makes hands public). `0x09ce43ec` returns `0x16a7` for the face-down spell/trap and a stand-in id different from the real one for the face-down monster.
 
-### A11. The 16-link limit (optional, deferred by default)
-
-- **Hypothesis**: responses are offered only while the chain has fewer than 16 links; the array has 32 slots (`chain.md`, Summary; high, static).
-- **Why optional**: reaching 16 links needs a dedicated deck of chainable cards on both sides, and the CPU's responses cannot be controlled. Changing memory to stage it would test a corrupted state. Keep it at the static level unless such a deck is at hand. If it is: watch `0x09e28e34` and note that no response window opens once it reaches 16 (no `0x10` command for link 17).
+The 16-link limit (formerly the optional A11) is now Session D.
 
 **Session A results**
 
@@ -200,10 +259,9 @@ Modules are loaded wherever the kernel allocator places them (`modules.md`, "Add
 | A6 temporary record kind, expiry | | kind 2, gone next turn | | |
 | A7 link layout, LIFO | | as documented | | |
 | A8 `0xfb6` added, blocks, expires | | yes / yes / yes | | card used |
-| A9 trigger order | | TP mand., opp. mand., TP opt., opp. opt. | | |
+| A9 trigger order | | TP mand., opp. mand., TP opt., opp. opt. | | staged? edits listed |
 | A10 revealed? for human hand | | 0 | | |
 | A10 mask for face-down | | placeholder ids | | |
-| A11 16-link limit | | (optional) | | |
 
 ## Session B: one tag duel
 
@@ -290,6 +348,68 @@ Modules are loaded wherever the kernel allocator places them (`modules.md`, "Add
 | C4 DP before/after | | −200 | | |
 | C5 DATA0 vs memory | | identical | | |
 
+## Session D: the chain limits (staged with memory edits)
+
+**Hypotheses** (`chain.md`, "Summary", building state `0x0b`, "Forming a chain from triggers"; high, static):
+
+1. Responses are offered only while the chain has fewer than 16 links: with 16 links on the chain no response window opens for either player, and the chain starts resolving.
+2. `duel_core_chain_build_from_triggers` moves at most 16 queued triggers onto a chain (lowest key first) and leaves the rest in the queue (`0x09e289b4`, up to 32 entries), which form the next chain afterwards.
+
+Address arithmetic adds weight to (1): the chain array starts at `0x09e28cb4` and the link count follows at `0x09e28e34 = 0x09e28cb4 + 16 × 0x18`, so the array has room for exactly 16 links (the trigger queue, `0x09e289b4 + 32 × 0x18 = 0x09e28cb4`, is the one with 32 entries). A 17th link would overwrite the count and the building globals.
+
+**Why staging is needed.** A spell or trap occupies a Spell/Trap Zone while it is on the chain, so one side contributes at most five such links. The remaining links must come from hand quick effects. D.D. Crow (`0x1b44`) is one: its record is in the M2 table (hand effects, `tools/card_effects.py`), it is in the spell-speed-2 monster list of `BOOT 0x08865e64` (immediate `0x1b44` at `0x08866010`, before the function's first `jr ra` at `0x0886619c`; pure-Python scan, medium), and it needs no zone. It needs one card in the opponent's Graveyard as a target. Jar of Greed (`0x145a`, normal trap, no activation condition) supplies the zone links. Pot of Greed (`0x12ec`) draws the Crows. Ids checked with `tools/cardinfo.py` on `cardinfo_eng.ehp`; all three are cards of this game.
+
+**Setup.** Any single duel against a CPU (an early opponent with few removal cards is best). Session 0 first. Use the standing instrumentation of Session A (command log at `0x09dc07f8`) and add:
+
+| Instrument | Address | Settings |
+| --- | --- | --- |
+| Chain count | `0x09e28e34`, size 4 | Memory breakpoint, Write, Log `chain_n pc={pc}` (read the value with F10 or in Memory View) |
+| Building state, resolving flag | `0x09e28f54`, `0x09e28f58`, size 4 each | Memory breakpoints, Write, Log `build_state pc={pc}` / `resolving pc={pc}` |
+| Response windows | `0x09ccbe74` (`duel_core_offer_response_window(link, side)`) | Execute, Log `window link={a0} side={a1}` |
+| Player input | `0x09dce84c` (`duel_core_begin_player_input(side, mode)`) | Execute, Log `input side={a0} mode={a1}` (mode 5 = chain response, 4 = timing window) |
+| Trigger formation (D2) | `0x09c329e8` (`duel_core_chain_build_from_triggers`) | Execute, **Break on**, condition `[0x09e28e48] >= 2` |
+| Guard for a 17th link | `0x09e28e34`–`0x09e28e4b` | Memory View pinned; nothing but the count and the building globals may change there |
+
+All edits use shortcut S1 and follow the policy above; write each one into the results file.
+
+### D1. Sixteen links from responses
+
+1. **Set the zone links.** In an own Main Phase 1, replace five hand cards with Jar of Greed (`0x145a`) (S1; if the hand has fewer than five cards, replace Deck entries 0–4 before the Draw Phase and draw over two turns instead). Set all five face-down. Savestate `D1-set`. Traps cannot be activated in the turn they are set, so end the turn.
+2. **Wait for a Crow target.** Continue until the CPU's Graveyard holds at least one card (`[P + 0x14] ≥ 1` for the CPU side: a destroyed monster, a used spell or a hand-limit discard). The official rules allow several chain links to target the same card; if the game refuses that (the target choice offers nothing for the second Crow), each Crow needs its own card in the CPU's Graveyard; note it and wait for more.
+3. **Fill the hand.** In a later own Main Phase 1, with the Jars still set, check that the own deck count `[P + 0x10]` is at least 14. Replace six hand cards with Pot of Greed (`0x12ec`) and Deck entries 0–11 with D.D. Crow (`0x1b44`) (S1). Play the six Pots: they draw the twelve Crows. Savestate `D1-chain`.
+4. **Build the chain.** Activate one set Jar of Greed (link 1). Every time the game offers you a response (`input … mode=5`), activate the next card: the other four Jars (links 2–5), then Crows (each discards itself and targets a card in the CPU's Graveyard). The CPU gets a window after each of your links; any CPU response is a link too, so simply keep going until no window is offered. You have 4 + 12 = 16 cards for links 2–17.
+5. Let the chain resolve without further input.
+
+- **Record**: the chain count after each `0x10` command; the window and input logs between links; the building-state sequence; the link number at which the windows stop; how many Crows remain in hand; whether the 24-byte guard region changed in any way other than the count; the resolution order (cards of the `0x11`/`0x12` commands); every edit.
+- **Expected**: the count rises 1, 2, …, 16 with one `0x10` command per link (the chain number in the command reaches 16). Up to 15 links a window is offered after each activation. After link 16 there is no `window` log and no `input … mode=5` for either side, although Crows are still in hand; the resolving flag `0x09e28f58` becomes 1 and the count falls 16 → 0 with sixteen `0x11`/`0x12` pairs, top link first. Link 17 is never created: the count never exceeds 16 and the guard region is never overwritten by link data. If a window does open with 16 links, activate one Crow, record what happens to `0x09e28e34`–`0x09e28e4b`, and reload `D1-chain`: that refutes hypothesis 1.
+
+### D2. Sixteen links from simultaneous triggers
+
+Card Destruction (`0x12d5`) makes both players discard their hands by a card effect. Broww, Huntsman of Dark World (`0x1966`) has a trigger when it is discarded by a card effect (M2 table; its id is compared in `duel_core_send_hand_card`, `0x09c18550`, at `0x09c18850`; static, medium). Seventeen or more Browws discarded at once give seventeen or more simultaneous triggers.
+
+1. In an own Main Phase 1 (savestate `D2-pre`), read the own hand count `H` (at least 7), the CPU's hand count `c` (at least 5) and the own deck count (at least 30 is comfortable; see the note below).
+2. With S1: replace six own hand cards with Pot of Greed and one with Card Destruction; replace the other `H − 7` own hand cards and own Deck entries 0–11 with Broww; replace all `c` CPU hand cards with Broww.
+3. Play the six Pots (they draw the twelve Browws). Your hand is now Card Destruction plus `H + 5` Browws; with the CPU's `c` the total `N = H + 5 + c` is at least 17.
+4. Activate Card Destruction. When the breakpoint at `0x09c329e8` breaks, read `[0x09e28e48]` and the queued links (card id, side bit 0 of `+0x02`). Step Out and read `[0x09e28e34]`, `[0x09e28e48]` and the 16 chain links. Optionally log `0x09ce401c` (trigger kind) as in A9.
+5. Continue. If Broww's trigger is optional, each link asks "activate?" (answer Yes for your links). After the chain has resolved, the breakpoint fires again for the triggers left in the queue.
+
+- **Record**: `N` before the sort; chain count and queue count after it; the side of each chain link 1–16; the queue count and the sides at the second break; every edit.
+- **Expected**: `[0x09e28e48] = N` (at most 32) before; after the Step Out the chain holds 16 links and the queue `N − 16`. Order: your Browws (turn player) first, then the CPU's, so the triggers left in the queue are the CPU's (assuming equal trigger kinds; otherwise by the key of A9). After the first chain, a new chain forms from the `N − 16` remaining triggers.
+- **Note**: the draws (twelve for the Pots, `H + 5` for Card Destruction, one per resolved own Broww) can empty your Deck. The observation is taken before any Broww resolves; a deck-out loss afterwards does not affect it. Broww's activation condition may require a non-empty Deck when it is queued, so keep at least one card in the Deck after Card Destruction's redraw (own deck count at step 1 ≥ `12 + H + 6`).
+
+**Session D results**
+
+| Check | Recorded | Expected | Pass? | Notes |
+| --- | --- | --- | --- | --- |
+| D1 highest chain count / link number of the last window | | 16 / 15 | | Crows left in hand |
+| D1 window or input with 16 links? | | no | | guard region unchanged? |
+| D1 resolution order | | 16 → 1 | | |
+| D1 several Crows on the same target allowed? | | (open) | | |
+| D2 queued `N`, chain / queue after the sort | | `N` / 16 / `N − 16` | | trigger kinds |
+| D2 sides of links 1–16 | | turn player's first | | |
+| D2 second chain from the remainder | | `N − 16` links | | |
+| Edits (S1/S2/S3) | | all listed | | |
+
 ## Reporting results
 
 1. Fill in the session's results table (copy it from this file). Save it as `docs/verification/results/<yyyy-mm-dd>-<session>.md`, or paste it into a session with the agent. Record values, addresses and card ids only: no screenshots of card art, no memory dumps, no text from the game.
@@ -300,13 +420,15 @@ The agent then, in the same session:
 
 - Edits the subsystem or format document: the claim's confidence becomes "verified in PPSSPP (`<date>`, results file)". Answered open questions are struck through with the answer, and refuted claims are rewritten.
 - Raises registry rows, following the stage definitions in `docs/PROGRESS.md`:
-  - **Formats** (`re/formats.csv`, edited by hand): set `verified` when the layout matched live memory in the check. A row can only reach `verified` if its layout is already written down (`documented`). Candidates: `chain_link` (A7), `effect_marker` (A8), `duel_stat_block` and `duel_effect_records` (A6), `story_calendar` (C1), `story_runtime_records` (C2), `story_field_state` (C3, C4), `save_data` (C4, C5). The rows still at `named` are first brought to `documented` from the existing text.
+  - **Formats** (`re/formats.csv`, edited by hand): set `verified` when the layout matched live memory in the check. A row can only reach `verified` if its layout is already written down (`documented`). Candidates: `chain_link` (A7), `effect_marker` (A8), `duel_stat_block` and `duel_effect_records` (A6), `duel_turn_state` (A1, A2), `duel_player_block` (A2, A3, A5), `duel_field_slot` (A5, A6), `attack_state`, `battle_record`, `battle_steps` and `battle_damage_record` (A4), `turn_steps` (A1), `summon_record` (A5), `chain_state` (A7, D1), `trigger_queue` (A9, D2), `duel_command_queue` (every session), `tag_waiting_area` (B1), `story_calendar` (C1), `story_runtime_records` (C2), `story_field_state` (C3, C4), `save_player_profile` (C4), `save_data` (C4, C5). The rows still at `named` are first brought to `documented` from the existing text.
   - **Functions** (`re/functions.csv`): `verified` only for functions that are already `documented` and whose documented behaviour (arguments, return value, side effects) the check exercised. Examples: `duel_core_cmd_enter_phase`, `duel_core_get_phase`, `duel_core_cmd_lp_gain`/`_lp_loss`/`_set_lp`, `duel_core_use_normal_summon`, `duel_core_has_normal_summon`, `duel_core_get_atk`, `duel_core_chain_build_from_triggers`, `duel_effects_mark_used_this_turn`, `ai_mask_hidden_card_id`. Functions still at `named` (`duel_core_next_turn`, `tag_duel_swap_active_duelist`, `duel_core_push_command`, the `rel_story` world functions) are documented first, with the runtime evidence as one of their bases.
 - Runs `python -I tools/progress.py --check` and the headline command, and reports what moved.
 
 ## Decisions for the maintainer
 
 - **How functions reach `verified` in the registry.** `re/functions.csv` is regenerated by `tools/ghidra/ExportFunctions.java`, which writes only `documented` (from the `DOCUMENTED` tag) or a blank status. A `verified` typed by hand would be lost at the next export. One option keeps the counting rules unchanged: a `re/verified.tsv` list applied as a `VERIFIED` tag in Ghidra, which the export then writes as `verified`. Until a mechanism is chosen, verified functions are recorded in the results files and the documents, and only `re/formats.csv` rows are raised.
-- **Structures without a registry row.** The player block (`0xb3c` bytes), the turn/phase globals and the battle/damage records are documented but have no row in `re/formats.csv`. Adding rows would grow the denominator. Decide whether they should be counted.
-- **A11 (16-link limit)**: keep it at the static level, or build a test deck for it.
-- **Staging with memory edits**: this plan never writes game memory. Writing memory (e.g. LP or the hand) would make A9 and A11 easy to stage but tests an artificial state. Decide whether such evidence counts as `verified`.
+Decided on 2026-10-26:
+
+- **Structures without a registry row**: counted. `re/formats.csv` now has a row for every runtime structure and table that the subsystem and format documents describe (player block, field slot, turn/phase globals, step tables, battle and damage records, chain and trigger queues, request blocks, AI blocks, save and world blocks). A row is `documented` only where a document gives a layout table, purpose and evidence; the others are `named`.
+- **The 16-link limit**: tested in Session D (D1 responses, D2 triggers) instead of the optional A11.
+- **Staging with memory edits**: counts as `verified` under the policy in "Memory edits" (allowed edits only, every edit recorded, observations produced by the game's code).
