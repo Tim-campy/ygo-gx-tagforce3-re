@@ -24,3 +24,21 @@ Card ids seen (cardinfo): `0x18be` White Ninja (1500/800), `0x193a` Divine Sword
 - **A4 (battle):** declaration `0x17 a=3 b=0x201` (attacker slot 3), `0x14`/`0x1c`/`0x1d` around the Battle steps; CPU declaration `0x8017 a=2 b=0x300`.
 - **A7 (chain):** each activation posts `0x10` (link activated, `a` = slot), `0x11` (resolving), `0x12` (resolved), then `0x38`; a response by the human during the CPU's attack (Enemy Controller in slot 7) produced its own `0x10/0x11/0x12` and `0x8033` (position change of the CPU's slot 2).
 - **A8 (once per turn):** the CPU's B.E.S. Tetran effect posted `0x8035 a=0x0202 b=0x0fb6` (attach marker key `0xfb6` to slot 2, kind byte 2) before removing a counter (`0x803b a=2 b=0xffff`) and destroying a spell (`0x30 a=8 …`). Tetran's summon also posted `0x803b a=2 b=3 c=1` (3 counters). Consistent with `chain.md` and `effect-helpers-values.md`.
+
+## A2. Turn side and turn counter: pass
+
+| Moment | `0x09e2d1d8` (turn side) | `0x09e2d1e0` (turn counter) |
+| --- | --- | --- |
+| Human's third turn, Main 1 | 0 | 4 |
+| Following CPU turn | 1 | 5 |
+
+The counter starts at 0 on the first turn of the duel and increases by one per turn (human turns 0, 2, 4; CPU turns 1, 3, 5). Side 0 is the human, side 1 the CPU. The first-turn draw question stays open (needs a log from the very first turn).
+
+## A3. Life Points: pass (amount and storage)
+
+| Address | Value | Meaning |
+| --- | --- | --- |
+| `0x09e2a528` (side 0, `+0x00`) | `0x1e78` = 7800 | 8000 − 200 reflect damage logged as `0x24 a=0xc8 b=1` |
+| `0x09e2b064` (side 1, `+0x00`) | `0x1f40` = 8000 | no damage taken |
+
+LP are a 32-bit integer at player block `+0x00`, the player blocks are `0xb3c` bytes apart, and the battle damage path (`0x15` → `0x16` → `0x24`, reason 1) is the one that changed them. The write itself (`0x24` handler) is still to be watched with a memory breakpoint for the formal check of "only commands `0x23`–`0x25` write LP".
