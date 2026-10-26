@@ -54,3 +54,14 @@ Player flags word of side 0 at `0x09e2a648` (player block `+0x120`):
 | Next own turn, after the Draw | `00 00 00 00` | `0x00000000` |
 
 Bits 16 (summon declared), 17 (Normal Summon used) and 21 (a monster was Normal Summoned face-up) are set as `summon.md` describes, and the whole upper half is cleared by the next turn's begin-turn command. **New:** bit 20 (`0x00100000`) is also set by a face-up Normal Summon; its meaning is not documented (open question added to `summon.md`).
+
+## A6. ATK recomputation with an equip: pass (steps 1–2)
+
+Reading method that works: execute breakpoint at `0x09c0a604` (`duel_core_get_atk`) with condition `a0 == 0 && a1 == <slot>`, enabled only after the screen shows the new value, then step (F10) to the `jr ra` at `0x09c0a624`, where `v0` holds the result (`lw v0, 0x34(sp)` at `0x09c0a61c`; the entry value of `v0` is unrelated). Leaving the breakpoint enabled while a chain resolves stops every frame and keeps the effect from resolving; with the board idle the function is only called when something asks for the ATK (cursor on the card, attack selection).
+
+| Step | Screen ATK | `v0` at `0x09c0a624` |
+| --- | --- | --- |
+| Monster alone (slot 2) | 1500 | `0x5dc` = 1500 |
+| After an equip giving +300 | 1800 | `0x708` = 1800 |
+
+`duel_core_get_atk` returns the recomputed value including the equip, matching the screen. Field spell, temporary boost and the record list (steps 3–6) are still to be done. Equips post no `0x35` command (they are links, kinds 10/11, as `stat-modifiers.md` says); the activation posted `0x51`, `0x28 a=2` (target slot 2) and `0x10 a=7` (link from S/T slot 7).
