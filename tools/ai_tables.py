@@ -10,6 +10,11 @@ their lengths are constants in the code that walks them, and --check verifies th
   ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx list  [--cardinfo cardinfo_eng.ehp] [--functions re/functions.csv] [-o out.csv]
   ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx cards [--cardinfo ...] [-o out.csv]
   ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx --check [--cardinfo ...]
+  ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx classes --functions re/functions.csv [--functions re/names-duel_eng.csv]
+               [--summary] [-o out.csv]
+
+`classes` sorts the handlers into behaviour classes by their registry names (docs/subsystems/ai-helpers.md,
+"Taxonomy"); --functions may be given several times (registry or names CSV, later files win).
 
 Addresses are runtime addresses with the module at 0x09be1400 (file offset = address - base + 0x54 for the
 game's single PT_LOAD segment); pointers stored in the file are module offsets. The output is game data:
@@ -21,6 +26,7 @@ import collections
 import csv
 import importlib.util
 import io
+import re
 import struct
 import sys
 from pathlib import Path
@@ -247,15 +253,84 @@ def load_cardinfo(path):
     return {info.properties(i)["id"]: info.name(i) for i in range(1, info.count)}
 
 
-def load_functions(path):
-    """runtime address -> registry name from re/functions.csv (plain hex ids only)."""
-    names = {}
+def load_functions(path, names=None):
+    """runtime address -> name from re/functions.csv (column id) or a names CSV (column address).
+
+    Plain hex ids only; comment lines (#) are skipped; empty names are ignored. Entries update `names`."""
+    names = {} if names is None else names
     with open(path, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            ident = row["id"]
-            if ident.startswith("0x"):
+        for row in csv.DictReader(line for line in f if not line.startswith("#")):
+            ident = row.get("id") or row.get("address") or ""
+            if ident.startswith("0x") and row.get("name"):
                 names[int(ident, 16)] = row["name"]
     return names
+
+
+# ---------------------------------------------------------------------------------------------- classes
+
+# Behaviour classes of the AI handlers, derived from their names (first match wins). The names encode what
+# the handler tests (docs/subsystems/ai-helpers.md); unnamed handlers (tool default names) are "unnamed".
+CLASSES = [
+    ("constant", "always / never", r"^ai_cond_(always|never)$"),
+    ("event", "reacts to a queued timing event (attack, damage step, summon)", r"_event$"),
+    ("chain", "response to a chain link: threat, negation, use-before-loss", r"link|chain|threatened|respond"),
+    ("lp", "Life-Point thresholds: burn, LP gain, damage prevention", r"burn|damage|_lp\b|_lp_|lethal"),
+    ("battle", "battle dominance, attackers, battle plan", r"battle|attack|behind|dominance|plan|boost|stall"),
+    ("summon", "summon or equip enablers", r"summon|revive|ritual|fusion|union|equip|token"),
+    ("removal", "removal or control change, gated by the target's value", r"destroy|removal|wipe|banish|remove|"
+                                                                            r"control|swap"),
+    ("target", "target availability", r"target"),
+    ("limit", "copies already active, once per turn", r"active_cop|count_below|once_per_turn|applied"),
+    ("phase", "phase / turn timing", r"standby|end_phase"),
+    ("resources", "hand, deck, candidates and costs", r"draw|discard|candidate|hand|cost|deck|tribute|recycle"),
+    ("board", "other board-state checks", r"monster|field_spell|zone|face_up"),
+]
+DEFAULT_NAME = re.compile(r"^(FUN_|thunk_FUN_|LAB_|SUB_)|^$")
+
+
+def handler_class(name):
+    """Behaviour class key of a handler name: a CLASSES key, "unnamed" or "other"."""
+    if not name or DEFAULT_NAME.search(name):
+        return "unnamed"
+    stem = re.sub(r"^ai_(handler_|cond_)?", "", name)  # "handler" must not match "hand"
+    for key, _, pattern in CLASSES:
+        if re.search(pattern, name if key == "constant" else stem):
+            return key
+    return "other"
+
+
+def class_rows(module, functions=None):
+    """One row per distinct handler (pair tables and u16 lists): address, name, class, entries, tables."""
+    functions = functions or {}
+    per = collections.defaultdict(collections.Counter)
+    for key, _, _, _, _, handler in entries(module):
+        if handler:
+            per[handler][key] += 1
+    for key, _, _, _, handler in list_entries(module):
+        per[handler][key] += 1
+    rows = []
+    for handler, tables in sorted(per.items(), key=lambda kv: (-sum(kv[1].values()), kv[0])):
+        name = functions.get(handler, "")
+        rows.append({"handler": f"{handler:#010x}", "name": name, "class": handler_class(name),
+                     "entries": sum(tables.values()),
+                     "tables": " ".join(f"{k}:{n}" for k, n in sorted(tables.items()))})
+    return rows
+
+
+def class_summary(rows):
+    """Lines: per class, handlers and table entries (with the share of all entries)."""
+    total = sum(r["entries"] for r in rows)
+    handlers, count = collections.Counter(), collections.Counter()
+    for r in rows:
+        handlers[r["class"]] += 1
+        count[r["class"]] += r["entries"]
+    order = [k for k, _, _ in CLASSES] + ["other", "unnamed"]
+    lines = [f"{'class':10} {'handlers':>8} {'entries':>8} {'share':>7}"]
+    for key in order:
+        if handlers[key]:
+            lines.append(f"{key:10} {handlers[key]:8} {count[key]:8} {100 * count[key] / total:6.1f}%")
+    lines.append(f"{'total':10} {len(rows):8} {total:8}")
+    return lines
 
 
 # ---------------------------------------------------------------------------------------------- output
@@ -303,10 +378,12 @@ def write_csv(rows, out):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="List and check the duel AI priority tables of rel_duel_eng.prx.")
     parser.add_argument("prx", type=Path, help="gmodule/rel_duel_eng.prx")
-    parser.add_argument("command", nargs="?", choices=("list", "cards", "check"), default="list")
+    parser.add_argument("command", nargs="?", choices=("list", "cards", "check", "classes"), default="list")
     parser.add_argument("--check", action="store_true", help="same as the check command")
     parser.add_argument("--cardinfo", type=Path, help="duelsys/cardinfo_eng.ehp: card names (and id check)")
-    parser.add_argument("--functions", type=Path, help="re/functions.csv: handler names")
+    parser.add_argument("--functions", type=Path, action="append",
+                        help="re/functions.csv or a names CSV: handler names (repeatable; later files win)")
+    parser.add_argument("--summary", action="store_true", help="classes: print the per-class totals only")
     parser.add_argument("-o", "--output", type=Path, help="CSV file (keep it under extracted/)")
     args = parser.parse_args(argv)
     module = Module(args.prx.read_bytes())
@@ -326,8 +403,18 @@ def main(argv=None):
                   f"(not in the released card list): {' '.join(f'{c:#x}' for c in sorted(missing))}")
         print("ok")
         return 0
-    functions = load_functions(args.functions) if args.functions else None
-    rows = list_rows(module, cards, functions) if args.command == "list" else card_rows(module, cards)
+    functions = None
+    for path in args.functions or ():
+        functions = load_functions(path, functions)
+    if args.command == "classes":
+        rows = class_rows(module, functions)
+        if args.summary:
+            print("\n".join(class_summary(rows)))
+            return 0
+    elif args.command == "list":
+        rows = list_rows(module, cards, functions)
+    else:
+        rows = card_rows(module, cards)
     write_csv(rows, args.output)
     return 0
 

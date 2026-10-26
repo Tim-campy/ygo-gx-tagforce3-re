@@ -2,7 +2,7 @@
 
 Status: `documented` (layout, lengths, consumers, order semantics). The per-card handlers themselves are not documented here; see `docs/subsystems/ai.md`. Addresses are runtime addresses with the module loaded at `0x09be1400`; file offset = address − `0x09be1400` + `0x54` (single `PT_LOAD` segment). Pointers stored in the file are module offsets (add the base).
 
-Tool: `tools/ai_tables.py` lists the tables (`list`), gives per card the tables that know it (`cards`) and checks the layout against the code (`--check`). Its output is game data: keep it under `extracted/`.
+Tool: `tools/ai_tables.py` lists the tables (`list`), gives per card the tables that know it (`cards`), sorts the handlers into behaviour classes by name (`classes`) and checks the layout against the code (`--check`). Its output is game data: keep it under `extracted/`.
 
 Basis: Ghidra decompilation of every function that references the range `0x09dfd200`–`0x09e00900` (reference listing over the range, then reading each referencing function), plus a byte-level scan of the data. Nothing here was traced in PPSSPP yet.
 
@@ -49,7 +49,7 @@ All eleven pair tables are contiguous from `0x09dfd448` to `0x09e00800` except f
 
 ## u16 card-id lists before the tables
 
-Three lists of `u16` card ids sit right before T1. They have no handler column; the walker `ai_try_chain_tables` (`0x09d2f908`) pairs each id with one fixed handler, chosen by the chain state byte `0x09e28fa0` (only while `0x09e28f98` ≠ 0). The list is tried before T1; when no id of it is accepted, the whole of T1 is walked as usual. Meaning of the states: open (M for the mechanism, L for the reading as "special chain situations").
+Three lists of `u16` card ids sit right before T1. They have no handler column; the walker `ai_try_chain_tables` (`0x09d2f908`) pairs each id with one fixed handler, chosen by the byte `0x09e28fa0` (only while `0x09e28f98` ≠ 0). `0x09e28fa0`/`0x09e28f98` are the first code and the count of the timing-event queue (`battle.md`), and the handlers test the same event code in the link (`ai_handler_on_attack_declared_event` R1, `ai_handler_on_damage_step_event` R2; see `docs/subsystems/ai-helpers.md`), so the lists are per-event response lists (M). The list is tried before T1; when no id of it is accepted, the whole of T1 is walked as usual. Meaning of the states: open (M for the mechanism, L for the reading as "special chain situations").
 
 | Key | Address | Entries | State `0x09e28fa0` | Handler | Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -87,6 +87,6 @@ Three lists of `u16` card ids sit right before T1. They have no handler column; 
 ## Open questions
 
 - What `BOOT 0x0885ff3c` and `BOOT 0x0885fef0` test (gates for A-in-B and for B in response windows); probably card-kind predicates.
-- Meaning of the chain state byte `0x09e28fa0` values 2, `0x12`, `0x13`, `0x14`, `0x1b` that select R1–R3 or the T1 subset.
+- Meaning of the timing-event codes 2, `0x12` and `0x1b` that select the T1 subset, R1 (with `0x13` attack declared) and R3 (`0x14` is the start of the Damage Step).
 - Why 18 engine-supported card ids have no cardinfo record (cut cards, Japanese-only cards).
-- The handler semantics (the actual per-card AI knowledge) still need grouping before they can be reimplemented.
+- Handler semantics: the 77 handlers shared by ≥ 3 entries are named and classified (`docs/subsystems/ai-helpers.md`, `ai_tables.py classes`); the 600 single-use handlers remain.
