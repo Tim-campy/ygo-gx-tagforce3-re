@@ -124,3 +124,27 @@ Method: entry breakpoint with condition `a0 == 0` (human side), enabled during t
 | | side 0, slot 7, card `0x1581` (Enemy Controller, set) | `0x16a7` | spell/trap-zone placeholder |
 
 Confirms `ai.md` ("Board view") and `ai-helpers.md`: the AI's board view never contains the human's real hidden cards. The Level < 5 stand-in is Avatar of The Pot (`0x1748`) at the viewer's LP of this duel (the LP-dependent variants were not exercised).
+
+## A9. Trigger order for simultaneous triggers: pass (staged with memory edits)
+
+Staged in the human's Main Phase 1 (`u16 [0x09e27fee] == 0` checked), shortcut S1. Edits (address, old → new, purpose):
+
+| # | Address | Old | New | Purpose |
+| --- | --- | --- | --- | --- |
+| 1 | `0x09e2a658` (side 0 hand[3]) | `0x193a` | `0x1966` | Divine Sword - Phoenix Blade → Broww, Huntsman of Dark World |
+| 2 | `0x09e2bd04` (its instance 52) | `0x193a` | `0x1966` | same card's instance |
+| 3 | `0x09e2a65c` (side 0 hand[4]) | `0x1c6c` | `0x1966` | Chamberlain of the Six Samurai → Broww |
+| 4 | `0x09e2bc5c` (instance 24) | `0x1c6c` | `0x1966` | |
+| 5 | `0x09e2a660` (side 0 hand[5]) | `0x142a` | `0x12d5` | Creature Swap → Card Destruction |
+| 6 | `0x09e2bcec` (instance 48) | `0x142a` | `0x12d5` | |
+| 7 | `0x09e2b194` (side 1 hand[3]) | `0x59bf` | `0x5966` | B.E.S. Covered Core → Broww (bit 14 kept) |
+| 8 | `0x09e2bbde` (instance 3) | `0x19bf` | `0x1966` | |
+| 9 | `0x09e2b198` (side 1 hand[4]) | `0x58b3` | `0x5966` | Moai Interceptor Cannons → Broww (bit 14 kept) |
+| 10 | `0x09e2bcaa` (instance 37) | `0x18b3` | `0x1966` | |
+
+No count was changed; every entry agreed with its instance before the edit. The human then activated Card Destruction; everything below was produced by the game.
+
+- **Trigger queue** at the break in `duel_core_chain_build_from_triggers` (`0x09c329e8`, condition `[0x09e28e48] >= 2`): count 4; entries (24 bytes each) `66 19 9c 27 00 03 …`, `66 19 9c 27 80 06 …`, `66 19 9d 27 a0 04 …`, `66 19 9d 27 60 00 …` = Broww (side 0, Graveyard `0x0e`), Broww (side 0), Broww (side 1), Broww (side 1).
+- **Chain**: resolution ran link 4 (`0x8011 c=4`, CPU), link 3 (CPU), link 2 (`0x0011 c=2`, human), link 1 (human): the turn player's two mandatory triggers are links 1–2 and the opponent's links 3–4, as `chain.md` ("Forming a chain from triggers") states. The game did not ask for an order.
+- Each CPU Broww drew 2 cards (two `0x8056` per link: discarded by the opponent's effect), each human Broww 1, matching the card text.
+- Not exercised: optional versus mandatory groups (all four triggers have the same kind).
