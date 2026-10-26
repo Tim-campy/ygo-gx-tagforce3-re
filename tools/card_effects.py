@@ -13,9 +13,12 @@ joins their results by card id; it carries no game data itself and copies no cod
   AI tables       tools/ai_tables.py
   tokens          the token table at 0x09e019ec, parsed here (docs/subsystems/effect-helpers-deck.md)
   searches        tools/search_filters.py  (optional; skipped when the tool is absent)
+  engine refs     tools/card_refs.py       (card ids tested directly in code: rel_duel_eng, and BOOT.BIN and
+                                            rel_duel_draw.prx when --boot / --draw are given)
 
   card_effects.py <USRDIR>/gmodule/rel_duel_eng.prx <USRDIR>/duelsys/cardinfo_eng.ehp -o extracted/card_effects
-                  [--boot <SYSDIR>/BOOT.BIN] [--functions re/functions.csv] [--depth 3] [--search-filters file.csv]
+                  [--boot <SYSDIR>/BOOT.BIN] [--draw <USRDIR>/gmodule/rel_duel_draw.prx]
+                  [--functions re/functions.csv] [--depth 3] [--search-filters file.csv]
   card_effects.py <USRDIR>/gmodule/rel_duel_eng.prx <USRDIR>/duelsys/cardinfo_eng.ehp --check [--boot ...]
 
 Outputs (game data: keep them under extracted/, never in git): card_effects.jsonl (one JSON object per card id)
@@ -45,8 +48,9 @@ ep, ait = ec.ep, ec.ait
 sm = _load("re_stat_mods", "stat_mods.py")
 fu = _load("re_fusion", "fusion.py")
 ci = _load("re_cardinfo", "cardinfo.py")
+cr = _load("re_card_refs", "card_refs.py")
 
-SCHEMA = 1
+SCHEMA = 2  # schema 2 = schema 1 plus engine_refs, params.chains[].class/source and the status engine_only
 FIRST_CARD, LAST_CARD = ep.FIRST_CARD, ep.LAST_CARD
 
 # Token table read by duel_effects_find_token_entry (0x09befee0, 68 bytes): 46 records of four u16
@@ -67,7 +71,8 @@ SEARCH_LIST = "L1"  # the 8-byte list 0x09dec554 (search / summon-from-deck buil
 OWN_LISTS = ("L1", "L4")  # L2 and L3 are the AI tables (reported under "ai")
 
 # Parameter compare chains with an established meaning (docs/formats/effect-tables.md): function ->
-# (label, confidence). Other chains classified "parameter" by effect_params are kept as chain_<address>, low.
+# (label, confidence). Every other compare chain of effect_params (parameter, predicate, mixed or unresolved)
+# is labelled with its registry name when it is named (medium), else chain_<address> (low).
 PARAM_CHAINS = {
     0x09C779BC: ("draw_count", "high"),
     0x09C41400: ("lp_cost", "high"),
@@ -101,6 +106,7 @@ SOURCES = {
     "ai": "AI priority tables and u16 lists via tools/ai_tables.py",
     "tokens": "token table 0x09e019ec (duel_effects_find_token_entry), parsed by tools/card_effects.py",
     "search_filters": "builders of list 0x09dec554 via tools/search_filters.py (optional)",
+    "engine_refs": "card-id immediates used as card ids in engine code via tools/card_refs.py",
     "fallback_effect": "icon fallback of duel_effects_find_record to S/T records 0-2 (placeholder id 0xe74)",
 }
 CONFIDENCE = {
@@ -198,8 +204,35 @@ def identity_of(info, index):
             "genre_mask": f"{mask:#014x}", "genres": info.genres(index)}
 
 
+def chain_label(fn, registry):
+    """(label, confidence) of a compare chain function."""
+    if fn in PARAM_CHAINS:
+        return PARAM_CHAINS[fn]
+    name = registry.name(fn)
+    return (name, "medium") if not ec.DEFAULT_NAME.match(name) else (f"chain_{fn:08x}", "low")
+
+
+def all_chain_cases(module, functions, users, registry):
+    """Cases of every compare chain (>= 8 card-id tests) of effect_params, with class, label and confidence."""
+    rows, param_cases = ep.compare_chains(module, functions, users)
+    out = []
+    for r in rows:
+        fn = int(r["function"], 16)
+        label, conf = chain_label(fn, registry)
+        if r["class"] == "parameter":
+            cases = [c for c in param_cases if c["function"] == r["function"]]
+        else:
+            cases = [{"function": r["function"], "card_id": f"{cid:#x}",
+                      "kind": "constant" if v is not None else "computed",
+                      "value": "" if v is None else ep.signed(v), "target": f"{b.target:#010x}"}
+                     for cid, v, b in ep.analyse_chain(module, fn, ep.function_end(functions, fn))]
+        for c in cases:
+            out.append({**c, "class": r["class"], "label": label, "confidence": conf})
+    return out
+
+
 def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_path=None, depth=3,
-            search=None):
+            search=None, draw_path=None):
     """Run every source tool and return (sources dict for build_specs, problems)."""
     info = ci.CardInfo(cardinfo_bytes, "E")
     cards = {}
@@ -252,7 +285,10 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
     lists = [(name, index, cid, h, registry.name(h) if h else "") for name, index, cid, h in ep.list_records(module)
              if name in OWN_LISTS]
     draws = {int(r["card_id"], 16): r for r in ep.draw_counts(module)}
-    _, cases = ep.compare_chains(module, functions, users)
+    cases = all_chain_cases(module, functions, users, registry)
+    starts, names = cr.load_registry(functions_path)
+    engine_refs = cr.all_refs(prx_bytes, starts, names, Path(boot_path).read_bytes() if boot_path else None,
+                              Path(draw_path).read_bytes() if draw_path else None)
     ai = [(key, name, i, cid, h, registry.name(h) if h else "") for key, name, i, _, cid, h in ait.entries(amod)]
     ai += [(key, "chain_state_list", i, cid, h, registry.name(h)) for key, i, _, cid, h in ait.list_entries(amod)]
     tokens = token_entries(module)
@@ -266,6 +302,7 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
         "rituals": [(r.index, r.monster, r.spell, r.level) for r in fu.rituals(fmod)],
         "ai": ai, "tokens": tokens, "search_filters": search_filters, "search_note": search_note,
         "ai_missing": set(ait.missing_cards(amod, set(cards))),
+        "engine_refs": engine_refs,
     }
     return sources, problems
 
@@ -350,11 +387,13 @@ def build_specs(src):
         fn = int(r["function"], 16)
         if fn == ep.DRAW_COUNT:
             continue  # reported as draw_count
-        label, conf = PARAM_CHAINS.get(fn, (f"chain_{fn:08x}", "low"))
+        label, conf = (r["label"], r["confidence"]) if "label" in r else \
+            PARAM_CHAINS.get(fn, (f"chain_{fn:08x}", "low"))
         constant = r["kind"] == "constant"
         spec(int(r["card_id"], 16))["params"].setdefault("chains", []).append(
             {"label": label, "function": r["function"], "kind": r["kind"], "value": r["value"] if constant else None,
-             "confidence": conf if constant else "low" if conf == "low" else "medium"})
+             "confidence": conf if constant else "low" if conf == "low" else "medium",
+             "class": r.get("class", "parameter")})
     for r in src["stat_mods"]:
         spec(int(r["card_id"], 16))["params"].setdefault("stat_mods", []).append(
             {k: r[k] for k in ("section", "function_name", "use", "address", "values", "helper", "calls")})
@@ -389,6 +428,9 @@ def build_specs(src):
         if hx(cid) not in spec(token)["token_of"]:
             spec(token)["token_of"].append(hx(cid))
 
+    for cid, rows in src.get("engine_refs", {}).items():  # ids no other source knows are not added
+        if cid in specs:
+            specs[cid]["engine_refs"] = engine_ref_groups(rows)
     placeholder = {e["index"]: e for e in specs.get(PLACEHOLDER_ID, {}).get("effects", []) if e["table"] == "S/T"}
     for cid, s in specs.items():
         ident = s["identity"]
@@ -403,6 +445,30 @@ def build_specs(src):
         s["sources"] = {k: SOURCES[k] for k in field_keys(s)}
         s["confidence"] = field_confidence(s)
     return dict(sorted(specs.items()))
+
+
+def engine_ref_groups(rows):
+    """card_refs rows of one card grouped by function: the registry name gives the coarse meaning."""
+    by = {}
+    for r in rows:
+        g = by.setdefault((r["module"], r["function"]), {
+            "module": r["module"], "function": f"{r['function']:#010x}", "function_name": r["function_name"],
+            "group": r["group"], "named": not ec.DEFAULT_NAME.match(r["function_name"]), "kinds": {},
+            "references": [], "callees": [], "values": [], "operands": []})
+        g["kinds"][r["kind"]] = g["kinds"].get(r["kind"], 0) + 1
+        g["references"].append(f"{r['address']:#010x}")
+        if r["kind"] == "arg" and r["detail"] not in g["callees"]:
+            g["callees"].append(r["detail"])
+        if r["value"] is not None and r["value"] not in g["values"]:
+            g["values"].append(r["value"])
+        if r["operand"] and r["operand"] not in g["operands"]:
+            g["operands"].append(r["operand"])
+    return sorted(by.values(), key=lambda g: (not g["named"], g["group"], g["module"], g["function"]))
+
+
+def strong_engine_refs(s):
+    """Engine references that name this card (eq, switch, or an argument), not only a range bound."""
+    return [g for g in s.get("engine_refs", ()) if set(g["kinds"]) & cr.STRONG]
 
 
 def field_keys(s):
@@ -421,6 +487,8 @@ def field_keys(s):
         keys.append("fallback_effect")
     if s["token_of"] and "tokens" not in keys:
         keys.append("tokens")
+    if s.get("engine_refs"):
+        keys.append("engine_refs")
     return keys
 
 
@@ -435,6 +503,11 @@ def field_confidence(s):
         elif k == "chains":
             levels = {c["confidence"] for c in s["params"]["chains"]}
             out[k] = "high" if levels == {"high"} else "low" if levels == {"low"} else "medium"
+        elif k == "engine_refs":
+            strong = strong_engine_refs(s)
+            idlike = any(o.startswith(cr.ID_OPERANDS) for g in strong for o in g["operands"]) or \
+                any("arg" in g["kinds"] or "switch" in g["kinds"] for g in strong)
+            out[k] = "medium" if idlike else "low"
         else:
             out[k] = CONFIDENCE.get(k, "medium")
     return out
@@ -444,6 +517,8 @@ def spec_status(s):
     """unreleased: no cardinfo record; vanilla: a kind without effect text and no effect data;
     full: every effect record reaches an effect category and its resolve closure has no unnamed callee;
     partial: effect records not all complete, or only side data (lists, chains, stat mods, ...);
+    engine_only: an effect card whose only data is engine code that tests its id (card_refs eq/switch/arg
+    references, or compare chains that are not parameter chains);
     missing: an effect card with no data from any source; placeholder: the fallback id 0xe74.
     A spell served by a fallback record is full when that record is complete and the per-card part is known
     (ritual: a ritual-table entry; equip and field: stat modifiers), else partial."""
@@ -458,10 +533,15 @@ def spec_status(s):
         per_card = s["fusion"].get("ritual_spell") if fb["index"] == FALLBACK_RECORD[6] else \
             s["params"].get("stat_mods")
         return "full" if fb["complete"] and per_card else "partial"
-    side = s["lists"] or s["params"] or s["tokens"] or s["fusion"].get("ritual_spell")
+    params = {k: v for k, v in s["params"].items() if k != "chains"}
+    if any(c.get("class", "parameter") == "parameter" for c in s["params"].get("chains", ())):
+        params["chains"] = True
+    side = s["lists"] or params or s["tokens"] or s["fusion"].get("ritual_spell")
     if s["identity"]["kind"] in NO_TEXT_KINDS:
         return "vanilla"
-    return "partial" if side else "missing"
+    if side:
+        return "partial"
+    return "engine_only" if strong_engine_refs(s) or s["params"].get("chains") else "missing"
 
 
 # ---------------------------------------------------------------------------------------------- check and output
@@ -502,7 +582,18 @@ def join_report(src, specs):
     released = [s for s in specs.values() if s["released"]]
     lines.append(f"cards: {len(cards)} in cardinfo, {len(specs)} ids in the output")
     lines.append("spec status: " + ", ".join(f"{k} {status[k]}" for k in
-                                             ("full", "partial", "missing", "vanilla", "unreleased", "placeholder")))
+                                             STATUSES))
+    missing = [s for s in released if s["spec_status"] == "missing"]
+    lines.append("missing cards by kind: " + (", ".join(
+        f"{k} {n}" for k, n in sorted(collections.Counter(s["identity"]["kind_name"] for s in missing).items()))
+        or "none"))
+    eng = [s for s in released if s["spec_status"] == "engine_only"]
+    groups = collections.Counter(g["group"] or "unnamed" for s in eng for g in strong_engine_refs(s))
+    lines.append(f"engine_only cards: {len(eng)}, by kind: " + ", ".join(
+        f"{k} {n}" for k, n in sorted(collections.Counter(s["identity"]["kind_name"] for s in eng).items()))
+        + "; referencing functions by group: " + ", ".join(f"{k} {n}" for k, n in groups.most_common()))
+    refs = src.get("engine_refs", {})
+    lines.append(f"engine references: {sum(len(v) for v in refs.values())} to {len(refs)} ids")
     own = [s for s in released if s["effects"]]
     full_own = sum(1 for s in own if s["spec_status"] == "full")
     lines.append(f"released cards with own effect records: {len(own)}, full {full_own}"
@@ -515,9 +606,10 @@ def join_report(src, specs):
     return problems, lines
 
 
+STATUSES = ("full", "partial", "engine_only", "missing", "vanilla", "unreleased", "placeholder")
 CSV_FIELDS = ["card_id", "name", "kind", "released", "spec_status", "effect_records", "tables", "fallback", "resolve_categories",
               "target_filters", "draw_count", "lp_cost", "chains", "stat_mod_sections", "fusion_role", "ai_tables",
-              "tokens", "search_filters", "effects_confidence"]
+              "tokens", "search_filters", "effects_confidence", "engine_ref_functions", "engine_ref_groups"]
 
 
 def csv_row(s):
@@ -539,7 +631,9 @@ def csv_row(s):
             "fusion_role": " ".join(roles), "ai_tables": " ".join(sorted({a["table"] for a in s["ai"]})),
             "tokens": " ".join(t["token_id"] for t in s["tokens"]),
             "search_filters": len(s["params"].get("search_filters", [])),
-            "effects_confidence": s["confidence"].get("effects", "")}
+            "effects_confidence": s["confidence"].get("effects", ""),
+            "engine_ref_functions": len(s.get("engine_refs", ())),
+            "engine_ref_groups": " ".join(sorted({g["group"] or "unnamed" for g in s.get("engine_refs", ())}))}
 
 
 def write_outputs(out_dir, specs, meta):
@@ -561,7 +655,9 @@ def main(argv=None):
     parser.add_argument("cardinfo", type=Path, help="duelsys/cardinfo_eng.ehp")
     parser.add_argument("-o", "--out", type=Path, help="output directory (under extracted/)")
     parser.add_argument("--check", action="store_true", help="validate the joins and print the counts")
-    parser.add_argument("--boot", type=Path, help="SYSDIR/BOOT.BIN: name import stubs by their BOOT.BIN name")
+    parser.add_argument("--boot", type=Path, help="SYSDIR/BOOT.BIN: name import stubs by their BOOT.BIN name and "
+                                                  "scan it for card-id tests")
+    parser.add_argument("--draw", type=Path, help="gmodule/rel_duel_draw.prx: scan it for card-id tests")
     parser.add_argument("--functions", type=Path, default=HERE.parent / "re" / "functions.csv")
     parser.add_argument("--categories", type=Path, default=HERE / "effect_categories.csv")
     parser.add_argument("--depth", type=int, default=3, help="call levels for the categories (default 3)")
@@ -572,7 +668,7 @@ def main(argv=None):
     data = args.prx.read_bytes()
     search = load_search_filters(data, args.search_filters)
     src, problems = extract(data, args.cardinfo.read_bytes(), args.functions, args.categories,
-                            args.boot, args.depth, search)
+                            args.boot, args.depth, search, args.draw)
     specs = build_specs(src)
     join_problems, lines = join_report(src, specs)
     problems += join_problems
@@ -582,7 +678,7 @@ def main(argv=None):
         print(line)
     if not args.check:
         write_outputs(args.out, specs, {"depth": args.depth, "search_filters": src["search_note"],
-                                        "boot": bool(args.boot)})
+                                        "boot": bool(args.boot), "draw": bool(args.draw)})
         print(f"wrote {len(specs)} cards to {args.out}")
     print("ok" if not problems else f"{len(problems)} problem(s)")
     return 1 if problems else 0

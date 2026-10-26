@@ -259,5 +259,81 @@ class SearchFilters(unittest.TestCase):
         self.assertEqual(specs[BARE]["confidence"]["search_filters"], "medium")
 
 
+def ref(kind, function, name, operand="u16 load", module="rel_duel_eng", detail="", value=None, address=None):
+    return {"kind": kind, "detail": detail, "address": address or function + 8, "use": function + 12,
+            "function": function, "function_name": name, "module": module, "operand": operand, "value": value,
+            "constants": [], "group": ce.cr.group_of(name)}
+
+
+class EngineRefs(unittest.TestCase):
+    """card_refs references, all compare chains and the engine_only status."""
+
+    def setUp(self):
+        self.refs = {
+            EQUIP: [ref("eq", 0x09BED2D8, "duel_core_get_direct_attack_mode", value=1),
+                    ref("eq", 0x09BED2D8, "duel_core_get_direct_attack_mode", address=0x09BED300),
+                    ref("arg", 0x09C00000, "FUN_09c00000", operand="", detail="duel_core_is_on_field")],
+            MAT: [ref("bound", 0x09C10000, "FUN_09c10000", operand="")],
+            NORMAL: [ref("eq", 0x08862300, "card_db_is_forbidden_one", operand="argument", module="BOOT.BIN")],
+            0x1F3A: [ref("eq", 0x09C20000, "FUN_09c20000")],  # an id no other source knows
+        }
+
+    def build(self, **over):
+        return ce.build_specs(sources(**{"stat_mods": [], "chain_cases": [], "engine_refs": self.refs, **over}))
+
+    def test_engine_only_and_groups(self):
+        specs = self.build()
+        equip = specs[EQUIP]
+        self.assertEqual(equip["spec_status"], "engine_only")
+        groups = equip["engine_refs"]
+        self.assertEqual([g["function_name"] for g in groups], ["duel_core_get_direct_attack_mode", "FUN_09c00000"])
+        first = groups[0]
+        self.assertEqual((first["group"], first["named"], first["kinds"], first["values"]),
+                         ("duel_core", True, {"eq": 2}, [1]))
+        self.assertEqual(first["references"], ["0x09bed2e0", "0x09bed300"])
+        self.assertEqual(groups[1]["callees"], ["duel_core_is_on_field"])
+        self.assertEqual(equip["confidence"]["engine_refs"], "medium")
+        self.assertIn("engine_refs", equip["sources"])
+        self.assertNotIn(0x1F3A, specs)  # engine references do not create ids
+
+    def test_bound_only_stays_missing_and_vanilla_stays(self):
+        specs = self.build(chain_cases=[], records=sources()["records"])
+        self.assertEqual(specs[MAT]["spec_status"], "missing")  # a range bound names no card
+        self.assertEqual(specs[MAT]["confidence"]["engine_refs"], "low")
+        self.assertEqual(specs[NORMAL]["spec_status"], "vanilla")
+        self.assertEqual(specs[NORMAL]["engine_refs"][0]["module"], "BOOT.BIN")
+
+    def test_chain_classes(self):
+        predicate = {"function": "0x09bedf1c", "card_id": "0x1001", "kind": "constant", "value": 1,
+                     "class": "predicate", "label": "duel_core_has_piercing", "confidence": "medium"}
+        specs = self.build(chain_cases=[predicate])
+        chain = specs[MAT]["params"]["chains"][0]
+        self.assertEqual((chain["label"], chain["class"], chain["confidence"]),
+                         ("duel_core_has_piercing", "predicate", "medium"))
+        self.assertEqual(specs[MAT]["spec_status"], "engine_only")  # predicate chains are engine code
+        parameter = dict(predicate, **{"class": "parameter", "label": "lp_cost", "confidence": "high"})
+        self.assertEqual(self.build(chain_cases=[parameter])[MAT]["spec_status"], "partial")
+        self.assertEqual(ce.build_specs(sources())[MAT]["params"]["chains"][0]["class"], "parameter")  # old rows
+
+    def test_chain_label(self):
+        reg = types.SimpleNamespace(name=lambda a: {0x09BEDF1C: "duel_core_has_piercing"}.get(a, f"FUN_{a:08x}"))
+        self.assertEqual(ce.chain_label(0x09C41400, reg), ("lp_cost", "high"))
+        self.assertEqual(ce.chain_label(0x09BEDF1C, reg), ("duel_core_has_piercing", "medium"))
+        self.assertEqual(ce.chain_label(0x09C00000, reg), ("chain_09c00000", "low"))
+
+    def test_report_and_csv(self):
+        src = sources(stat_mods=[], chain_cases=[], engine_refs=self.refs)
+        specs = ce.build_specs(src)
+        problems, lines = ce.join_report(src, specs)
+        self.assertEqual(problems, [])
+        text = "\n".join(lines)
+        self.assertIn("engine_only 1", text)
+        self.assertIn("engine_only cards: 1, by kind: spell 1; referencing functions by group: duel_core 1, "
+                      "unnamed 1", text)
+        self.assertIn("missing cards by kind: effect 1", text)  # MAT: a bound only
+        row = ce.csv_row(specs[EQUIP])
+        self.assertEqual((row["engine_ref_functions"], row["engine_ref_groups"]), (2, "duel_core unnamed"))
+
+
 if __name__ == "__main__":
     unittest.main()
