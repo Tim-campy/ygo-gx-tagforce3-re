@@ -65,3 +65,22 @@ Reading method that works: execute breakpoint at `0x09c0a604` (`duel_core_get_at
 | After an equip giving +300 | 1800 | `0x708` = 1800 |
 
 `duel_core_get_atk` returns the recomputed value including the equip, matching the screen. Field spell, temporary boost and the record list (steps 3–6) are still to be done. Equips post no `0x35` command (they are links, kinds 10/11, as `stat-modifiers.md` says); the activation posted `0x51`, `0x28 a=2` (target slot 2) and `0x10 a=7` (link from S/T slot 7).
+
+## A7. The chain: pass (link layout of link 1, count, LIFO)
+
+Memory breakpoint (write, log) on the count `0x09e28e34`, plus the command log. Chain: the CPU Normal Summoned B.E.S. Tetran (`0x1962`, slot 2) and activated its effect (`0x8010 a=2 b=0x0d c=1`, link 1); the human responded with Trap Hole (`0x12e4`) from S/T slot 6 (`0x34 a=6` turn face-up, `0x10 a=6 b=0x48 c=2`, link 2).
+
+- **Count**: writers `0x09c32a0c`/`0x09c32b78` (0 → 1 when link 1 is added), `0x09c2c2ac` (1 → 2), `0x09c31efc` (2 → 1 after link 2 resolved). `c` of command `0x10` is the link number.
+- **LIFO**: link 2 resolved first (`0x11 a=6`, Trap Hole destroys slot 2: `0x8030 a=2 b=0x10e`, `0x12 a=6`, `0x29`, `0x38`), then link 1 started resolving (`0x8011 a=2`).
+- **Link 1 bytes** at `0x09e28cb4` (24 bytes, read while link 2 was being added): `62 19 85 91 a1 41 00 …`.
+
+| Field | Raw | Decoded | Expected (`chain.md`) |
+| --- | --- | --- | --- |
+| `+0x00` card id | `0x1962` | B.E.S. Tetran | yes |
+| `+0x02` bit 0 side | `0x9185` | 1 (CPU) | yes |
+| `+0x02` bits 1–5 location | | 2 (monster zone 2) | yes |
+| `+0x02` bits 6–11 event code | | 6 | — |
+| `+0x03` bits 4–5 table selector | `0x91` | 1 (M1; Tetran has M1 record 439) | yes |
+| `+0x04` | `0xa1` | bit 1 clear (not negated) | yes |
+
+Link 2 bytes were not captured (only the first 24 bytes were read).
