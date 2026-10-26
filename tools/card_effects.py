@@ -15,6 +15,7 @@ joins their results by card id; it carries no game data itself and copies no cod
   searches        tools/search_filters.py  (optional; skipped when the tool is absent)
   engine refs     tools/card_refs.py       (card ids tested directly in code: rel_duel_eng, and BOOT.BIN and
                                             rel_duel_draw.prx when --boot / --draw are given)
+  family split    tools/family_split.py    (per-card categories of the family-shared resolve handlers)
 
   card_effects.py <USRDIR>/gmodule/rel_duel_eng.prx <USRDIR>/duelsys/cardinfo_eng.ehp -o extracted/card_effects
                   [--boot <SYSDIR>/BOOT.BIN] [--draw <USRDIR>/gmodule/rel_duel_draw.prx]
@@ -49,8 +50,10 @@ sm = _load("re_stat_mods", "stat_mods.py")
 fu = _load("re_fusion", "fusion.py")
 ci = _load("re_cardinfo", "cardinfo.py")
 cr = _load("re_card_refs", "card_refs.py")
+fs = _load("re_family_split", "family_split.py")
 
-SCHEMA = 2  # schema 2 = schema 1 plus engine_refs, params.chains[].class/source and the status engine_only
+SCHEMA = 3  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
+#             3 = 2 plus slots.resolve.categories_refined / .refinement (tools/family_split.py)
 FIRST_CARD, LAST_CARD = ep.FIRST_CARD, ep.LAST_CARD
 
 # Token table read by duel_effects_find_token_entry (0x09befee0, 68 bytes): 46 records of four u16
@@ -107,6 +110,7 @@ SOURCES = {
     "tokens": "token table 0x09e019ec (duel_effects_find_token_entry), parsed by tools/card_effects.py",
     "search_filters": "builders of list 0x09dec554 via tools/search_filters.py (optional)",
     "engine_refs": "card-id immediates used as card ids in engine code via tools/card_refs.py",
+    "family_split": "per-card branches of family-shared resolve handlers and the LP chain via tools/family_split.py",
     "fallback_effect": "icon fallback of duel_effects_find_record to S/T records 0-2 (placeholder id 0xe74)",
 }
 CONFIDENCE = {
@@ -255,6 +259,7 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
     problems += [f"effect_classify: {p}" for p in cls_problems]
 
     classifier = ec.Classifier(module, registry, mapping, depth)
+    refined, _ = fs.split_records(classifier)
     records = []
     for table, index, cid, handlers in ec.effect_records(module):
         slots = {}
@@ -271,6 +276,13 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
             if k == 0:
                 unnamed_resolve = len(c["unnamed"])
                 commands = sorted(c["commands"])
+        ref = refined.get((table, index))
+        if ref and "resolve" in slots:
+            res = slots["resolve"]
+            res["categories_refined"] = sorted((set(ref["after"]) & set(res["categories"])) | set(ref["added"]))
+            res["refinement"] = {"method": ref["method"], "confidence": ref["confidence"],
+                                 "removed": sorted(set(ref["removed"]) & set(res["categories"])),
+                                 "added": ref["added"], **({"lp_amounts": ref["lp_signs"]} if ref["lp_signs"] else {})}
         records.append({"table": table, "index": index, "card_id": cid, "slots": slots, "commands": commands,
                         "unnamed_resolve": unnamed_resolve, "unnamed": len(unnamed)})
 
@@ -318,11 +330,15 @@ def material(code, cards):
 
 def record_confidence(rec, handler_cards):
     """low: no effect category in any slot; medium: the resolve handler serves several cards (family union) or
-    the resolve closure reaches unnamed callees; high otherwise."""
+    the resolve closure reaches unnamed callees; high otherwise. A shared resolve handler whose per-card split
+    (tools/family_split.py) has high confidence counts as unshared."""
     if not any(s["categories"] for s in rec["slots"].values()):
         return "low"
     res = rec["slots"].get("resolve")
-    if res is None or len(handler_cards.get(res["handler"], ())) > 1 or rec["unnamed_resolve"]:
+    if res is None or rec["unnamed_resolve"]:
+        return "medium"
+    split = res.get("refinement", {}).get("confidence") == "high"
+    if len(handler_cards.get(res["handler"], ())) > 1 and not split:
         return "medium"
     return "high"
 
@@ -364,7 +380,8 @@ def build_specs(src):
             slots[slot] = {"handler": f"{s['handler']:#010x}", "name": s["name"],
                            "named": not ec.DEFAULT_NAME.match(s["name"]),
                            "shared_by_cards": len(handler_cards[s["handler"]]), "categories": s["categories"],
-                           "meta": s["meta"], **({"filter_calls": calls} if calls else {})}
+                           "meta": s["meta"], **({"filter_calls": calls} if calls else {}),
+                           **{k: s[k] for k in ("categories_refined", "refinement") if k in s}}
         out = {"table": rec["table"], "index": rec["index"], "variant": rec["index"] - first_index[key],
                "slots": slots, "commands": [hx(c, 4) for c in rec["commands"]],
                "unnamed_resolve_callees": rec["unnamed_resolve"], "unnamed_callees": rec["unnamed"],
@@ -489,6 +506,8 @@ def field_keys(s):
         keys.append("tokens")
     if s.get("engine_refs"):
         keys.append("engine_refs")
+    if any("refinement" in e["slots"].get("resolve", {}) for e in s["effects"]):
+        keys.append("family_split")
     return keys
 
 
@@ -503,6 +522,10 @@ def field_confidence(s):
         elif k == "chains":
             levels = {c["confidence"] for c in s["params"]["chains"]}
             out[k] = "high" if levels == {"high"} else "low" if levels == {"low"} else "medium"
+        elif k == "family_split":
+            levels = {e["slots"]["resolve"]["refinement"]["confidence"] for e in s["effects"]
+                      if "refinement" in e["slots"].get("resolve", {})}
+            out[k] = "high" if levels == {"high"} else "medium"
         elif k == "engine_refs":
             strong = strong_engine_refs(s)
             idlike = any(o.startswith(cr.ID_OPERANDS) for g in strong for o in g["operands"]) or \
@@ -602,6 +625,13 @@ def join_report(src, specs):
     lines.append(f"spells served by the icon fallback: {len(fb)}, full {sum(s['spec_status'] == 'full' for s in fb)}")
     conf = collections.Counter(e["confidence"] for s in specs.values() for e in s["effects"])
     lines.append("effect record confidence: " + ", ".join(f"{k} {conf[k]}" for k in ("high", "medium", "low")))
+    refs = [e["slots"]["resolve"] for s in specs.values() for e in s["effects"]
+            if "refinement" in e["slots"].get("resolve", {})]
+    changed = [r for r in refs if r["categories_refined"] != r["categories"]]
+    split = collections.Counter(r["refinement"]["confidence"] for r in refs)
+    lines.append(f"family split: {len(refs)} resolve slots examined, {len(changed)} refined "
+                 f"({sum(len(set(r['categories']) - set(r['categories_refined'])) for r in changed)} labels removed); "
+                 f"split confidence high {split['high']}, medium {split['medium']}")
     lines.append(f"search filters: {src.get('search_note', '')}; {len(src['search_filters'])} cards")
     return problems, lines
 
@@ -609,7 +639,8 @@ def join_report(src, specs):
 STATUSES = ("full", "partial", "engine_only", "missing", "vanilla", "unreleased", "placeholder")
 CSV_FIELDS = ["card_id", "name", "kind", "released", "spec_status", "effect_records", "tables", "fallback", "resolve_categories",
               "target_filters", "draw_count", "lp_cost", "chains", "stat_mod_sections", "fusion_role", "ai_tables",
-              "tokens", "search_filters", "effects_confidence", "engine_ref_functions", "engine_ref_groups"]
+              "tokens", "search_filters", "effects_confidence", "engine_ref_functions", "engine_ref_groups",
+              "resolve_categories_refined"]
 
 
 def csv_row(s):
@@ -633,7 +664,10 @@ def csv_row(s):
             "search_filters": len(s["params"].get("search_filters", [])),
             "effects_confidence": s["confidence"].get("effects", ""),
             "engine_ref_functions": len(s.get("engine_refs", ())),
-            "engine_ref_groups": " ".join(sorted({g["group"] or "unnamed" for g in s.get("engine_refs", ())}))}
+            "engine_ref_groups": " ".join(sorted({g["group"] or "unnamed" for g in s.get("engine_refs", ())})),
+            "resolve_categories_refined": " ".join(sorted({
+                c for e in s["effects"] for c in e["slots"].get("resolve", {}).get(
+                    "categories_refined", e["slots"].get("resolve", {}).get("categories", []))}))}
 
 
 def write_outputs(out_dir, specs, meta):

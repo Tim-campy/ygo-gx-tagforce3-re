@@ -23,7 +23,7 @@ The `ctx` structure passed to handlers starts with the card id (`u16` at `+0`); 
 
 ## Classification by callees
 
-`tools/effect_classify.py` classifies every record by the helpers, engine commands and send-batch stores its handlers reach (92 % of the records get at least one category on the resolve slot at depth 3) and ranks the unnamed helpers by how many records reach them; see `effect-classification.md`.
+`tools/effect_classify.py` classifies every record by the helpers, engine commands and send-batch stores its handlers reach (92 % of the records get at least one category on the resolve slot at depth 3) and ranks the unnamed helpers by how many records reach them; see `effect-classification.md`. `tools/family_split.py` refines the resolve categories of family-shared handlers per card (card-id branches, LP chain decode); the six family handlers named for it (`duel_effects_resolve_reveal_and_destroy_target` and others) are listed with their evidence in `effect-classification.md`, "Family handlers named in this round".
 
 ## Loading the module in Ghidra
 

@@ -170,7 +170,12 @@ Overall 86 of 113 labels are correct (76 %); 25 of 42 records carry no wrong lab
 2. **Loose name rows**, made visible by the root-name rule (the old `resolve_add_` row, fixed in this round).
 3. **Implementation detail versus card text**: Seal of the Ancients shows face-down cards with the face command `0x34` (`position_change`); the union "destroy instead" substitution reads as `destroy`.
 
-Because the wrong categories of the families appear at depth 1, a per-category depth limit (`--depth-per-category`) would not remove them and was not added. The useful next step is per-card branch reading inside the family handlers (Open questions).
+Because the wrong categories of the families appear at depth 1, a per-category depth limit (`--depth-per-category`) would not remove them and was not added. The useful next step was per-card branch reading inside the family handlers, which `tools/family_split.py` now does (next section).
+
+**After the family split.** The 44 records of the sample above were not recorded, so the 76 % cannot be re-measured exactly. Two figures replace it:
+
+- A new sample of family records: 50 records drawn at random (seed 7) from the 915 records that `tools/family_split.py` examines, 47 of them judged (three uncertain readings left out; one card has two records with the same handler, so 48 records count). Same leniency as above for implementation labels. Before the split **113 of 136 labels are correct (83 %)**; after it **111 of 116 (96 %)**. The split removed 22 wrong labels and 2 labels judged correct (Gadget Hauler and Fiend Roar Deity Raven share a handler whose two branches call the discard and the send-from-hand helpers respectively; the judgment counted both labels for both cards). The judged sample is built into the tool (`family_split.SAMPLE`, card ids and categories only) and `--check` prints the figure.
+- An estimate for the whole-table sample: its family false positives were `gain_lp` 4, `control_change` 5 and about 3 of the `position_change`, fusion and union labels, all of the kinds the split removes. Without them the 86 correct labels of 113 become about 86 of 101, **about 85 %** (estimate, not a measurement).
 
 Resolve-slot categories, as the number of records reaching each: attach_effect 735, special_summon 532, destroy 523, timing_event 490 (meta), select_ui 394 (meta), damage 348, move_list_card 293, gain_lp 282, set_flag 236 (meta), detach_effect 195 (meta), draw 172, position_change 163, banish 159, send_to_graveyard 95, negate 89, return_to_hand 85, return_to_deck 79, optional 76 (meta), send_from_hand 66, tribute 12, set_lp 5, pay_lp 4, place_spell_trap 1.
 
@@ -200,6 +205,65 @@ These are ranked by the number of effect records, over any slot, whose closure r
 
 In all, 751 unnamed functions are reached. The list measures how widely a helper is used, not how informative its name would be. The top entries are probably shared predicates and getters, which would mostly become `stop` rows. The request functions of the send batch (`0x09c22a98`–`0x09c274a4`) are the most informative to name next: each name adds a precise category, for example "destroy one slot" against "destroy all monsters".
 
+## Per-card split of family handlers (`tools/family_split.py`)
+
+```
+python3 -I tools/family_split.py <USRDIR>/gmodule/rel_duel_eng.prx --check
+python3 -I tools/family_split.py <USRDIR>/gmodule/rel_duel_eng.prx -o extracted/family_split [--cardinfo <cardinfo_eng.ehp>]
+python3 -I tools/tests/test_family_split.py
+```
+
+A family handler chooses the per-card behaviour by testing the card id, the `u16` at `+0` of the chain link it receives in `a0` (`chain.md`). Ghidra shows the pattern in every family read for this round: `duel_effects_resolve_equip_to_target` calls `duel_core_request_take_control` only when `*link` is Snatch Steal, Falling Down or `0x1edf`; `duel_effects_resolve_union_equip` only for `0x1877`; `duel_effects_resolve_fusion_summon` picks the material destination (Deck `0x0d`, banished `0x0f`, Graveyard `0x0e`) from an `if` chain on the id. The tool therefore re-runs the closure of `effect_classify` once per card, with the card id known. It imports `effect_classify` and `effect_params` and changes neither.
+
+Method (pure Python on the module bytes, no Ghidra):
+
+1. **Specialised scan.** The known-bits dataflow of `effect_classify` (same transfer functions) runs path-sensitively: up to 8 distinct register states per address before they are merged. It also tracks the registers and stack slots that hold the link pointer (`a0` at entry, register moves, `sw`/`lw` to the stack). `lhu`/`lh r, 0(link)` gives the constant card id. A branch that the known bits decide (`beq`/`bne` with a known differing bit or equal constants, sign tests, `slt`-family results of constants) keeps one side only. `duel_core_get_effective_card_id(link)` returns 0: it returns the copying card only when the copied-effect flag (byte `+6` bit 0) is set, and that is not the normal case.
+2. **Jump tables.** `sltiu; lui; addu; lw; jr` sequences are followed to the case of a known index, else to all cases. An unrecognised computed jump falls back to `effect_classify`'s scan of the unreached code (flag `fallback`; it did not occur on the disc).
+3. **Callees.** A callee receives the known bits of its arguments and the link registers, so a card-id test inside a callee also selects (`effect_classify` scans every callee from an all-unknown state).
+4. **Temporary reveal.** When one scanned function calls `duel_core_post_set_face` with `a2 = 1` and with `a2 = 0`, the pair turns a face-down card up and down again to test it. Those calls give the meta label `reveal` instead of `position_change` (`duel_effects_resolve_reveal_and_destroy_target`: Reaper of the Cards, Trap Master, Armed Ninja, Crimson Ninja, De-Spell).
+5. **LP chain decode.** `duel_effects_resolve_lp_change` is replaced by a decode of `duel_effects_get_lp_change_amounts(link, out[2])` for the card. A small abstract interpreter follows the card's case with these values: intervals; `a·C + b`, with C the controller (link byte `+2` bit 0, XORed with the switched-control bit); linear forms `a·X + b` of one unknown, so that multiplication by shifts and adds stays exact (`count × −200`); pointers into `out`. Call results and loaded words are taken as non-negative (counts, Levels, ATK/DEF, stored amounts). Every store to `out[]` gives a side (`self` = `out[C]`, `opponent` = `out[1 − C]`, `player0`/`player1`, `either` for a target's controller) and a sign: negative → `damage`, positive → `gain_lp`, unknown sign → both. The amounts are constant for 142 records (confidence high), and computed for the other 100 (medium).
+
+Rules for the result: the refined set is a subset of the original one, except that the LP decode may add the LP category that the depth limit hid (12 records, for example Spirit of the Breeze, Dancing Fairy, Cure Mermaid, Marie the Fallen One, Chain Healing and Brain Jacker's gift of LP to the opponent: their wrappers reach `duel_core_inflict_damage` within the depth but not `duel_core_gain_lp`). A record never ends with no category. Confidence of a refinement: high for an exact LP decode, or for a handler whose closure reads the card id without falling back on an unresolved jump; medium otherwise (`unchanged`: the closure never reads the card id through the link, so its categories depend on run-time state, not on the card).
+
+Scope: every resolve handler shared by at least two cards with at least two effect categories, plus every resolve handler whose closure reaches `duel_effects_resolve_lp_change` (12 single-card wrappers). On the disc, registry of this commit:
+
+| Measure | Value |
+| --- | --- |
+| Resolve handlers examined | 119 (107 shared with ≥ 2 categories, 12 single-card LP wrappers) |
+| Records examined | 915: `branch` 547, `lp_chain` 242, `unchanged` 126 |
+| Records refined | 398; 431 labels removed, 12 LP labels added (2,523 → 2,104 labels on these records) |
+| Labels removed by category | `gain_lp` 172, `damage` 74, `position_change` 37, `attach_effect` 35, `control_change` 34, `return_to_deck` 16, `atk_change` 16, `draw` 9, `send_to_graveyard` 7, `return_to_hand` 7, `add_to_hand` 6, `shuffle` 5, `destroy` 4, others 10 |
+| LP family (`duel_effects_resolve_lp_change`, 217 records) | 201 refined. Over the 242 records that reach the LP handler: `damage` only 157 (opponent: Ookazi −800, Hinotama −500; self: Ameba −2000, Lava Golem −1000), `gain_lp` only 58 (Dian Keto, Nutrient Z; to the opponent: Snatch Steal, Griggle, Gift Card, The Eye of Truth), both 18 (Goblin Thief, Jenis, Poison of the Old Man, Neos Wiseman, Granadora: both are real; Chain Strike, Restructer Revolution, Balloon Lizard: sign of a computed amount not determined) |
+| Equip family (`duel_effects_resolve_equip_to_target`, 20) | 17 lose `control_change`; Snatch Steal, Falling Down and Mark of the Rose keep it |
+| Union family (`duel_effects_resolve_union_equip`, 18) | 17 lose `control_change`; Brain Jacker keeps it |
+| Fusion family (`duel_effects_resolve_fusion_summon`, 12) | 12 refined. `position_change` and `return_to_deck` remain only for Cyberdark Impact! (`0x1c31`, materials shuffled into the Deck), which loses `send_to_graveyard`; the banishing spells (Fusion Gate, Miracle Fusion, Dragon's Mirror, Overload Fusion, Dark Calling) lose `send_to_graveyard`, `position_change` and `return_to_deck`; Polymerization, Power Bond, Dark Fusion, Super Polymerization and Vehicroid Connection Zone lose `position_change` and `return_to_deck` |
+| Others | Neos family `duel_effects_resolve_return_self_to_extra_deck`: 8 of 9 lose `position_change` (Chaos Neos keeps it); `duel_effects_resolve_change_position_all`: 12 of 13 lose `atk_change`; `duel_effects_resolve_destroy_all_lp_per_card`: gain or damage per card; `duel_effects_resolve_negate_then_per_card`: draw or destroy per card |
+| Run time | about 3 s |
+
+Remaining unions, with their cause:
+
+- **State set in another step.** The fusion handler is a step machine. Its material destination is banished whenever the step-0x7f code has set `0x09e2905c = 8`, which happens when a field effect `0x1d2a` is active. The specialised scan does not track memory, so every fusion spell keeps `banish` and `mill`. The same holds for the union handler's steps: equip, Special Summon back, and the destroy substitution all stay, which is correct for every union card.
+- **Run-time branches.** Branches on targets, zones or choices are not decided. A choice between two outcomes therefore keeps both (Poison of the Old Man; the `if` of a card that may either gain or inflict).
+- **Link read elsewhere.** 126 records read the card id through no link register that the scan sees (or not at all): `duel_effects_resolve_search_deck`, `_special_summon_from_deck`, `_summon_tokens` and the attach families are data driven (lists, tables) and stay unchanged.
+- **Sign of computed LP amounts** for 12 LP records (unknown products and differences, values loaded as signed halfwords): they keep both `damage` and `gain_lp`.
+
+`tools/card_effects.py` uses the result (schema 3, `docs/formats/card-effect-spec.md`): `categories_refined` and `refinement` on the resolve slot, and a shared resolve handler no longer lowers a record's confidence when its split is high. Effect records with confidence high rose from 604 to 1,289.
+
+### Family handlers named in this round
+
+Named from Ghidra decompilations of a read-only project copy (`FuncAt`: all six start a function), appended to `re/names-duel_eng.csv`:
+
+| Address | Name | Evidence | Conf. |
+| --- | --- | --- | --- |
+| `0x09c7b97c` | `duel_effects_resolve_reveal_and_destroy_target` | Turns a face-down target face-up (`duel_core_post_set_face(side, slot, 1)`), runs its slot `+08` filter, destroys it on success (`duel_core_request_destroy_target_slot`), turns it face-down again. 5 records (Reaper of the Cards, Trap Master, Armed Ninja, Crimson Ninja, De-Spell) | H |
+| `0x09c8bf74` | `duel_effects_resolve_destroy_all_lp_per_card` | Step `0x80`: builds the destroy mask per card id (every card, spells only, monsters only, non-monsters) and destroys it. Step `0x7f`: counts the destroyed cards, then gains 800 or 500 per card, or inflicts 500, 300 or 100 per card on the opponent | H |
+| `0x09c85c90` | `duel_effects_resolve_destroy_target_burn` | Destroys the target (`duel_effects_resolve_destroy_target_b`), then inflicts 1000, or the target's ATK, on the opponent and/or the controller; `0x1e51` gains instead (Ring of Destruction, Destruction Ring, Detonator Circle "A", Telepathic Power) | H |
+| `0x09c81240` | `duel_effects_resolve_negate_then_per_card` | Unless the chained link cannot be negated, sets its negated bit (link `+4`) and then per card: draws 1 (`0x162a`), destroys the targets or a fixed mask (`0x131c`, `0x12f7`, `0x12f5`), or only shows the negation | H |
+| `0x09c89840` | `duel_effects_resolve_return_graveyard_card` | Builds the candidate list, then sends the selected Graveyard card to the hand (The Forgiving Maiden) or back to the Deck (`0x1452`, `0x144c`, `0x1449` with a top/bottom flag); outside selector 2 it only adds a player marker | M |
+| `0x09c82b70` | `duel_effects_resolve_special_summon_named_from_deck` | Asks yes/no, then Special Summons a copy of the card itself from the Deck (`duel_core_find_deck_card_by_name`), possibly to the opponent's field (`0x1dee`). Step `0x80` gains 1000 (`0x133a`) or inflicts 500 (`0x1dee`, `0x1339`) | H |
+
+`re/functions.csv` is owned by another work package in this round. These names reach `effect_classify` once that registry picks them up from `names-duel_eng.csv`.
+
 ## AI handlers
 
 The same scan grouped the 677 distinct handlers of the AI priority tables: the 674 of the pair tables plus the 3 of the u16 lists in `tools/ai_tables.py`. A cluster is a set of handlers whose closures have the same set of callee names:
@@ -226,7 +290,7 @@ Naming these callees is the useful next step for the AI. A grouping by overlap o
 
 ## Limits
 
-- **Static reach, not behaviour.** The tool neither evaluates branches nor follows per-card compare chains, so a family handler gets the union of its family's categories. Indirect calls (`jalr`, the handler slots themselves) are not followed. The tool only counts them.
+- **Static reach, not behaviour.** The tool neither evaluates branches nor follows per-card compare chains, so a family handler gets the union of its family's categories. `tools/family_split.py` refines the resolve slot of the family records per card (section above); `effect_classes.csv` itself stays the union. Indirect calls (`jalr`, the handler slots themselves) are not followed. The tool only counts them.
 - **Depth is a trade-off.** Depth 1 sees only the handler's own calls and stores (44 %). Depth 3 is the default. Deeper levels add little (92.3 % at depth 4) and add noise from shared helpers.
 - **Names drive everything.** A wrongly named or wrongly mapped helper propagates to every record that reaches it. The `name` rows are regexes, so a new name that happens to contain `destroy`, `banish`, `search`, … gets that category automatically, which is the intended behaviour but should be checked when names are added. `addr` rows are for hypotheses only and should be removed once the function is named.
 - **Bounds come from the registry.** A function ends at the next registry start, so an unregistered function that follows is scanned as part of its predecessor. Ghidra functions with broken 1-byte bodies are scanned correctly, since the size column is ignored.
@@ -238,6 +302,6 @@ Naming these callees is the useful next step for the AI. A grouping by overlap o
 
 - The meaning of the batch mode bits `0x20000`, `0x4000000`, `0x10000000` and `8`, and of the slot-mask global `0x09e2bba4`.
 - Commands `0x52`, `0x55` and `0x39`–`0x3a`/`0x41`, which effect handlers reach often (Sangan; Snatch Steal, Premature Burial), are not yet documented.
-- Per-card resolution inside family handlers: `duel_effects_get_lp_change_amounts` holds the signed LP change of every card of the LP family (`effect-helpers-values.md`); evaluating its compare chain per card would split `damage` from `gain_lp` for 217 records. The same per-card branch reading would fix the equip and union families (`control_change`).
+- Per-card resolution inside family handlers is done by `tools/family_split.py` for the resolve slot. Left open: state carried between the steps of a step-machine handler (the fusion mode `0x09e2905c`), the other four slots, and the sign of 12 computed LP amounts.
 - Player flag bit 0 (Time Seal, Fenrir) and slot flag 8 (Skill Drain): their meanings would turn these flag-only records into categories.
 - Commands `0x07` and `0x08` (UI-only handlers `0x09dbc66c`, `0x09dbc6d8`) are reached by 15 and 42 records (Crush Card Virus, Painful Choice); they look like card-list displays and are left unmapped.

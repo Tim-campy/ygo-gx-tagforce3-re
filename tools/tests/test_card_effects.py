@@ -124,6 +124,31 @@ class Join(unittest.TestCase):
         self.assertEqual(ce.record_confidence(unique, {1: {BARE, POG}}), "medium")
         empty = record("M2", 0, BARE, {"resolve": slot(1, "a")})
         self.assertEqual(ce.record_confidence(empty, {1: {BARE}}), "low")
+        split = record("M2", 0, BARE, {"resolve": {**slot(1, "a", ["damage", "gain_lp"]),
+                                                   "categories_refined": ["damage"],
+                                                   "refinement": {"method": "lp_chain", "confidence": "high"}}})
+        self.assertEqual(ce.record_confidence(split, {1: {BARE, POG}}), "high")  # the family split isolates it
+        split["slots"]["resolve"]["refinement"]["confidence"] = "medium"
+        self.assertEqual(ce.record_confidence(split, {1: {BARE, POG}}), "medium")
+
+    def test_family_split_fields(self):
+        res = {**slot(H_DRAW, "duel_effects_resolve_lp_change", ["damage", "gain_lp"]),
+               "categories_refined": ["damage"],
+               "refinement": {"method": "lp_chain", "confidence": "high", "removed": ["gain_lp"], "added": [],
+                              "lp_amounts": ["opponent:-800"]}}
+        specs = ce.build_specs(sources(records=[record("S/T", 5, POG, {"resolve": res}),
+                                                record("M1", 0, GHOST, {"resolve": dict(res)})]))
+        out = specs[POG]["effects"][0]["slots"]["resolve"]
+        self.assertEqual(out["categories"], ["damage", "gain_lp"])  # schema 2 field unchanged
+        self.assertEqual(out["categories_refined"], ["damage"])
+        self.assertEqual(out["refinement"]["lp_amounts"], ["opponent:-800"])
+        self.assertEqual(specs[POG]["effects"][0]["confidence"], "high")
+        self.assertEqual(specs[POG]["confidence"]["family_split"], "high")
+        self.assertIn("family_split", specs[POG]["sources"])
+        self.assertEqual(ce.csv_row(specs[POG])["resolve_categories_refined"], "damage")
+        self.assertEqual(ce.csv_row(specs[POG])["resolve_categories"], "damage gain_lp")
+        _, lines = ce.join_report(sources(), specs)
+        self.assertTrue(any(line.startswith("family split: 2 resolve slots examined, 2 refined") for line in lines))
 
     def test_chains(self):
         chains = self.specs[MAT]["params"]["chains"]
