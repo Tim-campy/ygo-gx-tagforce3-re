@@ -319,6 +319,8 @@ The field-card movements (`0x30`, `0x31`, `0x32`, `0x3c`, `0x3d`, `0x3f`, `0x40`
 
 ## Open questions
 
+- Bit 20 (`0x00100000`) of the player flags word `+0x120` is set by a face-up Normal Summon together with bits 16, 17 and 21 (seen in PPSSPP, `verification/results/2026-10-26-sessionA-part1.md`); its meaning is unknown.
+
 - Confirm the action-code/bit mapping and the reason codes in PPSSPP (breakpoint on `0x09dcf950`, watch `0x09e2d288`), and find the `rel_duel_draw` code that calls `duel_core_get_card_action_mask` and turns the mask into menu entries.
 - Action 10 (`0x400` on the own deck, `0x09dcdbc0`): surrender or something else; what command `0x22` does.
 - Synchro: what card `0x1f32` is (not in the European cardinfo; may count as Level 2) and why slot flag bit 7 is reset when it is used as material (`0x09c276e0`); confirm in PPSSPP that the materials must sum exactly.

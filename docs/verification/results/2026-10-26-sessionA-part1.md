@@ -42,3 +42,15 @@ The counter starts at 0 on the first turn of the duel and increases by one per t
 | `0x09e2b064` (side 1, `+0x00`) | `0x1f40` = 8000 | no damage taken |
 
 LP are a 32-bit integer at player block `+0x00`, the player blocks are `0xb3c` bytes apart, and the battle damage path (`0x15` → `0x16` → `0x24`, reason 1) is the one that changed them. The write itself (`0x24` handler) is still to be watched with a memory breakpoint for the formal check of "only commands `0x23`–`0x25` write LP".
+
+## A5. Normal Summon flag and per-turn reset: pass (one new bit)
+
+Player flags word of side 0 at `0x09e2a648` (player block `+0x120`):
+
+| Moment | Bytes | Word |
+| --- | --- | --- |
+| Main 1, before the Normal Summon | `00 00 00 00` | `0x00000000` |
+| After a face-up Normal Summon | `00 00 33 00` | `0x00330000` |
+| Next own turn, after the Draw | `00 00 00 00` | `0x00000000` |
+
+Bits 16 (summon declared), 17 (Normal Summon used) and 21 (a monster was Normal Summoned face-up) are set as `summon.md` describes, and the whole upper half is cleared by the next turn's begin-turn command. **New:** bit 20 (`0x00100000`) is also set by a face-up Normal Summon; its meaning is not documented (open question added to `summon.md`).
