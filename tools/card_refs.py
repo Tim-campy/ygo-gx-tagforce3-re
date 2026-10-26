@@ -25,6 +25,14 @@ multiplication, unused) are dropped. For eq references the other operand is trac
   card_refs.py <USRDIR>/gmodule/rel_duel_eng.prx list -o extracted/card_refs [--cardinfo <cardinfo_eng.ehp>]
                [--boot <SYSDIR>/BOOT.BIN] [--draw <USRDIR>/gmodule/rel_duel_draw.prx] [--functions re/functions.csv]
   card_refs.py <USRDIR>/gmodule/rel_duel_eng.prx --check [--cardinfo ...] [--boot ...] [--draw ...]
+               [--spec extracted/card_effects/card_effects.csv]
+  card_refs.py <USRDIR>/gmodule/rel_duel_eng.prx describe [--card ID ...] [-o DIR] [--spec ...] [...]
+
+Semantics: tools/engine_ref_semantics.csv maps the engine functions (registry name, glob, address or address
+range of unnamed functions) to a semantic tag, a template phrase and an optional per-card parameter read from
+the value of the matched path (the branch taken when the id compares equal). Every eq/switch/arg reference
+gets a `semantics` dict; describe() merges them per card; --check reports the coverage over the engine_only
+cards of card_effects.csv (--spec).
 
 Library: card_refs(prx_bytes, functions=None, names=None, base=0x09be1400, module="rel_duel_eng")
 -> {card id: [dict]}. Outputs (game data: keep them under extracted/, never in git): card_refs.csv (one row per
@@ -36,6 +44,7 @@ import argparse
 import bisect
 import collections
 import csv
+import fnmatch
 import importlib.util
 import re
 import struct
@@ -338,6 +347,64 @@ def nearby_constants(scanner, row, span=6):
     return out[:6]
 
 
+MATCH_CALLS = 3  # callees recorded on the matched path
+MATCH_WINDOW = 16  # instructions walked on the matched path
+
+
+def match_path(scanner, row):
+    """Where the code goes when the compare of an eq reference *matches*: (start pc, delay insn or None), or
+    None. beq/beql: the branch target (delay slot executed); bne: the fall-through after the delay slot;
+    bnel: the fall-through without it. For xor/subu/xori the first branch on the result within 4
+    instructions decides (beq/bne against zero)."""
+    b = scanner.insn(row["use"])
+    if b.op in (0, 0x0E):  # xor/subu (special) or xori: find the zero test of the result
+        reg = b.writes
+        for q in range(b.pc + 4, b.pc + 20, 4):
+            j = scanner.insn(q)
+            if j.op in (4, 5, 0x14, 0x15) and reg in (j.rs, j.rt) and 0 in (j.rs, j.rt):
+                b = j
+                break
+            if j.writes == reg or j.is_branch or is_call(j):
+                return None
+        else:
+            return None
+        if b.op in (4, 0x14):  # beq result, zero: equal -> taken
+            return b.target, scanner.insn(b.pc + 4)
+        return b.pc + 8, (None if b.op == 0x15 else scanner.insn(b.pc + 4))
+    if b.op in (4, 0x14):
+        return b.target, scanner.insn(b.pc + 4)
+    if b.op in (5, 0x15):
+        return b.pc + 8, (None if b.op == 0x15 else scanner.insn(b.pc + 4))
+    return None
+
+
+def match_calls(scanner, start, delay, func):
+    """Named callees on the straight line of the matched path (up to MATCH_CALLS): what the case does."""
+    out, end = [], scanner.end(func)
+    if delay is not None and is_call(delay):
+        out.append(scanner._callee(delay))
+    q, jumped = start, False
+    for _ in range(MATCH_WINDOW):
+        if not func <= q < end:
+            break
+        i = scanner.insn(q)
+        if is_call(i):
+            name = scanner._callee(i)
+            if name not in out:
+                out.append(name)
+        elif i.kind == "jr":
+            break
+        elif i.op == 2 or (i.op == 4 and i.rs == i.rt == 0):
+            if jumped:
+                break
+            q, jumped = i.target, True
+            continue
+        elif i.is_branch:
+            break
+        q += 4
+    return out[:MATCH_CALLS]
+
+
 def group_of(name):
     """Registry group from the name prefix (`duel_effects_...` -> duel_effects), or '' for a default name."""
     if not name or DEFAULT_NAME.match(name):
@@ -348,14 +415,18 @@ def group_of(name):
     return name.split("_", 1)[0]
 
 
-def card_refs(prx_bytes, functions=None, names=None, base=BASE, module="rel_duel_eng", cards=None):
+def card_refs(prx_bytes, functions=None, names=None, base=BASE, module="rel_duel_eng", cards=None,
+              semantics=None):
     """{card id: [reference dict]} for one module image.
 
     `functions`: function start addresses (re/functions.csv ids); the ones inside the module's .text are used,
     else heuristic entry points. `names`: address -> name. `cards`: optional set of ids to keep. Each dict
     has kind, detail, address, use, function, function_name, group, module, operand (eq/range/switch: where
-    the compared value comes from), value (constant returned at an eq branch target or switch case, else None)
-    and constants (small immediates near the reference)."""
+    the compared value comes from), value (constant returned on the matched path of an eq compare or by a
+    switch case, else None), calls (named callees on the matched path), constants (small immediates near the
+    reference) and semantics (the engine_ref_semantics.csv rule for an eq/switch/arg reference, or None).
+    `semantics`: a rule list from load_semantics(); None loads tools/engine_ref_semantics.csv; [] disables."""
+    rules = load_semantics() if semantics is None else semantics
     image = ep.Module(prx_bytes, base)
     text = text_range(prx_bytes, base)
     scanner = Scanner(image, text, functions, names, module)
@@ -366,16 +437,20 @@ def card_refs(prx_bytes, functions=None, names=None, base=BASE, module="rel_duel
         if (cards is not None and cid not in cards) or (cid, row["kind"], row["address"]) in seen:
             continue
         seen.add((cid, row["kind"], row["address"]))
-        value = None
+        value, calls = None, []
         if row["kind"] == "eq":
-            b = scanner.insn(row["use"])
-            if b.op in (4, 0x14):
-                value = ep.case_value(image, b)
+            path = match_path(scanner, row)
+            if path:
+                value = ep.evaluate(image, path[0], delay=path[1])
+                calls = match_calls(scanner, path[0], path[1], row["function"])
         elif row["kind"] == "switch":
             value = ep.evaluate(image, row["case"])
+            calls = match_calls(scanner, row["case"], None, row["function"])
         row["value"] = None if value is None else ep.signed(value)
+        row["calls"] = calls
         row["constants"] = nearby_constants(scanner, row)
         row["group"] = group_of(row["function_name"])
+        row["semantics"] = classify(row, rules) if row["kind"] in STRONG else None
         del row["case"]
         out[cid].append(row)
     return dict(sorted(out.items()))
@@ -391,6 +466,133 @@ def merge(*maps):
 
 def strong_ids(refs):
     return {c for c, v in refs.items() if any(r["kind"] in STRONG for r in v)}
+
+
+# ---------------------------------------------------------------------------------------------- semantics
+
+
+SEMANTICS = HERE / "engine_ref_semantics.csv"
+# Tags that locate a card without describing its effect: AI knowledge, archetype membership, name aliases,
+# references made by another card's effect, and functions without a rule.
+GENERIC_TAGS = {"ai_hint", "archetype", "name_alias", "named_reference", "unclassified"}
+CONFIDENCE_ORDER = {"H": 0, "M": 1, "L": 2}
+# How the helper that receives an `arg` id qualifies the rule of the calling function.
+MODALITY = [
+    ("duel_core_count_active_card*", "while it is active on the field"),
+    ("duel_core_is_active_card_at", "while it is active on the field"),
+    ("duel_core_count_active_timed_cards", "while it is active on the field"),
+    ("duel_core_count_active_links_from", "while it is active on the field"),
+    ("duel_core_slot_has_effect", "through an effect marker it leaves on a slot"),
+    ("duel_core_has_marker_value", "through an effect marker it leaves on a slot"),
+    ("duel_core_has_current_turn_effect", "for the turn it was applied"),
+    ("duel_core_post_add*marker", "adds an effect marker"),
+    ("duel_core_post_remove_marker", "removes an effect marker"),
+    ("duel_core_attach_effect", "attaches an effect record"),
+]
+
+
+def load_semantics(path=SEMANTICS):
+    """Rules of engine_ref_semantics.csv in file order (first match wins). Missing file: []."""
+    path = Path(path)
+    if not path.exists():
+        return []
+    rules = []
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            pattern = row["pattern"].strip()
+            rule = dict(row, pattern=pattern, lo=None, hi=None)
+            m = re.fullmatch(r"0x([0-9a-fA-F]+)(?:-0x([0-9a-fA-F]+))?", pattern)
+            if m:
+                rule["lo"] = int(m.group(1), 16)
+                rule["hi"] = int(m.group(2), 16) if m.group(2) else rule["lo"] + 1
+            rule["values"] = parse_values(row.get("values", ""))
+            rules.append(rule)
+    return rules
+
+
+def parse_values(text):
+    """`1=label;none=label;*=label {value}` -> {key: label} (keys: int, 'none', '*')."""
+    out = {}
+    for part in filter(None, (p.strip() for p in (text or "").split(";"))):
+        key, _, label = part.partition("=")
+        key = key.strip()
+        out[key if key in ("none", "*") else int(key, 0)] = label.strip()
+    return out
+
+
+def value_label(rule, value):
+    v = rule["values"]
+    if not rule.get("param"):
+        return ""
+    if value is None:
+        return v.get("none", "")
+    label = v.get(value, v.get("*", "{value}"))
+    return label.replace("{value}", str(value))
+
+
+def _rule_matches(rule, row):
+    kinds = rule["kinds"] or "any"
+    kind = "arg" if row["kind"] == "arg" else "cmp"
+    if kinds != "any" and kinds != kind:
+        return False
+    if rule["callee"] and not (row["kind"] == "arg" and fnmatch.fnmatchcase(row["detail"], rule["callee"])):
+        return False
+    if rule["lo"] is not None:  # an exact address always applies; a range only to unnamed functions
+        if rule["hi"] - rule["lo"] > 1 and not DEFAULT_NAME.match(row["function_name"]):
+            return False
+        return rule["lo"] <= row["function"] < rule["hi"]
+    return fnmatch.fnmatchcase(row["function_name"], rule["pattern"])
+
+
+def classify(row, rules):
+    """Semantic rule for one eq/switch/arg reference: {tag, phrase, modality, confidence, param, value, label,
+    rule}. `modality` qualifies an `arg` reference by the helper that receives the id (MODALITY). Unmatched
+    references get the tag `unclassified`."""
+    mod = ""
+    if row["kind"] == "arg":
+        mod = next((m for p, m in MODALITY if fnmatch.fnmatchcase(row["detail"], p)), "")
+    for rule in rules:
+        if _rule_matches(rule, row):
+            return {"tag": rule["tag"], "phrase": rule["phrase"], "modality": "" if rule["callee"] else mod,
+                    "confidence": rule["confidence"], "param": rule.get("param") or "", "value": row["value"],
+                    "label": value_label(rule, row["value"]), "rule": rule["pattern"]}
+    return {"tag": "unclassified", "phrase": "card-specific test in " + row["function_name"], "modality": mod,
+            "confidence": "L", "param": "", "value": row["value"], "label": "", "rule": ""}
+
+
+def describe(refs, card_id):
+    """Semantic summary of one card: list of {tag, phrase, confidence, generic, functions, labels, modalities},
+    one per (tag, phrase), descriptive tags first, then by confidence (the best of the merged references)."""
+    by = {}
+    for r in refs.get(card_id, ()):
+        s = r.get("semantics")
+        if not s:
+            continue
+        e = by.setdefault((s["tag"], s["phrase"]), {
+            "tag": s["tag"], "phrase": s["phrase"], "confidence": s["confidence"],
+            "generic": s["tag"] in GENERIC_TAGS, "functions": [], "labels": [], "modalities": []})
+        if CONFIDENCE_ORDER.get(s["confidence"], 3) < CONFIDENCE_ORDER.get(e["confidence"], 3):
+            e["confidence"] = s["confidence"]
+        if r["function_name"] not in e["functions"]:
+            e["functions"].append(r["function_name"])
+        if s["label"] and f"{s['param']}: {s['label']}" not in e["labels"]:
+            e["labels"].append(f"{s['param']}: {s['label']}")
+        if s.get("modality") and s["modality"] not in e["modalities"]:
+            e["modalities"].append(s["modality"])
+    return sorted(by.values(), key=lambda e: (e["generic"], CONFIDENCE_ORDER.get(e["confidence"], 3), e["tag"]))
+
+
+def coverage(refs, ids):
+    """(cards with a descriptive tag, Counter of descriptive tags per card, ids without one)."""
+    tags, lacking, covered = collections.Counter(), [], 0
+    for cid in sorted(ids):
+        own = {e["tag"] for e in describe(refs, cid) if not e["generic"]}
+        if own:
+            covered += 1
+            tags.update(own)
+        else:
+            lacking.append(cid)
+    return covered, tags, lacking
 
 
 # ---------------------------------------------------------------------------------------------- registry
@@ -426,11 +628,14 @@ ID_OPERANDS = ("u16 load", "masked id", "result of ", "argument")
 NO_TEXT_KINDS = {1, 5, 9, 21, 31, 35}  # normal, plain fusion/ritual/synchro, token, normal tuner
 
 
-def check(refs, cards=None, tabled=None, known=True):
+def check(refs, cards=None, tabled=None, known=True, subject=None, rules=None):
     """(problems, summary lines). `cards`: id -> (name, kind); `tabled`: ids with an effect-table record or
     a list entry (the effect cards outside it are the ones the tables do not explain); `known`: measure the
-    recall on the documented tests of KNOWN (the full rel_duel_eng module)."""
+    recall on the documented tests of KNOWN (the full rel_duel_eng module). `subject`: ids whose semantic
+    coverage is reported (the engine_only cards of card_effects.py; default: the effect cards outside the
+    tables that have an eq/switch/arg reference). `rules`: the semantic rules to validate."""
     problems, lines = [], []
+    problems += [f"semantics: {p}" for p in rule_problems(load_semantics() if rules is None else rules)]
     rows = [r for v in refs.values() for r in v]
     kinds = collections.Counter(r["kind"] for r in rows)
     funcs = {(r["module"], r["function"]) for r in rows}
@@ -466,14 +671,50 @@ def check(refs, cards=None, tabled=None, known=True):
             lines.append(f"effect cards without an effect-table record or list entry: {len(untabled)}; with an "
                          f"eq/switch/arg reference: {len(found)}; without: {len(untabled) - len(found)}"
                          + (" (kinds " + ", ".join(f"{k} {n}" for k, n in sorted(rest.items())) + ")" if rest else ""))
+            if subject is None:
+                subject = found
+    if subject:
+        lines += semantic_lines(refs, subject)
     return problems, lines
+
+
+def rule_problems(rules):
+    out = []
+    for r in rules:
+        if r["kinds"] not in ("any", "cmp", "arg"):
+            out.append(f"{r['pattern']}: kinds {r['kinds']!r} is not any/cmp/arg")
+        if r["confidence"] not in CONFIDENCE_ORDER:
+            out.append(f"{r['pattern']}: confidence {r['confidence']!r} is not H/M/L")
+        if not r["tag"] or not r["phrase"]:
+            out.append(f"{r['pattern']}: empty tag or phrase")
+    return out
+
+
+def semantic_lines(refs, subject):
+    """Coverage of the semantic rules over `subject` (card ids)."""
+    covered, tags, lacking = coverage(refs, subject)
+    n = len(subject)
+    lines = [f"semantics: {covered} of {n} cards ({100 * covered / n:.1f} %) have a descriptive tag; "
+             f"{len(lacking)} have only generic tags ({', '.join(sorted(GENERIC_TAGS))}) or none"]
+    lines.append("semantic tags (cards): " + ", ".join(f"{t} {k}" for t, k in tags.most_common()))
+    conf = collections.Counter()
+    for cid in subject:
+        best = [e for e in describe(refs, cid) if not e["generic"]]
+        if best:
+            conf[best[0]["confidence"]] += 1
+    lines.append("best descriptive confidence per card: " + ", ".join(f"{c} {conf[c]}" for c in "HML"))
+    generic = collections.Counter(e["tag"] for cid in lacking for e in describe(refs, cid))
+    lines.append("generic tags of the cards without a descriptive one: "
+                 + (", ".join(f"{t} {k}" for t, k in generic.most_common()) or "none"))
+    return lines
 
 
 # ---------------------------------------------------------------------------------------------- main
 
 
 FIELDS = ["card_id", "name", "kind", "detail", "module", "address", "use", "function", "function_name", "group",
-          "operand", "value", "constants"]
+          "operand", "value", "calls", "constants", "tag", "phrase", "confidence", "parameter"]
+DESCRIBE_FIELDS = ["card_id", "name", "descriptive", "tags", "description"]
 
 
 def rows_of(refs, cards=None):
@@ -483,8 +724,40 @@ def rows_of(refs, cards=None):
                    "detail": r["detail"], "module": r["module"], "address": f"{r['address']:#010x}",
                    "use": f"{r['use']:#010x}", "function": f"{r['function']:#010x}",
                    "function_name": r["function_name"], "group": r["group"], "operand": r["operand"],
-                   "value": "" if r["value"] is None else r["value"],
-                   "constants": " ".join(str(c) for c in r["constants"])}
+                   "value": "" if r["value"] is None else r["value"], "calls": " ".join(r.get("calls", ())),
+                   "constants": " ".join(str(c) for c in r["constants"]),
+                   **semantic_cells(r.get("semantics"))}
+
+
+def semantic_cells(s):
+    if not s:
+        return {"tag": "", "phrase": "", "confidence": "", "parameter": ""}
+    phrase = s["phrase"] + (f" ({s['modality']})" if s.get("modality") else "")
+    return {"tag": s["tag"], "phrase": phrase, "confidence": s["confidence"],
+            "parameter": f"{s['param']}: {s['label']}" if s["label"] else ""}
+
+
+def entry_text(e):
+    """`phrase (modality) [param: label] (confidence)` for one describe() entry."""
+    out = e["phrase"]
+    if e["modalities"]:
+        out += f" ({'; '.join(e['modalities'])})"
+    if e["labels"]:
+        out += f" [{', '.join(e['labels'])}]"
+    return out + f" ({e['confidence']})"
+
+
+def describe_rows(refs, ids, cards=None):
+    """One row per card: its tags and a one-line description built from the template phrases."""
+    for cid in sorted(ids):
+        entries = describe(refs, cid)
+        text = "; ".join(entry_text(e) for e in entries if not e["generic"])
+        generic = sorted({e["tag"] for e in entries if e["generic"]})
+        if generic:
+            text += ("; " if text else "") + "generic: " + " ".join(generic)
+        yield {"card_id": f"{cid:#06x}", "name": (cards or {}).get(cid, ("",))[0],
+               "descriptive": int(any(not e["generic"] for e in entries)),
+               "tags": " ".join(dict.fromkeys(e["tag"] for e in entries)), "description": text}
 
 
 def function_rows(refs):
@@ -506,41 +779,67 @@ def write_csv(path, rows, fields):
         w.writerows(rows)
 
 
-def all_refs(prx_bytes, functions=None, names=None, boot=None, draw=None):
+def all_refs(prx_bytes, functions=None, names=None, boot=None, draw=None, semantics=None):
     """References of rel_duel_eng plus, when their bytes are given, BOOT.BIN and rel_duel_draw."""
-    maps = [card_refs(prx_bytes, functions, names)]
+    rules = load_semantics() if semantics is None else semantics
+    maps = [card_refs(prx_bytes, functions, names, semantics=rules)]
     if boot is not None:
-        maps.append(card_refs(boot, functions, names, MODULES["BOOT.BIN"], "BOOT.BIN"))
+        maps.append(card_refs(boot, functions, names, MODULES["BOOT.BIN"], "BOOT.BIN", semantics=rules))
     if draw is not None:
-        maps.append(card_refs(draw, functions, names, MODULES["rel_duel_draw"], "rel_duel_draw"))
+        maps.append(card_refs(draw, functions, names, MODULES["rel_duel_draw"], "rel_duel_draw", semantics=rules))
     return merge(*maps)
+
+
+def load_spec_ids(path, status="engine_only"):
+    """Card ids with spec_status `status` in card_effects.csv (output of tools/card_effects.py)."""
+    with open(path, newline="", encoding="utf-8") as f:
+        return {int(r["card_id"], 16) for r in csv.DictReader(f) if r["spec_status"] == status}
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Find card ids tested directly in the game's code.")
     parser.add_argument("prx", type=Path, help="gmodule/rel_duel_eng.prx")
-    parser.add_argument("command", nargs="?", choices=["list"], help="list: write the CSV files")
+    parser.add_argument("command", nargs="?", choices=["list", "describe"],
+                        help="list: write the CSV files; describe: print the semantic tags per card")
     parser.add_argument("-o", "--out", type=Path, help="output directory (under extracted/)")
     parser.add_argument("--check", action="store_true", help="structural checks and summary")
     parser.add_argument("--cardinfo", type=Path, help="duelsys/cardinfo_eng.ehp: names, kinds, precision proxies")
     parser.add_argument("--boot", type=Path, help="SYSDIR/BOOT.BIN: scan it too (base 0x08804000)")
     parser.add_argument("--draw", type=Path, help="gmodule/rel_duel_draw.prx: scan it too (base 0x0983fb00)")
     parser.add_argument("--functions", type=Path, default=HERE.parent / "re" / "functions.csv")
+    parser.add_argument("--semantics", type=Path, default=SEMANTICS, help="engine_ref_semantics.csv")
+    parser.add_argument("--spec", type=Path, help="card_effects.csv of tools/card_effects.py: its engine_only "
+                                                  "cards are the subject of the semantic coverage and of describe")
+    parser.add_argument("--card", action="append", default=[], help="describe: card id (repeatable)")
     args = parser.parse_args(argv)
-    if not args.check and args.command != "list":
-        parser.error("give `list -o DIR` or --check")
+    if not args.check and args.command not in ("list", "describe"):
+        parser.error("give `list -o DIR`, `describe` or --check")
     if args.command == "list" and not args.out:
         parser.error("list needs -o/--out")
     starts, names = load_registry(args.functions) if args.functions and args.functions.exists() else (None, {})
+    rules = load_semantics(args.semantics)
     refs = all_refs(args.prx.read_bytes(), starts, names, args.boot.read_bytes() if args.boot else None,
-                    args.draw.read_bytes() if args.draw else None)
+                    args.draw.read_bytes() if args.draw else None, rules)
+    subject = load_spec_ids(args.spec) if args.spec else None
     cards = load_cards(args.cardinfo) if args.cardinfo else None
     module = ep.Module(args.prx.read_bytes())
     known = text_range(module.data, BASE)[1] > max(f for _, f, _ in KNOWN)  # the full module, not a test image
     tabled = None
     if known:
         tabled = {c for _, _, c, _ in ep.table_records(module)} | {c for _, _, c, _ in ep.list_records(module)}
-    problems, lines = check(refs, cards, tabled, known)
+    if args.command == "describe":
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(errors="replace")
+        ids = [int(c, 0) for c in args.card] or sorted(subject if subject is not None else strong_ids(refs))
+        for row in describe_rows(refs, ids, cards):
+            print(f"{row['card_id']} {row['name']}: {row['description'] or '-'}")
+        if args.out:
+            args.out.mkdir(parents=True, exist_ok=True)
+            write_csv(args.out / "card_semantics.csv", describe_rows(refs, ids, cards), DESCRIBE_FIELDS)
+            print(f"wrote {args.out}")
+        if not args.check:
+            return 0
+    problems, lines = check(refs, cards, tabled, known, subject, rules)
     for p in problems:
         print("problem:", p, file=sys.stderr)
     for line in lines:

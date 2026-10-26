@@ -12,11 +12,14 @@ Not every card effect goes through the effect tables (`effect-tables.md`). On th
 python3 -I tools/card_refs.py <USRDIR>/gmodule/rel_duel_eng.prx list -o extracted/card_refs \
         [--cardinfo <USRDIR>/duelsys/cardinfo_eng.ehp] [--boot <SYSDIR>/BOOT.BIN] \
         [--draw <USRDIR>/gmodule/rel_duel_draw.prx] [--functions re/functions.csv]
-python3 -I tools/card_refs.py <prx> --check [--cardinfo ...] [--boot ...] [--draw ...]
+python3 -I tools/card_refs.py <prx> --check [--cardinfo ...] [--boot ...] [--draw ...] \
+        [--spec extracted/card_effects/card_effects.csv] [--semantics tools/engine_ref_semantics.csv]
+python3 -I tools/card_refs.py <prx> describe [--card 0x1416 ...] [-o extracted/card_refs] [--cardinfo ...] \
+        [--boot ...] [--draw ...] [--spec extracted/card_effects/card_effects.csv]
 python3 -I tools/tests/test_card_refs.py
 ```
 
-Library: `card_refs(prx_bytes, functions=None, names=None, base=0x09be1400, module="rel_duel_eng", cards=None)` returns `{card id: [reference dict]}`, and `all_refs(prx, functions, names, boot=None, draw=None)` merges the three modules. Pure Python, about 2 s for `rel_duel_eng` alone and 9 s with `BOOT.BIN` and `rel_duel_draw`. Ghidra is not needed.
+Library: `card_refs(prx_bytes, functions=None, names=None, base=0x09be1400, module="rel_duel_eng", cards=None, semantics=None)` returns `{card id: [reference dict]}`, and `all_refs(prx, functions, names, boot=None, draw=None, semantics=None)` merges the three modules. `describe(refs, card_id)` returns the semantic summary of one card (section "Semantics"). Pure Python, about 2 s for `rel_duel_eng` alone and 9 s with `BOOT.BIN` and `rel_duel_draw`. Ghidra is not needed.
 
 ## Modules and function bounds
 
@@ -58,8 +61,23 @@ Each reference also carries these fields:
 | Field | Content |
 | --- | --- |
 | `operand` | For `eq`, `range` and `switch`, where the compared value comes from. The scan traces it back on the straight line to the function start (2,048 instructions at most): `u16 load`, `masked id` (`andi 0x3fff`), `result of <callee>`, `argument` (an argument register that is never written), `word load`, `computed`, `clobbered`, ... |
-| `value` | For `eq`, the constant that the taken branch returns, evaluated with `effect_params.evaluate`. For `switch`, the value its case returns. |
+| `value` | The constant that the *matched* path returns, evaluated with `effect_params.evaluate` (see "Matched path"). For `switch`, the value its case returns. |
+| `calls` | Up to 3 named callees on the straight line of the matched path (or the `switch` case): what the case does when it does not just return a constant. |
 | `constants` | Up to 6 small non-card immediates near the reference. |
+| `semantics` | For `eq`, `switch` and `arg`: the rule of `tools/engine_ref_semantics.csv` that applies (section "Semantics"), else `None`. |
+
+### Matched path
+
+The matched path is where the code goes when the compare says "the id is K":
+
+| Reader | Matched path |
+| --- | --- |
+| `beq`/`beql` | The branch target, after the delay slot |
+| `bne` | The fall-through after the delay slot |
+| `bnel` | The fall-through; the delay slot is annulled |
+| `xor`/`subu`/`xori` | The first `beq`/`bne` of the result against `zero` within 4 instructions, read as above (`beq` → target, `bne` → fall-through) |
+
+`value` is the constant in `v0` when the path reaches `jr ra` on straight-line, register-only code (a load, a call or an undecidable branch gives `None`). `calls` walks the same path for 16 instructions, follows one unconditional jump, and stops at a conditional branch or `jr`. On `rel_duel_eng` (registry of this commit), 2,543 of 16,012 `eq` references get a value (2,518 through `beq`, 25 through the new `bne` rule; no `xor` compare ends in a constant), and 5,821 get at least one callee.
 
 `eq` references are a superset of the `li; beq` cases of `effect_params.chain_cases`.
 
@@ -104,9 +122,61 @@ The functions that test the most of these cards are battle and summon rules:
 
 The six `BOOT.BIN`-only cards include the four fusion substitutes: Goddess with the Third Eye, Beastking of the Swamps, Versago the Destroyer and Mystical Sheep #1. They form one compare chain in `FUN_08866870`. Hypothesis (M): that function is the "can substitute for a fusion material" test; it is not yet in the registry.
 
+## Semantics (`tools/engine_ref_semantics.csv`)
+
+The engine functions that test card ids are rules ("has piercing", "can attack directly", "cannot be Special Summoned"). The registry name or the subsystem documents give their meaning, so a card id tested by one of them gets a description: the function's rule applied to that card. `tools/engine_ref_semantics.csv` maps functions to semantic tags.
+
+| Column | Content |
+| --- | --- |
+| `pattern` | A registry name, an `fnmatch` glob (`card_db_is_*`, `ai_*`), an exact address (`0x09bedc0c`: applies even after the function is renamed) or an address range `0x09ce4000-0x09da0000` (only for functions that still have a default name) |
+| `kinds` | `cmp` (`eq`/`switch`), `arg` or `any` |
+| `callee` | For `arg` rules only: a glob on the helper that receives the id (`duel_core_count_graveyard_named`) |
+| `tag` | Semantic tag (`piercing`, `direct_attack`, `summon_condition`, `activation_lock`, ...) |
+| `phrase` | Short template phrase in English |
+| `param`, `values` | Name of the per-card parameter and the labels of the branch value: `1=may attack directly;2=must;none=conditional (card-specific test);*=class {value}`. `none` is used when the matched path does not return a constant |
+| `confidence` | H, M or L: how well the function's meaning is established. H and M come from a subsystem document; L from the registry name or from the id set of an unnamed function |
+| `basis` | The document or observation behind the row |
+
+The first rule that matches wins, so specific rows come before globs, and the `*` callee rows come last. An `arg` reference also gets a `modality` from the helper that receives the id: `while it is active on the field` for the `duel_core_count_active_card*` / `duel_core_is_active_card_at` family, `through an effect marker it leaves on a slot` for `duel_core_slot_has_effect`, `adds an effect marker` for `duel_core_post_add_marker` and so on (`MODALITY` in the tool). References without a rule get the tag `unclassified`.
+
+Generic tags locate a card without describing its effect: `ai_hint` (AI knowledge only), `archetype` (membership in a `card_db_is_*` list), `name_alias` (alias and name rules), `named_reference` (another card's effect names the card) and `unclassified`. All other tags are descriptive.
+
+`describe(refs, card_id)` merges the references of one card by (tag, phrase): descriptive tags first, then by confidence; each entry keeps the functions, the modalities and the parameter labels. The `describe` command prints one line per card (by default the `engine_only` cards of `--spec`, or the effect cards outside the tables), for example `inflicts piercing battle damage [piercing: always] (H); generic: archetype`. With `-o` it writes `card_semantics.csv`.
+
+Unnamed functions in the table were given a meaning from their id set or their caller, with confidence L or M; each row's `basis` says how. Examples: `0x09bedc0c` tests exactly the `duel_core_has_piercing` list; `0x09bf6728` the hand-procedure monsters of `duel_core_get_special_summon_mask`; BOOT `0x08863a34` returns the summoning class (1 Polymerization, 2 Dark Fusion, 3 Fossil Fusion) of `effect-helpers-misc.md`; `0x09cdd74c` is the forced position change of chain building state 0 (`chain.md`). Naming these in `re/functions.csv` is left to a registry pass.
+
+### Coverage and precision (disc, `--boot --draw`, registry of this commit)
+
+| Measure | Value |
+| --- | --- |
+| `engine_only` cards with at least one descriptive tag | 266 of 273 (97.4 %) |
+| Best descriptive confidence per card | H 105, M 132, L 29 |
+| Cards with only generic tags | 7: four with `ai_hint`, `archetype` and `name_alias` (alias cards), three with only `unclassified` (tests in unnamed functions without a rule) |
+
+Descriptive tags, as the number of `engine_only` cards that carry them: `summon_condition` 33, `direct_attack` 29, `battle_trigger` 27, `attack_restriction` 23, `multiple_attacks` 21, `negation` 21, `battle_damage_rule` 20, `attack_target_rule` 19, `activation_lock` 19, `fusion_rule` 18, `piercing` 18, `chain_rule` 17, `summon_procedure` 14, `immunity` 14, `battle_indestructible` 14, `destruction_rule` 13, `summon_lock` 13, `tribute_rule` 13, `post_attack` 12, `lp_rule` 8, `position_rule` 8, `phase_effect` 8, `equip_rule` 7, `hand_rule` 6, `banish_rule` 6, `control_rule` 6, `turn_counter` 5, `forced_attack` 4, `summon_trigger` 4, `move_trigger` 4, `target_rule` 3, `coin_toss` 2, `deck_rule` 2, `draw_rule` 2, `ritual_rule` 2, `synchro_rule` 2, `win_condition` 1, `counter_rule` 1, `gemini_rule` 1.
+
+Precision was estimated by comparing the descriptions with public knowledge of the cards (the official card texts, summarised, not copied):
+
+- Systematic sample: every ninth `engine_only` card (31 cards, 29 with a descriptive tag). The first descriptive entry was right for 28 of the 29. The one miss is a monster whose first entry is an attack restriction; this is very probably another card's rule that names it (the reference is a compare on a word load).
+- A second, ad hoc check of about 45 cards (direct attackers, piercing monsters, double-Tribute monsters, attack locks, fusion substitutes, Barrier Statues, banishers) found one more wrong first entry: a monster tested in `duel_core_has_piercing` on a conditional path, whose card has no piercing.
+- Entry level (every descriptive entry, not only the first): about 85 %. The misses are mostly references where another card names this one (an `eq` on a word load inside a rule function), and vague L phrases (`battle_trigger`, `chain_rule`) that are right but say little.
+
+Estimate (M): about 0.95 for the best descriptive tag of a card and about 0.85 for all its descriptive entries. A tag says *which rule* a card takes part in, not the full effect: `chain_rule` or `battle_trigger` only say where the card is handled.
+
+Parameters recovered from the branch value: `direct_attack` mode (10 cards "may attack directly", the others conditional), `piercing` (15 unconditional), `multiple_attacks` (6 unconditional), the Fusion spell class (Polymerization / Dark Fusion / Fossil Fusion), the Fusion material count, the turn count of `card_db_get_turn_counter_rule`, the immunity mask, and the Special/Normal Summon permission bits.
+
+### Limits of the semantics
+
+- The tag comes from the function, not from the card's branch. A card that is only *named* by another card's rule in that function (for example "while card K is on the field") gets the function's tag too. The operand and the reference kind help: an `eq` on `result of duel_core_get_slot_card_id` is the tested monster's own rule; an `eq` on a word load is often a stored link or marker.
+- `value` covers only straight-line, register-only paths. Conditional branches (`none`) need the branch body decoded; `calls` gives a first hint of what they do.
+- L rows come from registry names or id sets. They should be confirmed when the functions are documented, and unnamed functions given a rule here should be named in `re/functions.csv`.
+- `card_effects.py` does not carry the `semantics` field yet (see `card-effect-spec.md`, note for the integrator).
+
 ## Outputs
 
-`card_refs.csv` (one row per reference): `card_id name kind detail module address use function function_name group operand value constants`. `address` is the instruction with the immediate. `use` is its reader (the branch, `sltiu`, call or store).
+`card_refs.csv` (one row per reference): `card_id name kind detail module address use function function_name group operand value calls constants tag phrase confidence parameter`.
+
+`card_semantics.csv` (`describe -o`, one row per card): `card_id name descriptive tags description`. `address` is the instruction with the immediate. `use` is its reader (the branch, `sltiu`, call or store).
 
 `card_ref_functions.csv` (one row per function): `module function function_name group ids kinds`.
 
@@ -114,10 +184,11 @@ Both are game data: keep them in `extracted/`.
 
 ## `--check`
 
-`--check` prints the counts, the operand profile and the recall on `KNOWN`. With `--cardinfo` it also prints the released-card share, the precision proxies, and the effect cards without an effect-table record or list entry (369 on the disc, all referenced). It fails in two cases:
+`--check` prints the counts, the operand profile and the recall on `KNOWN`. With `--cardinfo` it also prints the released-card share, the precision proxies, and the effect cards without an effect-table record or list entry (369 on the disc, all referenced). It then prints the semantic coverage: of the `engine_only` cards of `--spec` (273), or else of those 369 cards: the cards with a descriptive tag, the tag distribution, the best confidence per card and the generic tags of the rest. It fails in three cases:
 
 - a documented test of `KNOWN` is not found (checked only on the full `rel_duel_eng` module);
-- fewer than half of the referenced ids are released cards.
+- fewer than half of the referenced ids are released cards;
+- a rule of `engine_ref_semantics.csv` has a `kinds` other than `any`/`cmp`/`arg`, a confidence other than H/M/L, or an empty tag or phrase.
 
 ## Limits and open questions
 
