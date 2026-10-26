@@ -277,3 +277,4 @@ address	prototype	summary	document
 0x0886303c	int card_db_is_clear(int card_id)	Archetype 61 of card_db_is_in_archetype: Clear monsters and Clear World/Wall. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
 0x0886307c	int card_db_is_red_eyes(int card_id)	Archetype 62 of card_db_is_in_archetype: Red-Eyes. Fixed id list.	docs/subsystems/effect-helpers-predicates.md
 0x08866398	int card_db_get_spell_counter_capacity(int card_id)	Spell Counter capacity per card id: 1, 3 or 5, 0xff (unlimited) for the Spell Counter cards, 0 otherwise; used by the counter command clamp. No side effects.	docs/subsystems/effect-helpers-predicates.md
+0x088600a8	int card_db_is_extra_deck_monster(int card_id)	card_db_get_frame is 10 (Synchro) or 3 (Fusion): the card belongs in the Extra Deck.	docs/subsystems/effect-helpers-misc.md
