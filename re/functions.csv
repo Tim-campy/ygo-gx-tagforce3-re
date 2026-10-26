@@ -23089,7 +23089,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c7b510,duel_effects_resolve_search_deck,duel_effects,,464
 0x09c7b6e0,FUN_09c7b6e0,,,212
 0x09c7b7b4,FUN_09c7b7b4,,,456
-0x09c7b97c,FUN_09c7b97c,,,348
+0x09c7b97c,duel_effects_resolve_reveal_and_destroy_target,duel_effects,,348
 0x09c7bad8,duel_effects_resolve_add_targets_to_hand,duel_effects,,356
 0x09c7bc3c,duel_effects_resolve_random_discard,duel_effects,,112
 0x09c7bcac,FUN_09c7bcac,,,36
@@ -23167,7 +23167,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c80dc4,FUN_09c80dc4,,,96
 0x09c80e24,FUN_09c80e24,,,924
 0x09c811c0,FUN_09c811c0,,,128
-0x09c81240,FUN_09c81240,,,376
+0x09c81240,duel_effects_resolve_negate_then_per_card,duel_effects,,376
 0x09c813b8,FUN_09c813b8,,,336
 0x09c81508,FUN_09c81508,,,328
 0x09c81650,duel_effects_resolve_take_control_target,duel_effects,,316
@@ -23192,7 +23192,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c82510,FUN_09c82510,,,420
 0x09c826b4,FUN_09c826b4,,,1028
 0x09c82ab8,FUN_09c82ab8,,,184
-0x09c82b70,FUN_09c82b70,,,912
+0x09c82b70,duel_effects_resolve_special_summon_named_from_deck,duel_effects,,912
 0x09c82f00,FUN_09c82f00,,,236
 0x09c82fec,FUN_09c82fec,,,76
 0x09c83038,FUN_09c83038,,,328
@@ -23219,7 +23219,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c859a4,duel_effects_destroy_source_if_condition,duel_effects,,116
 0x09c85a18,FUN_09c85a18,,,240
 0x09c85b08,FUN_09c85b08,,,392
-0x09c85c90,FUN_09c85c90,,,492
+0x09c85c90,duel_effects_resolve_destroy_target_burn,duel_effects,,492
 0x09c85e7c,FUN_09c85e7c,,,388
 0x09c86000,FUN_09c86000,,,336
 0x09c86150,FUN_09c86150,,,240
@@ -23260,7 +23260,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c891f4,FUN_09c891f4,,,160
 0x09c89294,FUN_09c89294,,,1072
 0x09c896c4,FUN_09c896c4,,,380
-0x09c89840,FUN_09c89840,,,596
+0x09c89840,duel_effects_resolve_return_graveyard_card,duel_effects,,596
 0x09c89a94,FUN_09c89a94,,,144
 0x09c89b24,FUN_09c89b24,,,92
 0x09c89b80,FUN_09c89b80,,,60
@@ -23285,7 +23285,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c8bd58,FUN_09c8bd58,,,168
 0x09c8be00,duel_effects_resolve_add_player_marker,duel_effects,documented,80
 0x09c8be50,FUN_09c8be50,,,292
-0x09c8bf74,FUN_09c8bf74,,,892
+0x09c8bf74,duel_effects_resolve_destroy_all_lp_per_card,duel_effects,,892
 0x09c8c2f0,FUN_09c8c2f0,,,352
 0x09c8c450,FUN_09c8c450,,,356
 0x09c8c5b4,FUN_09c8c5b4,,,828
