@@ -393,6 +393,7 @@ class Mapping:
 
     def __init__(self, rows):
         self.named, self.cmds, self.args, self.stores = [], collections.defaultdict(list), [], []
+        self.dispatch = []  # (callee name regex, 8-byte list address): per-card handler lists
         for row in rows:
             kind, pattern, cat, role = row["kind"].strip(), row["pattern"].strip(), row["category"].strip(), \
                 row["role"].strip()
@@ -406,6 +407,8 @@ class Mapping:
                 regex, _, cond = pattern.rpartition("|")
                 reg, _, mask = cond.partition("&")
                 self.args.append((re.compile(regex), ARG_NAMES[reg.strip()], int(mask, 0), cat, role))
+            elif kind == "dispatch":
+                self.dispatch.append((re.compile(pattern), int(cat, 16)))
             elif kind == "store":
                 conds = []
                 for cond in pattern.split():
@@ -546,14 +549,40 @@ def categories_text(cats, roles=("effect", "meta")):
     return " ".join(sorted({c for c, r in cats if r in roles}))
 
 
+def _list_handlers(module, address):
+    """card id -> handler of the 8-byte list at `address` (docs/formats/effect-tables.md)."""
+    count = next((n for _, a, n in ep.LISTS if a == address), 0)
+    out = {}
+    for i in range(count):
+        cid, handler = module.words(address + 8 * i, 2)
+        out[cid] = module.pointer(handler)
+    return out
+
+
+def dispatched(classifier, closure, cid, lists):
+    """`closure` with the categories of the card's own list handler added when it reaches a dispatcher named by
+    a `dispatch` mapping row (for example the candidate-builder list behind duel_effects_build_candidate_list)."""
+    extra = set()
+    for regex, address in classifier.mapping.dispatch:
+        if any(regex.search(name) for name, _ in closure["callees"].values()):
+            if address not in lists:
+                lists[address] = _list_handlers(classifier.module, address)
+            handler = lists[address].get(cid)
+            if handler:
+                extra |= classifier.closure(handler)["categories"]
+    return dict(closure, categories=closure["categories"] | extra) if extra - closure["categories"] else closure
+
+
 def classify_records(classifier, cards=None):
     cards = cards or {}
-    rows, facts = [], []
+    rows, facts, lists = [], [], {}
     for table, index, cid, handlers in effect_records(classifier.module):
         row = {"card_id": f"{cid:#06x}", "card": cards.get(cid, ""), "table": table, "index": index}
         per = []
         for (slot, _), h in zip(SLOTS, handlers):
             c = classifier.closure(h) if h else None
+            if c and classifier.mapping.dispatch:
+                c = dispatched(classifier, c, cid, lists)
             per.append(c)
             row[slot] = categories_text(c["categories"]) if c else ""
         res = per[0]

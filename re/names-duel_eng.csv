@@ -919,3 +919,4 @@ address,group,name
 0x09c4bdf0,duel_effects,duel_effects_cost_banish_from_graveyard
 0x09c337e0,duel_effects,duel_effects_filter_equip_target
 0x09c423dc,duel_effects,duel_effects_get_option_text_id
+0x09cd0030,duel_effects,duel_effects_candidate_has_name

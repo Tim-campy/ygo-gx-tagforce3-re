@@ -4,6 +4,9 @@ kind,pattern,category,role,note
 #       addr = callee address in hex; cmd = engine command code (op & 0xfff) posted through a "queue" callee;
 #       arg  = "<name regex>|<register>&<mask>": the callee is called with that register holding a value whose
 #              mask bits are all known to be set.
+#       dispatch = "<name regex>" of a callee that calls a per-card handler from an 8-byte list; the category column
+#              holds the list address (hex): the record's own handler in that list is classified too and its
+#              categories are added to the slot (effect_classify.dispatched).
 #       store = space-separated conditions "<address>=<value>" or "<address>&<mask>" that must all hold for
 #              constant stores (sb/sh/sw of a known value to a known address) of one scanned function.
 # role: effect = counts for coverage, callee is a leaf (not descended); meta = recorded, not counted, leaf;
@@ -16,6 +19,13 @@ name,^duel_core_push_command$,,queue,Appends (op a b c) to the engine queue 0x09
 # --- meta helpers that would otherwise fall under a stop row
 name,^duel_effects_not_used_this_turn$,once_per_turn,meta,Activation condition: once-per-turn marker absent (chain.md)
 name,^ai_ask_yes_no$,optional,meta,
+# --- candidate lists (docs/formats/search-filters.md): the builder of each card is looked up in list L1 0x09dec554
+dispatch,^duel_effects_(build_candidate_list|count_candidates|count_hand_candidates|count_controller_hand_candidates|target_still_matches_filter)$,0x09dec554,,Builder list L1 (tools/search_filters.py)
+name,^duel_effects_collect_deck_candidates$,search_deck,effect,Deck scanner 0x09ccecbc
+name,^duel_effects_collect_extra_deck_candidates$,search_extra,effect,Extra Deck scanner 0x09ccf134
+name,^duel_effects_test_hand_candidate$,search_hand,effect,Hand scanner 0x09ccf428
+name,^duel_effects_collect_graveyard_candidates$,search_graveyard,effect,Graveyard scanner 0x09ccf768
+name,^duel_effects_collect_banished_candidates$,search_banished,effect,Banished scanner 0x09ccfcdc
 # --- infrastructure and predicates: do not descend
 name,^duel_effects_target_filter$,,stop,Per-card filter; its flag word (a3) is decoded by the arg rows
 name,^duel_core_(get|is|can|count|has|find|filter)_|^duel_effects_(get|is|can|count|has|find|cond|filter|match)_,,stop,Predicates and getters

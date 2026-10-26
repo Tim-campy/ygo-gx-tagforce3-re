@@ -88,3 +88,4 @@ island_map_areas,Island map areas and destinations (rel_field.prx),world,documen
 chain_link,Chain link / effect context (rel_duel_eng 0x09e28cb4; 24 bytes),duel_core,documented,24
 effect_marker,Effect marker node (rel_duel_eng pool 0x09e2c7cc; 10 bytes),duel_core,named,10
 card_effect_spec,Per-card effect specification (tools/card_effects.py JSON Lines; schema 1),duel_effects,documented,
+search_filter_word,Candidate search filter and options words (rel_duel_eng builder list 0x09dec554; scanners 0x09ccecbc-0x09ccfcdc),duel_effects,documented,
