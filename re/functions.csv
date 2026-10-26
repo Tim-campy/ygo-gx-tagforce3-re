@@ -24031,7 +24031,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09ccf428,duel_effects_test_hand_candidate,duel_effects,,832
 0x09ccf768,duel_effects_collect_graveyard_candidates,duel_effects,,1396
 0x09ccfcdc,duel_effects_collect_banished_candidates,duel_effects,,852
-0x09cd0030,FUN_09cd0030,,,64
+0x09cd0030,duel_effects_candidate_has_name,duel_effects,,64
 0x09cd0070,FUN_09cd0070,,,212
 0x09cd0144,FUN_09cd0144,,,84
 0x09cd0198,FUN_09cd0198,,,120
