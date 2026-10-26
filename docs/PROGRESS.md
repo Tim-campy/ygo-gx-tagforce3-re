@@ -64,7 +64,8 @@ In this project the registry is regenerated from Ghidra rather than edited by ha
 
 - `re/names.csv` and `re/names-ppsspp.csv` name functions (`tools/ghidra/ApplyNames.java`).
 - `re/documented.tsv` lists the functions that meet the `documented` stage: prototype, a summary of purpose and side effects, and the document that records them and their callers. `tools/ghidra/ApplySignatures.java` applies the prototype and a plate comment and tags the function `DOCUMENTED`.
-- `tools/ghidra/ExportFunctions.java` writes `re/functions.csv`, setting `status` to `documented` only for tagged functions.
+- `re/verified.tsv` lists the documented functions that were checked at runtime in PPSSPP (program, address, results file, summary). `tools/ghidra/ApplyVerified.java` tags them `VERIFIED` and adds the results file to the plate comment; it skips a function that is not `DOCUMENTED`, because `verified` is above `documented`.
+- `tools/ghidra/ExportFunctions.java` writes `re/functions.csv`, setting `status` to `documented` for `DOCUMENTED` functions and to `verified` for those also tagged `VERIFIED`.
 
 A function therefore reaches `documented` only when Ghidra holds its signature and comment, as the stage definition requires.
 
@@ -73,3 +74,9 @@ Function ids are runtime addresses. Game modules that the game loads into a shar
 ## Reaching `verified`
 
 `verified` needs a runtime check in PPSSPP. [`docs/verification/ppsspp-plan.md`](verification/ppsspp-plan.md) lists the checks that matter most for the port. They are grouped into play sessions (one single duel, one tag duel, one in-game day of free roam), and each has its addresses, breakpoints, expected values and a results table. The plan also explains how a filled-in results table turns into status changes. It does not change the counting rules above.
+
+How a results file turns into status changes:
+
+- **Functions:** add a row to `re/verified.tsv` pointing at the results file in `docs/verification/results/`, then re-run `ApplyVerified.java` and `ExportFunctions.java` for that program. A function that is still only `named` must be documented first.
+- **Formats and structures:** set `status` to `verified` in `re/formats.csv` and cite the results file in the format's document.
+- **Memory edits during a check** count towards `verified` when they only shorten the test or set up a situation that rarely arises in normal play (maintainer decision, 2026-10-26). Every edit is recorded in the results file (address, old and new value), and the behaviour being verified must come from the game's own code after the edit.

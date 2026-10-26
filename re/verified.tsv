@@ -1,0 +1,6 @@
+# Functions that meet the "verified" stage (docs/PROGRESS.md): already documented (re/documented*.tsv) and
+# checked at runtime in PPSSPP following docs/verification/ppsspp-plan.md. Applied to Ghidra by
+# tools/ghidra/ApplyVerified.java (tag VERIFIED), which ExportFunctions.java turns into the "verified" status.
+# Columns are tab-separated: program (Ghidra program name, e.g. BOOT.BIN or rel_duel_eng.prx), address,
+# results file (docs/verification/results/<date>-<session>.md) and a one-line summary of what was observed.
+program	address	results	summary

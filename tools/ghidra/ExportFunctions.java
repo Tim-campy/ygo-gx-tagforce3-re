@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Export every function of the current program as re/functions.csv rows (id,name,group,status,size).
 // Group comes from the function's top-level Ghidra namespace (see CLAUDE.md naming). Status is
-// "documented" for functions carrying the DOCUMENTED tag (ApplySignatures.java) and blank otherwise,
-// so tools/progress.py infers unknown/named. Usage (headless):
+// "documented" for functions carrying the DOCUMENTED tag (ApplySignatures.java), "verified" when they also
+// carry the VERIFIED tag (ApplyVerified.java), and blank otherwise, so tools/progress.py infers
+// unknown/named. Usage (headless):
 //   analyzeHeadless <projdir> <proj> -process BOOT.BIN -noanalysis -scriptPath tools/ghidra
 //       -postScript ExportFunctions.java <output.csv> [module id prefix, e.g. rel_story]
 // @category TF3
@@ -34,14 +35,20 @@ public class ExportFunctions extends GhidraScript {
 				if (function.isThunk() && !name.startsWith("thunk_")) {
 					name = "thunk_" + name;
 				}
-				// Only functions tagged by ApplySignatures.java are "documented"; the rest is inferred.
-				boolean documented = function.getTags().stream().anyMatch(t -> t.getName().equals("DOCUMENTED"));
+				// Only functions tagged by ApplySignatures.java are "documented", and only documented ones
+				// also tagged by ApplyVerified.java are "verified"; the rest is inferred.
+				boolean documented = hasTag(function, "DOCUMENTED");
+				String status = !documented ? "" : hasTag(function, "VERIFIED") ? "verified" : "documented";
 				out.printf("%s0x%08x,%s,%s,%s,%d%n", prefix, function.getEntryPoint().getOffset(), name, group(function),
-					documented ? "documented" : "", function.getBody().getNumAddresses());
+					status, function.getBody().getNumAddresses());
 				count++;
 			}
 		}
 		println("exported " + count + " functions to " + args[0]);
+	}
+
+	private static boolean hasTag(Function function, String tag) {
+		return function.getTags().stream().anyMatch(t -> t.getName().equals(tag));
 	}
 
 	private static String group(Function function) {
