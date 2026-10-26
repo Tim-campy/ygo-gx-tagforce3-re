@@ -126,6 +126,37 @@ class AiTablesTest(unittest.TestCase):
         missing = at.missing_cards(self.module, set(range(0x1000, 0x1000 + 1648)))
         self.assertEqual(dict(missing), {0x1935: 1})
 
+    def test_handler_class(self):
+        cases = {"ai_cond_always": "constant", "ai_cond_never": "constant", "FUN_09d6b6c8": "unnamed",
+                 "": "unnamed", "ai_handler_on_attack_declared_event": "event",
+                 "ai_handler_counter_harmful_link": "chain", "ai_handler_burn": "lp",
+                 "ai_handler_stall_if_behind": "battle", "ai_handler_fusion_summon": "summon",
+                 "ai_handler_destroy_spell_trap": "removal", "ai_cond_has_target": "target",
+                 "ai_cond_no_active_copy": "limit", "ai_handler_in_opponent_end_phase": "phase",
+                 "ai_cond_has_candidate": "resources", "ai_handler_field_spell_if_zone_free": "board",
+                 "ai_handler_mystery": "other"}
+        for name, key in cases.items():
+            self.assertEqual(at.handler_class(name), key, name)
+
+    def test_class_rows_and_summary(self):
+        rows = at.class_rows(self.module, {HANDLER: "ai_cond_always"})
+        self.assertEqual(len(rows), 1 + 3)  # one pair-table handler and the three list handlers
+        self.assertEqual((rows[0]["handler"], rows[0]["class"], rows[0]["entries"]), ("0x09d6b6b8", "constant", 1648))
+        self.assertIn("T1:345", rows[0]["tables"])
+        self.assertEqual(sum(r["entries"] for r in rows), 1648 + 143 + 36 + 1)
+        lines = at.class_summary(rows)
+        self.assertTrue(lines[1].startswith("constant") and "1648" in lines[1], lines)
+        self.assertTrue(lines[-1].startswith("total") and lines[-1].split()[1:] == ["4", "1828"], lines)
+
+    def test_load_functions_formats(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            reg, names = Path(tmp) / "functions.csv", Path(tmp) / "names.csv"
+            reg.write_text("id,name,group,status,size\n0x09d6b6b8,FUN_09d6b6b8,,,8\nfmt,x,,,\n", encoding="utf-8")
+            names.write_text("# comment\naddress,group,name\n0x09d6b6b8,ai,ai_cond_always\n0x09d00000,ai,\n",
+                             encoding="utf-8")
+            merged = at.load_functions(names, at.load_functions(reg))
+            self.assertEqual(merged, {HANDLER: "ai_cond_always"})
+
     def test_main(self):
         with tempfile.TemporaryDirectory() as tmp:
             prx = Path(tmp) / "rel_duel_eng.prx"
@@ -139,6 +170,16 @@ class AiTablesTest(unittest.TestCase):
             self.assertEqual(at.main([str(prx), "cards", "-o", str(target)]), 0)
             with open(target, newline="", encoding="utf-8") as f:
                 self.assertEqual(len(list(csv.DictReader(f))), 1648 + 1)  # list ids repeat table ids except the sentinel
+            names = Path(tmp) / "names.csv"
+            names.write_text("address,group,name\n0x09d6b6b8,ai,ai_cond_always\n", encoding="utf-8")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(at.main([str(prx), "classes", "--functions", str(names), "--summary"]), 0)
+            self.assertIn("constant", out.getvalue())
+            target = Path(tmp) / "classes.csv"
+            self.assertEqual(at.main([str(prx), "classes", "--functions", str(names), "-o", str(target)]), 0)
+            with open(target, newline="", encoding="utf-8") as f:
+                self.assertEqual(next(csv.DictReader(f))["class"], "constant")
 
 
 if __name__ == "__main__":
