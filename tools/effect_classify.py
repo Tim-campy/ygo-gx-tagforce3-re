@@ -404,9 +404,8 @@ class Mapping:
             elif kind == "cmd":
                 self.cmds[int(pattern, 0)].append((cat, role))
             elif kind == "arg":
-                regex, _, cond = pattern.rpartition("|")
-                reg, _, mask = cond.partition("&")
-                self.args.append((re.compile(regex), ARG_NAMES[reg.strip()], int(mask, 0), cat, role))
+                regex, _, conds = pattern.rpartition("|")
+                self.args.append((re.compile(regex), [self._arg_condition(c) for c in conds.split()], cat, role))
             elif kind == "dispatch":
                 self.dispatch.append((re.compile(pattern), int(cat, 16)))
             elif kind == "store":
@@ -445,11 +444,27 @@ class Mapping:
                 out.append((cat, role))
         return out
 
+    @staticmethod
+    def _arg_condition(cond):
+        """'a3&0x1000' (bits known set), 'a3!&0x1000' (bits known clear) or 'a2=0xe' (whole register known)."""
+        m = re.fullmatch(r"(a[0-7])(&|!&|=)(0x[0-9a-fA-F]+|\d+)", cond.strip())
+        if not m:
+            raise ValueError(f"bad arg condition {cond!r}")
+        return ARG_NAMES[m[1]], m[2], int(m[3], 0)
+
+    @staticmethod
+    def _arg_holds(v, op, x):
+        mask, value = v if v else (0, 0)
+        if op == "&":
+            return mask & x == x and value & x == x
+        if op == "!&":
+            return mask & x == x and not value & x
+        return mask == FULL and value == x
+
     def arg_categories(self, name, args):
         out = []
-        for regex, reg, mask, cat, role in self.args:
-            v = args.get(reg)
-            if v and v[0] & mask == mask and v[1] & mask == mask and regex.search(name):
+        for regex, conds, cat, role in self.args:
+            if all(self._arg_holds(args.get(reg), op, x) for reg, op, x in conds) and regex.search(name):
                 out.append((cat, role))
         return out
 
@@ -458,9 +473,13 @@ class Mapping:
 
 
 class Classifier:
-    def __init__(self, module, registry, mapping, depth=3):
+    """`root_names`: a slot handler matched by a `name`/`addr` row (a named generic resolver such as
+    duel_effects_resolve_search_deck) gets that row's category as well; it is still scanned like any handler."""
+
+    def __init__(self, module, registry, mapping, depth=3, root_names=True):
         self.module, self.registry, self.mapping, self.depth = module, registry, mapping, depth
-        self._scans, self._stores, self._closures = {}, {}, {}
+        self.root_names = root_names
+        self._scans, self._stores, self._closures, self._starts = {}, {}, {}, None
 
     def calls(self, address):
         if address not in self._scans:
@@ -491,48 +510,61 @@ class Classifier:
             target = BASE + ((w[k] & 0x3FFFFFF) << 2)
         return target, args
 
+    def callbacks(self, args):
+        """Function pointers among the known arguments of a call: a fully known value >= 0x10000 whose runtime
+        address (module base + value; the PRX relocates the lui/addiu pair) is a registry function start. Only
+        followed for callees that are descended into (filters handed to leaf scanners are not effects)."""
+        if self._starts is None:
+            self._starts = set(self.registry.starts)
+        return [BASE + v for mask, v in args.values() if mask == FULL and 0x10000 <= v and BASE + v in self._starts]
+
     def closure(self, handler):
         """Facts reached from one handler: categories {(category, role)}, command codes, callee names by
         address with their minimum depth, unnamed callees, indirect call count."""
         if handler in self._closures:
             return self._closures[handler]
         cats, cmds, callees, indirect, unknown_cmd = set(), set(), {}, 0, 0
-        root_name = self.registry.name(handler)
-        hit = self.mapping.lookup(handler, root_name)
-        if hit and hit[0] and hit[1] in ("effect", "meta"):
-            cats.add(hit)
-        frontier, seen = [handler], {handler}
+        if self.root_names:  # the handler's own name row adds its category; the handler is still descended into
+            hit = self.mapping.lookup(handler, self.registry.name(handler))
+            if hit and hit[0] and hit[1] in ("effect", "meta"):
+                cats.add(hit)
+        frontier, seen, callbacks = [handler], {handler}, []
         for level in range(1, self.depth + 1):
-            nxt = []
+            nxt, later = [], []
+            # (call target, argument state) pairs of this level: the calls of the frontier functions, plus the
+            # callbacks handed to descended callees one level up (visited as if that callee called them)
+            visits = [(cb, {}) for cb in callbacks]
             for f in frontier:
                 cats.update(self.mapping.store_categories(self.stores(f)))
                 for call in self.calls(f):
                     if call.kind == "indirect":
                         indirect += 1
                         continue
-                    target, args = self.resolve(call.target, call.args)
-                    name = self.registry.name(target)
-                    if target not in callees or callees[target][1] > level:
-                        callees[target] = (name, level)
-                    cats.update(self.mapping.arg_categories(name, args))
-                    hit = self.mapping.lookup(target, name)
-                    if hit:
-                        cat, role = hit
-                        if role == "queue":
-                            a0 = args.get(4)
-                            if a0 and a0[0] & 0xFFF == 0xFFF:
-                                code = a0[1] & 0xFFF
-                                cmds.add(code)
-                                cats.update(self.mapping.cmds.get(code, ()))
-                            else:
-                                unknown_cmd += 1
-                        elif cat and role in ("effect", "meta"):
-                            cats.add((cat, role))
-                        continue
-                    if target not in seen and BASE <= target < TEXT_END:
-                        seen.add(target)
-                        nxt.append(target)
-            frontier = nxt
+                    visits.append(self.resolve(call.target, call.args))
+            for target, args in visits:
+                name = self.registry.name(target)
+                if target not in callees or callees[target][1] > level:
+                    callees[target] = (name, level)
+                cats.update(self.mapping.arg_categories(name, args))
+                hit = self.mapping.lookup(target, name)
+                if hit:
+                    cat, role = hit
+                    if role == "queue":
+                        a0 = args.get(4)
+                        if a0 and a0[0] & 0xFFF == 0xFFF:
+                            code = a0[1] & 0xFFF
+                            cmds.add(code)
+                            cats.update(self.mapping.cmds.get(code, ()))
+                        else:
+                            unknown_cmd += 1
+                    elif cat and role in ("effect", "meta"):
+                        cats.add((cat, role))
+                    continue
+                if target not in seen and BASE <= target < TEXT_END:
+                    seen.add(target)
+                    nxt.append(target)
+                    later += [cb for cb in self.callbacks(args) if cb not in seen]
+            frontier, callbacks = nxt, list(dict.fromkeys(later))
         unnamed = {a for a, (n, _) in callees.items() if DEFAULT_NAME.match(n)}
         result = {"categories": cats, "commands": cmds, "callees": callees, "unnamed": unnamed,
                   "indirect": indirect, "unknown_commands": unknown_cmd}
@@ -730,6 +762,8 @@ def main(argv=None):
     parser.add_argument("--functions", type=Path, default=HERE.parent / "re" / "functions.csv")
     parser.add_argument("--categories", type=Path, default=HERE / "effect_categories.csv")
     parser.add_argument("--depth", type=int, default=3, help="call levels to follow (default 3)")
+    parser.add_argument("--no-root-names", action="store_true",
+                        help="ignore the name/addr rows that match a slot handler itself (only its callees count)")
     parser.add_argument("--ai-depth", type=int, default=1, help="call levels for the AI handler signatures (default 1)")
     parser.add_argument("--boot", type=Path, help="SYSDIR/BOOT.BIN: name import stubs by their current BOOT.BIN name")
     parser.add_argument("--cardinfo", type=Path, help="duelsys/cardinfo_eng.ehp: add a card-name column")
@@ -745,13 +779,13 @@ def main(argv=None):
         print("problem:", p, file=sys.stderr)
     if not args.check and not args.out:
         parser.error("-o/--out is required unless --check is given")
-    classifier = Classifier(module, registry, mapping, args.depth)
+    classifier = Classifier(module, registry, mapping, args.depth, root_names=not args.no_root_names)
     cards = ep.load_names(args.cardinfo) if args.cardinfo else None
     rows, facts = classify_records(classifier, cards)
     cov = coverage(facts)
     work = worklist(facts)
     ai = ai_handlers(data)
-    ai_classifier = Classifier(module, registry, mapping, args.ai_depth)
+    ai_classifier = Classifier(module, registry, mapping, args.ai_depth, root_names=not args.no_root_names)
     ai_classifier._scans, ai_classifier._stores = classifier._scans, classifier._stores
     clusters = ai_clusters(ai_classifier, ai)
     lines = summary_lines(cov, rows, work, clusters, ai, classifier, args.top, args.ai_depth)

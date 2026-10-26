@@ -5,7 +5,8 @@
 ```
 python3 -I tools/effect_classify.py <USRDIR>/gmodule/rel_duel_eng.prx --check
 python3 -I tools/effect_classify.py <USRDIR>/gmodule/rel_duel_eng.prx -o extracted/effect_classify \
-        [--cardinfo <USRDIR>/duelsys/cardinfo_eng.ehp] [--boot <SYSDIR>/BOOT.BIN] [--depth 3] [--ai-depth 1]
+        [--cardinfo <USRDIR>/duelsys/cardinfo_eng.ehp] [--boot <SYSDIR>/BOOT.BIN] [--depth 3] [--ai-depth 1] \
+        [--no-root-names]
 python3 -I tools/tests/test_effect_classify.py
 ```
 
@@ -46,18 +47,45 @@ Outputs, all game data that stays in `extracted/`:
    - a callee matched by a `name` or `addr` row is a **leaf**. Its category is recorded and its body is not scanned: the helper's own internals, such as the many commands that `duel_core_send_field_card` can post, must not leak into every caller;
    - rows with role `stop` mark infrastructure and predicates (`duel_core_get_*`, `ai_*`, `card_db_*`, the handler-dispatch wrappers, …), which are leaves with no category;
    - unmatched callees inside the module are descended into.
+
+   **The handler itself (root).** A slot handler that a `name`/`addr` row matches, for example a named generic resolver such as `duel_effects_resolve_search_deck` (`0x09c7b510`, Reinforcement of the Army) or `duel_effects_resolve_place_tokens`, gets that row's category too, and it is still scanned like any other handler (a root is never a leaf). `--no-root-names` (`Classifier(root_names=False)`) turns this off for comparison. On the registry of this commit the rule adds categories to 52 records and no coverage: `token` 36 (Scapegoat, Multiply, Ojama Trio: their handlers call the summon routine directly), `change_effect` 7, `send_to_graveyard` 5 (Foolish Burial, Armageddon Knight), `change_target` 3, `destroy` 1. The rule also makes loose regexes visible: `add_.*to_hand|resolve_add_` gave `add_to_hand` to the 31 records of `duel_effects_resolve_add_player_marker` (Waboku, Cost Down, Super Rejuvenation) and to `duel_effects_resolve_add_spell_counter`; the row is now `add_.*(to_hand|from_deck)`.
+
+   **Callbacks.** When a descended (unmatched) callee is passed a function pointer, that is an argument register holding a fully known value >= `0x10000` whose runtime address (module base + value; the PRX relocates the `lui`/`addiu` pair) is a registry function start, the pointed function is visited one level deeper as if that callee called it. Example: Life Absorbing Machine's resolve handler `0x09c8ca84` calls the player-marker iterator `0x09be9bd4` with the callback `0x09c8ca28`, which calls `duel_core_gain_lp`. Callbacks handed to leaves (the filter predicates of the zone scanners and of `duel_core_begin_select_*`, about 470 call sites) are not followed: they are tests, not actions. Six call sites in the scanned code pass a callback to a descended callee.
 7. **Mapping rows.** The mapping file is CSV with `#` comments and seven kinds of row:
    - `name`: a regex searched in the callee's name, with a leading `thunk_` removed. The first matching `name`/`addr` row decides.
    - `addr`: an exact address.
    - `queue`: the role given to `duel_core_push_command`. At each call, the low 12 bits of `a0`, when known, are the command code.
    - `cmd`: command code → category.
-   - `arg`: a callee regex plus `register&mask`. It matches when the register's mask bits are all known and set. This is how the target-filter flag word, already decoded in `effect-tables.md`, is reused: `0x1000` destroy, `0x2000` banish, `0x4000` send to graveyard, `0x10000` take control, `0x40000` change position, `0x80000` return, `0x400` targets.
-   - `store`: conditions such as `0x09e2d2b8=0x0f` or `0x09e2d2bc&0x2` that must all hold for the constant stores of one scanned function.
+   - `arg`: a callee regex plus one or more space-separated conditions on the argument registers `a0`-`a7` at the call: `a3&0x1000` (the mask bits are known and set), `a3!&0x1002` (known and clear) or `a2=0xe` (the whole register is known and equal). The generic send requests `duel_core_request_send_mask(ctx, mask, dest, flags)` and its `by_card` forms are read this way (destination in `a2`, flags in `a3`; `duel_core_request_send_slot_to_side` has the destination in `t0` = `a4`), with the meanings of the `store` rows below. Icarus Attack, Mobius the Frost Monarch, Nobleman-Eater Bug and Celestia (all through `0x09c74548`: destination `0x0e`, flags `0x10000002`) get `destroy`; Rivalry of Warlords and Gozen Match (destination `0x0e`, flags `0x10000`) get `send_to_graveyard`. The single-condition form is also how the target-filter flag word, already decoded in `effect-tables.md`, is reused: `0x1000` destroy, `0x2000` banish, `0x4000` send to graveyard, `0x10000` take control, `0x40000` change position, `0x80000` return, `0x400` targets.
+   - `store`: conditions such as `0x09e2d2b8=0x0f` or `0x09e2d2bc&0x2` that must all hold for the constant stores of one scanned function. Besides the send batch below, store rows read the **pending-action request** (`0x09e2d2e0 = 1` active, kind in `0x09e2d2e8`; `effect-helpers-deck.md`, `-values.md`): kinds 1-3 `discard`, 4 `send_from_hand`, 5 `banish`, `0x0b` `control_change`, `0x11` `battle`. The named setters are leaves already; the rows catch unnamed ones such as `0x09c0f18c` (kind 2: Worm Hope, Criosphinx, Arcana Force III - The Empress).
    - `dispatch`: a callee regex and, in the category column, the address of an 8-byte `(card id, handler)` list. When a slot's closure reaches a matching callee, the record's own handler in that list is classified as well and its categories are added to the slot. The row for `duel_effects_build_candidate_list` and its relatives points at the candidate-builder list `0x09dec554`. Together with the five scanner `name` rows, it gives the categories `search_deck`, `search_extra`, `search_hand`, `search_graveyard` and `search_banished`. With these rows, 435 records have a `search_*` category in the resolve slot and 601 in any slot. Resolve coverage rises from 2,498 to 2,500 of 2,600 (`docs/formats/search-filters.md`).
 
    `cmd`, `arg` and `store` rows add to whatever the `name`/`addr` row decided and never change whether a callee is a leaf. Roles:
    - `effect`: counts for coverage;
-   - `meta`: recorded but not counted (`once_per_turn`, `optional`, `choose_targets`, `timing_event`, `set_flag`, `select_ui`, `detach_effect`, `targets`).
+   - `meta`: recorded but not counted (`once_per_turn`, `optional`, `choose_targets`, `timing_event`, `set_flag`, `select_ui`, `detach_effect`, `targets`, `reveal`, `set_value`).
+
+### Categories and rows added in the precision round
+
+Each new category rests on a command whose handler was located in the jump table of `duel_core_execute_command` (`0x09e00944`; the entry for code *c* leads to a case that calls the handler), or on a named helper:
+
+| Category | Source | Basis | Records (resolve) | Examples |
+| --- | --- | --- | --- | --- |
+| `declare_attack` | commands `0x17`/`0x18` | `duel_core_cmd_declare_attack` / `_declare_direct_attack` (`battle.md`): an effect starts, forces or redirects an attack | 19 | Jam Defender, Defense Maiden, Dreamsprite, Mirror Gate, Super Junior Confrontation, Confusion Chaff |
+| `battle` (existing) | `duel_core_request_effect_battle`, pending kind `0x11` | `battle.md` | 14 | as above |
+| `change_phase` | command `0x1a` | `duel_core_set_phase` (`duel-phases.md`) | 11 | Negate Attack, The Unhappy Maiden, Cyber Valley, D - Fortune (all end the Battle Phase) |
+| `negate_attack` | command `0x1f` | `duel_core_cmd_negate_attack` (`battle.md`) | 14 | Magic Cylinder, Draining Shield, Necro Gardna, Kid Guard |
+| `move_zone` | command `0x3c` | a slot moved to an empty slot (`duel_core.md`); control changes go through leaves named `take_control` | 4 | Rampaging Rhynos, Senet Switch, Alien Infiltrator |
+| `control_change` (existing) | command `0x3d`, `duel_effects_swap_control` | two occupied slots swapped (`duel_core.md`) | +7 | Creature Swap, Creature Seizure, Mirror Gate |
+| `place_on_field` | command `0x40`, `duel_core_post_place_list_card_on_field` | a list card put in a field slot without a summon (`duel_core.md`) | 42 | Dimensionhole, Different Dimension Gate, Destiny Board, Crystal Blessing |
+| `shuffle_field` | command `0x48` | handler `0x09dbea78` permutes field slots with `duel_core_random` and moves their markers (`0x09be7908`); M | 6 | Shifting Shadows, Magical Hats, Wandering Mummy |
+| `deck_order` | command `0x58` | a Deck card put on top (`effect-helpers-deck.md`) | 19 | Big Eye, Pigeonholing Books of Spell, A Cat of Ill Omen, Blizzard Warrior |
+| `normal_summon` | `duel_core_begin/init_summon_from_hand`, `duel_core_action/init_gemini_summon` | the player's summon routine run by an effect (`summon.md`) | 6 | Ultimate Offering, Mausoleum of the Emperor, Cry Havoc!, Gemini Summoner |
+| `change_effect` | `addr` row `0x09ca2924` | sets bit 0 of byte `+6` of the other link, the copied-effect flag (`chain.md`): the chained effect resolves as another card's; M | 7 | Mystical Refpanel, Spell of Pain, Ring of Defense, Dark Deal, Energy-Absorbing Monolith |
+| `change_target` | `addr` row `0x09c821b8` | copies the own link's target word `+8` into the other link; M | 4 | Fairy's Hand Mirror, Fiend's Hand Mirror, Remote Revenge, Shift |
+| `set_value` (meta) | command `0x39` | `duel_core_cmd_set_slot_value` (`effect-helpers-values.md`) | 64 | Hourglass of Courage, Metalmorph, Snatch Steal |
+| `reveal` (meta) | command `0x53`, `duel_core_post_set_hand_reveal` | hand reveal state | +14 | The Eye of Truth, Crush Card Virus |
+
+Hygiene rows: the UI text, link-duel transport, timing-batch and statistics helpers (`duel_core_show_hint`, `duel_core_net_send_*`, `duel_core_timing_batch_*`, `duel_core_append_*`, `duel_core_format_text_*`, `duel_core_add_statistic`) and the link bookkeeping (`duel_effects_link_refresh_location`, `_collect_target_mask`, `_collect_slot_mask`, `_record_link_slot`) are `stop` leaves. `duel_effects_add_link_target` is a `choose_targets` meta leaf: it posts a Spirit Reaper marker (`0x35`), which put `attach_effect` into the target-choice slot of 223 records. `duel_effects_link_target_is_valid` and `duel_effects_target_still_matches_filter` are deliberately **not** stopped: they re-run the zone scanner of the target, and stopping them removed 83 correct `search_graveyard` hits (Gravedigger Ghoul, Backup Soldier, Salvage) and 12 correct `search_deck` hits (Gladiator Beasts, Test Tiger).
 
 ### The field-card send batch (new finding)
 
@@ -102,7 +130,47 @@ These rows lifted resolve coverage from 81 % to 92 %. The other mode bits (`0x20
 | Coverage at other depths (resolve) | depth 1: 44.3 %, depth 2: 84.3 %, depth 4: 92.3 % |
 | Functions scanned | about 3,300 |
 
-**After the helper-naming round** (names from `effect-helpers-movement.md`, `effect-helpers-deck.md`, `effect-helpers-values.md`, plus their mapping rows in `tools/effect_categories.csv`): resolve coverage **2,498 = 96.1 %** of all records (97.5 % of those with a resolve handler); any slot 97.3 %. The figures above are the first run, kept for comparison. Known imprecisions found by spot checks: Scapegoat reaches `special_summon` but not `token` (its handler calls the summon routine directly); searches implemented as a list move (Reinforcement of the Army, Foolish Burial) only get `move_list_card`, because the search builders of `0x09dec554` are data driven and their filter word is not yet mapped to a category.
+**After the helper-naming round** (names from `effect-helpers-movement.md`, `effect-helpers-deck.md`, `effect-helpers-values.md`, plus their mapping rows in `tools/effect_categories.csv`): resolve coverage **2,498 = 96.1 %** of all records (97.5 % of those with a resolve handler); any slot 97.3 %. The figures above are the first run, kept for comparison. Known imprecisions found by spot checks: Scapegoat reaches `special_summon` but not `token` (its handler calls the summon routine directly); searches implemented as a list move (Reinforcement of the Army, Foolish Burial) only got `move_list_card`, because the search builders of `0x09dec554` are data driven and their filter word is not yet mapped to a category.
+(Both were fixed later: the dispatch rows give the searches, the root-name rule gives Scapegoat `token`.)
+
+**After the precision round** (the rows and rules of "Categories and rows added in the precision round", the callback rule and the tightened `add_to_hand` row): resolve coverage **2,550 = 98.1 %** of all records (99.5 % of the 2,562 with a resolve handler; before: 2,500 = 96.2 %); any slot **2,559 = 98.4 %** (before 2,530). Per table S/T 896/938, M1 861/869, M2 365/365, M3 428/428. In `tools/card_effects.py` the records with no effect category in any slot fell from 71 to 41 and the released cards whose spec is `full` rose from 1,677 to 1,754.
+
+### Records without a resolve category (50)
+
+| Class | Records | Why no category | Examples |
+| --- | --- | --- | --- |
+| No resolve handler | 38 | The record has only a condition or activation handler. 14 of them use the condition `0x09ce28dc` (`return 0`: never activatable by the player); the card works through rule code that tests its id elsewhere (destruction triggers, Destiny Board's placement, continuous effects). The others are continuous cards whose effect lives in rule checks (Toon World, Toon Kingdom, Appropriate, Narrow Pass, Talisman of Spell/Trap Sealing, Field Barrier, DNA Surgery) | Spirit Message "I", The Second Sarcophagus, Statue of the Wicked, Kozaky's Self-Destruct Button, The Sky Lord |
+| Empty handler | 3 | `0x09c7eb14` is `jr ra; move v0,zero`: the negation is a rule check keyed by card id | Royal Decree, Imperial Order, The Emperor's Holiday |
+| Flag only | 3 | Only `duel_core_post_set_player_flag(side, 0, 1)` or `duel_core_post_set_slot_flag(.., 8, ..)` (`set_flag` meta); the flag's consumer is elsewhere | Time Seal, Fenrir, Skill Drain |
+| Information only | 5 | Only `reveal`/`select_ui` (look at cards; `0x53` hand reveal, card-list display `0x07`) | The Inexperienced Spy, Ancient Telescope, Senri Eye, The Eye of Truth, Cyber Esper |
+| Value only | 1 | Only `duel_core_post_set_slot_value` (`set_value` meta): the stat change is computed elsewhere from the slot value | Hourglass of Courage |
+
+### Precision spot check (depth 3, this commit)
+
+44 resolve records were drawn at random, two from each of the 22 most frequent effect categories (seed 7), and every effect category of each record was compared with the card's effect as known from public card knowledge (two records with an uncertain reading were left out). Results as correct / assigned labels:
+
+| Category | Precision | Category | Precision |
+| --- | --- | --- | --- |
+| special_summon | 12/12 | attach_effect | 9/9 |
+| damage | 5/5 | equip | 5/5 |
+| search_deck | 8/9 | shuffle | 8/9 |
+| destroy | 6/8 | banish | 4/5 |
+| search_hand | 3/3 | negate | 3/3 |
+| draw | 3/4 | mill | 3/4 |
+| add_to_hand | 2/2 | atk_change | 2/2 |
+| discard | 2/3 | place_on_field | 2/2 |
+| search_graveyard | 3/5 | return_to_deck | 1/2 |
+| send_to_graveyard | 2/5 | return_to_hand | 1/2 |
+| position_change | 1/4 | gain_lp | 0/4 |
+| control_change | 0/5 | | |
+
+Overall 86 of 113 labels are correct (76 %); 25 of 42 records carry no wrong label, and every record has at least one correct label. The false positives have three causes, none of them depth:
+
+1. **Family-shared handlers (most of them).** `duel_effects_resolve_lp_change` (217 records) calls both `duel_core_inflict_damage` and `duel_core_gain_lp` at depth 1, so every burn card also gets `gain_lp` and every heal card `damage`; per-card sign data exists in `duel_effects_get_lp_change_amounts`. `duel_effects_resolve_equip_to_target` (19 records) reaches `duel_core_request_take_control` for Snatch Steal, so every equip spell gets `control_change`; the union handler `0x09c91cd0` (17 records) likewise. The fusion-spell handler (11 records: Dark Fusion with Miracle Fusion, De-Fusion …) carries `banish`, `mill`, `return_to_deck`, `search_graveyard`. The flip-effect families add `position_change` (Reaper of the Cards).
+2. **Loose name rows**, made visible by the root-name rule (the old `resolve_add_` row, fixed in this round).
+3. **Implementation detail versus card text**: Seal of the Ancients shows face-down cards with the face command `0x34` (`position_change`); the union "destroy instead" substitution reads as `destroy`.
+
+Because the wrong categories of the families appear at depth 1, a per-category depth limit (`--depth-per-category`) would not remove them and was not added. The useful next step is per-card branch reading inside the family handlers (Open questions).
 
 Resolve-slot categories, as the number of records reaching each: attach_effect 735, special_summon 532, destroy 523, timing_event 490 (meta), select_ui 394 (meta), damage 348, move_list_card 293, gain_lp 282, set_flag 236 (meta), detach_effect 195 (meta), draw 172, position_change 163, banish 159, send_to_graveyard 95, negate 89, return_to_hand 85, return_to_deck 79, optional 76 (meta), send_from_hand 66, tribute 12, set_lp 5, pay_lp 4, place_spell_trap 1.
 
@@ -170,4 +238,6 @@ Naming these callees is the useful next step for the AI. A grouping by overlap o
 
 - The meaning of the batch mode bits `0x20000`, `0x4000000`, `0x10000000` and `8`, and of the slot-mask global `0x09e2bba4`.
 - Commands `0x52`, `0x55` and `0x39`–`0x3a`/`0x41`, which effect handlers reach often (Sangan; Snatch Steal, Premature Burial), are not yet documented.
-- Precision per category: a sample of records per category should be checked against the card text to estimate false positives at depth 3.
+- Per-card resolution inside family handlers: `duel_effects_get_lp_change_amounts` holds the signed LP change of every card of the LP family (`effect-helpers-values.md`); evaluating its compare chain per card would split `damage` from `gain_lp` for 217 records. The same per-card branch reading would fix the equip and union families (`control_change`).
+- Player flag bit 0 (Time Seal, Fenrir) and slot flag 8 (Skill Drain): their meanings would turn these flag-only records into categories.
+- Commands `0x07` and `0x08` (UI-only handlers `0x09dbc66c`, `0x09dbc6d8`) are reached by 15 and 42 records (Crush Card Virus, Painful Choice); they look like card-list displays and are left unmapped.

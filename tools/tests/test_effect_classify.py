@@ -17,7 +17,7 @@ ec = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ec)
 
 BASE = ec.BASE
-ZERO, V0, A0, A1, A3, SP, RA = 0, 2, 4, 5, 7, 29, 31
+ZERO, V0, A0, A1, A2, A3, SP, RA = 0, 2, 4, 5, 6, 7, 29, 31
 FULL = 0xFFFFFFFF
 
 
@@ -73,23 +73,31 @@ UNNAMED = 0x09C40300   # FUN_: calls DRAW
 BATCH = 0x09C40400     # FUN_: stores the batch destination 0x0f (banished)
 H_DEEP = 0x09C40500    # handler: jal UNNAMED (draw only at depth 2)
 H_BATCH = 0x09C40600   # handler: jal BATCH
+ROOT = 0x09C40680      # duel_effects_resolve_mill: named handler (mill by its own name row), calls UNNAMED (draw)
+CB_CALLER = 0x09C406A0  # handler: a2 = module offset of CB_TARGET, jal ITER
+ITER = 0x09C406C0      # FUN_: would call its a2 callback through jalr
+CB_TARGET = 0x09C406E0  # FUN_: calls DRAW
 END = 0x09C40700       # last registry entry
 
 REGISTRY = {PUSH: "duel_core_push_command", PUSH_THUNK: "thunk_duel_core_push_command", DRAW: "duel_core_draw_cards",
             FILTER: "duel_effects_target_filter", STUB: "FUN_09c40040", MERGE: "FUN_09c40100",
             CALLS: "FUN_09c40200", UNNAMED: "FUN_09c40300", BATCH: "FUN_09c40400", H_DEEP: "FUN_09c40500",
-            H_BATCH: "FUN_09c40600", END: "FUN_09c40700"}
+            H_BATCH: "FUN_09c40600", ROOT: "duel_effects_resolve_mill", CB_CALLER: "FUN_09c406a0",
+            ITER: "FUN_09c406c0", CB_TARGET: "FUN_09c406e0", END: "FUN_09c40700"}
 
 MAPPING = """kind,pattern,category,role,note
 # a comment
 name,^duel_core_push_command$,,queue,
 name,^duel_effects_target_filter$,,stop,
 name,^duel_core_draw_cards,draw,effect,
+name,(^|_)mill(_|$),mill,effect,
 name,^duel_core_,,stop,
 cmd,0x3e,move_list_card,effect,
 arg,^duel_effects_target_filter$|a3&0x1000,destroy,effect,
 arg,^duel_effects_target_filter$|a3&0x400,targets,meta,
 store,0x09e2d2b8=0x0f,banish,effect,
+arg,^generic$|a3&0x2,destroy,effect,
+arg,^generic$|a2=0xe a3!&0x1002,send_to_graveyard,effect,
 """
 
 
@@ -129,6 +137,11 @@ def build():
     img.put(BATCH, lui(3, 0x25), addiu(A0, ZERO, 0xF), sw(A0, 3, 0xBEB8 - 0x10000), JR_RA, 0)
     img.put(H_DEEP, jump(3, UNNAMED), 0, JR_RA, 0)
     img.put(H_BATCH, jump(3, BATCH), 0, JR_RA, 0)
+    img.put(ROOT, jump(3, UNNAMED), 0, JR_RA, 0)
+    off = CB_TARGET - BASE
+    img.put(CB_CALLER, lui(A2, off >> 16), ori(A2, A2, off & 0xFFFF), jump(3, ITER), 0, JR_RA, 0)
+    img.put(ITER, JR_RA, 0)
+    img.put(CB_TARGET, jump(3, DRAW), 0, JR_RA, 0)
     img.put(END, JR_RA, 0)
     # effect tables: sorted ids; S/T records 0-3 carry the test handlers
     for name, address, count in ec.TABLES:
@@ -142,11 +155,11 @@ def build():
     return img.elf()
 
 
-def classifier(depth=3):
+def classifier(depth=3, root_names=True):
     module = ec.ep.Module(build())
     registry = ec.Registry(dict(REGISTRY), module)
     mapping = ec.Mapping.load_text(MAPPING)
-    return ec.Classifier(module, registry, mapping, depth)
+    return ec.Classifier(module, registry, mapping, depth, root_names=root_names)
 
 
 class KnownBitsTest(unittest.TestCase):
@@ -213,6 +226,27 @@ class ClassifyTest(unittest.TestCase):
         self.assertEqual(deep["categories"], {("draw", "effect")})
         self.assertEqual(deep["unnamed"], {UNNAMED})
         self.assertEqual(deep["callees"][DRAW], ("duel_core_draw_cards", 2))
+
+    def test_root_name_adds_category(self):
+        self.assertEqual(classifier().closure(ROOT)["categories"], {("mill", "effect"), ("draw", "effect")})
+        self.assertEqual(classifier(root_names=False).closure(ROOT)["categories"], {("draw", "effect")})
+
+    def test_callback_argument_followed(self):
+        c = classifier().closure(CB_CALLER)
+        self.assertEqual(c["categories"], {("draw", "effect")})
+        self.assertEqual(c["callees"][CB_TARGET][1], 2)  # visited as a callee of ITER
+        self.assertEqual(classifier(2).closure(CB_CALLER)["categories"], set())
+
+    def test_arg_conditions(self):
+        mapping = ec.Mapping.load_text(MAPPING)
+        full = lambda v: (FULL, v)
+        self.assertEqual(mapping.arg_categories("generic", {6: full(0xE), 7: full(0x10000)}),
+                         [("send_to_graveyard", "effect")])
+        self.assertEqual(mapping.arg_categories("generic", {6: full(0xE), 7: full(0x10002)}), [("destroy", "effect")])
+        self.assertEqual(mapping.arg_categories("generic", {6: full(0xE), 7: (0xFFFF0000, 0)}), [])  # flag bits unknown
+        self.assertEqual(mapping.arg_categories("generic", {6: (0xFF, 0xE), 7: full(0)}), [])  # dest partly known
+        with self.assertRaises(ValueError):
+            ec.Mapping.load_text("kind,pattern,category,role,note\narg,^x$|a3>2,destroy,effect,\n")
 
     def test_first_name_row_wins(self):
         mapping = ec.Mapping.load_text(MAPPING)

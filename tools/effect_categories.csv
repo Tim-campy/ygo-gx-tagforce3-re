@@ -2,8 +2,9 @@ kind,pattern,category,role,note
 # Mapping for tools/effect_classify.py (see docs/subsystems/effect-classification.md). Lines starting with # are comments.
 # kind: name = Python regex searched in the callee's registry name (a leading "thunk_" is removed first);
 #       addr = callee address in hex; cmd = engine command code (op & 0xfff) posted through a "queue" callee;
-#       arg  = "<name regex>|<register>&<mask>": the callee is called with that register holding a value whose
-#              mask bits are all known to be set.
+#       arg  = "<name regex>|<cond> [<cond> ...]": every condition holds for the callee's argument registers
+#              a0-a7 at the call: "a3&0x1000" mask bits known and set, "a3!&0x1002" mask bits known and clear,
+#              "a2=0xe" the whole register known and equal.
 #       dispatch = "<name regex>" of a callee that calls a per-card handler from an 8-byte list; the category column
 #              holds the list address (hex): the record's own handler in that list is classified too and its
 #              categories are added to the slot (effect_classify.dispatched).
@@ -26,7 +27,16 @@ name,^duel_effects_collect_extra_deck_candidates$,search_extra,effect,Extra Deck
 name,^duel_effects_test_hand_candidate$,search_hand,effect,Hand scanner 0x09ccf428
 name,^duel_effects_collect_graveyard_candidates$,search_graveyard,effect,Graveyard scanner 0x09ccf768
 name,^duel_effects_collect_banished_candidates$,search_banished,effect,Banished scanner 0x09ccfcdc
+# --- link targets and prompts (effect-helpers-predicates.md): meta leaves. duel_effects_add_link_target also posts a
+#     Spirit Reaper marker (0x35), which leaked attach_effect into 225 records before this row.
+name,^duel_effects_add_link_target$,choose_targets,meta,Records a chosen target in the link and posts the 0x28 marker
+name,^duel_core_post_target_marker$,targets,meta,Command 0x28 target marker
+name,^duel_core_ask_yes_no(_with_card_name)?$,optional,meta,
+name,^duel_core_ask_option$,select_ui,meta,
+name,^duel_core_post_set_hand_reveal$,reveal,meta,Command 0x53 hand reveal state (effect-helpers-deck.md)
 # --- infrastructure and predicates: do not descend
+name,^duel_core_(show_hint|net_send_command|net_send_packet|timing_batch_begin|timing_batch_end|append_text|append_int|format_text_string|format_text_int|add_statistic|set_selected_candidate_index)$,,stop,UI text, link-duel transport, timing batch bracketing, statistics
+name,^duel_effects_(link_refresh_location|collect_target_mask|collect_slot_mask|record_link_slot)$,,stop,Link bookkeeping. Not link_target_is_valid or target_still_matches_filter: they re-run the zone scanners of the target (search_* rows)
 name,^duel_effects_target_filter$,,stop,Per-card filter; its flag word (a3) is decoded by the arg rows
 name,^duel_core_(get|is|can|count|has|find|filter)_|^duel_effects_(get|is|can|count|has|find|cond|filter|match)_,,stop,Predicates and getters
 name,^duel_effects_call_handler|^duel_effects_call_activation_step$|^duel_effects_find_record$|^duel_effects_select_record_variant$,,stop,Handler dispatch
@@ -46,6 +56,17 @@ cmd,0x3e,move_list_card,effect,List-to-list move: hand deck extra graveyard bani
 cmd,0x42,negate,effect,Negation shown (chain.md)
 cmd,0x51,place_spell_trap,effect,Place a spell/trap from the hand (summon.md)
 cmd,0x56,draw,effect,Draw (duel_core.md)
+cmd,0x17,declare_attack,effect,duel_core_cmd_declare_attack posted by an effect: forced or redirected attack (battle.md)
+cmd,0x18,declare_attack,effect,duel_core_cmd_declare_direct_attack posted by an effect (battle.md)
+cmd,0x1a,change_phase,effect,Command 0x1a = duel_core_set_phase: the effect ends the Battle Phase or skips a phase (duel-phases.md)
+cmd,0x1f,negate_attack,effect,duel_core_cmd_negate_attack (battle.md)
+cmd,0x39,set_value,meta,duel_core_cmd_set_slot_value: counters, turn counts, declared values (effect-helpers-values.md)
+cmd,0x3c,move_zone,effect,Field card moved to another (empty) slot (duel_core.md); control changes are leaves named take_control
+cmd,0x3d,control_change,effect,Two occupied slots swapped (Creature Swap; duel_core.md)
+cmd,0x40,place_on_field,effect,List card placed directly in a field slot without a summon (duel_core.md)
+cmd,0x48,shuffle_field,effect,Handler 0x09dbea78 permutes field slots with duel_core_random and moves their markers (M)
+cmd,0x53,reveal,meta,Hand reveal state (effect-helpers-deck.md)
+cmd,0x58,deck_order,effect,A Deck card is put on top (effect-helpers-deck.md)
 # --- field-card send batch (started by the request family 0x09c24790-0x09c274a4, run by 0x09c232bc):
 #     0x09e2d298 = 1 starts it, 0x09e2d2b8 = destination location (duel_core.md), 0x09e2d2bc = mode
 #     (bit 1 destroy as in duel_core_send_field_card's flags, 0x1000 Tribute: duel_core_tribute_monsters; 4 battle).
@@ -55,12 +76,33 @@ store,0x09e2d2b8=0x0b,return_to_hand,effect,Batch destination 0x0b hand
 store,0x09e2d2b8=0x0d,return_to_deck,effect,Batch destination 0x0d deck
 store,0x09e2d2b8=0x0f,banish,effect,Batch destination 0x0f banished
 store,0x09e2d2b8=0x0e 0x09e2d2bc=0x0,send_to_graveyard,effect,Batch destination 0x0e graveyard with mode 0 (not destroy)
+# --- generic send requests (effect-helpers-movement.md): (ctx, mask, dest, flags) / (side, slot|mask, dest, flags, card);
+#     the destination is a2 and the flags a3 at the call, so arg rows read them like the store rows above.
+arg,^duel_core_request_send_(mask|slot_by_card|mask_by_card)$|a3&0x2,destroy,effect,Flags bit 1 destroy
+arg,^duel_core_request_send_(mask|slot_by_card|mask_by_card)$|a3&0x1000,tribute,effect,
+arg,^duel_core_request_send_(mask|slot_by_card|mask_by_card)$|a2=0xe a3!&0x1002,send_to_graveyard,effect,
+arg,^duel_core_request_send_(mask|slot_by_card|mask_by_card)$|a2=0xf,banish,effect,
+arg,^duel_core_request_send_(mask|slot_by_card|mask_by_card)$|a2=0xb,return_to_hand,effect,
+arg,^duel_core_request_send_(mask|slot_by_card|mask_by_card)$|a2=0xd,return_to_deck,effect,
+arg,^duel_core_request_send_slot_to_side$|a4=0xe,send_to_graveyard,effect,(ctx side slot to_side dest): dest in t0
+arg,^duel_core_request_send_slot_to_side$|a4=0xf,banish,effect,
+arg,^duel_core_request_send_slot_to_side$|a4=0xb,return_to_hand,effect,
+arg,^duel_core_request_send_slot_to_side$|a4=0xd,return_to_deck,effect,
+# --- pending-action requests (0x09e2d2e0 = 1 active, 0x09e2d2e8 = kind; effect-helpers-deck.md / -values.md /
+#     -movement.md). Named setters are leaves already; these rows catch the unnamed ones and inline requests.
+store,0x09e2d2e0=0x1 0x09e2d2e8=0x1,discard,effect,Kind 1: chosen hand cards discarded
+store,0x09e2d2e0=0x1 0x09e2d2e8=0x2,discard,effect,Kind 2: chosen hand cards discarded or sent (0x09c0f18c: Worm Hope, Criosphinx)
+store,0x09e2d2e0=0x1 0x09e2d2e8=0x3,discard,effect,Kind 3: random discard
+store,0x09e2d2e0=0x1 0x09e2d2e8=0x4,send_from_hand,effect,Kind 4: random hand card to the Graveyard
+store,0x09e2d2e0=0x1 0x09e2d2e8=0x5,banish,effect,Kind 5: random hand cards banished
+store,0x09e2d2e0=0x1 0x09e2d2e8=0xb,control_change,effect,Kind 0x0b: take control
+store,0x09e2d2e0=0x1 0x09e2d2e8=0x11,battle,effect,Kind 0x11: battle by effect (duel_core_request_effect_battle)
 # --- named helpers: effects
 # --- named helpers from the movement, deck and value helper docs (effect-helpers-*.md); specific rows first
 name,(^|_)tokens?(_|$),token,effect,Token table 0x09e019ec (effect-helpers-deck.md)
 name,(^|_)mill(_|$)|send_deck_ref_to_graveyard|send_named_cards_from_deck|banish_deck_top|banish_deck_ref,mill,effect,Deck to graveyard or banished (effect-helpers-deck.md)
 name,(^|_)revive(_|$)|resolve_special_summon|special_summon_from,special_summon,effect,Revive and summon-from-location handlers (effect-helpers-deck.md)
-name,add_.*to_hand|resolve_add_,add_to_hand,effect,Graveyard/banished/deck to hand (effect-helpers-deck.md)
+name,add_.*(to_hand|from_deck),add_to_hand,effect,Graveyard/banished/deck to hand (effect-helpers-deck.md); not resolve_add_player_marker or resolve_add_spell_counter
 name,(^|_)equip(_|$),equip,effect,Equip attach (effect-helpers-movement.md)
 name,(^|_)(coin|dice|die)(_|$),coin_or_dice,effect,Pending-action types 0x12/0x13 (effect-helpers-values.md)
 name,set_face_down|flip_card_face|change_position|resolve_change_target_position,position_change,effect,(effect-helpers-movement.md / -values.md)
@@ -89,7 +131,13 @@ name,negate|resolve_solemn_judgment|^duel_core_post_show_negation$,negate,effect
 name,^duel_core_change_position$,position_change,effect,
 name,take_control|control_change|switch_control,control_change,effect,
 name,(^|_)counters?(_|$),counter,effect,
-name,^duel_core_run_effect_battle$,battle,effect,
+name,^duel_core_run_effect_battle$|^duel_core_request_effect_battle$,battle,effect,Pending action 0x11 (battle.md)
+name,^duel_effects_swap_control$,control_change,effect,Creature Swap and Creature Seizure (effect-helpers-movement.md)
+name,^duel_core_post_place_list_card_on_field$,place_on_field,effect,Command 0x40
+name,^duel_core_(begin|init)_summon_from_hand$|^duel_core_(action|init)_gemini_summon$,normal_summon,effect,The player summon routine run by an effect (summon.md): extra or modified Normal Summon
+# --- unnamed helpers (hypotheses; remove when the function is named)
+addr,0x09ca2924,change_effect,effect,Sets bit 0 of byte +6 of the other link (copied effect; chain.md): Mystical Refpanel, Spell of Pain, Ring of Defense, Dark Deal (M)
+addr,0x09c821b8,change_target,effect,Copies the own link's target (+8) to the other link: Fairy's/Fiend's Hand Mirror, Remote Revenge, Shift (M)
 # --- named helpers: meta (not counted for coverage)
 name,^duel_effects_mark_used_this_turn$,once_per_turn,meta,
 name,^duel_effects_confirm_(optional|recruiter)_trigger$,optional,meta,
