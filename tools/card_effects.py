@@ -448,6 +448,9 @@ def build_specs(src):
     for cid, rows in src.get("engine_refs", {}).items():  # ids no other source knows are not added
         if cid in specs:
             specs[cid]["engine_refs"] = engine_ref_groups(rows)
+            semantics = cr.describe(src["engine_refs"], cid)
+            if semantics:
+                specs[cid]["engine_semantics"] = semantics
     placeholder = {e["index"]: e for e in specs.get(PLACEHOLDER_ID, {}).get("effects", []) if e["table"] == "S/T"}
     for cid, s in specs.items():
         ident = s["identity"]
@@ -471,7 +474,7 @@ def engine_ref_groups(rows):
         g = by.setdefault((r["module"], r["function"]), {
             "module": r["module"], "function": f"{r['function']:#010x}", "function_name": r["function_name"],
             "group": r["group"], "named": not ec.DEFAULT_NAME.match(r["function_name"]), "kinds": {},
-            "references": [], "callees": [], "values": [], "operands": []})
+            "references": [], "callees": [], "values": [], "operands": [], "semantics": []})
         g["kinds"][r["kind"]] = g["kinds"].get(r["kind"], 0) + 1
         g["references"].append(f"{r['address']:#010x}")
         if r["kind"] == "arg" and r["detail"] not in g["callees"]:
@@ -480,6 +483,11 @@ def engine_ref_groups(rows):
             g["values"].append(r["value"])
         if r["operand"] and r["operand"] not in g["operands"]:
             g["operands"].append(r["operand"])
+        sem = r.get("semantics")
+        if sem:
+            entry = {k: sem.get(k) for k in ("tag", "phrase", "modality", "confidence", "label")}
+            if entry not in g["semantics"]:
+                g["semantics"].append(entry)
     return sorted(by.values(), key=lambda g: (not g["named"], g["group"], g["module"], g["function"]))
 
 

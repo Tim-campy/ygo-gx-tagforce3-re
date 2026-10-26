@@ -197,15 +197,9 @@ Run `--check` for the current status counts; they move as helpers are named.
 - **AI semantics.** `ai[]` gives membership and handler names only. The handlers' conditions are not decoded.
 - **Stat-modifier constants** come from a fall-through scan of the case body and can miss values computed elsewhere.
 
-### Note for the integrator: engine reference semantics
+### Engine reference semantics
 
-`card_refs.card_refs()` and `all_refs()` now add three fields to every reference dict: `calls` (named callees on the matched path), `semantics` (`{tag, phrase, modality, confidence, param, value, label, rule}` or `None`) and, for `bne` compares, a `value` where there was none before. `card_effects.engine_ref_groups()` builds new dicts and copies only named keys, so these fields do not reach the spec yet. To carry them, `card_effects.py` needs:
-
-- in `engine_ref_groups()`: a `"semantics": []` list per group, and for each row with `r.get("semantics")` the entry `{tag, phrase, modality, confidence, label}` appended when not already present; optionally `"calls"` merged like `callees`;
-- optionally a card-level `engine_semantics` field: `card_refs.describe(src["engine_refs"], cid)` gives the merged per-card list (descriptive tags first), with `generic` marking `ai_hint`, `archetype`, `name_alias`, `named_reference` and `unclassified`;
-- optionally CSV columns `engine_tags` (the descriptive tags) and a schema bump.
-
-No other change is needed: `all_refs()` loads `tools/engine_ref_semantics.csv` by default.
+Each `engine_refs` group carries a `semantics` list (`{tag, phrase, modality, confidence, label}`, one per distinct rule of `tools/engine_ref_semantics.csv` matched by its references), and a card with at least one tagged reference gets a card-level `engine_semantics` list from `card_refs.describe()` (descriptive tags first; `generic` marks `ai_hint`, `archetype`, `name_alias`, `named_reference` and `unclassified`). See `card-refs.md`, "Semantics", for coverage and precision.
 
 ## CSV summary columns
 
