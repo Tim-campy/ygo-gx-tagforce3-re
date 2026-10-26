@@ -180,6 +180,8 @@ Modules have no fixed load address; they go wherever the kernel's allocator puts
 
 ## Runtime bases (`ghidra/symbols.sym`)
 
+**Verified in PPSSPP (2026-10-26, [`results/2026-10-26-session0.md`](../verification/results/2026-10-26-session0.md))**: two further fresh boots gave the same bases for `rel_duel_eng`, `rel_duel_draw`, `rel_duel_mgr` (single duel) and `rel_story`, `rel_field` (free roam), with 100 % (or 1178/1180) of function starts matched.
+
 Method (`tools/modules.py base`):
 
 1. Take the targets of `jal` instructions inside the module's `.text` as function starts. Import stubs are left out: their regular 8-byte layout matches any other module's stub block.

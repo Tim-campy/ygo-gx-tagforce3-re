@@ -8,6 +8,8 @@ Status: `documented` for the deck slots and the card collection; the rest of the
 
 ## In the game
 
+**Verified in PPSSPP (2026-10-26, [`results/2026-10-26-session0.md`](../verification/results/2026-10-26-session0.md))**: the shift word at `0x08ac18c0` read 11 and 7 on two boots, and the 16 bytes at `S + 0x10` equal `DATA0` `+0x10` (the OpenPSID), so `S = 0x08aa5794 + 4 × [0x08ac18c0]` is the block that `DATA0` copies.
+
 | Address | Meaning |
 | --- | --- |
 | `0x08acda04` | `SceUtilitySavedataParam` block (`0x9d0` bytes, zeroed). |
