@@ -185,12 +185,22 @@ Run `--check` for the current status counts; they move as helpers are named.
 
 - **Family handlers.** Handlers are shared by card families: Pot of Greed's resolve handler serves 73 cards, and a handler can branch on the card id. Categories are static reach, so a shared handler reports the union of its family's categories (`effect-classification.md`, "Limits"). The per-card part lives in compare chains and in the parameters above. Where neither isolates it, the record stays at medium confidence. `shared_by_cards` shows how wide the family is.
 - **Data-driven searches.** The builders of list `0x09dec554` select deck cards through a filter word that is not yet decoded. Until `tools/search_filters.py` exists, searches such as Reinforcement of the Army show only `move_list_card` plus the list membership in `lists`.
-- **Engine-only cards.** `engine_only` cards (273 on the disc) are located, not decoded. `engine_refs` names the functions that test the id: 185 of these cards have an `eq`/`switch` test in a named `rel_duel_eng` function, 30 only in unnamed functions, 52 appear only as a call argument (another effect or helper names them), and 6 only in `BOOT.BIN`. The behaviour is the branch that the test selects inside that function. Reading it needs the function's documentation, or a decoding of the branch similar to what `effect_params` does for parameter chains.
+- **Engine-only cards.** `engine_only` cards (273 on the disc) are located, not decoded. `engine_refs` names the functions that test the id: 185 of these cards have an `eq`/`switch` test in a named `rel_duel_eng` function, 30 only in unnamed functions, 52 appear only as a call argument (another effect or helper names them), and 6 only in `BOOT.BIN`. The behaviour is the branch that the test selects inside that function. `card_refs.py` now gives each `eq`/`switch`/`arg` reference a semantic tag and phrase from `tools/engine_ref_semantics.csv` (266 of the 273 cards get a descriptive tag; precision about 0.95 for the best tag, see `card-refs.md`, "Semantics"). Decoding the conditional branches themselves is still open.
 - **Unresolved chains.** 244 of the 306 compare chains have fewer than half of their cases evaluating to a constant. Their cases are joined with `value` null, labelled from the registry when the function is named.
 - **Unnamed helpers.** Completeness depends on names in `re/functions.csv`. The `full` share rises as the naming worklist of `effect-classification.md` is worked off.
 - **Variant selection.** `variant` is the position of the record. The rule that picks a variant at run time (`duel_effects_select_record_variant`) is not part of the spec.
 - **AI semantics.** `ai[]` gives membership and handler names only. The handlers' conditions are not decoded.
 - **Stat-modifier constants** come from a fall-through scan of the case body and can miss values computed elsewhere.
+
+### Note for the integrator: engine reference semantics
+
+`card_refs.card_refs()` and `all_refs()` now add three fields to every reference dict: `calls` (named callees on the matched path), `semantics` (`{tag, phrase, modality, confidence, param, value, label, rule}` or `None`) and, for `bne` compares, a `value` where there was none before. `card_effects.engine_ref_groups()` builds new dicts and copies only named keys, so these fields do not reach the spec yet. To carry them, `card_effects.py` needs:
+
+- in `engine_ref_groups()`: a `"semantics": []` list per group, and for each row with `r.get("semantics")` the entry `{tag, phrase, modality, confidence, label}` appended when not already present; optionally `"calls"` merged like `callees`;
+- optionally a card-level `engine_semantics` field: `card_refs.describe(src["engine_refs"], cid)` gives the merged per-card list (descriptive tags first), with `generic` marking `ai_hint`, `archetype`, `name_alias`, `named_reference` and `unclassified`;
+- optionally CSV columns `engine_tags` (the descriptive tags) and a schema bump.
+
+No other change is needed: `all_refs()` loads `tools/engine_ref_semantics.csv` by default.
 
 ## CSV summary columns
 
@@ -201,4 +211,4 @@ Run `--check` for the current status counts; they move as helpers are named.
 - The run-time variant rule per card, needed to pick the right record when a card has several.
 - What the generic field and equip fallback handlers (`0x09c74ba4`, `0x09c748a8`) do beyond the stat modifiers.
 - Why 47 engine-supported ids have no `cardinfo` record (cut cards, Japanese-only cards).
-- For each `engine_only` card, what the branch selected by its id does (see `card-refs.md`).
+- For each `engine_only` card, what the branch selected by its id does beyond the function's rule (the semantic tags of `card-refs.md` say which rule; the conditional branches are not decoded).

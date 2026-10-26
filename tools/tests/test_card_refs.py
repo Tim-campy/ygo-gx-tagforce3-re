@@ -18,7 +18,7 @@ SPEC.loader.exec_module(cr)
 BASE = cr.BASE
 ZERO, AT, V0, V1, A0, A1, A2, S0, SP, RA = 0, 1, 2, 3, 4, 5, 6, 16, 29, 31
 SIZE = 0x400
-F1, F2, F3 = BASE + 0x100, BASE + 0x200, BASE + 0x240
+F1, F2, F3, F4 = BASE + 0x100, BASE + 0x200, BASE + 0x240, BASE + 0x320
 TABLE = 0x300  # module offset of F3's jump table
 
 
@@ -107,6 +107,14 @@ def build(sections=False):
     put(c2, [JR_RA, li(V0, 9)])
     put(default, [JR_RA, li(V0, 0)])
     struct.pack_into("<3I", buf, TABLE, c0 - BASE, default - BASE, c2 - BASE)
+    # F4: a bne compare (the match falls through and returns 5) and a xor compare whose match calls F2
+    d = Asm(F4)
+    d.emit(itype(0x25, A0, A2, 0), li(V0, 0x1310)).branch(5, V0, A2, "l1").emit(NOP, JR_RA, li(V0, 5))
+    l1 = d.pc
+    d.emit(li(V1, 0x1311), rtype(0x26, V1, V1, A2)).branch(5, V1, ZERO, "l2").emit(NOP, jal(F2), NOP)
+    l2 = d.pc
+    d.emit(JR_RA, li(V0, 0))
+    put(F4, d.words({"l1": l1, "l2": l2}))
 
     header = bytearray(0x54)
     header[0:4] = b"\x7fELF"
@@ -127,8 +135,14 @@ def build(sections=False):
     return bytes(data)
 
 
-FUNCTIONS = [BASE, F1, F2, F3]
-NAMES = {F1: "duel_core_test_chain", F2: "duel_core_is_on_field"}
+FUNCTIONS = [BASE, F1, F2, F3, F4]
+NAMES = {F1: "duel_core_test_chain", F2: "duel_core_is_on_field", F4: "duel_core_other_test"}
+RULES = f"""pattern,kinds,callee,tag,phrase,param,values,confidence,basis
+duel_core_test_chain,cmp,,piercing,inflicts piercing battle damage,piercing,2=always;none=conditional,H,test
+{F4:#010x},cmp,,direct_attack,can attack directly,mode,1=may;*=mode {{value}},M,test
+{BASE:#010x}-{BASE + 0x400:#010x},any,,ai_hint,AI-specific handling,,,L,test
+*,arg,duel_core_is_on_*,named_reference,named by another card,,,L,test
+"""
 
 
 class CardRefs(unittest.TestCase):
@@ -197,6 +211,48 @@ class CardRefs(unittest.TestCase):
         self.assertEqual(len(problems), len(cr.KNOWN))
         self.assertIn(f"recall on documented tests: 0 of {len(cr.KNOWN)}", "\n".join(lines))
 
+    def test_match_path(self):
+        r = self.refs[0x1310][0]
+        self.assertEqual((r["kind"], r["value"], r["calls"]), ("eq", 5, []))
+        r = self.refs[0x1311][0]
+        self.assertEqual((r["kind"], r["value"], r["calls"]), ("eq", None, ["duel_core_is_on_field"]))
+        self.assertEqual(self.refs[0x12EC][0]["calls"], [])
+
+    def test_semantics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rules.csv"
+            path.write_text(RULES, encoding="utf-8")
+            rules = cr.load_semantics(path)
+        self.assertEqual(cr.rule_problems(rules), [])
+        refs = cr.card_refs(build(), FUNCTIONS, NAMES, semantics=rules)
+        s = refs[0x12EC][0]["semantics"]
+        self.assertEqual((s["tag"], s["confidence"], s["label"]), ("piercing", "H", "always"))
+        self.assertEqual(refs[0x1300][0]["semantics"]["label"], "conditional")
+        self.assertEqual(refs[0x1600][0]["semantics"]["tag"], "named_reference")  # arg rule by callee
+        self.assertEqual(refs[0x1310][0]["semantics"]["label"], "mode 5")  # exact-address rule
+        self.assertEqual(refs[0x1311][0]["semantics"]["label"], "")  # no value, no `none` label
+        self.assertIsNone(refs[0x1400][0]["semantics"])  # bounds get no semantics
+        row = dict(refs[0x1600][0], kind="eq", function=F2, function_name="duel_core_is_on_field")
+        self.assertEqual(cr.classify(row, rules)["tag"], "unclassified")  # named: the range rule does not apply
+        row["function_name"] = f"FUN_{F2:08x}"
+        self.assertEqual(cr.classify(row, rules)["tag"], "ai_hint")  # unnamed function inside the range
+        self.assertEqual(cr.card_refs(build(), FUNCTIONS, NAMES, semantics=[])[0x12EC][0]["semantics"]["tag"],
+                         "unclassified")
+        entries = cr.describe(refs, 0x12EC)
+        self.assertEqual([(e["tag"], e["generic"], e["labels"]) for e in entries],
+                         [("piercing", False, ["piercing: always"])])
+        covered, tags, lacking = cr.coverage(refs, {0x12EC, 0x1300, 0x1600})
+        self.assertEqual((covered, tags["piercing"], lacking), (2, 2, [0x1600]))
+        problems, lines = cr.check(refs, known=False, subject={0x12EC, 0x1600}, rules=rules)
+        self.assertEqual(problems, [])
+        self.assertIn("semantics: 1 of 2 cards (50.0 %) have a descriptive tag", "\n".join(lines))
+        row = next(cr.describe_rows(refs, [0x12EC]))
+        self.assertEqual(row["description"], "inflicts piercing battle damage [piercing: always] (H)")
+        self.assertEqual(next(cr.describe_rows(refs, [0x1600]))["description"], "generic: named_reference")
+        bad = [dict(rules[0], confidence="X", kinds="both")]
+        self.assertEqual(len(cr.rule_problems(bad)), 2)
+        self.assertEqual(cr.parse_values("1=a;none=b;*=c {value}"), {1: "a", "none": "b", "*": "c {value}"})
+
     def test_group_of(self):
         self.assertEqual(cr.group_of("duel_effects_get_x"), "duel_effects")
         self.assertEqual(cr.group_of("ai_choose_slot"), "ai")
@@ -219,6 +275,11 @@ class CardRefs(unittest.TestCase):
             self.assertEqual(rows[0]["card_id"], "0x12ec")
             self.assertEqual(rows[0]["function_name"], "duel_core_test_chain")
             self.assertTrue((out / "card_ref_functions.csv").exists())
+            with contextlib.redirect_stdout(io.StringIO()) as text:
+                self.assertEqual(cr.main([str(prx), "describe", "--card", "0x12ec", "--functions", str(reg),
+                                          "-o", str(out)]), 0)
+            self.assertIn("0x12ec : generic: unclassified", text.getvalue())
+            self.assertTrue((out / "card_semantics.csv").exists())
 
 
 if __name__ == "__main__":

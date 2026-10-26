@@ -1,0 +1,163 @@
+pattern,kinds,callee,tag,phrase,param,values,confidence,basis
+duel_core_get_direct_attack_mode,cmp,,direct_attack,can attack directly,mode,1=may attack directly;2=must attack directly (effect);0=cannot attack directly;none=conditional (card-specific test),M,battle.md: 0 no / 1 may / 2 must; ids are Mystic Lamp/Leghul-type cards
+duel_core_is_direct_attack_allowed,any,,direct_attack,can attack directly under a card-specific rule,,,M,battle.md: per-card direct-attack rules behind duel_core_can_attack_directly
+duel_core_can_attack_directly,any,,attack_target_rule,affects whether the opponent can be attacked directly (cannot-be-attacked monsters),,,M,battle.md / effect-helpers: Guardian Kay'est and The Legendary Fisherman
+duel_core_has_attackable_monster,any,,attack_target_rule,cannot be selected as an attack target,,,M,effect-helpers-predicates.md: the cannot-be-attacked monsters
+duel_core_has_piercing,cmp,,piercing,inflicts piercing battle damage,piercing,1=always;0=no;none=conditional (card-specific test),H,battle.md damage table: list of monsters with piercing
+duel_core_has_piercing,arg,,piercing,grants piercing battle damage while active (equip/continuous),,,M,battle.md: piercing equips
+0x09bedc0c,cmp,,piercing,inflicts piercing battle damage (second piercing list),piercing,1=always;none=conditional,M,unnamed; its id set equals the duel_core_has_piercing list
+duel_core_check_attack_restrictions,any,,attack_restriction,restricts attack declarations (cannot attack / attack lock),,,H,battle.md / effect-helpers: per-card attack locks
+duel_core_is_valid_attack_target,any,,attack_target_rule,changes which monsters can be attacked (target selection rule),,,M,battle.md: 4616-byte attack-target rule chain
+duel_core_battle_step_select_attack,any,,attack_target_rule,card-specific attack selection,,,L,registry name (battle.md step table)
+duel_core_can_attack_twice,any,,multiple_attacks,can attack twice per Battle Phase,attacks,1=always;none=conditional,H,effect-helpers: second attack allowed by own effect
+duel_core_has_no_attacks_left,any,,multiple_attacks,may attack more than once (extra attacks or attack all),,,M,battle.md: per-card rules for another attack
+duel_core_cmd_attack_done,any,,multiple_attacks,may attack several times (attack counting),,,M,duel_core command 0x19 table: monsters that may attack several times
+duel_core_cmd_negate_attack,any,,multiple_attacks,attack counting on a negated attack,,,L,duel_core command 0x1f
+0x09bee500,any,,multiple_attacks,attack counting for multi-attack monsters,,,L,unnamed; called by duel_core_cmd_attack_done and duel_core_cmd_negate_attack
+duel_core_attach_attack_markers,any,,post_attack,after attacking: attack-all marker or change of battle position,,,M,effect-helpers: markers 0x1505 attack-all and 0x14d6 position change
+0x09dda1cc,any,,post_attack,changes to Defense Position after attacking,,,M,unnamed; same Goblin/Spear Dragon set as duel_core_attach_attack_markers; adds and removes marker 0x22
+0x09be6d90,any,,multiple_attacks,attack-all or attack-count rule at the start of a phase,,,L,unnamed; caller duel_core_cmd_enter_phase; ids are attack-all monsters and The Dark Door
+duel_core_can_conduct_battle,any,,attack_restriction,prevents the Battle Phase,,,M,duel-phases.md: cards that stop battle
+duel_core_battle_is_destroyed,any,,battle_indestructible,cannot be destroyed by battle (or battle destruction rule),,,M,battle.md: per-card cannot-be-destroyed-by-battle chain
+duel_core_battle_is_damage_prevented,any,,battle_damage_rule,battle damage involving it is prevented,,,M,battle.md: per-card damage negation
+duel_core_battle_add_damage,any,,battle_damage_rule,modifies the battle damage,,,L,registry name
+duel_core_battle_resolve,any,,battle_damage_rule,card-specific battle resolution (damage or destruction rule),,,L,registry name; battle.md
+duel_core_battle_step_damage_calc,any,,battle_damage_rule,effect at damage calculation,,,L,registry name (battle step)
+duel_core_battle_step_inflict_damage,any,,battle_damage_rule,effect when battle damage is inflicted,,,L,registry name (battle step)
+duel_core_battle_step_after_damage_calc,any,,battle_trigger,effect after damage calculation,,,L,registry name (battle step)
+duel_core_battle_step_attack_declared,any,,battle_trigger,effect when an attack is declared,,,L,registry name (battle step)
+duel_core_battle_step_declare_attack,any,,battle_trigger,card-specific attack declaration,,,L,registry name (battle step)
+duel_core_battle_step_attack_costs,any,,attack_restriction,pays a cost to declare an attack,,,M,registry name; ids Dark Elf / Panther Warrior / Jirai Gumo with constants 1000 / 500 / 100
+duel_core_battle_step_attack_end,any,,battle_trigger,effect at the end of the attack,,,L,registry name (battle step)
+duel_core_battle_step_damage_start,any,,battle_trigger,effect at the start of the Damage Step,,,L,registry name (battle step)
+duel_core_battle_step_damage_end,any,,battle_trigger,effect at the end of the Damage Step,,,L,registry name (battle step)
+0x09db315c,any,,battle_trigger,effect when the attack is declared,,,L,unnamed; callers duel_core_cmd_declare_attack and _declare_direct_attack
+duel_core_get_battle_flip_trigger,any,,battle_trigger,triggers when it battles or is flipped by battle,,,L,battle.md: 0/1/2 battle or flip trigger
+duel_core_send_battle_destroyed_cards,any,,destruction_rule,changes where battle-destroyed monsters go (banish or return),,,M,effect-helpers-movement.md: battle destruction banish rules
+duel_core_send_batch_step,any,,destruction_rule,card-specific rule when cards are sent from the field,,,L,effect-helpers-movement.md
+duel_core_send_field_card,any,,destruction_rule,card-specific rule when a field card is removed (immunity or redirect),,,M,effect-helpers-movement.md: removal after immunity checks
+duel_core_send_hand_card,any,,destruction_rule,effect when sent from the hand,,,L,registry name
+duel_effects_can_destroy_slot,any,,immunity,cannot be destroyed by card effects,,,L,registry name
+duel_core_get_banish_redirect_mask,any,,banish_rule,cards are banished instead of going to the Graveyard,,,H,effect-helpers: Banisher of the Light / Macro Cosmos / Dimensional Fissure
+duel_core_can_banish,any,,banish_rule,prevents banishing,,,L,registry name
+duel_core_can_banish_from_graveyard,any,,banish_rule,prevents banishing from the Graveyard,,,L,registry name
+duel_core_graveyard_card_may_leave,any,,banish_rule,cards leaving the Graveyard are banished,,,H,effect-helpers-deck.md: Transmigration Break
+card_db_can_be_special_summoned,cmp,,summon_condition,Special Summon permission (card list),allowed,0=cannot be Special Summoned except as its own text allows;1=can be Special Summoned,M,effect-helpers-predicates.md: first gate of duel_core_can_special_summon_card_to
+card_db_can_be_normal_summoned,cmp,,summon_condition,cannot be Normal Summoned or Set,allowed,0=cannot be Normal Summoned/Set;1=can,M,effect-helpers-misc.md: 0 for special summoning conditions
+card_db_is_special_summon_only,cmp,,summon_condition,must be Special Summoned (cannot be Normal Summoned or Set),only,1=Special Summon only,H,effect-helpers-predicates.md: Nomi list
+card_db_is_summoned_without_polymerization,cmp,,fusion_rule,Extra Deck summoning class,class,0=summoned with a Fusion spell (not by its own procedure);1=summoned by its own procedure,M,effect-helpers-misc.md: summoning class table
+0x08863a34,cmp,,fusion_rule,can only be Fusion Summoned with a specific Fusion spell,fusion_spell,1=Polymerization only;2=Dark Fusion only;3=Fossil Fusion only;5=Neo-Spacian procedure,M,unnamed BOOT; values equal the class table of card_db_is_summoned_without_polymerization (effect-helpers-misc.md)
+0x08864c60,cmp,,summon_condition,in an Extra Deck summonability list,,,L,unnamed BOOT; search-filters.md per-card summonability lists
+0x08865ad8,cmp,,summon_condition,in an Extra Deck summonability list,,,L,search-filters.md: per-card summonability list
+0x0886354c,cmp,,summon_condition,special summoning condition class,class,*=class {value},L,unnamed BOOT; ids are monsters Special Summoned only by a named card
+0x09bf6728,cmp,,summon_procedure,can be Special Summoned from the hand by its own procedure,,,M,unnamed; ids equal the hand-procedure monsters of duel_core_get_special_summon_mask
+duel_core_get_special_summon_mask,any,,summon_procedure,can be Special Summoned from the hand by its own procedure,,,M,summon.md: hand Special Summon rules
+duel_core_summon_prepare,any,,summon_procedure,has its own summon procedure (card-specific preparation),,,H,summon.md: about 30 card-specific preparation routines
+duel_core_summon_step_procedure,any,,summon_procedure,has its own summon procedure,,,M,summon.md execution stage
+duel_core_summon_step_normal,any,,summon_trigger,effect when Normal Summoned,,,L,summon.md execution stage
+duel_core_summon_step_flip,any,,summon_trigger,effect when Flip Summoned,,,L,summon.md execution stage
+duel_core_summon_step_special,any,,summon_trigger,effect when Special Summoned,,,L,summon.md execution stage
+duel_core_get_summon_set_mask_ex,any,,summon_condition,Normal Summon or Set rule,,,M,summon.md: Normal Summon/Set rules
+duel_core_can_flip_summon_slot,any,,summon_condition,Flip Summon rule,,,H,summon.md: card-specific Flip Summon checks
+duel_core_can_special_summon_card_to,any,,summon_condition,card-specific Special Summon condition,,,H,effect-helpers-predicates.md
+duel_core_can_special_summon_list_card,any,,summon_condition,cannot be revived by a generic revive effect,allowed,0=cannot;*=value {value},M,effect-helpers-deck.md: revive gate
+duel_core_can_summon_attribute,any,,summon_lock,while active: restricts Summons by Attribute,,,H,effect-helpers-predicates.md: Barrier Statues and Tualatin
+duel_core_can_summon_card_from,any,,summon_lock,while active: restricts Summons from a location,,,M,effect-helpers-predicates.md: card-independent summon restrictions
+duel_core_is_summon_kind_allowed,any,,summon_lock,while active: forbids a kind of Summon,,,M,summon.md
+duel_core_init_normal_summon,any,,summon_lock,while active: affects Normal Summons,,,L,registry name
+duel_core_init_summon_from_hand,any,,summon_lock,while active: affects Summons from the hand,,,L,registry name
+duel_core_special_summon_impl,any,,summon_lock,while active: affects Special Summons,,,L,registry name
+duel_core_can_set_face_down,any,,summon_lock,while active: prevents Setting,,,L,registry name
+duel_core_is_tribute_allowed,any,,summon_lock,while active: prevents Tributes,,,H,effect-helpers-predicates.md correction 6
+duel_effects_can_summon_trap_monster,any,,summon_lock,while active: affects Trap Monsters,,,L,registry name
+duel_core_is_double_tribute,any,,tribute_rule,counts as two Tributes,,,M,summon.md: monsters worth two tributes
+duel_core_count_tribute_value,any,,tribute_rule,counts as two Tributes,,,M,summon.md: tribute capacity
+0x09bfb1b0,any,,tribute_rule,tribute eligibility rule,,,L,unnamed; summon.md: tribute acceptance test of duel_core_count_tribute_value
+duel_effects_cost_tribute,any,,tribute_rule,card-specific Tribute cost,,,L,registry name
+duel_core_is_synchro_material_candidate,any,,synchro_rule,Synchro Material restriction,,,M,summon.md: per-card restrictions
+0x08866870,cmp,,fusion_rule,can substitute for one Fusion Material,substitute,1=yes,M,fusion-recipes.md: fusion substitute list
+card_db_fusion_allows_substitute,cmp,,fusion_rule,its Fusion Materials cannot be substituted,allowed,0=no substitute;1=substitutes allowed,L,effect-helpers-misc.md
+duel_effects_get_fusion_material_count,cmp,,fusion_rule,needs a card-specific number of Fusion Materials,materials,*={value} materials,M,registry name; value is the returned count
+duel_effects_get_fusion_material_code,cmp,,fusion_rule,card-specific Fusion Material code,code,*=code {value},L,registry name
+duel_effects_resolve_fusion_summon,any,,fusion_rule,card-specific Fusion Summon handling,,,L,registry name
+duel_effects_resolve_future_fusion,any,,fusion_rule,card-specific handling by Future Fusion,,,L,registry name
+duel_effects_resolve_fossil_fusion,any,,fusion_rule,card-specific handling by Fossil Fusion,,,L,registry name
+duel_effects_resolve_miracle_contact,any,,fusion_rule,card-specific handling by Miracle Contact,,,L,registry name
+duel_effects_resolve_instant_fusion,any,,fusion_rule,card-specific handling by Instant Fusion,,,L,registry name
+duel_effects_cond_fusion_summon,any,,fusion_rule,card-specific Fusion Summon condition,,,L,registry name
+duel_effects_resolve_time_stream,any,,named_reference,named by Time Stream (Fossil Fusion line),,,M,effect-helpers: effect-table slot of Time Stream
+duel_effects_resolve_ritual_summon,any,,ritual_rule,card-specific Ritual Summon rule,,,L,registry name
+duel_effects_is_valid_ritual_tribute,any,,ritual_rule,can be used as the whole Ritual Tribute,,,L,registry name
+duel_effects_is_activation_locked,any,,activation_lock,while active: prevents the activation of cards or effects,,,H,effect-helpers-values.md: activation locks read in full
+ai_is_activation_blocked,any,,ai_hint,AI knows it blocks activations,,,M,ai prefix
+duel_effects_can_activate,any,,activation_lock,affects whether an effect can be activated,,,M,chain.md: common activation test
+duel_effects_can_activate_card,any,,activation_lock,affects whether a card can be activated,,,M,registry name
+duel_effects_is_negated_on_resolution,any,,negation,negates effects when they resolve,,,M,chain.md: negated at resolution by continuous cards
+duel_effects_collect_negation_state,any,,negation,continuously negates spells/traps/effects,,,H,effect-helpers-values.md: snapshot of the active negators
+duel_effects_update_negated_slots,any,,negation,continuous negation rule (negator or exemption),,,H,effect-helpers-values.md
+duel_core_set_slot_negated,any,,negation,per-card clean-up when its effect is negated,,,H,effect-helpers-values.md: per-card clean-up
+0x09bf5970,cmp,,negation,negates or ignores Spell/Trap effects (card list),,,L,unnamed; ids Jinzo / Tyrant Dragon / Fiend Skull Dragon / Gora Turtle / The End of Anubis / Sky Scourge Invicil
+duel_effects_get_spell_immunity,any,,immunity,unaffected by Spell effects,mask,*=mask {value};none=conditional,M,stat-modifiers.md: words 10-12
+duel_effects_get_trap_immunity,any,,immunity,unaffected by Trap effects,mask,*=mask {value};none=conditional,M,stat-modifiers.md: words 10-12
+duel_effects_get_monster_immunity,any,,immunity,unaffected by monster effects,mask,*=mask {value};none=conditional,M,stat-modifiers.md: words 10-12
+duel_effects_can_target_slot,any,,target_rule,cannot be targeted (or restricts targeting),,,L,registry name
+duel_effects_filter_equip_target,any,,equip_rule,equip-target requirement (can equip or be equipped),,,M,effect-helpers: equip target filter
+duel_effects_filter_monster_target_b,any,,named_reference,valid target of another card's effect,,,L,effect-helpers: per-card target filter
+duel_effects_filter_position_change_target,any,,named_reference,valid target of another card's effect,,,L,effect-helpers: per-card target filter
+duel_effects_resolve_special_summon_from_hand_or_deck,any,,named_reference,summoned by another card's effect,,,L,effect-helpers
+duel_effects_clear_markers_on_control_change,any,,control_rule,keeps a stored effect that is cleared when control changes,,,M,effect-helpers-misc.md
+duel_effects_get_controlling_side,any,,control_rule,changes or cancels control of monsters,,,M,effect-helpers-misc.md: control cards
+0x088669a0,cmp,,control_rule,control cannot switch (hypothesis),,,L,unnamed BOOT; ids Blindly Loyal Goblin and Mataza the Zapper
+duel_core_chain_step,any,,chain_rule,card-specific handling while a chain resolves,,,M,chain.md: resolution state machine
+duel_core_chain_build_step,any,,chain_rule,card-specific handling while a chain is built,,,M,chain.md: building state machine
+duel_core_chain_link_sends_card_to_graveyard,any,,chain_rule,stays on the field after resolving,stays,0=stays on the field,M,chain.md
+duel_effects_is_coin_toss_monster_effect,any,,coin_toss,effect uses a coin toss,,,M,registry name; effect-helpers
+duel_core_action_coin_toss,any,,coin_toss,changes coin-toss results,,,M,registry name
+card_db_get_turn_counter_rule,cmp,,turn_counter,lasts a fixed number of turns,turns,65535=open-ended;*={value} turns,M,effect-helpers-misc.md: per-card turn count
+duel_core_expire_turn_effects,any,,turn_counter,effect expires at the turn change,,,M,stat-modifiers.md
+duel_core_step_standby_phase,any,,phase_effect,effect in the Standby Phase,,,M,registry name (turn flow)
+duel_core_step_end_phase,any,,phase_effect,effect in the End Phase,,,M,registry name (turn flow)
+duel_core_can_change_position,any,,position_rule,battle-position change restriction,,,M,registry name
+duel_core_cmd_change_position,any,,position_rule,effect when its battle position changes,,,L,duel_core command 0x33
+duel_core_add_counters,any,,counter_rule,places counters,,,L,registry name
+duel_core_inflict_damage,any,,lp_rule,while active: modifies effect damage,,,M,registry name
+duel_core_can_take_effect_damage,any,,lp_rule,while active: prevents effect damage,,,H,effect-helpers-values.md
+duel_core_gain_lp,any,,lp_rule,while active: modifies LP gain,,,M,registry name
+duel_core_is_lp_gain_reversed,any,,lp_rule,LP gains become damage,,,H,effect-helpers-values.md: Bad Reaction to Simochi / Nurse Reficule
+duel_effects_get_lp_cost,any,,lp_rule,modifies LP costs,,,L,registry name
+duel_core_pay_chain_energy_lp,any,,lp_rule,LP cost to play cards (Chain Energy),,,H,registry name
+duel_core_pay_queen_of_thorns_lp,any,,lp_rule,LP cost to summon (Queen of Thorns),,,H,registry name
+duel_core_can_draw,any,,draw_rule,while active: affects draws,,,L,registry name
+duel_core_draw_cards_ex,any,,draw_rule,while active: affects draws,,,L,registry name
+duel_core_can_add_from_deck_to_hand,any,,deck_rule,prevents adding cards from the Deck to the hand,,,M,registry name
+duel_core_cmd_move_list_card,any,,deck_rule,card-specific move between card lists,,,L,registry name
+duel_core_can_discard_card,any,,hand_rule,affects discards,,,L,registry name
+duel_core_is_hand_revealed,any,,hand_rule,the hand is revealed,,,H,effect-helpers-misc.md: visible hands
+duel_core_cmd_place_spell_trap_from_hand,any,,activation_lock,affects placing Spells/Traps from the hand,,,L,registry name
+duel_core_is_effect_active,any,,negation,continuous effect activity rule,,,L,registry name
+duel_core_is_gemini_effect_enabled,any,,gemini_rule,Gemini effect enabling rule,,,L,registry name
+duel_core_check_win,any,,win_condition,alternate win condition,,,H,battle.md: Exodia pieces passed by duel_core_check_win
+card_db_is_forbidden_one,cmp,,win_condition,piece of an alternate win condition,,,H,effect-helpers-predicates.md
+duel_core_get_graveyard_name_id,any,,name_alias,treated as another card name in the Graveyard,,,H,effect-helpers-deck.md: graveyard name rules
+duel_core_get_slot_name_id,any,,name_alias,treated as another card name on the field,,,M,registry name
+card_db_get_next_alias_id,any,,name_alias,treated as the same card as another id,,,M,effect-helpers-misc.md
+card_db_is_same_name,any,,name_alias,treated as the same card name as another id,,,H,effect-helpers-misc.md
+card_db_get_evolution_relatives,any,,archetype,LV evolution line member,,,M,effect-helpers-misc.md
+0x0886073c,cmp,,archetype,LV evolution line member,lv,*={value},L,unnamed BOOT; ids are LV monsters
+0x09c0da14,any,,hand_rule,changes the hand size limit,,,M,unnamed; effect-helpers-deck.md: duel_core_enforce_hand_limit takes the limit from 0x09c0da14
+0x09cdd74c,any,,position_rule,forces a battle position before a chain starts,,,M,unnamed; chain.md building state 0: forced position changes for seven listed cards
+0x09dd0b88,any,,forced_attack,must attack if able (the phase cannot end before),,,L,unnamed; duel-phases.md: condition for ending the Main/Battle Phase
+0x09dd11dc,any,,forced_attack,must attack if able (the phase cannot end before),,,L,unnamed; battle.md step 2 sub-step 0; same ids as 0x09dd0b88
+0x09db4d34,any,,move_trigger,effect when cards are moved to the Graveyard or banished,,,L,unnamed; duel_core.md command 0x3f (card move)
+0x09db7db8,any,,move_trigger,effect when cards are moved to the Graveyard or banished,,,L,unnamed; duel_core.md command 0x30 (field card to Graveyard or banished)
+0x09db8a50,any,,move_trigger,effect when cards are destroyed by battle and moved,,,L,unnamed; duel_core.md command 0x31 (destroyed by battle)
+0x09db9878,any,,move_trigger,effect when cards are Tributed and moved,,,L,unnamed; duel_core.md command 0x45 (Tributed)
+card_db_is_*,any,,archetype,archetype member,,,H,card_db archetype predicates (effect-helpers-predicates.md)
+ai_*,any,,ai_hint,AI-specific handling,,,M,registry group ai
+0x09ce4000-0x09da0000,any,,ai_hint,AI-specific handling (unnamed AI function),,,L,address inside the AI code region (ai.md)
+*,arg,duel_core_count_graveyard_named,named_reference,named by another card's effect (Graveyard count),,,L,callee only
+*,arg,duel_core_count_hand_cards_named,named_reference,named by another card's effect (hand count),,,L,callee only
+*,arg,duel_core_count_deck_cards_named,named_reference,named by another card's effect (Deck count),,,L,callee only
+*,arg,*same_name,named_reference,named by another card's effect,,,L,callee only
+*,arg,duel_core_*named*,named_reference,named by another card's effect,,,L,callee only
+*,arg,ai_*,ai_hint,AI-specific handling,,,L,callee only
