@@ -69,3 +69,7 @@ In this project the registry is regenerated from Ghidra rather than edited by ha
 A function therefore reaches `documented` only when Ghidra holds its signature and comment, as the stage definition requires.
 
 Function ids are runtime addresses. Game modules that the game loads into a shared slot (for example `rel_story`, `rel_field` and `rel_shop`, see `docs/subsystems/modules.md`) can have functions at the same address, so their ids carry the module name: `rel_story:0x08ea63f4`.
+
+## Reaching `verified`
+
+`verified` needs a runtime check in PPSSPP. [`docs/verification/ppsspp-plan.md`](verification/ppsspp-plan.md) lists the checks that matter most for the port. They are grouped into play sessions (one single duel, one tag duel, one in-game day of free roam), and each has its addresses, breakpoints, expected values and a results table. The plan also explains how a filled-in results table turns into status changes. It does not change the counting rules above.
