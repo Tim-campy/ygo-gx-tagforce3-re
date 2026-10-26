@@ -97,3 +97,16 @@ The CPU's B.E.S. Tetran (side 1, slot 2) used its once-per-turn effect. Execute 
 | CPU's next turn, after the Draw | head at `0x09e2b0ca` | 0 | list empty: the marker was freed at the turn change |
 
 Confirms `chain.md` ("Once per turn") and the record layout in `stat-modifiers.md`/`chain.md`: a kind-2 record with counter 0 keyed `0xfb6` on the card's slot, removed by the turn-change expiry. Command `0x35` packing (`a = slot | kind byte << 8`, `b` = key, `c` = value) confirmed.
+
+## A4. Battle step sequence and damage: pass
+
+Fresh setup with two breakpoints only: the command log (`0x09dc07f8`) and a write log on the Battle step index `0x09e2d220` (`bstep pc={pc} v={[0x09e2d220]}`, old value). Cards: Chamberlain of the Six Samurai `0x1c6c` (200/2000), B.E.S. Tetran `0x1962` (1800/2300), White Ninja `0x18be` (1500/800), Sakuretsu Armor `0x16a7`; the human's spell `0x142a` posted `0x3d a=0x200 b=0x201` (swap of the two slot-2 monsters, the Creature Swap command of `effect-helpers-movement.md`).
+
+| Battle | Step index (new values) | Commands | Result |
+| --- | --- | --- | --- |
+| CPU: Tetran attacks the human's Defense Position Chamberlain | … 6, 7, 8, 9, 10, 1, 11, 12 | `0x8015 a=0x1c6c b=0x1962`, `0x8016 b=0xc8`, `0x8024 a=0xc8 b=1` | CPU takes 200 (2000 − 1800) reflect damage |
+| Human attack 1: White Ninja (1500) on the CPU's Attack Position Chamberlain (200) | 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1 | `0x0d`, `0x14`, `0x17 a=3 b=0x201`, `0x15 a=0x18be b=0x1c6c`, `0x16 b=0x514 c=0x600`, `0x8020 a=2 b=1`, `0x8024 a=0x514 b=1 c=0x18be`, `0x8031 a=2 b=0x0e`, `0x1c`, `0x14` | CPU takes 1300 = 1500 − 200 (reason 1); Chamberlain destroyed by battle to the Graveyard |
+| Human attack 2: Tetran direct attack | 1, 2, 3, 4, then back to 1 | `0x18 a=2 b=1`; CPU responds with Sakuretsu Armor (`0x8010 a=7`), `0x30 a=2 b=0x10e` destroys the attacker | the attack stops before the damage steps; the index returns to 1 |
+
+- Writers of the index: `0x09ddac50` (normal advance), `0x09dd9be4` (10 → 1), `0x09db310c` (→ 1 at `0x14`), `0x09db4234` (1 → 11), `0x09de0cec` (12 → 0 on entering Battle), `0x09dd1a10` (4 → 1 after the attacker left); AI look-ahead writes from `0x09d1695c`/`0x09d16a00` restore the value.
+- Damage equals the ATK difference (or DEF − ATK reflect), applied through `0x24` with reason 1. The direct-attack question (does step 8 run?) stays open: the attack was stopped at step 4.
