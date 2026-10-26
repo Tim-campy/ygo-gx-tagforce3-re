@@ -18,6 +18,8 @@ Confidence: high for the tables, drivers and the enum; medium for the meaning of
 
 ## Phase enum (`0x09e2d1e8`)
 
+**Verified in PPSSPP (2026-10-26, [`results/2026-10-26-sessionA-part1.md`](../verification/results/2026-10-26-sessionA-part1.md), A1–A2):** values 0–5 and 7 (6 never written), the command sequence `2, 10–15, 3, 4` with bit 15 on the CPU's turn, the two writers (`duel_core_cmd_enter_phase`, `duel_core_next_turn`), the AI's temporary overrides, and the turn side `0x09e2d1d8` / turn counter `0x09e2d1e0` (starts at 0, +1 per turn).
+
 | Value | Phase | Basis |
 | --- | --- | --- |
 | 0 | Draw Phase | `.ydq` `Phase=D` → 0 (`tutorial.md`); entered by command 10 from `duel_core_step_draw_phase`. |

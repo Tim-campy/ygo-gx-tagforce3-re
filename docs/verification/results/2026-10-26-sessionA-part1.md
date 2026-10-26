@@ -84,3 +84,16 @@ Memory breakpoint (write, log) on the count `0x09e28e34`, plus the command log. 
 | `+0x04` | `0xa1` | bit 1 clear (not negated) | yes |
 
 Link 2 bytes were not captured (only the first 24 bytes were read).
+
+## A8. Once-per-turn marker `0xfb6`: pass
+
+The CPU's B.E.S. Tetran (side 1, slot 2) used its once-per-turn effect. Execute breakpoint at `0x09dc07f8` with condition `a2 == 0xfb6` stopped on the posting: `a0 = 0x8035` (command `0x35`, side 1), `a1 = 0x0202` (slot 2, kind byte 2), `a2 = 0x0fb6`, `a3 = 0`.
+
+| Moment | Read | Value | Meaning |
+| --- | --- | --- | --- |
+| After the command ran | head `u16` at `0x09e2b0ca` (side 1, slot 2, `+0x0a`) | 3 | first record = pool index 3 |
+| | record 3 at `0x09e2c7ea` | `b6 0f 02 00 00 00 09 00 00 00` | key `0xfb6`, kind 2, counter 0, value 0, timestamp 9, next 0 |
+| | record 0 at `0x09e2c7cc` | all zero | index 0 is "none" (list terminator), as `stat-modifiers.md` states |
+| CPU's next turn, after the Draw | head at `0x09e2b0ca` | 0 | list empty: the marker was freed at the turn change |
+
+Confirms `chain.md` ("Once per turn") and the record layout in `stat-modifiers.md`/`chain.md`: a kind-2 record with counter 0 keyed `0xfb6` on the card's slot, removed by the turn-change expiry. Command `0x35` packing (`a = slot | kind byte << 8`, `b` = key, `c` = value) confirmed.

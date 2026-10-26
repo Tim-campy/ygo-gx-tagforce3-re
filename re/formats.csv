@@ -85,7 +85,7 @@ story_runtime_records,Runtime character records (save story block +0x0; 140 x 0x
 story_event_queue,Event driver queue (save story block +0x3264; 0x68 bytes),world,named,104
 story_field_state,Field state (save story block +0x32cc; 0x16c bytes),world,named,364
 island_map_areas,Island map areas and destinations (rel_field.prx),world,documented,
-chain_link,Chain link / effect context (rel_duel_eng 0x09e28cb4; 24 bytes),duel_core,documented,24
+chain_link,Chain link / effect context (rel_duel_eng 0x09e28cb4; 24 bytes),duel_core,verified,24
 effect_marker,Effect marker node (rel_duel_eng pool 0x09e2c7cc; 10 bytes),duel_core,named,10
 card_effect_spec,Per-card effect specification (tools/card_effects.py JSON Lines; schema 3),duel_effects,documented,
 card_refs,Card ids tested directly in engine code (tools/card_refs.py; rel_duel_eng + BOOT.BIN + rel_duel_draw),duel_effects,documented,
@@ -95,7 +95,7 @@ duel_player_block,Duel player block (rel_duel_eng 0x09e2a528 + side x 0xb3c),due
 duel_field_slot,Field slot (player block +0x34 + i x 0x14; slots 0-10; slot 11 is the player flag word),duel_core,documented,20
 duel_card_list_entry,Card list entry of hand/deck/extra deck/graveyard/banished lists (card id + instance),duel_core,named,4
 duel_card_instance,Card instance table (rel_duel_eng 0x09e2bbcc; 6-byte entries),duel_core,named,0xc00
-duel_turn_state,Turn and phase globals (phase 0x09e2d1e8; turn side 0x09e2d1d8; turn counter 0x09e2d1e0; 0x09e2d1d8-0x09e2d22b),duel_core,documented,84
+duel_turn_state,Turn and phase globals (phase 0x09e2d1e8; turn side 0x09e2d1d8; turn counter 0x09e2d1e0; 0x09e2d1d8-0x09e2d22b),duel_core,verified,84
 duel_flow_steps,Duel-flow step table (rel_duel_eng 0x09e01dbc; NULL-terminated),duel_core,documented,12
 turn_steps,Turn step table (rel_duel_eng 0x09e01da0; 6 steps + NULL),duel_core,documented,28
 battle_steps,Battle Phase step table (rel_duel_eng 0x09e01dcc; 12 steps + NULL),duel_core,documented,52
