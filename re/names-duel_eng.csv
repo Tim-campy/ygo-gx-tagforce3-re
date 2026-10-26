@@ -700,3 +700,4 @@ address,group,name
 0x09c8ef38,duel_effects,duel_effects_resolve_destroy_battle_opponent
 0x09c7ced0,duel_effects,duel_effects_resolve_mill_opponent
 0x09c748a8,duel_effects,duel_effects_resolve_equip_to_target
+0x09cd0030,duel_effects,duel_effects_candidate_has_name

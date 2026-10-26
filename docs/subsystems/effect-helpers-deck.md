@@ -52,12 +52,12 @@ Candidate list globals:
 | `0x2000` | ATK ≤ 1500 (`< 0x5dd`) | Sangan, Mystic Tomato, Giant Rat, Gravekeeper's Spy pass `0x2002` | H |
 | `0x4000` | FLIP monster (`0x08863438`) | code | M |
 | `0x8000` | Tuner (`0x088601c0`) | code | M |
-| `0x10000` | `0x09c02b48(side, id)` must hold | common in Graveyard filters (`0x10002`); meaning open | L |
+| `0x10000` | `0x09c02b48(side, id)` must hold: false while an opposing monster is equipped with Metalsilver Armor (`0x15eb`), and for the Lightsworn ids of BOOT `0x08862688` while card `0x1e74` is active (a targetability guard) | targeting revivals pass `0x10002` (Monster Reborn, Premature Burial, Call of the Haunted) | M (code H) |
 | `0x3c0000`, `0x400000`, `0x800000` | Level field (bits 18–21); bit 22 "≥", bit 23 "≤", neither "=" | code | H |
 | `0x7000000` | Attribute (bits 24–26) must equal | Mystic Tomato passes its own Attribute (DARK), Giant Rat EARTH | H |
 | `0xf8000000` | Type (bits 27–31) must equal | code | H |
 
-**Options word** (Deck scanner): `0x1` scan the opponent's Deck; `0x2` skip cards marked by Parasite Paracide (marker `0x12a1`); `0x4` requires `duel_core_can_add_from_deck_to_hand`; `0x8` / `0x10` Special Summon tests (`0x09c0cb84` / `0x09c0cb98`); `0x20` extra predicate `0x0885ffc0`; `0x40` stop at the first match; bits 25–31 limit the scan to the top *n* cards. Recruiters pass `0x0a` (Special Summon test, skip Parasite). (M for the bits other than `0x1`, `0x40`, top-*n*.)
+**Options word** (Deck scanner): `0x1` scan the opponent's Deck; `0x2` skip cards marked by Parasite Paracide (marker `0x12a1`); `0x4` requires `duel_core_can_add_from_deck_to_hand`; `0x8` / `0x10` Special Summon tests (`0x09c0cb84` / `0x09c0cb98`); `0x20` extra predicate `0x0885ffc0`; `0x40` stop at the first match; bits 25–31 limit the scan to the top *n* cards. Recruiters pass `0x0a` (Special Summon test, skip Parasite). (M for the bits other than `0x1`, `0x40`, top-*n*.) The options of the other four scanners, the predicates, the archetype id table and the per-card values of all 686 records: `docs/formats/search-filters.md` and `tools/search_filters.py`.
 
 ### Reading the choice
 
@@ -270,7 +270,8 @@ Already named and still central: `duel_effects_resolve_draw` (`0x09c78270`, 73 r
 
 ## Open questions
 
-- Filter bit `0x10000` (`0x09c02b48`) and options `0x8`/`0x10`/`0x20` of the scanners; the meaning of the hand-scanner index argument for builders called outside `duel_effects_count_hand_candidates`.
+- Filter bit `0x10000` (`0x09c02b48`) is now read as a targetability guard (`search-filters.md`); open: the card `0x1e74` it tests (absent from cardinfo) and a PPSSPP confirmation. Deck options `0x20` (Effect Monster) and `0x8`/`0x10` are decoded there; open: the fifth argument of `0x09c0cb98` that distinguishes `0x8` from `0x10`, and the meaning of the hand-scanner index argument for builders called outside `duel_effects_count_hand_candidates`.
+- 35 builder records take part of their filter from `param` (`duel_effects_get_candidate_param`); joining that compare chain with `tools/search_filters.py` would decode them.
 - `duel_effects_get_candidate_param`: the remaining context fields it reads (`ctx+8`, `+0xa`, `+0xc`, `+0x14`).
 - Request modes 7 and `0x0e`: the per-card filters inside `0x09c111a8` and `0x09c12b98`.
 - Who sets player flag bit 3 ("Deck must be shuffled"): presumably viewing or searching the Deck; confirm in PPSSPP.

@@ -46,13 +46,14 @@ Outputs, all game data that stays in `extracted/`:
    - a callee matched by a `name` or `addr` row is a **leaf**. Its category is recorded and its body is not scanned: the helper's own internals, such as the many commands that `duel_core_send_field_card` can post, must not leak into every caller;
    - rows with role `stop` mark infrastructure and predicates (`duel_core_get_*`, `ai_*`, `card_db_*`, the handler-dispatch wrappers, …), which are leaves with no category;
    - unmatched callees inside the module are descended into.
-7. **Mapping rows.** The mapping file is CSV with `#` comments and six kinds of row:
+7. **Mapping rows.** The mapping file is CSV with `#` comments and seven kinds of row:
    - `name`: a regex searched in the callee's name, with a leading `thunk_` removed. The first matching `name`/`addr` row decides.
    - `addr`: an exact address.
    - `queue`: the role given to `duel_core_push_command`. At each call, the low 12 bits of `a0`, when known, are the command code.
    - `cmd`: command code → category.
    - `arg`: a callee regex plus `register&mask`. It matches when the register's mask bits are all known and set. This is how the target-filter flag word, already decoded in `effect-tables.md`, is reused: `0x1000` destroy, `0x2000` banish, `0x4000` send to graveyard, `0x10000` take control, `0x40000` change position, `0x80000` return, `0x400` targets.
    - `store`: conditions such as `0x09e2d2b8=0x0f` or `0x09e2d2bc&0x2` that must all hold for the constant stores of one scanned function.
+   - `dispatch`: a callee regex and, in the category column, the address of an 8-byte `(card id, handler)` list. When a slot's closure reaches a matching callee, the record's own handler in that list is classified as well and its categories are added to the slot. The row for `duel_effects_build_candidate_list` and its relatives points at the candidate-builder list `0x09dec554`. Together with the five scanner `name` rows, it gives the categories `search_deck`, `search_extra`, `search_hand`, `search_graveyard` and `search_banished`. With these rows, 435 records have a `search_*` category in the resolve slot and 601 in any slot. Resolve coverage rises from 2,498 to 2,500 of 2,600 (`docs/formats/search-filters.md`).
 
    `cmd`, `arg` and `store` rows add to whatever the `name`/`addr` row decided and never change whether a callee is a leaf. Roles:
    - `effect`: counts for coverage;
