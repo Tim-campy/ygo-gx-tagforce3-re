@@ -7,7 +7,7 @@ Evidence is static (Ghidra decompilation of the functions named below, their cal
 ## Summary
 
 - **Three engines.** A trigger queue collects effects that want to activate (`0x09e289b4`, up to 32). A *building* state machine (`duel_core_chain_build_step`, `0x09c2e244`) activates links one by one (announce, activation step, target choice), then offers response windows. A *resolution* state machine (`duel_core_chain_step`, `0x09c2f1fc`) resolves the links last-in first-out and cleans up. Both are driven once per frame from the pending-work function `duel_core_chain_pending_work` (`0x09c32dac`). (H)
-- **Maximum chain length 16.** The chain array at `0x09e28cb4` has room for exactly 16 links (the count at `0x09e28e34` follows it), and responses are only offered while the chain has fewer than 16 links (state `0x0b`), and at most 16 queued triggers are moved onto a chain. (H)
+- **Maximum chain length 16.** The chain array at `0x09e28cb4` has room for exactly 16 links (the count at `0x09e28e34` follows it), and responses are only offered while the chain has fewer than 16 links (state `0x0b`), and at most 16 queued triggers are moved onto a chain. (H. The response limit was verified in PPSSPP: with 16 links no window opened for either side although a usable D.D. Crow was in hand, the chain resolved top first, and nothing was written past the 16 links; `docs/verification/results/2026-10-27-sessionD.md`. The trigger limit is not tested yet.)
 - **Spell speed** (`duel_effects_get_spell_speed`, `0x09bf275c`): normal spells and monster effects 1, quick-play spells, normal and continuous traps and listed quick-effect monsters 2, counter traps 3. A response needs a speed at least equal to the link it responds to and at least 2 (`duel_effects_can_respond_in_window`, `0x09c52c60`), so only counter traps can respond to a counter trap. (H)
 - **Handler slot `+10` is the activation step**, run once while a link is being activated, before target choice: it pays costs (Life Points, discards, Tributes), marks once-per-turn use, or, for optional trigger effects, asks the player "activate?". The earlier "optional check" hypothesis is refuted as a full description and survives only as one use of the slot. (H)
 - **Negation** marks the negated link in its byte `+4`: bit 1 "activation negated", bits 2–3 "effect state" (1 = negated). A negated link stays on the chain; at resolution its handler is skipped and the card goes to the Graveyard. Counter traps negate the link immediately below them. (H)
@@ -26,7 +26,7 @@ Evidence is static (Ghidra decompilation of the functions named below, their cal
 | `0x09e28e34` | Number of links on the chain (counts down while resolving) | H |
 | `0x09e28e38` | Building: index of the link being activated; resolving: index of the link being resolved (top), then the sweep index | H |
 | `0x09e28e3c` | Building: first link not yet checked for automatic responses | M |
-| `0x09e28e40` | Chain length when resolution started (used by the post-chain sweep) | H |
+| `0x09e28e40` | Chain length when resolution started (used by the post-chain sweep); read 16 after a 16-link chain and 1 after a single link in PPSSPP | H |
 | `0x09e28e44` | Pointer to the link currently being processed (read by handlers and the UI) | M |
 | `0x09e28e50` | Ring of 128 `u16` extra target entries (links with more than five targets) | M |
 | `0x09e28f50` | 1 while a chain is being built | H |

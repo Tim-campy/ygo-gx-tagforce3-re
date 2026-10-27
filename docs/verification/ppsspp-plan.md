@@ -403,14 +403,16 @@ Card Destruction (`0x12d5`) makes both players discard their hands by a card eff
 
 | Check | Recorded | Expected | Pass? | Notes |
 | --- | --- | --- | --- | --- |
-| D1 highest chain count / link number of the last window | | 16 / 15 | | Crows left in hand |
-| D1 window or input with 16 links? | | no | | guard region unchanged? |
-| D1 resolution order | | 16 → 1 | | |
-| D1 several Crows on the same target allowed? | | (open) | | |
+| D1 highest chain count / link number of the last window | 16 / 15 | 16 / 15 | pass | 1 Crow left in hand |
+| D1 window or input with 16 links? | none | no | pass | guard region: only `0x09e28e40` 1 → 16 |
+| D1 resolution order | 16 → 1 | 16 → 1 | pass | |
+| D1 several Crows on the same target allowed? | yes | (open) | — | 12 Crows, one target |
 | D2 queued `N`, chain / queue after the sort | | `N` / 16 / `N − 16` | | trigger kinds |
 | D2 sides of links 1–16 | | turn player's first | | |
 | D2 second chain from the remainder | | `N − 16` links | | |
-| Edits (S1/S2/S3) | | all listed | | |
+| Edits (S1/S2/S3) | 25 S1 edits | all listed | pass | |
+
+Details: `docs/verification/results/2026-10-27-sessionD.md`. D2 not run.
 
 ## Reporting results
 

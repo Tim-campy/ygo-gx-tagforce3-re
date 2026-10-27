@@ -70,7 +70,7 @@ field_map_table,Field map id to archive and mesh tables (rel_field.prx),world,do
 field_door_table,Field door table (rel_field.prx +0x25334; 32 x 10 x 0x2c),world,documented,0x3700
 story_exit_cells,Location selector and exit-cell groups (rel_story.prx +0x1f968 / +0x1fb84),world,documented,
 field_strtbl,Field string tables (field_strtbl / _item / _mapname),world,documented,
-story_calendar,Calendar block (save story block +0x3438; 0x24 bytes),world,named,36
+story_calendar,Calendar block (save story block +0x3438; 0x24 bytes),world,verified,36
 save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,named,348
 shop_unlock_rules,Pack availability rules (rel_shop.prx 0x090d9e5c),shop,named,
 fusion_recipes,Fusion recipe table (rel_duel_eng.prx 0x09debe98),duel_effects,documented,1104
@@ -110,7 +110,7 @@ battle_record,Battle record (0x09e28650 + side x 0x48),duel_core,documented,72
 battle_damage_record,Battle damage record (0x09e286e0 + i x 0x14; 2 entries),duel_core,named,20
 timing_event_queue,Timing event queue (codes 0x09e28fa0; arguments 0x09e28fc0; 32 entries; count 0x09e28f98),duel_core,named,160
 trigger_queue,Trigger queue (0x09e289b4; 32 x 24-byte links; count 0x09e28e48),duel_core,documented,768
-chain_state,Chain building and resolution globals (0x09e28e34-0x09e2904c),duel_core,documented,
+chain_state,Chain building and resolution globals (0x09e28e34-0x09e2904c),duel_core,verified,
 chain_extra_targets,Chain extra-target ring (0x09e28e50; 128 x u16),duel_core,named,256
 summon_record,Summon record (0x09e290bc; queued copy at 0x09e29080),duel_core,documented,60
 card_action_mask,Card action mask and player action codes (duel_core_get_card_action_mask),duel_core,documented,4
