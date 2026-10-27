@@ -340,13 +340,15 @@ The 16-link limit (formerly the optional A11) is now Session D.
 
 | Check | Recorded | Expected | Pass? | Notes |
 | --- | --- | --- | --- | --- |
-| C1 calendar after +1 slot / advance / new day | | formulas in C1 | | `+0x08`, `+0x20` = |
-| C2 assign_daily_spots runs only on a new day | | yes | | |
-| C2 three pairs (char, spot) | | `(s−1, s)`, `s` odd, flag `0x2` | | stand together? |
-| C3 partner word, points before/after, delta | | delta ∈ {40,20,10,−5,−10,200} | | item id |
-| C4 writes to `+0x1a174`? | | (open) | | menu shows |
-| C4 DP before/after | | −200 | | |
-| C5 DATA0 vs memory | | identical | | |
+| C1 calendar after +1 slot / advance / new day | t 2→3→8→50, all words per formula | formulas in C1 | pass | `+0x08` = 5, `+0x20` = 1, never written; weekday 0 = Sunday, 1 = Monday |
+| C2 assign_daily_spots runs only on a new day | only on the change to weekday 1 (Monday) | yes | pass (corrected) | weekly, gated by `0x08eab3b0` |
+| C2 three pairs (char, spot) | (3, 334), (120, 335), location 21 | `(s−1, s)`, `s` odd, flag `0x2` | pass | flags `0xa0`, no flag 2; pairs stand together |
+| C3 partner word, points before/after, delta | `0x0023`, 200 → 220, +20 (and +10) | delta ∈ {40,20,10,−5,−10,200} | pass | "Delish! Thanks!" |
+| C4 writes to `+0x1a174`? | none | (open) | — | an eaten sandwich gives a card |
+| C4 DP before/after | 1768 → 1568 → 1368 | −200 | pass | |
+| C5 DATA0 vs memory | not run | identical | | |
+
+Details: `docs/verification/results/2026-10-27-sessionC.md`.
 
 ## Session D: the chain limits (staged with memory edits)
 
