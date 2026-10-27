@@ -155,3 +155,4 @@ shop_opponent_list,Opponent list of the pack rules (rel_shop 0x090ef208; 104 ent
 file_request_ring,File thread request ring (BOOT.BIN 0x08920cb4; 32 x 0x60),container,named,96
 root_path_table,Root path table (BOOT.BIN 0x0889fb24; 9 roots),container,named,
 heap_header,HOGE heap header and block list (system_heap_create),system,named,16
+psmf_movie,Sony PSMF movie (movie/*.pmf; AVC video + ATRAC3plus audio; 73 files),container,documented,
