@@ -190,7 +190,7 @@ So the phase is not passed to the handlers; there is no per-phase handler slot. 
 ## Open questions
 
 - Battle steps 2–10, timing events `0x0d`–`0x14` and the timing-queue consumer are now documented in `battle.md`; the remaining battle questions are listed there.
-- Whether the first player's draw on turn 0 is skipped (not seen in `duel_core_step_draw_phase`; the skip conditions there are card- and flag-based). Confirm in PPSSPP.
+- Whether the first player's draw on turn 0 is skipped (not seen in `duel_core_step_draw_phase`; the skip conditions there are card- and flag-based). Confirm in PPSSPP. **Answered for tag duels in PPSSPP (2026-10-27, Session B): the first player draws on turn 0.**
 - The meaning of player-block flag `+0x120` bit 23 (skips Draw and Main steps; hypothesis: "skip this turn") and bit 0 (skips the draw).
 - `0x09dd0b88`: condition for ending the Main/Battle Phase (checks cards `0x16a1`, `0x1502`, `0x15ff`); not named.
 - The turn-limit mechanism around `0x09e2d1e4` and duel mode 2.
