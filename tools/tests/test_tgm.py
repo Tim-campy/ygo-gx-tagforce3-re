@@ -97,7 +97,7 @@ def build_tmt(translation=(1.0, 0.0, 0.0), short=False, nodes=1):
     half = math.sqrt(0.5)
     quats = [(0.0, 0.0, 0.0, 1.0), (0.0, 0.0, half, half)] * nodes
     if short:
-        rot_keys = b"".join(struct.pack("<4h", *(round(c * 32767) for c in q)) for q in quats)
+        rot_keys = b"".join(struct.pack("<4h", *(round(c * 32760) for c in q)) for q in quats)
     else:
         rot_keys = b"".join(struct.pack("<4f", *q) for q in quats)
     o_tracks = 0x38 + len(node_table)
@@ -186,7 +186,7 @@ class TmtTest(unittest.TestCase):
 
     def test_bezier_sampling(self):
         tmt = tgm.Tmt(build_tmt(translation=(3.0, 0.0, 0.0)))
-        self.assertAlmostEqual(tmt.sample_scalar(0, 5, 0.0), 3.0)
+        self.assertAlmostEqual(tmt.sample_scalar(0, 5), 3.0)
         tma = tgm.Tma(build_tma())
         # TGMA keys use the same Bezier keys: 0 -> 1 over 30 frames with linear handles
         keys = tma.scalar_keys(0)
@@ -217,10 +217,15 @@ class TmaTest(unittest.TestCase):
         self.assertTrue(tgm.tma_entry_matches(tms, 0, tma.entries[0][16]))
         self.assertFalse(tgm.tma_entry_matches(tms, 0, 5))
 
-    def test_unknown_slot_is_reported(self):
+    def test_unread_slot_is_reported(self):
         data = bytearray(build_tma())
-        struct.pack_into("<h", data, 0x24 + 2 * 5, 1)
+        struct.pack_into("<h", data, 0x24 + 2 * 3, 1)  # layer 0, slot 3: never read by the game
         self.assertTrue(tgm.Tma(bytes(data)).check())
+
+    def test_second_layer_slots_are_accepted(self):
+        data = bytearray(build_tma())
+        struct.pack_into("<h", data, 0x24 + 2 * 4, 1)  # layer 1 UV offset on tracks 1-2
+        self.assertEqual(tgm.Tma(bytes(data)).check(), [])
 
 
 class ArchiveTest(unittest.TestCase):

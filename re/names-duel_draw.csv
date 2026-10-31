@@ -1,0 +1,7 @@
+# Names applied to gmodule/rel_duel_draw.prx (runtime base 0x0983fb00) with tools/ghidra/ApplyNames.java.
+# Evidence and confidence for each name live in docs/subsystems/field_3d.md.
+address,group,name
+0x098a093c,field_3d,field_3d_apply_cutin_camera
+0x0985b504,field_3d,field_3d_apply_scene_etc
+0x0985b44c,field_3d,field_3d_sample_track_rgb
+0x09842900,field_3d,field_3d_update_visibility_mask
