@@ -63,6 +63,10 @@ gzip is inflated by a statically linked copy of Sony's `libdeflt` (`sceGzipDecom
 
 Library code these depend on is listed in `system.md` and `sdk.md`.
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 32 new `container` names: `ehp_loader` 14 (member lookup by name, address or index, the extension-handler table, the registered archive paths at `0x08921964`, at most 16), `disc_io` 5 (UMD retry wrappers around `sceIoOpen`/`Read`/`Getstat`, waiting through `container_wait_umd_ready`), `file_thread` 4, and the `rel_story` archive helpers (4). `container_read_file_from_start` and `container_wait_umd_ready` are documented (`system.md`).
+
 ## Open questions
 
 - What the disc wrappers `0x0881e2c4`, `0x0881e378`, `0x0881e448` add over plain `sceIo` calls (retries, sector alignment?).

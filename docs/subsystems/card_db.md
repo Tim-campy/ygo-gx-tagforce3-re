@@ -79,6 +79,10 @@ All of these were decompiled; signatures and one-line summaries are in `re/docum
 
 The limit getters exported from the same block, `0x08832fa4` and `0x08833624`, are in `deck.md`.
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 22 new names in `BOOT.BIN`: `cip_reader` 18 (the four `.cip` openers are H from their file-name strings; `card_db_cip_bind_texture` binds the 64×64 DXT1 texture of `cip.md`, H) and `card_lists` 3. From `rel_shop`: `card_db_get_prop_bits22` behaves as the card's rarity there (reveal effect, sound and icon chosen by its value; M, see `shop.md`).
+
 ## Open questions
 
 - See `docs/formats/cardinfo.md` for the open fields.

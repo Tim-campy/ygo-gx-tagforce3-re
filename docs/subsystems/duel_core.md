@@ -128,6 +128,34 @@ Link layout (also the effect context): `u16 +0` card id; `u16 +2`: bit 0 the con
 
 `duel_core_chain_step` (`0x09c2f1fc`, 14,148 bytes; callers `0x09c32dac`, `0x09c32e54`) is the resolution state machine (states 0–7, 100, `0x65`–`0x68`, LIFO); building, response windows, the trigger queue, spell speed, negation and the full link layout are documented in `chain.md`. Corrections to the table above: `0x09e28e38` is the index of the link being activated or resolved, and `0x09e28f5c` is the resolution state (`0x09e28f54` is the building state).
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 517 new `duel_core` names in `rel_duel_eng`, 62 in `rel_duel_draw`, 16 in `rel_duel_mgr`.
+
+| Family | Count | Evidence |
+| --- | --- | --- |
+| `export_accessors` | 57 | The exported getters and setters at `0x09be147c`–`0x09be20ec`: turn, seed, local side, duelist kinds, LP, list counts and references, slot fields, hooks. |
+| `engine_commands`, `engine_command_stubs`, `command_posts` | 64 | Command handlers. The jump table of `duel_core_execute_command` at `0x09e00944` was decoded from the module file; it agrees with every documented code. Command `0x22` makes a side concede: its LP become 0 and the opponent gets win reason `0xc` (surrender) or `0xd` (turn limit). |
+| `effect_records` | 33 | Find, count and detach records in the effect pool `0x09e2c7cc`. |
+| field, hand, deck, graveyard and banished counts | 61 | Counting queries (`duel_core_count_tokens` …). `0x09bf9cec` has the same body as `duel_core_count_monsters` (`_alt`). |
+| `list_primitives` | 22 | Append, insert and remove for hand, deck, extra deck, graveyard and banished; card-instance allocation. |
+| `end_phase_checks`, `standby_checks`, `battle_end_checks` | 56 | `0x09ddc56c`–`0x09ddf2dc`, `0x09de0d38`–`0x09de21f4` (queue triggers with event 2, the Standby Phase), `0x09dd9c24`–`0x09dda8f0` (event `0x17`). |
+| `summon_steps`, `summon_filters`, `summon_procedures`, `summon_wrappers` | 54 | Steps of `duel_core_summon_prepare`; procedure material filters that return `0x800`. |
+| `pending_requests`, `prompt_requests`, `prompts`, `response_windows` | 36 | Card-request block `0x09e2d2e0`, prompt block `0x09e2d2c4`, UI `0x36` dialogs. |
+| `selection_filters`, `zone_filters`, `slot_predicates`, `field_predicates` | 29 | Zone callbacks returning `0x800`. |
+| `net_link`, `net_sync` | 15 | The link-duel packet processor `0x09dcc94c` and the requests the local side runs for the peer. |
+| others | 34 | `duel_result`, `deck_stack_assist`, `candidate_list`, `duel_statistics`, `list_activation` (table `0x09e00dbc`), `last_turn`, `location_access`, `player_input`, `trigger_queue`, `control_rules`. |
+| `view_side_wrappers` (`rel_duel_draw`) | 62 | `duel_core_view_*`: the draw module's wrappers of the engine exports `0x09be1840`–`0x09be1ea0`. |
+| `duel_setup`, `tutorial_imports` (`rel_duel_mgr`) | 9 | Start LP by set-up `+0x196` (8000/2000/4000/12000/16000/custom), the tutorial import stubs named after the offsets of `tutorial.md`. |
+
+Duel set-up block fields seen by `rel_duel_mgr` (M, not yet in `save.md`/`tutorial.md`): `+0x188` seed, `+0x18c` first player, `+0x190` mode, `+0x192` 1 single / 2 tag, `+0x193` tutorial lesson, `+0x194` BGM set, `+0x196` LP mode, `+0x197` time limit, `+0x198`/`+0x19c` custom LP. The BOOT duel session at `0x08836718` is `0x398` bytes: `+0x00`–`+0x0c` turn timers, `+0x34`… per-game results.
+
+Findings to reconcile:
+
+- `0x09c0f55c` `duel_core_request_pick_hand_cards` (L) is probably a Tribute selection: its mode-9 worker `0x09c11fec` calls `duel_core_begin_select_tributes` with the filter `0x09c114e0`, which accepts only monster zones that pass `duel_core_can_tribute_for_effect`.
+- `0x09be1840` returns the turn counter `0x09e2d1e0` (now `duel_core_get_turn_counter`); `duel_core_set_turn` (`0x09be184c`) writes that counter, and the registry's `duel_core_get_turn_count` is a different 508-byte function (`0x09befbc0`). Both names deserve a check.
+- `summon.md` lists the `0x61` handler as not read; `tutorial.md` documents it as `0x09dbe9cc`.
+
 ## Open questions
 
 - The rest of the player structure (`+0x34`–`+0x11f` besides the field slots, `+0xa0c`–`+0xb3b`). Life Points at `+0x00` are established statically (`battle.md`); confirm in PPSSPP.

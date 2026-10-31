@@ -35,6 +35,14 @@
 - Deck recipes, recipe names, owners, levels and variants, `sameCardTbl.dat`, `fileTbl.dat` and the deck-tutorial scripts: `docs/formats/deck.md`.
 - Opponent decks are the `.ydc` recipes embedded in `BOOT.BIN`: the 462 named ones, assigned to 126 owners (the starting deck plus 125 characters). The other 199 are never loaded; values 462–466 of the set-up's recipe field select other deck sources (`deck.md`, "Who uses which recipe").
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 434 new `deck` names (39 in `BOOT.BIN`, 90 in `rel_deck`, 9 in `rel_title`) and 254 `ui` names in `rel_deck`.
+
+- `BOOT.BIN`: `deck_member_slot` 18 and `deck_slot_access` 17. `0x08856730` maps a team member to a deck slot: 0 gives slot 1 (the player), any other value the partner's slot through `save_get_partner`. This bears on the open question about partner decks; the `deck_*member*` names depend on it (M).
+- `rel_deck`: six lists of `0x20` bytes at `0x08ebed00`: 0 main, 1 extra (Fusion and Synchro go there), 2 side (written to the stored deck at `+0x0c`, `+0xa2`, `+0x84`), 3 trunk, 4 a copy of list 2, 5 save-card-list entries that are not in the deck. Entries are 6 bytes: id, image index in `fileTbl.dat`, copies (`& 0x7f`) and flags `0x80` (from the save card list), `0x20` (key card, stored in the list at stored deck `+0x114`: supports the key-card hypothesis), `0x40` (in the owner's original recipe, read at `+0x48d0`). The scene transition word carries the owner type and slot; there is an 8-deep undo stack; filters are a predicate table; the text search is Boyer-Moore-Horspool with katakana→hiragana folding. Families: `editor_lists` 25, `card_move` 16, `editor_main` 11, `text_search` 24, `filter_predicates` 7, `key_cards` 5, `recipe_cards` 4.
+- Seven 8-byte stubs at `0x08eb81c0`–`0x08eb81d0` and `0x08ebb278`–`0x08ebb288` lie outside the `libehsys_rel` block: they read as imports of `libdeck_tutorial_rel` and `librecipe_viewer_rel`, which `tools/prx_imports.py` does not resolve yet (six named `deck_call_*`, M).
+
 ## Open questions
 
 - What deck slot 0 holds, and how `0x08856730(x)` chooses a slot for `x != 0` (`0x088550c8`).

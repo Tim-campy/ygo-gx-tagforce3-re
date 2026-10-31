@@ -53,6 +53,18 @@ Layout: `.text` `0x09be1400`–`0x09de415b` (2,108,764 bytes), `.sceStub.text` `
 
 The helpers that handlers call for Life Points, effect records (ATK/DEF changes), counters, continuous negation, attack locks, position changes, coin tosses and dice are listed in `docs/subsystems/effect-helpers-values.md`.
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 2,611 new `duel_effects` names in `rel_duel_eng`.
+
+- **Effect-table handlers (2,367, mechanical, H for role and cards).** Every still-unnamed function that an effect record or an L1/L4 list points at is named after its slot and the cards whose records use it, from `tools/card_effects.py` (`slots.*.handler`, `lists[]`): `duel_effects_<slot>_<card id>[_<card id>…]` for up to three cards, `duel_effects_<slot>_shared_<first id>_x<count>` for four or more, and `_v2`… when one card has two handlers in the same slot. Slots: `resolve` (`+04`, 691), `target_filter` (`+08`, 301), `condition` (`+0c`, 718), `activation` (`+10`, 143), `target_choice` (`+14`, 81); `list_builder` for L1 (411) and `end_phase_handler` for L4 (22). 1,777 of them serve exactly one card. The name says where the handler is used, not what it does; the body was not read for this name. `0e74` in a name is the placeholder id of `card-effect-spec.md`.
+- **Rule list (42).** The 112 function/card-id pairs at `0x09dedaf8` that `duel_effects_check_rule_list` walks (module-relative pointers + `0x09be1400`) give the card behind each rule handler: `duel_effects_rule_<what>_<card>` (M).
+- **Candidate predicates (34).** List-builder predicates that take the card entry in `t0` and the argument in `t1`, like `duel_effects_candidate_in_archetype`: `duel_effects_candidate_*`.
+- **Target filters (23) and unreferenced filter stubs (8).** The stubs no record points to are named by their flag word (`duel_effects_target_filter_flags_<word>`).
+- Smaller: `select_callbacks` 11, `conditions` 10, `activation_checks` 7, `link_predicates` 5, `zone_filters` 4, `link_lp_analysis` 3.
+
+`card_effects.py --check` still passes; the only change in its summary is that three engine-only references moved from `unnamed` to `ai`.
+
 ## Open questions
 
 - What each handler slot and each of the four tables means; which wrapper serves which duel phase. Slots `+04`, `+10`, `+14` and the selector are now explained by the chain machinery (`chain.md`): `+10` is the activation step, selector 0 = activation of a spell/trap card, 1 = field monster effect, 2 = hand/Graveyard trigger, 3 = ignition effect.

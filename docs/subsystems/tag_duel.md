@@ -35,6 +35,19 @@ No return value. Field, Graveyard, banished cards and LP are not touched. The tw
 
 **Verified in PPSSPP (2026-10-27, [`results/2026-10-27-sessionB.md`](../verification/results/2026-10-27-sessionB.md)):** entry and return logs at four turn changes showed the three counts exchanged with the waiting area, LP and Graveyard unchanged, and the duelist kinds swapped with the waiting kinds (B1); `0x09dc7ff4` was the only start entry for a story tag duel and left the flag at 1 (B2).
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 8 new `tag_duel` names, all reading the per-side swap toggle `0x09e02cb8` described above:
+
+| Address | Name | Reads |
+| --- | --- | --- |
+| `0x09bf25c8` | `tag_duel_get_duelist_kind` | `0x09e02998[d ^ (0x09e02cb8[d & 1] << 1)]`: the kind of duelist `d` after the swap. |
+| `0x09bf2600`, `0x09bf2668` | `tag_duel_get_card_owner_duelist`, `tag_duel_is_card_owned_by_duelist` | Owner of a card instance: side, side + 2 (partner range from `0x09e02cc0`) or side + 4 (created after load); always true outside tag mode (`0x09e2d1fc`). |
+| `0x09bf26f8` | `tag_duel_is_duelist_active` | `(d < 2) ^ 0x09e02cb8[d & 1]`. |
+| `0x09bf271c`, `0x09bf273c` | `tag_duel_get_active_duelist`, `_alt` (byte-identical twin) | `side + 2 · 0x09e02cb8[side]`. |
+| `0x09850838` (`rel_duel_draw`) | `tag_duel_get_side_partner_duelist` | Duelist ± 2. |
+| `0x08e9ba00` (`rel_duel_mgr`) | `tag_duel_handle_partner_swap` | In a tag set-up (`+0x192 == 2`): sets the new active duelist's kind (0 human, 1 CPU, 2 remote) and calls the draw module with the slot pairs. |
+
 ## Open questions
 
 - ~~The high half of the waiting-area word `+0x14` (`u16 +0x16`) changes at every swap (seen in PPSSPP: `0xaa`, `0x57`, `0x23`, `0x12`, `0x81`); meaning unknown.~~ It is the first saved card reference (the first hand card's instance), written by the `memcpy` of step 3 above.

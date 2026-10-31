@@ -294,6 +294,26 @@ The following are recorded in `re/documented-duel_eng.tsv` (purpose, side effect
 - `ai_find_candidate_index_by_card(uint card) → int`, `ai_board_add_interest_record(int side, void *record, int weight) → int` (writes the side's interest table), `ai_get_best_visible_battle_stat(int side)`, `ai_find_best_monster_slot(...)`, `ai_get_best_monster_value(...)`, `ai_get_effective_hand_limit(int side)`, `ai_can_controller_enter_battle(void *ctx)`: pure apart from the noted write; callers in `re/documented-duel_eng.tsv`.
 - `duel_core_get_candidate_count()`, `duel_core_get_candidate_entry(int i)`, `duel_core_get_candidate_selection(int i)`: pure accessors of the candidate list.
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 577 new `ai` names in `rel_duel_eng`, mostly M (the role comes from callers and callees).
+
+| Family | Count | Evidence |
+| --- | --- | --- |
+| `ai_card_choosers` | 148 | `ai_choose_target_for_<id>`, `ai_choose_cost_for_<id>` and their `ai_score_*_for_<id>` scorers: the card-id branches of `ai_choose_target_by_card`, `ai_choose_cost_by_card` and `ai_choose_hand_card_by_card` (from `card_refs`) say which card each callee serves. Shared choosers by effect kind (counters, position change). |
+| candidates and slots (`ai_candidate_scores`, `ai_candidate_pickers`, `ai_slot_filters`, `ai_slot_pickers`, `ai_zone_choice`) | 130 | Score and filter callbacks of the candidate list and of slot masks; `0x09d440d8` is `ai_choose_candidate_by_card`; zone order table `0x09dfd2b4`/`0x09dfd2c8`. |
+| board and rating (`ai_board_queries`, `ai_card_rating`, `ai_card_lists`, `ai_card_evals`, `ai_card_filters`, `ai_board_interests`, `ai_board_view`) | 102 | Board queries, card ratings, card-id lists (`ai_is_card_in_list_<id>`: true about the code, not about the purpose). |
+| `ai_simulation`, `ai_battle_plan`, `ai_lp_estimate` | 35 | `ai_push_state_snapshot`/`ai_pop_state_snapshot` (`0x09d0ea9c`/`0x09d0edf8`, H); `ai_sim_battle_resolve` (`0x09d30ef0`), results at `0x09e27fd4`/`0x09e27fd8`; the battle-trick list at `0x09e27ff8`. |
+| `ai_tribute`, `ai_tribute_filters`, `ai_summon`, `ai_summon_filter`, `ai_summon_choice`, `ai_position` | 47 | `ai_get_required_tribute_count` (`0x09cf4288`), `ai_choose_tributes` (`0x09cf4588`). Summon option mask (`0x09d3b3e8`): `0x10` Attack Position, `0x40` Defence; `0x04` and `0x20` unknown (kept numeric in the names). The summon choice stores the hand index in `0x09e03080`. |
+| `ai_answers`, `ai_declarations`, `ai_main_loop`, `ai_conditions` | 63 | `ai_push_context` wrappers, answers to coin, number, maintenance and dialogs 6/7/8/11, Type/Attribute declarations, the main loop. |
+
+Findings to reconcile:
+
+- `ai-helpers.md` describes `0x09d30dc8` as "the opponent's attacker would win the battle"; the code returns 100 only for card `0x1bb3` and the ATK for `0xec2`.
+- `0x09cec59c` compares the visible **DEF** with the best ATK when slot `+0x06 == 0` (Attack Position), unlike `0x09cec388`; either the game swaps them or the reading of `+0x06` needs a check.
+- The prompts table calls dialog 8 (`0x09dc79c0`) "reads the pending link `0x09e290bc`"; by `summon.md` that address is the summon record. `0x09d899a8` ("hand spells") walks hand monsters with `duel_core_get_special_summon_mask` and is now `ai_try_hand_special_summons`.
+- The Morphtronic Datatron evaluators `0x09d8e848`/`0x09d8eb68` estimate −600 LP in Defence and −300 in Attack, the reverse of the card; named by value (`_600`/`_300`) until PPSSPP decides.
+
 ## Open questions
 
 - Plan comparison: the logic and the header writes are read (see "Decision pipeline"); still open are the meaning of `+0x0c` (the evaluator word `0x09e27fb8`), whether the crossed guards of `ai_compare_plans` are intended, and the role of the plan review `0x09d0afd0`. Confirm with the PPSSPP checks listed above.

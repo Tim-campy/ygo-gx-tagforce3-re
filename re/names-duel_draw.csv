@@ -30,3 +30,1404 @@ address,group,name
 0x09841ee4,field_3d,field_3d_update_cutin
 0x0989bd78,ui,ui_duel_start_exodia_win_scene
 0x09878518,ui,ui_duel_create_draw_task
+# Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
+# Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
+# family anim_cue_task
+0x098969d4,audio,audio_play_anim_sound_cues,M,per animation id 0x274-0x2a9 calls 0x0987a2b0 with sound ids 0x7a24-0x7a26 and frame offsets
+0x0989909c,ui,ui_start_anim_cue_task,M,ui_duel_create_draw_task(0x098990f4, ., ., 0x430) and stores param_1 at task data +8
+0x098990f4,ui,ui_tick_anim_cue_task,M,task body: three per-frame cue helpers on the record, frame counter +1, returns 2 (keep running)
+# family anim_speed
+0x0989ea74,ui,ui_get_anim_speed,M,speed from 0x08857af0; with only the R trigger (0x200) held returns 3 (or 1 when already >= 3); 16 callers
+0x0989eac8,ui,ui_get_anim_speed_factor,M,table 0x098d0574[ui_get_anim_speed()]
+# family attack_pointer
+0x0985c490,ui,ui_init_attack_pointer,M,memset(0x098e6bc0, 0, 0xc): pointer task and arrow task handles; caller the duel-object init 0x09861738
+0x0985c4a4,ui,ui_term_attack_pointer,M,destroys task [0x098e6bc0] with 0x09861a68 if present and clears the 0xc-byte state
+0x0985c4ec,ui,ui_show_attack_pointer,M,creates the pointer (0x0985c82c) when none exists, else re-places it on its zone (0x0985c8c0)
+0x0985c528,ui,ui_hide_attack_pointer,M,destroys the pointer task [0x098e6bc0] and stops the arrow [0x098e6bc4]; called by draw command handlers
+0x0985c584,ui,ui_move_attack_pointer,M,sets attacker zone (player, zone) at +0x24 and target zone at +0x26, aims via 0x0985cbbc, tweens over 0.5/speed with update cb 0x0985cb48
+0x0985c7dc,ui,ui_is_attack_pointer_at_zone,H,returns 1 when the pointer exists and its zone byte +0x24 matches player (bit 0) and zone (bits 1-5)
+0x0985c82c,ui,ui_create_attack_pointer,M,allocates 0x60-byte data, stores the zone code, creates the object task 0x098619a8 into 0x098e6bc0, places it on the zone
+0x0985c8c0,ui,ui_place_attack_pointer_on_zone,M,zone position via 0x098512fc, height +30, sets draw/update/free callbacks and aims at the selected zone (0x0984eacc)
+0x0985c9dc,ui,ui_draw_attack_pointer,M,draw callback: display list 5, texture 0x40005, model 0x1001c (0x0989edb4) with the object transform
+0x0985cb00,ui,ui_free_attack_pointer_data,M,free callback: heap free (0x098a0888) of the data block when non-null
+0x0985cb20,ui,ui_attack_pointer_follow_selection,M,update callback: reads the selected zone (0x0984eacc) and re-aims the pointer (0x0985cb9c)
+0x0985cb48,ui,ui_update_attack_pointer_tween,M,update callback: lerps the position from +0x30 to +0x40 over +0x50 seconds (0x08819b88)
+0x0985cb9c,ui,ui_aim_attack_pointer,M,forwards (zone, arg, 0) to ui_aim_attack_pointer_at_zone
+0x0985cbbc,ui,ui_aim_attack_pointer_at_zone,M,turns the pointer toward the target zone (atan2), restarts the arrow when the target changes; colour 0xffff6060 or 0xff0606ff
+0x0985ce1c,ui,ui_can_draw_attack_arrow,M,no arrow active and target zone 0-4 (or 0xb when forced) whose state from 0x0989d8c4 has bit 0x800
+0x0985ced0,ui,ui_create_attack_arrow,H,strings 'perticle_for_arrow.gim' and 'arrow_head.gim' from archive 0x80001; stores from/to points and colour; task handle in 0x098e6bc4
+0x0985cfe0,ui,ui_stop_attack_arrow,M,clears the arrow active flag +0x4c and the handle 0x098e6bc4
+0x0985d3c0,ui,ui_update_attack_arrow,M,arrow update cb: grows +0x48 up to 63 by an option-scaled step, fades segment alphas; plays sound 0x7a34 on start
+0x0985d550,field_3d,field_3d_draw_billboard_at,M,translation to the point times the transposed view rotation (0x0881a9e0), draws a 4-vertex primitive 0x19f from param_3
+0x0985d65c,field_3d,field_3d_eval_hermite_vec3,H,weights (1-t)^2(1+2t), t(1-t)^2, -t^2(1-t), t^2(3-2t) on p0, m0, m1, p1 then sums: cubic Hermite interpolation
+0x0985d778,ui,ui_get_arrow_grow_step,M,table 0x098cf6b0 indexed by the option value 0x0989ea74; used as the per-frame growth of ui_update_attack_arrow
+0x0985d7a8,ui,ui_get_arrow_fade_step,M,table 0x098cf6c0 indexed by the option value 0x0989ea74; subtracted from segment alpha in ui_update_attack_arrow
+# family attack_ready
+0x09864c08,ui,ui_init_attack_ready_markers,M,clears 0x098e7620 and enables it (0x09864d34(1)); caller ui_init_duel_objects
+0x09864c38,ui,ui_term_attack_ready_markers,M,memset(0x098e7620, 0, 4); caller ui_term_duel_objects
+0x09864c4c,ui,ui_draw_attack_ready_markers,M,if enabled, Battle Phase (duel_core_get_phase == 3) and no deck effect: for monster zones 0-4 that pass 0x0989da0c(p, z, 1), idle and not under the attack pointer, draws a marker
+0x09864d34,ui,ui_set_attack_ready_markers_enabled,H,[0x098e7620] = param; callers ui_init_attack_ready_markers and two draw commands
+0x09864d40,ui,ui_draw_attack_ready_marker,M,marker above the zone (0x098512fc) bobbing by 5*sin(frame/10)+10, display list 5
+0x09864ea8,ui,ui_draw_attack_ready_marker_quad,M,texture 0x40006, alpha blend, 4-vertex primitive 0x183 from 0x098cf900
+# family attribute_select
+0x098a8fe4,ui,ui_duel_open_attribute_select_dialog,H,grid descriptor: 7 items, 6 columns, name callback card_db_get_attribute_name, 25x25 cells (0x098a4c68); window callbacks; SE 0x7a0c
+0x098a90f0,ui,ui_attribute_select_setup_window,M,init keeps the window in 0x09bddc84, disabled mask ~(param>>1) at +0xdc, panel draw 0x098a91fc; size from grid 0x098a54ec/0x098a552c
+0x098a91a0,ui,ui_attribute_select_on_decide,M,replies the grid result 0x098a5594(window) to the engine via 0x09be1db8
+0x098a91c8,ui,ui_attribute_select_update,M,updates the grid (0x098a50ac); true when the dialog window has closed (0x098a60f8 == 0)
+0x098a91fc,ui,ui_attribute_select_draw_panel,M,grid backdrop with window01.gim (container_ehp_find_member) and atlas 0x40005, then labels
+0x098a9640,ui,ui_attribute_select_draw_cursor,M,25x24 sprite from atlas 0x40005 at UV (0x1c,0x5d)
+# family backdrop
+0x0985b0a8,field_3d,field_3d_backdrop_get_current_instance,M,returns the model instance +0x18 of backdrop slot [0x098e69f0] (mgr +0x50, field_3d.md), or 0 when null or its first word is 0
+# family backdrop_extras
+0x0987aee0,field_3d,field_3d_start_chorus_of_sanctuary_extra,H,field_3d_backdrop_start_extra branch for card id 4899 (0x1323) calls it; creates task 0x0987af38
+0x0987af38,field_3d,field_3d_update_chorus_of_sanctuary_extra,M,draw task of the card 4899 backdrop extra (created by 0x0987aee0); uses the backdrop camera (0x09879b34)
+0x0987b450,field_3d,field_3d_start_umiiruka_extra,H,field_3d_backdrop_start_extra branch for card id 4933 (0x1345) calls it; creates task 0x0987b4a8
+0x0987b4a8,field_3d,field_3d_update_umiiruka_extra,M,draw task of the card 4933 backdrop extra (created by 0x0987b450); uses the backdrop camera (0x09879b34)
+0x0987c1c4,field_3d,field_3d_draw_molten_destruction_particles,M,only caller the Molten Destruction extra task; 64 particles, texture 5 (PT88_R_a.gim) on list 2
+0x0987c598,field_3d,field_3d_start_molten_destruction_extra,H,field_3d_backdrop_start_extra branch for card id 4934 (0x1346) calls it; creates task 0x0987c5f0
+0x0987c5f0,field_3d,field_3d_update_molten_destruction_extra,M,draw task of the card 4934 backdrop extra (created by 0x0987c598); uses the backdrop camera (0x09879b34)
+0x0987d014,field_3d,field_3d_start_mystic_plasma_zone_extra,H,field_3d_backdrop_start_extra branch for card id 4937 (0x1349) calls it; creates task 0x0987d06c
+0x0987d06c,field_3d,field_3d_update_mystic_plasma_zone_extra,M,draw task of the card 4937 backdrop extra (created by 0x0987d014); uses the backdrop camera (0x09879b34)
+0x0987df00,field_3d,field_3d_start_pandemonium_extra,H,field_3d_backdrop_start_extra branch for card id 5791 (0x169f) calls it; creates task 0x0987df58
+0x0987df58,field_3d,field_3d_update_pandemonium_extra,M,draw task of the card 5791 backdrop extra (created by 0x0987df00); uses the backdrop camera (0x09879b34)
+0x0987eb08,field_3d,field_3d_start_mausoleum_of_the_emperor_extra,H,field_3d_backdrop_start_extra branch for card id 6759 (0x1a67) calls it; creates task 0x0987eb60
+0x0987eb60,field_3d,field_3d_update_mausoleum_of_the_emperor_extra,M,draw task of the card 6759 backdrop extra (created by 0x0987eb08); uses the backdrop camera (0x09879b34)
+0x0987f004,field_3d,field_3d_start_jurassic_world_extra,H,field_3d_backdrop_start_extra branch for card id 6823 (0x1aa7) calls it; creates task 0x0987f08c
+0x0987f08c,field_3d,field_3d_update_jurassic_world_extra,M,draw task of the card 6823 backdrop extra (created by 0x0987f004); uses the backdrop camera (0x09879b34)
+0x0987f5e0,field_3d,field_3d_start_venom_swamp_extra,H,field_3d_backdrop_start_extra branch for card id 7164 (0x1bfc) calls it; creates task 0x0987f638
+0x0987f638,field_3d,field_3d_update_venom_swamp_extra,M,draw task of the card 7164 backdrop extra (created by 0x0987f5e0); uses the backdrop camera (0x09879b34)
+# family backdrop_tasks
+0x0987a5ac,field_3d,field_3d_create_backdrop_transition_task,H,only caller field_3d_start_backdrop_transition; ui_duel_create_draw_task(0x0987a604, 0x56c4 bytes), data +8 = direction
+0x0987a604,field_3d,field_3d_update_backdrop_transition,M,31x21 vertex grid over 480x272 from the copied framebuffer, eased over 16 frames, SE 0x7a3a; field_3d.md change-over task
+0x0987ad08,field_3d,field_3d_create_final_countdown_transition_task,M,transition variant for id 5788 (Final Countdown, field_3d.md); task 0x0987ad60, 12 bytes
+0x0987ad60,field_3d,field_3d_update_final_countdown_transition,H,full-screen 480x272 black quad on list 2, alpha ramps over 60 frames; returns 4 (done) at 60
+# family burst
+0x0986a338,ui,ui_start_burst_effect,M,draw task 0x0986a39c (0x20 bytes) at a screen point
+0x0986a39c,ui,ui_draw_burst_effect,M,sound 0x7a1b, 128px sprite growing from half size plus 16 trailing rings for 32 frames, display list 7
+# family card_action_menu
+0x098aede8,ui,ui_card_action_menu_reset_a,M,memset(0x09be0cb8, 0, 0xa0) and clears the extra action callback 0x09be0d58; caller 0x098abfc4
+0x098aee18,ui,ui_card_action_menu_reset_b,M,identical twin of 0x098aede8; caller 0x098abfe8
+0x098aee48,ui,ui_duel_open_card_action_menu,M,decodes the card location, builds actions (0x098af338); a lone action runs at once (0x098af7d0), else a window placed at the card, SE 0x7a08
+0x098af178,ui,ui_card_action_store_source,H,copies the location-getter word from param_2 to 0x09be0cb8
+0x098af19c,ui,ui_card_action_draw_icon,M,13x13 sprite from atlas 0x40005 with UV from table 0x098d31d8 (stride 0x10) by action
+0x098af244,ui,ui_card_action_setup_window,M,init: item count 0x09be0cbc, 100x15 items, draw cb 0x098af8e8; layout pass sizes width from widest label 0x09be0d40, window kept in 0x09be0d44
+0x098af338,ui,ui_card_action_build_list,M,action mask (0x098af9e0) against 16 entries of table 0x098d31e4, up to 32 into 0x09be0cc0; shrinks font from 12 until labels fit 300 px
+0x098af4a8,ui,ui_card_action_place_at_card,H,projects the card position with sceVfpuMatrix4Mul/Transform to screen and clamps the window position (+0x58/+0x5a)
+0x098af760,ui,ui_card_action_on_decide,M,runs the selected action (0x098af7d0) with action id table 0x098d31e4[entry]
+0x098af7d0,ui,ui_card_action_execute,M,action < 0x0d: field command 0x098a0bf0(side, zone, index, action); 0x0d: HUD state 5; 0x0f: 0x09be1f7c then command 0x0c
+0x098af8c0,ui,ui_card_action_layout_callback,M,calls ui_card_action_place_at_card and returns its argument
+0x098af8e8,ui,ui_card_action_draw_item,M,icon (0x098af19c) and label (0x098afc78) for the action entry, font size 0x09be0d54
+0x098af9e0,ui,ui_card_action_get_mask,M,mask 0x0989d8c4(side, zone, index); +0x2000 and info-card update (0x098a3fac) when the card is visible; +0x8000 from 0x0989d874
+0x098afb94,ui,ui_card_action_update,M,R (pad 0x200) jumps the cursor to action 0x0c when mask bit 0x1000 is set (SE 0x7a05); stores selection 0x09be0d48; true when closed
+0x098afc78,ui,ui_card_action_get_label,M,duel string for the action; ids 0x1f/0x20 fall back to 0x1e by mask bits 0xc0 and card_db_is_monster
+# family card_art_cache
+0x0989f218,ui,ui_get_large_card_art_reader,M,returns 0x098eaf08, the reader created with a 0x149000-byte buffer
+0x0989f224,ui,ui_bind_card_art_texture,M,card art from reader 0x098eaf0c via 0x0883d058; fallback texture 0x40002 (ui_get_duel_texture), bound with 0x08823f1c
+0x0989f2d0,ui,ui_init_card_art_list,M,resets readers; list 0x098e9b00 (16-byte entries): one empty entry then every card_db_is_token id in 0xe88-0x1f39
+0x0989f374,ui,ui_add_deck_to_card_art_list,M,merges a deck's two id lists (+0x0c, +0xa2), sorts, adds unseen ids to 0x098e9b00, re-sorts
+0x0989f4cc,ui,ui_are_small_card_arts_loaded,M,reader 0x098eaf0c (0xa9000-byte buffer) ready and 0x0989ffe0 true for every list entry
+0x0989f548,ui,ui_are_large_card_arts_loaded,M,reader 0x098eaf08 (0x149000-byte buffer) ready and 0x098a006c true for every list entry
+0x0989ffe0,ui,ui_poll_small_card_art,M,0x0883d058 for list entry i on reader 0x098eaf0c; true when the entry is empty or delivered
+0x098a006c,ui,ui_poll_large_card_art,M,0x0883d058 for list entry i on reader 0x098eaf08; true when the entry is empty or delivered
+0x098a022c,ui,ui_create_card_art_readers,M,clears list 0x098e9b00 (0x1f3420 bytes); readers 0x0883cafc(0x098eaf10, 0x149000) and 0x0883cbb4(0x09a33f10, 0xa9000) (cip.md)
+0x098a0298,ui,ui_destroy_card_art_readers,M,stops both readers (0x0883cdac), waits for 0x0883cdc8, clears the list
+# family card_fx
+0x09876bd0,field_3d,field_3d_is_card_fx_task_finished,M,task data null -> true; kind < 0x14: timer +4 >= +0; else word 0x1250 > 0x1d (task of 0x09876c28)
+0x09876c28,field_3d,field_3d_create_card_fx_task,M,ui_duel_create_draw_task(0x09876ca8, 0x4944), kind at +0xc; kind 0x14 timer -1 and +0x14 = 16
+0x09876ca8,field_3d,field_3d_update_card_fx,M,effect animation task; contains the call field_3d_backdrop_request(5788) after time 360 (field_3d.md, at 0x09876e08)
+# family card_highlight
+0x098625b4,ui,ui_start_card_highlight,M,card object +0x90 = task 0x0986b318(mode 1) at its position, registers the object in the 512-entry table 0x098e6d9c, adds callback 0x09864a18
+0x098626a0,ui,ui_stop_card_highlight,M,ends task +0x90, removes the object from table 0x098e6d9c and its callback 0x09864a18
+0x09862728,ui,ui_stop_all_card_highlights,M,for every object of table 0x098e6d9c with +0x90 set ends the task and removes the callback
+0x09862c54,ui,ui_start_card_target_glow,M,card object +0x94 = task 0x0986b318(mode 0 or 2); graveyard/banished (0xe, 0xf) share one task per zone with a use count at 0x098e759c
+0x09862e5c,ui,ui_stop_card_target_glow,M,ends task +0x94 (shared zones decrement the count first), unregisters from 0x098e6d9c and removes callback 0x09864a18
+0x09862f54,ui,ui_stop_all_card_target_glows,M,for every object of table 0x098e6d9c with +0x94 set ends the task and removes the callback
+0x09864a18,ui,ui_sync_card_glow_transform,M,card object callback: when +0x90 or +0x94 is set rebuilds the object matrix and pushes position and angles to both glow tasks (0x0986b3e0)
+0x0986b318,ui,ui_create_card_glow_task,M,draw task 0x0986b464 (0x90 bytes) with mode, position, angles and scale; callers ui_start_card_highlight and ui_start_card_target_glow
+0x0986b3e0,ui,ui_set_card_glow_task_transform,H,updates position +0x1c, angles +0x28 and uniform scale +0x34 of a glow task; caller ui_sync_card_glow_transform
+0x0986b464,ui,ui_draw_card_glow_task,M,96 x 96 quad (+-48) whose uv layout depends on mode 0/1/2, pulsing alpha
+# family card_info
+0x09862160,ui,ui_draw_card_info_object,M,draw cb, display list 7: 2D states then the BOOT card-info drawer 0x08837f68 (card_db name, text, ATK/DEF) at (0x104, 0x2d) for card data+4
+0x09862310,ui,ui_create_card_info_display,M,when the option value < 3: starts the card flash task at (314, 122) (0x09869058 with card, or 0x09869370) and an object drawing the card info
+0x09862428,ui,ui_retry_card_info_display,M,update cb: once no card motion is pending (0x0989d3dc, 0x098532fc) re-issues ui_request_card_info_display and deletes itself
+0x09862494,ui,ui_request_card_info_display,M,if card objects are idle shows the card info now and moves the selection (0x0984d564 / 0x0984e908), else queues a retry object
+0x09863388,ui,ui_show_stat_change,M,value from 0x0989daa0 or 0x0989da78 (per zone, chosen by param_3) minus delta, clamped at 0, then task 0x0986c694(from, to) at the card position
+0x09869058,ui,ui_start_card_info_flash,M,draw task 0x098690f0 (0x18 bytes) with card and screen point; caller ui_create_card_info_display
+0x098690d0,ui,ui_copy_point3,H,copies three words; 7 callers that store screen points in task data
+0x098690f0,ui,ui_draw_card_info_flash,M,sound 0x7a1b, 16 expanding 108x154 rectangles centred on the point with fading alpha; ends after 24 frames
+0x09869370,ui,ui_start_card_picture_fade,M,draw task 0x098693d0 (0x14 bytes) with a screen point; caller ui_create_card_info_display
+0x098693d0,ui,ui_draw_card_picture_fade,M,sound 0x7a3e, 108x154 sprite at point-(54,77) fading over 24 frames
+# family card_info_menu
+0x098a7f80,ui,ui_duel_open_card_info_menu,M,stores the card ref (0x098a800c), builds commands (0x098a8024), opens window 0x098a61f8 with setup/decide/layout callbacks, SE 0x7a08
+0x098a800c,ui,ui_card_info_menu_store_ref,H,copies two words from param_2 to param_1 (the 8-byte card ref at 0x09bdd720)
+0x098a8024,ui,ui_card_info_menu_build_list,M,appends command ids 0..3 to 0x09bdd72c by conditions (0x09dce82c, 0x0989e4ec, 0x098a2508); count 0x09bdd73c; widest label 0x09bdd740
+0x098a8150,ui,ui_card_info_menu_setup_window,M,window callback: init (param_2=1) sets item count +0xcc, 100x15 items, draw cb 0x098a8660; layout pass sizes width from widest label
+0x098a8240,ui,ui_card_info_menu_on_decide,M,selected command: 3 -> 0x098a2144, 2 -> 0x098a2620, 1 -> 0x098a0ccc, 0 -> info card 0x098a3fac and HUD state 5 (0x098a2fa8)
+0x098a82f0,ui,ui_card_info_menu_place_at_card,H,projects the card position with sceVfpuMatrix4Mul/Transform to the 480x272 screen and clamps window x/y (+0x58/+0x5a)
+0x098a85f8,ui,ui_card_info_menu_layout_callback,M,gets the location through the stored getter 0x09bdd724, decodes side/zone/index, calls ui_card_info_menu_place_at_card
+0x098a8660,ui,ui_card_info_menu_draw_item,M,icon from atlas 0x40005 (UV table 0x098d2f8c) and label 0x098a08c4(table 0x098d2f94) per item
+# family card_info_panel
+0x0984d0b4,ui,ui_card_info_init,M,memset panels 0x098d54a0 (0x880), resources 0x40004/0x40006/0x20001/... into BOOT 0x08837464, show card -1
+0x0984d194,ui,ui_card_info_term,M,BOOT 0x08837564 and frees buffer 0x098d5d0c
+0x0984d1d8,ui,ui_card_info_draw,M,refreshes panels 0x098d54a0/0x098d56b8, list 7: one panel (BOOT 0x08837588) or two (0x08837964) at offset 0x098d5d1c
+0x0984d2b4,ui,ui_card_info_update,M,refreshes stats; slide state 0x098d5d10 (0-5) moves offset 0x098d5d1c by 120 px over 0.25 s using dt
+0x0984d4ac,ui,ui_card_info_scroll_text,M,adds delta to panel +0x100, clamped to 0..+0x104, for one or both panels
+0x0984d564,ui,ui_card_info_show_card_id,M,active panel: ui_card_info_set_card_id when id differs from +0x20c or an instance is set
+0x0984d5b8,ui,ui_card_info_show_instance,M,active panel: ui_card_info_set_instance when +0x208 differs; 7 callers incl. cursor update
+0x0984d5f0,ui,ui_card_info_open_pair_by_card_id,M,saves active panel, sets panel n by card id, other panel from the saved one, state 3 (two panels)
+0x0984d724,ui,ui_card_info_copy_panel,H,copies the 0x218-byte panel record (0x41 dword pairs plus +0x208, +0x20c-+0x214)
+0x0984d778,ui,ui_card_info_open_pair_by_instance,M,same as open_pair_by_card_id with ui_card_info_set_instance for panel n
+0x0984d89c,ui,ui_card_info_close_pair,M,clears pair flags 0x098d5d00/0x098d5d04, restores the saved panels (0x098d58d0), slide target 0
+0x0984d930,ui,ui_card_info_set_pair_suppressed,M,0x098d5d08 = flag; slide target 0 or 3 from ui_card_info_is_pair_shown
+0x0984d970,ui,ui_card_info_refresh_live_stats,M,for panel instance +0x208 reads current values via duel_core_get_off_field_attribute/race and engine getters
+0x0984df90,ui,ui_card_info_copy_stats,H,copies 29 words (the 0x74-byte stats block built in ui_card_info_refresh_live_stats)
+0x0984e080,ui,ui_card_info_get_active_panel,M,0x098d56b8 when the pair is shown and its flag +0x214 is set, else 0x098d54a0
+0x0984e0c8,ui,ui_card_info_set_card_id,M,panel: id, BOOT 0x088565dc(id), card_db kind, frame, ATK, DEF (0xffff -> -1), race, attribute, level, icon
+0x0984e1d4,ui,ui_card_info_set_instance,M,panel +0x208 = instance, id via engine 0x09be1a10, same card_db fields, then ui_card_info_refresh_live_stats
+0x0984e2d4,ui,ui_card_info_is_pair_shown,M,1 when 0x098d5d00 or 0x098d5d04 is set and 0x098d5d08 is not
+# family card_list_picker
+0x098ac01c,ui,ui_close_card_list_and_dialogs,M,closes the card list windows (0x098ac048), then 0x098a5f58 and 0x098a58f4; caller 0x0989c2a0
+0x098ac048,ui,ui_card_list_close_windows,M,0x08834d24 on both card list windows 0x09bde010 (list) and 0x09bde130 (sub menu)
+0x098ac074,ui,ui_card_list_picker_init,M,copies up to 0x200 card ids to 0x09bde458, builds visible order (0x098ae94c, 0x098adfa0), sets up list window 0x09bde010, SE 0x7a0c
+0x098ac370,ui,ui_duel_open_card_list_picker,H,duel_core_get_candidate_count/entry (id & 0x3fff) into a list, clamps min/max, inits the picker, HUD state 2, decide 0x098ad6b4
+0x098ac460,ui,ui_card_list_picker_draw,M,draws list window 0x09bde010 (0x08833be4), then the sort, command or filter sub menu for state 0x09be0c70 = 1, 2, 3
+0x098ac4ec,ui,ui_card_list_picker_update,M,state 0x09be0c70 (0 list, 1 sort, 2 commands, 3 filter); a cursor change previews the entry (0x098ad4a0); SE 0x7a04
+0x098ac8bc,ui,ui_card_list_picker_is_open,M,window state byte 0x09bde0f9 (+0xe9 of 0x09bde010) not 0, 1 or 6; same test as 0x098a60f8
+0x098ac8f8,ui,ui_card_list_picker_is_active,M,window state byte 0x09bde0f9 == 3 (input state); caller 0x098a3484
+0x098ac90c,ui,ui_card_list_picker_set_select_range,H,stores minimum (0x09be0464) and maximum (0x09be0460) selection counts; caller passes the clamped values
+0x098ac920,ui,ui_card_list_picker_get_selection,H,copies the selection 0x09be046c (count 0x09be0468) to out and returns the count
+0x098ac95c,ui,ui_card_list_picker_close,M,only calls 0x08834ce0(window 0x09bde010); caller 0x098a3484
+0x098ad064,ui,ui_stub_noop_card_list_menu_text,M,empty body called by 0x098ae6cc with (x, y, 0x7c, label) where a text draw would be
+0x098ad4a0,ui,ui_card_list_picker_preview_entry,M,for a list entry takes two engine values (0x09dc9d30, 0x09dc9dd0) and passes them to 0x0984d564; called on cursor change
+0x098ad514,ui,ui_card_list_picker_toggle_selection,H,removes the entry from 0x09be046c if present (SE 0x7a06) or appends it below the maximum (SE 0x7a05; buzzer 0x7a07 when full)
+0x098ad63c,ui,ui_card_list_picker_undo_selection,M,with picks drops the last one (SE 0x7a06); with none closes the window (0x08834ce0) unless cancel is locked (buzzer 0x7a07)
+0x098ad6b4,ui,ui_card_list_picker_on_decide,H,duel_core_set_selected_candidate_index(first), replies the count via 0x09be1db8, then 0x09dca2dc(entry, order) per pick
+0x098ad97c,ui,ui_card_list_open_sort_menu,M,sub window 0x09bde130 titled duel string 0x5f, 10 items, item draw 0x098adc00; saves order and keys for cancel; SE 0x7a08
+0x098ada88,ui,ui_card_list_close_sub_window,M,only calls 0x08834d24(window 0x09bde130)
+0x098ada94,ui,ui_card_list_update_sort_menu,H,up/down (pad 0x50) toggle descending 0x09be0c78, cursor sets sort key 0x09be0c74 and resorts (0x098adfa0); cancel (-2) restores
+0x098adbd4,ui,ui_card_list_draw_sort_menu,M,draws sub window 0x09bde130 with 0x08833be4; picker state 1
+0x098adc00,ui,ui_card_list_draw_sort_item,M,item icon from table 0x098d3158 (atlas 0x40005); on the cursor item a highlight quad and ascending/descending icons (0x098adf14)
+0x098ade88,ui,ui_card_list_draw_sort_icon,M,17x17 sprite with UV from table 0x098d3158[key]
+0x098adf14,ui,ui_card_list_draw_sort_order_icon,M,17x17 sprite with UV from 0x098d3180 or 0x098d3184 by the order flag
+0x098adfa0,ui,ui_card_list_sort,H,builds {id, index, key} records (0x098ae0e0) in a temporary buffer, system_qsort ascending or descending, writes the ids back
+0x098ae0e0,ui,ui_card_list_get_sort_key,H,mode 0 order, 1 card_db_get_sort_position, 2 frame, 3 level, 4 ATK, 5 DEF, 6 race, 7 attribute, 8 spell/trap icon, 9 deck_get_current_card_limit
+0x098ae3f8,ui,ui_card_list_picker_has_enough_selected,H,true when no range is set or the selection count 0x09be0468 has reached the minimum 0x09be0464
+0x098ae440,ui,ui_card_list_open_command_menu,M,builds commands (0x098ae7e8), sets up sub window 0x09bde130 with item draw 0x098ae6cc above the list, SE 0x7a08
+0x098ae594,ui,ui_card_list_close_command_menu,M,only calls 0x08834d24(window 0x09bde130); caller 0x098ae5a0
+0x098ae5a0,ui,ui_card_list_update_command_menu,M,on decide: 0 shows the card (0x098a3fac, HUD state 5), 1 opens sort, 2 opens filter, 3 -> 0x098a2620, 4 -> 0x098a2144
+0x098ae6a0,ui,ui_card_list_draw_command_menu,M,draws sub window 0x09bde130 with 0x08833be4; picker state 2
+0x098ae6cc,ui,ui_card_list_draw_command_item,M,13x13 icon from table 0x098d30b0 (atlas 0x40005) and label string from 0x098d30b8 for the command id
+0x098ae7e8,ui,ui_card_list_build_command_menu,M,ids into 0x09be0c8c: 0 (no pick, valid card), 1, 2, 3 (0x0989e4ec == 0), 4 (0x098a2508); count 0x09be0cac, widest label 0x09be0cb0
+0x098ae94c,ui,ui_card_list_filter_by_frame,H,filter 0 lists every index; otherwise keeps cards whose card_db_get_frame equals table 0x098d3198[filter] (or invalid entries)
+0x098aea34,ui,ui_card_list_open_filter_menu,M,sub window 0x09bde130 titled duel string 0x4b, 8 items, item draw 0x098aecd8; saves the filter for cancel; SE 0x7a08
+0x098aeb20,ui,ui_card_list_update_filter_menu,H,cursor change refilters (0x098ae94c) and resorts; cancel (-2) restores the saved filter; resets the list cursor when out of range
+0x098aecac,ui,ui_card_list_draw_filter_menu,M,draws sub window 0x09bde130 with 0x08833be4; picker state 3
+0x098aecd8,ui,ui_card_list_draw_filter_item,M,binds atlas 0x40006 and draws the filter icon (0x098aed5c)
+0x098aed5c,ui,ui_card_list_draw_filter_icon,M,17x17 sprite with UV from table 0x098d31b8[filter]
+# family card_name_picker
+0x098a450c,ui,ui_free_card_name_picker,M,frees the picker buffer 0x09bdd148 if set
+0x098a4540,ui,ui_open_card_name_picker,M,from card-list command ids 0x4b-0x4e: 0x3794-byte buffer, builds the list, message window, pushes UI mode 4 arg 0x36
+0x098a4640,ui,ui_close_card_name_picker,M,close callback: 0x09be1db8(chosen card id) stores the decision result 0x09e2d248, frees the buffer
+0x098a4688,ui,ui_get_card_name_picker_name,M,card_db_get_name of list entry i of buffer 0x09bdd148
+0x098a4774,ui,ui_build_card_name_picker_list,H,ids 0xe88-0x1f39 card_db_is_valid, non-token; 0x4e monsters, 0x4d monsters with frame != 3, 0x4c frame != 3; qsort
+0x098a4978,ui,ui_compare_card_sort_position,H,qsort comparator: card_db_get_sort_position(a) - card_db_get_sort_position(b)
+0x098a49b0,ui,ui_update_card_name_picker,M,update callback: cursor index, jumps of 9 with R trigger 0x200, jumps by card_db_get_top_group, sound 0x7a0d
+# family card_objects
+0x0985655c,ui,ui_pop_free_card_object,M,unlinks and returns the first node after sentinel 0x098e39b0 (free list), 0 when empty
+0x098565b4,ui,ui_set_card_object_motion,M,copies current pos/rot to start (+0x20/+0x50), target to +0x30/+0x60, time +0x70 = 0, duration +0x74; plays random sound 0x7a2f-0x7a33 if it moves
+0x098566bc,ui,ui_update_card_object_motion,M,compares time +0x70 with duration +0x74, flag bits at +0x8c/+0x8d drive moves, quat_slerp of rotations, runs ui_run_card_object_callbacks; callers 0x098509b4/0x09850914
+0x09856d14,ui,ui_run_card_object_callbacks,H,calls the four callbacks at +0x9c..+0xa8 with the object, clears each that returns non-zero
+0x09856d84,ui,ui_get_zone_card_object,M,returns 0x098d5db0 + 0xdcb0 + player*0xb00 + zone*0xb0; hand, extra deck, deck (0xb-0xd) use the remapped player 0x098e6664 (tag duels)
+# family card_quad
+0x09864f2c,field_3d,field_3d_init_card_quad_vertices,M,writes four vertices at 0x098e7624: uv +-0.49, x +-31, z +-44 (a 62 x 88 card-sized quad); caller 0x0987835c
+0x09864ff4,field_3d,field_3d_call_draw_card_quad,M,forwards its arguments to field_3d_draw_card_quad; callers two card effects
+0x09865038,field_3d,field_3d_draw_card_quad,M,display list 5: translate, rotate, scale (1+s/64), alpha param_6, texture via 0x09879054, draws the card quad 0x098e7624
+# family card_row_dialog
+0x098a9980,ui,ui_duel_open_card_row_dialog,M,dispatcher 0x0989b438 opener: clears 0x09bddc90 (0x14c bytes), stores params, opens the window with callbacks, SE 0x7a0c
+0x098a9d4c,ui,ui_card_row_dialog_draw,M,row of 40x40 cards (0x0985df4c) from 0x09bdddb8, the current card at 1.5x with arrows, or the sub window (0x098aa03c)
+0x098a9f68,ui,ui_card_row_dialog_open_sub_window,M,inits window 0x09bddc94 (0x098a6574) with caption card_db_get_dialog_string(0x24e) and duel string 0x2a, opens it (0x088338e4)
+0x098aa024,ui,ui_card_row_dialog_close_sub_window,M,only calls 0x08834d24(window 0x09bddc94)
+0x098aa030,ui,ui_card_row_dialog_update_sub_window,M,only calls the window update 0x088345fc(0x09bddc94)
+0x098aa03c,ui,ui_card_row_dialog_draw_sub_window,M,centres window 0x09bddc94 on param_2 and draws it with 0x08833be4
+# family card_yes_no
+0x098abbfc,ui,ui_duel_open_card_yes_no_dialog,M,dispatcher opener: card id 0x09be1a10(param_2) and flag in 0x09bde000/4, window with decide 0x098abcf0, SE 0x7a0c
+0x098abcf0,ui,ui_card_yes_no_on_decide,H,replies (selection != 0) via 0x09be1db8
+0x098abd14,ui,ui_card_yes_no_draw_item,M,card picture (0x0989f224) per item and the centred duel string 0x24 or 0x25
+# family coin_toss
+0x09863edc,ui,ui_on_coin_toss_done,M,done cb: 0x0989e94c(-1) then destroys the wait object
+0x09863f0c,ui,ui_start_coin_toss,M,three result bits of param_4 (one per coin), wait object 0x3c; Arcana Force cards (card_db_is_arcana_force) use the roulette task 0x0986a7c8 instead of 0x098723a4
+0x0986a7c8,ui,ui_start_arcana_roulette,M,draw task 0x0986a854 (0x120 bytes) with card id and result; caller ui_start_coin_toss for Arcana Force cards
+0x0986a854,ui,ui_update_arcana_roulette,M,spins for a random 0x20/0x60 steps, state machine over +4, sounds 0x7a43 / 0x7a44 when stopping
+# family count_message
+0x098a8cf8,ui,ui_duel_open_count_message,M,message box (0x098a67b4 or 0x098a6964) with draw hook 0x098a8da4 and close test 0x098a8f98; stores count 0x09ccd218() and a 10-frame delay
+0x098a8da4,ui,ui_count_message_draw_icons,M,one 17x17 icon (atlas 0x40005) per counted item, greyed 0xff808080 for those used up (stored count minus 0x09ccd218())
+0x098a8f98,ui,ui_count_message_is_done,M,returns 1 once 0x09ccd218() < 1 and the 10-frame counter 0x09bddc80 has run out
+# family cutin_chara_blocks
+0x09842fcc,field_3d,field_3d_cutin_tbl098ccc60_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ccc60 block (table 0x098ccc60)
+0x09842fec,field_3d,field_3d_cutin_tbl098ccc60_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ccc60 block (table 0x098ccc60)
+0x09843134,field_3d,field_3d_cutin_tbl098ccc60_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ccc60; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09842f80 (character not mapped)
+0x0984322c,field_3d,field_3d_cutin_tbl098ccc60_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ccc60 offset lookup
+0x09843260,field_3d,field_3d_cutin_tbl098ccc60_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ccc60 offset lookup
+0x098432c4,field_3d,field_3d_cutin_tbl098ccd00_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ccd00 block (table 0x098ccd00)
+0x098432e4,field_3d,field_3d_cutin_tbl098ccd00_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ccd00 block (table 0x098ccd00)
+0x09843440,field_3d,field_3d_cutin_tbl098ccd00_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ccd00; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09843278 (character not mapped)
+0x098434e8,field_3d,field_3d_cutin_tbl098ccd00_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ccd00 offset lookup
+0x0984351c,field_3d,field_3d_cutin_tbl098ccd00_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ccd00 offset lookup
+0x098442b8,field_3d,field_3d_cutin_tbl098ccfa0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ccfa0 block (table 0x098ccfa0)
+0x098442d8,field_3d,field_3d_cutin_tbl098ccfa0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ccfa0 block (table 0x098ccfa0)
+0x09844434,field_3d,field_3d_cutin_tbl098ccfa0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ccfa0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984426c (character not mapped)
+0x098444dc,field_3d,field_3d_cutin_tbl098ccfa0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ccfa0 offset lookup
+0x09844510,field_3d,field_3d_cutin_tbl098ccfa0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ccfa0 offset lookup
+0x0984456c,field_3d,field_3d_cutin_chr1e_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr1e block (table 0x098cd040)
+0x0984458c,field_3d,field_3d_cutin_chr1e_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr1e block (table 0x098cd040)
+0x098446e8,field_3d,field_3d_cutin_chr1e_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd040; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x09844520 = character 0x1e in field_3d_cutin_get_chara_setup
+0x09844790,field_3d,field_3d_cutin_chr1e_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr1e offset lookup
+0x098447c4,field_3d,field_3d_cutin_chr1e_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr1e offset lookup
+0x09844828,field_3d,field_3d_cutin_chr18_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr18 block (table 0x098cd0e0)
+0x09844848,field_3d,field_3d_cutin_chr18_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr18 block (table 0x098cd0e0)
+0x098449a4,field_3d,field_3d_cutin_chr18_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd0e0; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x098447dc = character 0x18 in field_3d_cutin_get_chara_setup
+0x09844a4c,field_3d,field_3d_cutin_chr18_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr18 offset lookup
+0x09844a80,field_3d,field_3d_cutin_chr18_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr18 offset lookup
+0x09844ae4,field_3d,field_3d_cutin_chr1f_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr1f block (table 0x098cd180)
+0x09844b04,field_3d,field_3d_cutin_chr1f_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr1f block (table 0x098cd180)
+0x09844c60,field_3d,field_3d_cutin_chr1f_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd180; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x09844a98 = character 0x1f in field_3d_cutin_get_chara_setup
+0x09844d08,field_3d,field_3d_cutin_chr1f_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr1f offset lookup
+0x09844d3c,field_3d,field_3d_cutin_chr1f_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr1f offset lookup
+0x09844da0,field_3d,field_3d_cutin_chr1c_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr1c block (table 0x098cd220)
+0x09844dc0,field_3d,field_3d_cutin_chr1c_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr1c block (table 0x098cd220)
+0x09844f1c,field_3d,field_3d_cutin_chr1c_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd220; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x09844d54 = character 0x1c in field_3d_cutin_get_chara_setup
+0x09844fc4,field_3d,field_3d_cutin_chr1c_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr1c offset lookup
+0x09844ff8,field_3d,field_3d_cutin_chr1c_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr1c offset lookup
+0x0984505c,field_3d,field_3d_cutin_tbl098cd2c0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd2c0 block (table 0x098cd2c0)
+0x0984507c,field_3d,field_3d_cutin_tbl098cd2c0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd2c0 block (table 0x098cd2c0)
+0x098462ec,field_3d,field_3d_cutin_tbl098cd2c0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd2c0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09845010 (character not mapped)
+0x09846394,field_3d,field_3d_cutin_tbl098cd2c0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd2c0 offset lookup
+0x098463c8,field_3d,field_3d_cutin_tbl098cd2c0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd2c0 offset lookup
+0x0984642c,field_3d,field_3d_cutin_tbl098cd360_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd360 block (table 0x098cd360)
+0x0984644c,field_3d,field_3d_cutin_tbl098cd360_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd360 block (table 0x098cd360)
+0x098471ec,field_3d,field_3d_cutin_tbl098cd360_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd360; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x098463e0 (character not mapped)
+0x09847294,field_3d,field_3d_cutin_tbl098cd360_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd360 offset lookup
+0x098472c8,field_3d,field_3d_cutin_tbl098cd360_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd360 offset lookup
+0x0984732c,field_3d,field_3d_cutin_tbl098cd400_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd400 block (table 0x098cd400)
+0x0984734c,field_3d,field_3d_cutin_tbl098cd400_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd400 block (table 0x098cd400)
+0x098474a8,field_3d,field_3d_cutin_tbl098cd400_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd400; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x098472e0 (character not mapped)
+0x09847550,field_3d,field_3d_cutin_tbl098cd400_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd400 offset lookup
+0x09847584,field_3d,field_3d_cutin_tbl098cd400_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd400 offset lookup
+0x098475e8,field_3d,field_3d_cutin_tbl098cd4a0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd4a0 block (table 0x098cd4a0)
+0x09847608,field_3d,field_3d_cutin_tbl098cd4a0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd4a0 block (table 0x098cd4a0)
+0x09847764,field_3d,field_3d_cutin_tbl098cd4a0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd4a0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984759c (character not mapped)
+0x0984780c,field_3d,field_3d_cutin_tbl098cd4a0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd4a0 offset lookup
+0x09847840,field_3d,field_3d_cutin_tbl098cd4a0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd4a0 offset lookup
+0x098478a4,field_3d,field_3d_cutin_tbl098cd540_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd540 block (table 0x098cd540)
+0x098478c4,field_3d,field_3d_cutin_tbl098cd540_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd540 block (table 0x098cd540)
+0x09847b54,field_3d,field_3d_cutin_tbl098cd540_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd540 (2 tables by variant +4); copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09847858 (character not mapped)
+0x09847c30,field_3d,field_3d_cutin_tbl098cd540_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd540 offset lookup
+0x09847c64,field_3d,field_3d_cutin_tbl098cd540_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd540 offset lookup
+0x09847cc8,field_3d,field_3d_cutin_chr90_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr90 block (table 0x098cd680)
+0x09847ce8,field_3d,field_3d_cutin_chr90_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr90 block (table 0x098cd680)
+0x09847e44,field_3d,field_3d_cutin_chr90_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd680; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x09847c7c = character 0x90 in field_3d_cutin_get_chara_setup
+0x09847eec,field_3d,field_3d_cutin_chr90_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr90 offset lookup
+0x09847f20,field_3d,field_3d_cutin_chr90_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr90 offset lookup
+0x09847f84,field_3d,field_3d_cutin_tbl098cd720_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd720 block (table 0x098cd720)
+0x09847fa4,field_3d,field_3d_cutin_tbl098cd720_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd720 block (table 0x098cd720)
+0x09848100,field_3d,field_3d_cutin_tbl098cd720_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd720; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09847f38 (character not mapped)
+0x098481a8,field_3d,field_3d_cutin_tbl098cd720_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd720 offset lookup
+0x098481dc,field_3d,field_3d_cutin_tbl098cd720_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd720 offset lookup
+0x09848240,field_3d,field_3d_cutin_tbl098cd7c0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd7c0 block (table 0x098cd7c0)
+0x09848260,field_3d,field_3d_cutin_tbl098cd7c0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd7c0 block (table 0x098cd7c0)
+0x098483bc,field_3d,field_3d_cutin_tbl098cd7c0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd7c0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x098481f4 (character not mapped)
+0x09848464,field_3d,field_3d_cutin_tbl098cd7c0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd7c0 offset lookup
+0x09848498,field_3d,field_3d_cutin_tbl098cd7c0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd7c0 offset lookup
+0x09848508,field_3d,field_3d_cutin_tbl098cd860_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd860 block (table 0x098cd860)
+0x09848528,field_3d,field_3d_cutin_tbl098cd860_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd860 block (table 0x098cd860)
+0x09848684,field_3d,field_3d_cutin_tbl098cd860_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd860; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x098484bc (character not mapped)
+0x0984872c,field_3d,field_3d_cutin_tbl098cd860_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd860 offset lookup
+0x09848760,field_3d,field_3d_cutin_tbl098cd860_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd860 offset lookup
+0x09848818,field_3d,field_3d_cutin_tbl098cd910_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cd910 block (table 0x098cd910)
+0x09848838,field_3d,field_3d_cutin_tbl098cd910_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cd910 block (table 0x098cd910)
+0x098489e4,field_3d,field_3d_cutin_tbl098cd910_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd910; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x098487cc (character not mapped)
+0x09848a8c,field_3d,field_3d_cutin_tbl098cd910_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd910 offset lookup
+0x09848ac0,field_3d,field_3d_cutin_tbl098cd910_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd910 offset lookup
+0x09848b24,field_3d,field_3d_cutin_tbl098cd9b0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14) after FUN_09880194; tbl098cd9b0 block (table 0x098cd9b0)
+0x09848b74,field_3d,field_3d_cutin_tbl098cd9b0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18) after FUN_0988044c; tbl098cd9b0 block (table 0x098cd9b0)
+0x09848bd4,field_3d,field_3d_cutin_tbl098cd9b0_frame_hook,M,per-character cut-in callback: calls default_frame_hook 0x098436dc (desc +0x1c) after FUN_09880490; tbl098cd9b0 block (table 0x098cd9b0)
+0x09848d74,field_3d,field_3d_cutin_tbl098cd9b0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cd9b0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09848ad8 (character not mapped)
+0x09848e1c,field_3d,field_3d_cutin_tbl098cd9b0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cd9b0 offset lookup
+0x09848e50,field_3d,field_3d_cutin_tbl098cd9b0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cd9b0 offset lookup
+0x09848ec0,field_3d,field_3d_cutin_tbl098cda70_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14) after FUN_09880194; tbl098cda70 block (table 0x098cda70)
+0x09848f10,field_3d,field_3d_cutin_tbl098cda70_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18) after FUN_0988044c; tbl098cda70 block (table 0x098cda70)
+0x09848f70,field_3d,field_3d_cutin_tbl098cda70_frame_hook,M,per-character cut-in callback: calls default_frame_hook 0x098436dc (desc +0x1c) after FUN_09880490; tbl098cda70 block (table 0x098cda70)
+0x098490f8,field_3d,field_3d_cutin_tbl098cda70_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cda70; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09848e74 (character not mapped)
+0x098491a0,field_3d,field_3d_cutin_tbl098cda70_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cda70 offset lookup
+0x098491d4,field_3d,field_3d_cutin_tbl098cda70_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cda70 offset lookup
+0x09849250,field_3d,field_3d_cutin_tbl098cdb30_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cdb30 block (table 0x098cdb30)
+0x09849270,field_3d,field_3d_cutin_tbl098cdb30_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cdb30 block (table 0x098cdb30)
+0x098493b8,field_3d,field_3d_cutin_tbl098cdb30_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cdb30; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09849204 (character not mapped)
+0x09849460,field_3d,field_3d_cutin_tbl098cdb30_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cdb30 offset lookup
+0x09849494,field_3d,field_3d_cutin_tbl098cdb30_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cdb30 offset lookup
+0x09849540,field_3d,field_3d_cutin_chr23_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr23 block (table 0x098cdbd0)
+0x09849560,field_3d,field_3d_cutin_chr23_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr23 block (table 0x098cdbd0)
+0x098496bc,field_3d,field_3d_cutin_chr23_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cdbd0; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x098494f4 = character 0x23 in field_3d_cutin_get_chara_setup
+0x09849764,field_3d,field_3d_cutin_chr23_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr23 offset lookup
+0x09849798,field_3d,field_3d_cutin_chr23_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr23 offset lookup
+0x098497fc,field_3d,field_3d_cutin_chr22_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr22 block (table 0x098cdc70)
+0x0984981c,field_3d,field_3d_cutin_chr22_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr22 block (table 0x098cdc70)
+0x09849978,field_3d,field_3d_cutin_chr22_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cdc70; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x098497b0 = character 0x22 in field_3d_cutin_get_chara_setup
+0x09849a20,field_3d,field_3d_cutin_chr22_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr22 offset lookup
+0x09849a54,field_3d,field_3d_cutin_chr22_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr22 offset lookup
+0x09849ab8,field_3d,field_3d_cutin_tbl098cdd10_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cdd10 block (table 0x098cdd10)
+0x09849ad8,field_3d,field_3d_cutin_tbl098cdd10_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cdd10 block (table 0x098cdd10)
+0x09849d64,field_3d,field_3d_cutin_tbl098cdd10_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cdd10 (2 tables by variant +4); copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09849a6c (character not mapped)
+0x09849e40,field_3d,field_3d_cutin_tbl098cdd10_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cdd10 offset lookup
+0x09849e74,field_3d,field_3d_cutin_tbl098cdd10_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cdd10 offset lookup
+0x09849ed8,field_3d,field_3d_cutin_tbl098cde50_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098cde50 block (table 0x098cde50)
+0x09849ef8,field_3d,field_3d_cutin_tbl098cde50_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098cde50 block (table 0x098cde50)
+0x0984a04c,field_3d,field_3d_cutin_tbl098cde50_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cde50; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x09849e8c (character not mapped)
+0x0984a0f4,field_3d,field_3d_cutin_tbl098cde50_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098cde50 offset lookup
+0x0984a128,field_3d,field_3d_cutin_tbl098cde50_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098cde50 offset lookup
+0x0984a18c,field_3d,field_3d_cutin_chr17_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr17 block (table 0x098cdef0)
+0x0984a1ac,field_3d,field_3d_cutin_chr17_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr17 block (table 0x098cdef0)
+0x0984a308,field_3d,field_3d_cutin_chr17_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cdef0; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984a140 = character 0x17 in field_3d_cutin_get_chara_setup
+0x0984a3b0,field_3d,field_3d_cutin_chr17_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr17 offset lookup
+0x0984a3e4,field_3d,field_3d_cutin_chr17_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr17 offset lookup
+0x0984a448,field_3d,field_3d_cutin_chr19_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr19 block (table 0x098cdf90)
+0x0984a468,field_3d,field_3d_cutin_chr19_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr19 block (table 0x098cdf90)
+0x0984a638,field_3d,field_3d_cutin_chr19_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098cdf90; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984a3fc = character 0x19 in field_3d_cutin_get_chara_setup
+0x0984a6e0,field_3d,field_3d_cutin_chr19_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr19 offset lookup
+0x0984a714,field_3d,field_3d_cutin_chr19_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr19 offset lookup
+0x0984a778,field_3d,field_3d_cutin_chr06v2_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr06v2 block (table 0x098ce030)
+0x0984a798,field_3d,field_3d_cutin_chr06v2_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr06v2 block (table 0x098ce030)
+0x0984a8f4,field_3d,field_3d_cutin_chr06v2_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce030; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984a72c = character 0x06 variant>=2 in field_3d_cutin_get_chara_setup
+0x0984a99c,field_3d,field_3d_cutin_chr06v2_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr06v2 offset lookup
+0x0984a9d0,field_3d,field_3d_cutin_chr06v2_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr06v2 offset lookup
+0x0984aa34,field_3d,field_3d_cutin_tbl098ce0d0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ce0d0 block (table 0x098ce0d0)
+0x0984aa54,field_3d,field_3d_cutin_tbl098ce0d0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce0d0 block (table 0x098ce0d0)
+0x0984abb0,field_3d,field_3d_cutin_tbl098ce0d0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce0d0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984a9e8 (character not mapped)
+0x0984ac58,field_3d,field_3d_cutin_tbl098ce0d0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce0d0 offset lookup
+0x0984ac8c,field_3d,field_3d_cutin_tbl098ce0d0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce0d0 offset lookup
+0x0984acf0,field_3d,field_3d_cutin_chr95_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr95 block (table 0x098ce190)
+0x0984ad10,field_3d,field_3d_cutin_chr95_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr95 block (table 0x098ce190)
+0x0984aef0,field_3d,field_3d_cutin_chr95_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce190; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984aca4 = character 0x95 in field_3d_cutin_get_chara_setup
+0x0984af98,field_3d,field_3d_cutin_chr95_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr95 offset lookup
+0x0984afcc,field_3d,field_3d_cutin_chr95_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr95 offset lookup
+0x0984b030,field_3d,field_3d_cutin_chr20_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr20 block (table 0x098ce230)
+0x0984b050,field_3d,field_3d_cutin_chr20_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr20 block (table 0x098ce230)
+0x0984b1ac,field_3d,field_3d_cutin_chr20_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce230; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984afe4 = character 0x20 in field_3d_cutin_get_chara_setup
+0x0984b254,field_3d,field_3d_cutin_chr20_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr20 offset lookup
+0x0984b288,field_3d,field_3d_cutin_chr20_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr20 offset lookup
+0x0984b2ec,field_3d,field_3d_cutin_chr1a_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr1a block (table 0x098ce2d0)
+0x0984b30c,field_3d,field_3d_cutin_chr1a_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr1a block (table 0x098ce2d0)
+0x0984b468,field_3d,field_3d_cutin_chr1a_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce2d0; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984b2a0 = character 0x1a in field_3d_cutin_get_chara_setup
+0x0984b510,field_3d,field_3d_cutin_chr1a_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr1a offset lookup
+0x0984b544,field_3d,field_3d_cutin_chr1a_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr1a offset lookup
+0x0984b5a8,field_3d,field_3d_cutin_tbl098ce370_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ce370 block (table 0x098ce370)
+0x0984b5c8,field_3d,field_3d_cutin_tbl098ce370_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce370 block (table 0x098ce370)
+0x0984b724,field_3d,field_3d_cutin_tbl098ce370_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce370; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984b55c (character not mapped)
+0x0984b7cc,field_3d,field_3d_cutin_tbl098ce370_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce370 offset lookup
+0x0984b800,field_3d,field_3d_cutin_tbl098ce370_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce370 offset lookup
+0x0984b864,field_3d,field_3d_cutin_chr1d_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr1d block (table 0x098ce410)
+0x0984b884,field_3d,field_3d_cutin_chr1d_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr1d block (table 0x098ce410)
+0x0984b9e0,field_3d,field_3d_cutin_chr1d_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce410; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984b818 = character 0x1d in field_3d_cutin_get_chara_setup
+0x0984ba88,field_3d,field_3d_cutin_chr1d_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr1d offset lookup
+0x0984babc,field_3d,field_3d_cutin_chr1d_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr1d offset lookup
+0x0984bb20,field_3d,field_3d_cutin_tbl098ce4b0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ce4b0 block (table 0x098ce4b0)
+0x0984bb40,field_3d,field_3d_cutin_tbl098ce4b0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce4b0 block (table 0x098ce4b0)
+0x0984bc9c,field_3d,field_3d_cutin_tbl098ce4b0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce4b0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984bad4 (character not mapped)
+0x0984bd44,field_3d,field_3d_cutin_tbl098ce4b0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce4b0 offset lookup
+0x0984bd78,field_3d,field_3d_cutin_tbl098ce4b0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce4b0 offset lookup
+0x0984bddc,field_3d,field_3d_cutin_tbl098ce550_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ce550 block (table 0x098ce550)
+0x0984bdfc,field_3d,field_3d_cutin_tbl098ce550_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce550 block (table 0x098ce550)
+0x0984bf3c,field_3d,field_3d_cutin_tbl098ce550_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce550; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984bd90 (character not mapped)
+0x0984bfe4,field_3d,field_3d_cutin_tbl098ce550_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce550 offset lookup
+0x0984c018,field_3d,field_3d_cutin_tbl098ce550_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce550 offset lookup
+0x0984c07c,field_3d,field_3d_cutin_tbl098ce5f0_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ce5f0 block (table 0x098ce5f0)
+0x0984c09c,field_3d,field_3d_cutin_tbl098ce5f0_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce5f0 block (table 0x098ce5f0)
+0x0984c1f8,field_3d,field_3d_cutin_tbl098ce5f0_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce5f0; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984c030 (character not mapped)
+0x0984c2a0,field_3d,field_3d_cutin_tbl098ce5f0_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce5f0 offset lookup
+0x0984c2d4,field_3d,field_3d_cutin_tbl098ce5f0_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce5f0 offset lookup
+0x0984c338,field_3d,field_3d_cutin_tbl098ce690_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ce690 block (table 0x098ce690)
+0x0984c358,field_3d,field_3d_cutin_tbl098ce690_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce690 block (table 0x098ce690)
+0x0984c4b4,field_3d,field_3d_cutin_tbl098ce690_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce690; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984c2ec (character not mapped)
+0x0984c55c,field_3d,field_3d_cutin_tbl098ce690_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce690 offset lookup
+0x0984c590,field_3d,field_3d_cutin_tbl098ce690_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce690 offset lookup
+0x0984c600,field_3d,field_3d_cutin_tbl098ce740_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14) after setting group overrides +0x184/+0x188; tbl098ce740 block (table 0x098ce740)
+0x0984c648,field_3d,field_3d_cutin_tbl098ce740_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce740 block (table 0x098ce740)
+0x0984c780,field_3d,field_3d_cutin_tbl098ce740_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce740; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984c5b4 (character not mapped)
+0x0984c828,field_3d,field_3d_cutin_tbl098ce740_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce740 offset lookup
+0x0984c85c,field_3d,field_3d_cutin_tbl098ce740_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce740 offset lookup
+0x0984c8c0,field_3d,field_3d_cutin_chr1b_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); chr1b block (table 0x098ce7e0)
+0x0984c8e0,field_3d,field_3d_cutin_chr1b_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); chr1b block (table 0x098ce7e0)
+0x0984ca3c,field_3d,field_3d_cutin_chr1b_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce7e0; copies +4 pos (w=1.0), +0x10 rotation; setup label 0x0984c874 = character 0x1b in field_3d_cutin_get_chara_setup
+0x0984cae4,field_3d,field_3d_cutin_chr1b_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the chr1b offset lookup
+0x0984cb18,field_3d,field_3d_cutin_chr1b_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the chr1b offset lookup
+0x0984cb7c,field_3d,field_3d_cutin_tbl098ce880_on_motion_start,M,per-character cut-in callback: calls default_on_motion_start 0x098435cc (desc +0x14); tbl098ce880 block (table 0x098ce880)
+0x0984cb9c,field_3d,field_3d_cutin_tbl098ce880_on_motion_end,M,per-character cut-in callback: calls default_on_motion_end 0x09843640 (desc +0x18); tbl098ce880 block (table 0x098ce880)
+0x0984ccf0,field_3d,field_3d_cutin_tbl098ce880_lookup_attach_offset,M,bsearch key in 5x0x20 table 0x098ce880; copies +4 pos (w=1.0), +0x10 rotation; block after setup code ~0x0984cb30 (character not mapped)
+0x0984cd98,field_3d,field_3d_cutin_tbl098ce880_find_offset_entry,M,bsearch(key, table, n, 0x20, cmp 0x098a0d04); sole caller is the tbl098ce880 offset lookup
+0x0984cdcc,field_3d,field_3d_cutin_tbl098ce880_sort_offset_table,M,qsort(table, n, 0x20, cmp 0x098a0d04) once; sole caller is the tbl098ce880 offset lookup
+# family cutin_core
+0x09840bf4,field_3d,field_3d_cutin_init_system,M,memset 0x098d4d40 (0x660: 4 cut-in slots of 400 bytes at 0x098d4d60), current index 0x098d4d4c = -1, subtitle init, voice table sort
+0x09840c34,field_3d,field_3d_cutin_term_system,M,releases the 4 slots of 400 bytes at 0x098d4d60 (field_3d_cutin_release_slot), clears 0x098d4d40, index -1
+0x09840cbc,field_3d,field_3d_cutin_dispatch_motion_start,M,if current +0x5c (set by start_motion) clears it and calls the on-motion-start callback with +0x50; called by ui_run_duel_draw_frame
+0x09840cf4,field_3d,field_3d_draw_cutin_layer,M,display list 8: speed lines (ui_draw_cutin_speed_lines), matrices push, field_3d_cutin_draw of current cut-in; then list 9; called by ui_run_duel_draw_frame
+0x09840e18,field_3d,field_3d_cutin_run_frame_hook_current,M,field_3d_cutin_run_frame_hook(current 0x098d4d48)
+0x09840e24,field_3d,field_3d_update_current_cutin,H,field_3d_update_cutin(*0x098d4d48); returns 0; the cut-in task of ui_run_duel_draw_frame (field_3d.md)
+0x09840e48,field_3d,field_3d_cutin_setup_slot,M,slot*400+0x098d4d60: default descriptor (0x09843534) patched by the per-character setup, copied in, +0x38 = slot; loads assets unless 0x08835a7c
+0x09840f18,field_3d,field_3d_cutin_select_slot,M,if slot != 0x098d4d4c: reset, 0x098d4d48 = slot*400+0x098d4d60, index = slot, loads assets if +0x3c is 0
+0x09840fec,field_3d,field_3d_cutin_reset_current,M,resets speed-line state, switches the current cut-in motion (field_3d_cutin_set_motion) and its voice queue; returns 1
+0x0984108c,field_3d,field_3d_cutin_is_current_finished,M,1 when skip flag 0x098d4d50 is set, else field_3d_cutin_is_motion_finished(current)
+0x098410c4,field_3d,field_3d_cutin_clear_skip_flag,M,0x098d4d50 = 0 (set by field_3d_cutin_skip_current)
+0x098410d0,field_3d,field_3d_cutin_stop_current,M,with a current cut-in: reset, 0x0985f320, BOOT 0x08841e60(slot +0x38)
+0x0984111c,field_3d,field_3d_cutin_get_node_matrix_current,M,field_3d_cutin_get_node_matrix(current 0x098d4d48, out, node)
+0x09841130,field_3d,field_3d_cutin_get_attach_matrix_current,M,field_3d_cutin_get_attach_matrix(current 0x098d4d48, out, id); 7 callers in effect code
+0x09841144,field_3d,field_3d_cutin_get_projection_matrix,M,returns current +0xd0, stored from matrix mode 0 by field_3d_cutin_apply_camera
+0x09841154,field_3d,field_3d_cutin_get_view_matrix,M,returns current +0x110, stored from matrix mode 1 by field_3d_cutin_apply_camera
+0x09841174,field_3d,field_3d_cutin_skip_current,M,0x098d4d50 = 1 and audio_stop_cutin_voice(current)
+0x0984118c,field_3d,field_3d_cutin_is_skip_requested,M,returns 0x098d4d50; read by audio_step_cutin_voice_sequence
+0x098411b4,field_3d,field_3d_cutin_find_bustup_gim,H,container_ehp_find_member(archive of slot character/variant, 'bustup.gim')
+0x09841214,field_3d,field_3d_cutin_get_slot_character,M,returns word +0 of slot slot*400+0x098d4d60 (first key of the archive lookup 0x0989fe08)
+0x0984123c,field_3d,field_3d_cutin_get_slot_variant,M,returns word +4 of slot slot*400+0x098d4d60 (second key of 0x0989fe08)
+0x09841264,field_3d,field_3d_cutin_get_chara_setup,M,maps character id (and variant for 6) to a setup routine (0x098b5ff0 shared, 0x09847c7c for 0x90, ...); caller applies it to the descriptor
+0x09841a08,field_3d,field_3d_cutin_init_slot_from_desc,M,memset(slot, 0, 400) then field_3d_cutin_copy_desc(slot, desc)
+0x09841a4c,field_3d,field_3d_cutin_copy_desc,H,copies 14 words (the 0x38-byte descriptor built by field_3d_cutin_init_default_desc)
+0x09841ac4,field_3d,field_3d_cutin_load_slot_assets,M,finds chr_voiceidchgtbl.bin, chr_wordstbl_<lang>.bin, -info-ptrs.txt / cutin_chara_base.tms, all-ptrs.txt; creates the model instance
+0x09841db0,field_3d,field_3d_cutin_release_slot,H,destroys instance +0x40, frees buffers +0x58 and +0x64 (0x098a0888), memset 400
+0x09841e28,field_3d,field_3d_cutin_draw,M,field_3d_cutin_apply_camera(cutin) then field_3d_cutin_draw_model(dl, cutin)
+0x09841e68,field_3d,field_3d_cutin_run_frame_hook,M,clears +0x178; calls 0x09842728(cutin, +0x50, trunc(+0x54 x fps), frame, +0x174): per-frame event hook (field_3d.md)
+0x09842028,field_3d,field_3d_cutin_set_motion,M,calls on-motion-end for old +0x50; -1 clears +0x4c/+0x48/+0x50, else resolves motion (+0x20 callback) and starts it
+0x098420b0,field_3d,field_3d_cutin_start_motion,M,anim +0x44[i] (gz inflated to 0x10000 buffer, field_3d_bind_tmt), field_3d_play_animation(inst, i, 0), pose frame 0, voice anim, +0x5c = 1
+0x098421e0,field_3d,field_3d_cutin_load_voice_anim,M,finds voice01.vtmt.gz (voice02 for motions 0x15-0x1c / 0x88-0x90), inflates and binds into +0x60/+0x64
+0x09842300,field_3d,field_3d_cutin_get_motion_end_frame,M,TGMT frame count (+0x14 -> +0x30) minus 1 when loop flag bit 1 of +0x3c is set; 0 without motion
+0x09842354,field_3d,field_3d_cutin_get_node_matrix,M,node = desc +0x24 map(node); BOOT 0x0882ff50(instance +0x40, out, node)
+0x09842398,field_3d,field_3d_cutin_get_attach_matrix,M,ids < 0x29 direct node; else maps via +0x34 pairs or 6-entry 0x098ccbac, applies +0x28 offset (pos, rotation) to the node matrix
+0x09842520,field_3d,field_3d_cutin_is_motion_finished,M,frame >= end frame, voice idle, 0x0985f310 idle and +0x178 clear; then end+0x96 frames passed or BOOT 0x08868644() < 1
+0x09842640,field_3d,field_3d_cutin_call_on_motion_start,M,motions 0xb/0x19 -> 0x0988ecfc(1), 10/0x18 -> (0); then desc callback +0x14(cutin, motion, arg)
+0x09842700,field_3d,field_3d_cutin_call_on_motion_end,M,calls desc callback +0x18 if set; used by field_3d_cutin_set_motion for the old motion
+0x09842728,field_3d,field_3d_cutin_call_frame_hook,H,calls desc callback +0x1c if set; the cut-in per-frame event hook named in field_3d.md
+0x09842750,field_3d,field_3d_cutin_call_resolve_motion,M,desc +0x20(cutin, motion) if set, else returns motion; result is the animation index
+0x09842778,field_3d,field_3d_cutin_call_map_node,M,tail-calls desc callback +0x24 (default label 0x09843b64); used to map node ids
+0x09842784,field_3d,field_3d_cutin_call_get_attach_offset,M,tail-calls desc callback +0x28 (pos, rotation outputs) for field_3d_cutin_get_attach_matrix
+0x09842790,field_3d,field_3d_cutin_apply_camera,M,field_3d_apply_cutin_camera(+0x54 x fps, etc +0x4c); stores matrix modes 0/1 to +0xd0/+0x110, 0x08825698 to +0x150
+0x09842804,field_3d,field_3d_cutin_draw_model,M,field_3d_update_visibility_mask, texture hook 0x09842a34 via 0x088300ac, field_3d_draw_model(instance)
+0x09842a04,field_3d,field_3d_cutin_get_model_instance,M,returns +0x40 when character >= 0 and set, else fallback 0x098d53c0; 7 callers incl. field_3d_update_cutin
+0x09842a34,field_3d,field_3d_cutin_bind_layer_texture,M,draw hook: layers '4006.iff'/'0000.iff' sample EDRAM +0x160000 (128x256), 'duel_disc_02.iff' set unless +0x168
+0x09842c20,field_3d,field_3d_cutin_pose_node_hook,M,the per-node callback 0x09842c20 of field_3d.md (step+4); reads voice state 0x08841ccc and motion +0x48
+0x09842e64,field_3d,field_3d_cutin_get_frame_rate,H,returns system_get_frame_timing()+4 (fps)
+0x09842e84,field_3d,field_3d_stub_return_1_cutin_step,H,returns 1; field_3d_update_cutin zeroes its step when this is 0 (field_3d.md)
+0x09842e8c,field_3d,field_3d_cutin_is_voice_active,M,audio_is_cutin_voice_playing(cutin) != 0; used by field_3d_cutin_is_motion_finished
+0x09842eb4,field_3d,field_3d_cutin_set_layer_texture,M,binds texture and layer fields +0x0a/+0x0b, +0x0c, +0x10/+0x11, offset (+0x14, 1-+0x18), scale (+0x1c, -+0x20) like field_3d_set_texture
+0x09843534,field_3d,field_3d_cutin_init_default_desc,H,0x38-byte desc: +0 char, +4 variant, +0x14 0x098435cc, +0x18 0x09843640, +0x20 0x09843840, +0x24/+0x28 labels, +0x2c 0x09843794
+0x098435cc,field_3d,field_3d_cutin_default_on_motion_start,M,desc +0x14 default (45 callers via wrappers); 0xe7 -> 0x0984412c, then 0x098804a8, 0x0987fc00, hides subtitle
+0x09843640,field_3d,field_3d_cutin_default_on_motion_end,M,desc +0x18 default (45 callers via wrappers); 0x09880650, 0x09880138; motions 0x82-0x85 also 0x08844e0c and flag 0x20
+0x098436dc,field_3d,field_3d_cutin_default_frame_hook,M,frame hook used by per-character hooks: 0x0988017c, audio_step_cutin_voice_sequence, ui_update_cutin_subtitle, frame events
+0x09843794,field_3d,field_3d_cutin_default_apply_voice_nodes,M,desc +0x2c default: for 9 node ids (0x098ccda0) mapped by +0x24, applies field_3d_cutin_apply_voice_tracks to the match
+0x09843840,field_3d,field_3d_cutin_default_resolve_motion,M,desc +0x20 default: maps motion via audio_get_voice_bank ranges and table 0x098ccf20 to an animation present in +0x44
+0x09843b74,field_3d,field_3d_cutin_apply_voice_tracks,M,samples the voice TGMT +0x60 (scalar and rotation tracks per node entry) and multiplies the node matrix
+0x09843f00,field_3d,field_3d_cutin_default_frame_events,M,on given motions/frames shows ATK/DEF (card_db_get_atk/def of +0x160) via 0x0985ef50, 0x0985ed48 values +0x16c/+0x170
+# family cutin_fx
+0x0987a29c,field_3d,field_3d_get_cutin_character,M,returns obj[0], obj[1] of the cut-in (character, variant) that select the fx in 0x0987fc00
+0x0987fb40,field_3d,field_3d_clear_cutin_fx_slots,H,memset 0x098e9370 0x124 bytes; four 0x18-byte slots at 0x098e937c get handle -1
+0x0987fba0,field_3d,field_3d_alloc_cutin_fx_slot,H,first slot with handle -1: +4 = 0, +8 character, +0xc variant, +0x10 animation id, +0x14 cut-in
+0x0987fc00,field_3d,field_3d_start_cutin_fx,M,from 0x098435cc (cut-in animation start, next to field_3d_update_cutin): per animation id allocs a slot, creates the fx task, keeps it at +0xb8
+0x09880138,field_3d,field_3d_stop_cutin_fx,H,cut-in +0xb8 slot: ui_duel_stop_draw_task(handle), handle -1, +0xb8 = 0
+0x0988017c,field_3d,field_3d_set_cutin_fx_phase,M,writes the +0xb8 slot word +4, which the fx tasks read as their phase (e.g. 0x09891e44)
+0x09880194,field_3d,field_3d_start_cutin_extra_fx,M,second fx channel (cut-in +0xbc): by character/variant/animation id creates 0x09892134, 0x098946c0 or 0x09893520 tasks
+0x0988044c,field_3d,field_3d_stop_cutin_extra_fx,H,cut-in +0xbc slot: ui_duel_stop_draw_task, handle -1, +0xbc = 0
+0x09880490,field_3d,field_3d_set_cutin_extra_fx_phase,M,writes word +4 of the +0xbc slot
+0x098804a8,field_3d,field_3d_start_cutin_aux_fx,M,third channel (cut-in +0xc0): task 0x0989909c; character 0x19 with ids 0xce/0xcf/0xee/0xef sets a fade and model hook 0x098991b0
+0x09880650,field_3d,field_3d_stop_cutin_aux_fx,M,calls BOOT 0x08841950 (audio area), stops the +0xc0 slot task, clears it
+0x0988069c,field_3d,field_3d_set_cutin_aux_fx_phase,M,writes word +4 of the +0xc0 slot
+0x09884eb0,field_3d,field_3d_create_cutin_fx_anim3e_54_by_variant,H,switch on argument 0..8 to nine task creators (0x098852ac ... 0x0988add0), else -1
+0x09885118,field_3d,field_3d_begin_cutin_fx_stencil_mask,M,unless anim 0x3f: list 8 full-screen 480x272 quad with GE state 3 (stencil) enabled, stencil func/op 0x0882b020/0x0882b078
+0x09885270,field_3d,field_3d_end_cutin_fx_stencil_mask,M,unless anim 0x3f: list 8 disables GE state 3 (stencil test)
+0x0988cd98,field_3d,field_3d_create_cutin_fx_animb1_by_variant,H,argument 0 -> 0x0988ced4, 1 -> 0x0988dbb4, else -1
+0x0988ecfc,field_3d,field_3d_set_cutin_fx_word_04,M,stores the argument at 0x098e9374 (cut-in fx record 0x098e9370, cleared by field_3d_clear_cutin_fx_slots)
+0x09890cd0,field_3d,field_3d_set_cutin_fx_word_08,M,stores the argument at 0x098e9378 (cut-in fx record 0x098e9370)
+0x09891dec,field_3d,field_3d_create_cutin_sound_fx_task,H,ui_duel_create_draw_task(field_3d_update_cutin_sound_fx, 0x24 bytes), data +0x18 = fx slot; caller 0x0987fc00
+0x09891e44,field_3d,field_3d_update_cutin_sound_fx,M,no drawing: plays SE 0x7a2b/0x7a2c once at the start frame and calls 0x09841198(0) at the end
+0x09893af0,field_3d,field_3d_set_cutin_fx_card_list,M,copies up to 40 words to 0x098e93f4 (count 0x098e93f0); caller 0x0984412c runs for animation id 0xe7
+0x09893b90,field_3d,field_3d_draw_cutin_fx_card_quads,M,translate/rotate, field_3d_dl_bind_card_face_texture, draw two quads (card, then id -1)
+# family cutin_fx_tasks
+0x09880768,field_3d,field_3d_create_cutin_fx_anim18_31,M,field_3d_start_cutin_fx cases 0x18-0x31: creates task 0x09880808 (0x7f70 bytes) with the fx slot as data
+0x098807c4,field_3d,field_3d_create_cutin_fx_anim18_31_alt,H,field_3d_create_cutin_fx_anim18_31 then data +0x18 = 1; chosen in 0x0987fc00 for character 0x15
+0x09880808,field_3d,field_3d_update_cutin_fx_anim18_31,M,cut-in fx task for animation ids 0x18-0x31 (timing 0x098806b4); SE 0x7a27/0x7a24
+0x09881c48,field_3d,field_3d_create_cutin_fx_anim55_71,M,called by field_3d_start_cutin_fx; creates task 0x09881cec (0x1d200 bytes) with the fx slot as data
+0x09881ca8,field_3d,field_3d_create_cutin_fx_anim55_71_alt,H,field_3d_create_cutin_fx_anim55_71 then data +0x1c = 1
+0x09881cec,field_3d,field_3d_update_cutin_fx_anim55_71,M,cut-in fx task for animation ids 0x55-0x71 (timing 0x09881b18)
+0x09884670,field_3d,field_3d_create_cutin_fx_anim32_47,M,called by field_3d_start_cutin_fx; creates task 0x098846c8 (0x67cc bytes) with the fx slot as data
+0x098846c8,field_3d,field_3d_update_cutin_fx_anim32_47,M,cut-in fx task for animation ids 0x32-0x47 (timing 0x09884584); 33x33 ring mesh, SE 0x7a28
+0x098852ac,field_3d,field_3d_create_cutin_fx_anim3e_54_v0,M,case 0 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x09885304
+0x09885304,field_3d,field_3d_update_cutin_fx_anim3e_54_v0,M,variant 0 cut-in fx task (timing 0x09884fa0, stencil mask helpers 0x09885118/0x09885270)
+0x09885e90,field_3d,field_3d_create_cutin_fx_anim3e_54_v1,M,case 1 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x09885eec
+0x09885eec,field_3d,field_3d_update_cutin_fx_anim3e_54_v1,M,variant 1 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x09886ef8,field_3d,field_3d_create_cutin_fx_anim3e_54_v2,M,case 2 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x09886f50
+0x09886f50,field_3d,field_3d_update_cutin_fx_anim3e_54_v2,M,variant 2 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x098879cc,field_3d,field_3d_create_cutin_fx_anim3e_54_v3,M,case 3 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x09887a24
+0x09887a24,field_3d,field_3d_update_cutin_fx_anim3e_54_v3,M,variant 3 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x098881ac,field_3d,field_3d_create_cutin_fx_anim3e_54_v4,M,case 4 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x09888328
+0x09888328,field_3d,field_3d_update_cutin_fx_anim3e_54_v4,M,variant 4 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x09889228,field_3d,field_3d_create_cutin_fx_anim3e_54_v5,M,case 5 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x09889280
+0x09889280,field_3d,field_3d_update_cutin_fx_anim3e_54_v5,M,variant 5 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x0988a188,field_3d,field_3d_create_cutin_fx_anim3e_54_v6,M,case 6 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x0988a1e0
+0x0988a1e0,field_3d,field_3d_update_cutin_fx_anim3e_54_v6,M,variant 6 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x0988a7a0,field_3d,field_3d_create_cutin_fx_anim3e_54_v7,M,case 7 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x0988a7f8
+0x0988a7f8,field_3d,field_3d_update_cutin_fx_anim3e_54_v7,M,variant 7 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x0988add0,field_3d,field_3d_create_cutin_fx_anim3e_54_v8,M,case 8 of field_3d_create_cutin_fx_anim3e_54_by_variant; creates task 0x0988ae28
+0x0988ae28,field_3d,field_3d_update_cutin_fx_anim3e_54_v8,M,variant 8 cut-in fx task (timing 0x09884fa0, stencil mask helpers)
+0x0988b3d4,field_3d,field_3d_create_cutin_fx_anim81_8f,M,called by field_3d_start_cutin_fx; creates task 0x0988b42c (0xab8 bytes) with the fx slot as data
+0x0988b42c,field_3d,field_3d_update_cutin_fx_anim81_8f,M,cut-in fx task for animation ids 0x81-0x8f (timing 0x0988b320); calls world_get_character_category
+0x0988c0c8,field_3d,field_3d_create_cutin_fx_anima3_b5,M,called by field_3d_start_cutin_fx; creates task 0x0988c120 (0x710 bytes) with the fx slot as data
+0x0988c120,field_3d,field_3d_update_cutin_fx_anima3_b5,M,cut-in fx task for animation ids 0xa3-0xb5 (timing 0x0988becc); custom perspective 0x09879750
+0x0988ced4,field_3d,field_3d_create_cutin_fx_animb1_v0,M,case 0 of field_3d_create_cutin_fx_animb1_by_variant; creates task 0x0988cf2c
+0x0988cf2c,field_3d,field_3d_update_cutin_fx_animb1_v0,M,variant 0 cut-in fx task for animation ids 0xb1+ (timing 0x0988cde0)
+0x0988dbb4,field_3d,field_3d_create_cutin_fx_animb1_v1,M,case 1 of field_3d_create_cutin_fx_animb1_by_variant; creates task 0x0988dc0c
+0x0988dc0c,field_3d,field_3d_update_cutin_fx_animb1_v1,M,variant 1 cut-in fx task for animation ids 0xb1+ (timing 0x0988cde0); SE 0x7a27/0x7a1b
+0x0988ed08,field_3d,field_3d_create_cutin_fx_anim107_114,M,called by field_3d_start_cutin_fx; creates task 0x0988ed88 (0x1240 bytes)
+0x0988ed88,field_3d,field_3d_update_cutin_fx_anim107_114,M,cut-in fx task for animation ids 0x107-0x114 (timing 0x0988eaf0)
+0x09890220,field_3d,field_3d_create_cutin_fx_anim24_ef,M,field_3d_start_cutin_fx cases 0x24-0x26, 0x6a, 0xce, 0xcf, 0xee, 0xef; creates task 0x09890290, flag for 0x6a
+0x09890290,field_3d,field_3d_update_cutin_fx_anim24_ef,M,cut-in fx task for the ids of 0x09890220 (timing 0x09890164); copies the framebuffer to a texture
+0x09890cdc,field_3d,field_3d_create_cutin_fx_animd5_e6,M,called by field_3d_start_cutin_fx; creates task 0x09890d34 (0x7150 bytes)
+0x09890d34,field_3d,field_3d_update_cutin_fx_animd5_e6,M,cut-in fx task for animation ids 0xd5-0xe6 (timing 0x09890c78); BGM stop cue audio_stop_track_once_at_frame
+0x09892134,field_3d,field_3d_create_cutin_extra_a_fx,M,created only by field_3d_start_cutin_extra_fx (+0xbc channel); task 0x09892378
+0x09892378,field_3d,field_3d_update_cutin_extra_a_fx,M,draw task of the +0xbc cut-in fx channel (timing 0x09891f4c), created by 0x09892134
+0x09893520,field_3d,field_3d_create_cutin_extra_c_fx,M,created only by field_3d_start_cutin_extra_fx (+0xbc channel); task 0x09893578
+0x09893578,field_3d,field_3d_update_cutin_extra_c_fx,M,draw task of the +0xbc cut-in fx channel, created by 0x09893520; main camera matrices
+0x09893b38,field_3d,field_3d_create_cutin_fx_anime7,M,called by field_3d_start_cutin_fx; creates task 0x09893c78 (0x670 bytes)
+0x09893c78,field_3d,field_3d_update_cutin_fx_anime7,M,cut-in fx task for animation id 0xe7 (timing 0x09893ab8); draws the card list with 0x09893b90
+0x098946c0,field_3d,field_3d_create_cutin_extra_b_fx,M,created only by field_3d_start_cutin_extra_fx (+0xbc channel); task 0x09894718
+0x09894718,field_3d,field_3d_update_cutin_extra_b_fx,M,draw task of the +0xbc cut-in fx channel (timing 0x098945e4), created by 0x098946c0
+0x09894d9c,field_3d,field_3d_draw_cutin_aux_fx,M,called by 0x098990f4 (task of field_3d_start_cutin_aux_fx) with the slot; per animation id 0x1c1..0x296
+# family cutin_fx_timing
+0x098806b4,field_3d,field_3d_get_cutin_fx_timing_anim18_31,M,maps slot animation id 0x18-0x31 to two frame values (task +4/+0xc) when task 0x09880808 starts
+0x09881b18,field_3d,field_3d_get_cutin_fx_timing_anim55_71,M,maps slot animation id 0x55-0x71 to frame values when task 0x09881cec starts
+0x09884584,field_3d,field_3d_get_cutin_fx_timing_anim32_47,M,maps slot animation id 0x32-0x47/0x84 to frame values when task 0x098846c8 starts
+0x09884fa0,field_3d,field_3d_get_cutin_fx_timing_anim3e_54,M,maps animation id 0x3e-0x54/0x82-0x85 to frame values; shared by the nine variant tasks of 0x09884eb0
+0x0988b320,field_3d,field_3d_get_cutin_fx_timing_anim81_8f,M,maps animation id 0x81-0x8f to frame values when task 0x0988b42c starts
+0x0988becc,field_3d,field_3d_get_cutin_fx_timing_anima3_b5,M,maps animation id 0xa3-0xb5 to frame values when task 0x0988c120 starts
+0x0988cde0,field_3d,field_3d_get_cutin_fx_timing_animb1_b5,M,maps animation id 0xb1+ (by character) to frame values for tasks 0x0988cf2c / 0x0988dc0c
+0x0988eaf0,field_3d,field_3d_get_cutin_fx_timing_anim107_114,M,maps animation id 0x107-0x114 to frame values when task 0x0988ed88 starts
+0x09890164,field_3d,field_3d_get_cutin_fx_timing_anim24_ef,M,maps animation ids 0x24-0x26, 0x6a, 0xce, 0xcf, 0xee, 0xef to frame values for task 0x09890290
+0x09890c78,field_3d,field_3d_get_cutin_fx_timing_animd5_e6,M,maps animation id 0xd5-0xe6 to (10, 0x40) for task 0x09890d34
+0x09891f4c,field_3d,field_3d_get_cutin_fx_timing_extra_by_character,M,by character 0x2b/2/0xc/0x29 and variant gives three timing values for task 0x09892378
+0x09893ab8,field_3d,field_3d_get_cutin_fx_timing_anime7,M,animation id 0xe7 -> (0x53, 0xe6), else (1, 1); for task 0x09893c78
+0x098945e4,field_3d,field_3d_get_cutin_fx_timing_animba_bb,M,maps character 9/2 with animation id 0xba/0xbb/0x136 to frame values for task 0x09894718
+# family cutin_loading
+0x0989f874,field_3d,field_3d_setup_cutin_slots,M,slots 0x09bdcf54 (0x2c bytes, count 0x09bdcf50) per (character, variant); one 0x483000/0x2ff000 buffer split per slot
+0x0989f9f0,field_3d,field_3d_release_cutin_slots,M,frees cut-in buffer 0x09bdd004 and clears each slot except character/variant
+0x0989faa0,field_3d,field_3d_load_cutin_archives,M,per slot container_load_file(4, ...) of the base archive (0x20c00) and the cut-in archive (0x17b000) when cut-ins are enabled
+0x0989fc60,field_3d,field_3d_are_cutin_archives_loaded,M,1 when every slot's loads are done; starts face/voice loads (0x098a0580) when pending
+0x0989fe08,field_3d,field_3d_get_cutin_archive,M,slot of (character, variant): slot +0x08 buffer once loaded flag +0x18 is set; callers in the cut-in code 0x0984xxxx
+0x0989fe84,field_3d,field_3d_get_cutin_base_archive,M,slot of (character, variant): slot +0x0c buffer once loaded flag +0x1c is set
+0x098a03a8,field_3d,field_3d_get_cutin_archive_name,H,'cutin_kagemaru02_a.ehp' (char 0x29 v0), 'cutin_zaloog01_a.ehp' (0x27); else 0x0885b024 with world_character_exists fallbacks
+0x098a0460,field_3d,field_3d_is_cutin_slot_ready,M,base archive loaded and, with cut-ins enabled, cut-in archive loaded and face/voice loads idle
+0x098a04f8,field_3d,field_3d_on_cutin_base_archive_loaded,M,load callback: container_ehp_bind_with_callback(slot +0x0c), loaded +0x1c = 1, loading +0x14 = 0
+0x098a053c,field_3d,field_3d_on_cutin_archive_loaded,M,load callback: container_ehp_bind_with_callback(slot +0x08), loaded +0x18 = 1, loading +0x10 = 0
+0x098a0580,field_3d,field_3d_load_cutin_face_and_voice,M,'texture_10500.txt' -> loads 'cutin/da_faces/' DA_boy_R/Y/B or DA_girl face n; 'voice_10000.txt' -> voice archive
+0x098a079c,field_3d,field_3d_on_cutin_voice_loaded,M,load callback: binds member 'voice_10000.txt' of the slot archive, clears pending +0x28
+0x098a07f0,field_3d,field_3d_build_cutin_base_archive_path,M,strcpy prefix 0x098d1e38, strcat 0x0885af84(character), strcat extension 0x098d1d4c
+# family cutin_speed_lines
+0x09841854,ui,ui_draw_cutin_speed_lines,M,draws 'ryusen01.ehf' from archive 0x098d53a0/a4 with alpha 0x098d53ac lerped over 10 frames to 0x098d53b4
+0x098419c0,ui,ui_set_speed_lines_source,M,stores character/variant 0x098d53a0/0x098d53a4 used by ui_draw_cutin_speed_lines to find ryusen01.ehf
+0x098419d4,ui,ui_fade_speed_lines,M,target 0x098d53b4 = value, start 0x098d53b0 = current; immediate when flag set, else restarts the 10-step lerp counter
+# family cutin_subtitle
+0x09843e2c,ui,ui_update_cutin_subtitle,M,voice position BOOT 0x08841d0c -> word index via 0x08836d70 and chr_voiceidchgtbl (+0xc); shows wordstbl (+0x10) entry or hides
+0x0984cde4,ui,ui_init_cutin_subtitle,M,memset(0x098d5468, 0, 0xc): visible flag, word table, index; called by field_3d_cutin_init_system
+0x0984cdf8,ui,ui_term_cutin_subtitle,M,memset(0x098d5468, 0, 0xc); called by field_3d_cutin_term_system
+0x0984ce0c,ui,ui_draw_cutin_subtitle,M,when 0x098d5468 set: card_db_get_dictionary_word(table 0x098d546c, index 0x098d5470) drawn with the font routines in list 9
+0x0984cfd8,ui,ui_set_cutin_subtitle_text,M,0x098d546c = word table (chr_wordstbl), 0x098d5470 = index; caller ui_update_cutin_subtitle
+0x0984cfec,ui,ui_set_cutin_subtitle_visible,M,0x098d5468 = flag; callers ui_update_cutin_subtitle, default on-motion-start (0)
+# family cutin_voice
+0x0983fb00,audio,audio_sort_cutin_voice_tables,M,qsorts 0x098c7088 (0x266x0x24), 0x098cc6e0 (0x20x0xc), 0x098cc860 (0x1fx0xc) that the cut-in voice selectors bsearch; called by cut-in init
+0x0983fb68,audio,audio_stub_noop_cutin_voice_term,M,empty; first call of the cut-in system term 0x09840c34, pairs with audio_sort_cutin_voice_tables in init
+0x0983fb70,audio,audio_find_cutin_voice_sequence,M,bsearch(key, 0x098c7088, 0x266, 0x24); result is the row table walked by audio_step_cutin_voice_sequence
+0x0983fba8,audio,audio_step_cutin_voice_sequence,M,advances row +0xac of the 4x4 id table cutin+0x6c when frame matches (or -9999) and plays each id via BOOT 0x08841bdc(slot +0x38); sets playing +0xb4
+0x0983fd68,audio,audio_reset_cutin_voice_queue,H,cutin +0xb4 = 0, +0xac = -1, +0xb0 = 0, memset(+0x6c, 0xff, 0x40)
+0x0983fd88,audio,audio_build_cutin_voice_queue,M,resets the queue, then 0x0983fe50 or 0x0984076c chosen by BOOT 0x0885b94c(character), then calls cutin +0x30 callback
+0x0983fe0c,audio,audio_is_cutin_voice_playing,M,returns cutin +0xb4 != 0 (set by audio_step_cutin_voice_sequence, cleared when 0x08841ccc reports idle)
+0x0983fe18,audio,audio_stop_cutin_voice,M,if playing: BOOT 0x08841974(1) and clears +0xb4; called by field_3d_cutin_skip_current
+0x0983fe50,audio,audio_select_cutin_voices_standard,M,bsearch motion in 0x098cc6e0, rand picks ids, uses favourite cards (BOOT 0x0885b664) and card_db kind/icon; path for 0x0885b94c(char) == 0
+0x0984076c,audio,audio_select_cutin_voices_special,M,same as the standard selector over table 0x098cc860 (0x1f entries) with fixed ids per flags; path for 0x0885b94c(char) != 0
+# family deck_effect
+0x09863d4c,ui,ui_on_deck_effect_done,M,done cb: 0x098534d8(player, 1), destroys the wait object, frees, clears the deck-effect flag (0x09864b10(0))
+0x09863d90,ui,ui_retry_deck_effect,M,update cb: when card objects are idle calls ui_start_deck_effect(player) and deletes itself, else holds flag 0x15
+0x09863df0,ui,ui_start_deck_effect,M,when idle: wait object 0x15, effect 0x09872e14 with the object count of the deck zone 0xd (0x09851ed4(p, 0xd)), sets the deck-effect flag; else queues a retry
+0x098644e4,ui,ui_is_deck_effect_running,H,returns [0x098e761c], set and cleared by ui_set_deck_effect_running
+0x09864b10,ui,ui_set_deck_effect_running,H,[0x098e761c] = (param != 0); callers ui_start_deck_effect and ui_on_deck_effect_done
+# family deferred_requests
+0x09862fec,ui,ui_retry_hand_relayout,M,update cb: when no card animation is busy (0x098531fc, 0x098532fc) calls 0x09852fd0(player) and deletes itself, else holds flag 0x12
+0x0986304c,ui,ui_request_hand_relayout,M,calls 0x09852fd0(player) (re-arranges the hand zone 0xb objects) now if card objects are idle, else queues ui_retry_hand_relayout
+0x098630c8,ui,ui_retry_gather_monsters,M,update cb: when idle and no card task pending (0x098533d0) calls 0x09852b1c(player, mask) and deletes itself
+0x09863138,ui,ui_request_gather_monsters,M,0x09852b1c moves the monsters of the zone mask to their midpoint; runs now when idle, else queues ui_retry_gather_monsters with an 8-byte copy
+0x09863768,ui,ui_run_deferred_effect_call,M,update cb: calls the stored effect starter (*data[1])(obj pos, data[2], data[3], ui_destroy_duel_object, wait object 0x27), then frees the data
+0x09863aa4,ui,ui_create_wait_object,M,duel object holding presentation flag id (0x088369f4 sets byte 0x08aa5734+id) every frame until destroyed; returned as the done argument of effect tasks; 10 callers
+0x098640a4,ui,ui_update_wait_until_object,M,update cb: holds flag data[0] until predicate data[1]() returns the awaited value data[2], then deletes itself
+0x0986411c,ui,ui_create_wait_until_object,M,unless predicate already matches, holds flag param_1 and creates a duel object running ui_update_wait_until_object
+# family dlist
+0x098564f0,system,system_dlist_unlink_node,H,node {next,prev}: next.prev = prev, prev.next = next, clears both links
+0x09856518,system,system_dlist_insert_after,H,node.next = pos.next, node.prev = pos, relinks neighbours to node
+0x0985653c,system,system_dlist_insert_before,H,node.prev = pos.prev, node.next = pos, relinks neighbours to node
+# family draw_cmd_handlers
+0x098996f8,ui,ui_cmd_show_duel_start,M,draw table 0x098d0180 id 1 = UI event 1 (duel start, engine 0x09dbbed0); shows layout 0x20004 via 0x098582b0 when intro flag allows
+0x0989976c,ui,ui_cmd_show_duel_result,M,draw table id 2 = UI event 2, posted by duel-result command 5 handler 0x09dbbf38; result 1/2/3 picks layout 0x20005/6/7
+0x098998e0,ui,ui_cmd_begin_player_input,M,draw table id 4 = UI event 4 (mode, 0x09e2d260, 0x09e2d250) from 0x09dcc5c8; Draw Phase deck mask 0x1000 auto-submit path
+0x09899ab4,ui,ui_cmd_show_phase_banner,H,draw table id 5 = UI event 5 (side, phase) from duel_core_cmd_enter_phase; phase 0-5 selects frame range of layout 0x20009
+0x09899c24,ui,ui_cmd_show_turn_change,M,draw table id 6 = UI event 6 (new side) from duel_core_next_turn; side selects frame range 0-0x30/0x32-0x62 of layout 0x20008
+0x09899cfc,ui,ui_cmd_move_field_cursor,M,draw table id 8 = UI event 8 (side, location, index) field cursor (tutorial.md); view side then 0x0984e908(side,loc,idx,0)
+0x09899d4c,ui,ui_cmd_begin_attack_selection,M,draw table id 0xa = UI event 0xa posted only by duel_core_cmd_begin_attack_selection
+0x0989a180,ui,ui_cmd_show_battle_damage,M,draw table id 0xd = UI event 0xd posted only by duel_core_cmd_show_battle_damage
+0x0989a1c4,ui,ui_cmd_end_battle_phase,M,draw table id 0xe = UI event 0xe posted only by duel_core_cmd_end_battle_phase; calls 0x09864d34(0)
+0x0989a1e4,ui,ui_cmd_set_life_points,M,draw table id 0xf = UI event 0xf from duel_core_cmd_set_lp/load_ydq; 0x09858c84(view side, value, 0) as duel begin does with 8000
+0x0989a274,ui,ui_cmd_change_life_points,M,draw table id 0x10 = UI event 0x10 posted only by duel_core_step_apply_lp_change; 0x09863c14(view side, amount)
+0x0989a350,ui,ui_cmd_show_activation,M,draw table id 0x14 = UI event 0x14 from duel_core_cmd_announce_activation / cmd_chain_link_activated
+0x0989a424,ui,ui_cmd_move_list_card,M,draw table id 0x18 = UI event 0x18 from duel_core_cmd_move_list_card / place_list_card / banish_field_card
+0x0989a500,ui,ui_cmd_move_card,M,draw table id 0x1a = UI event 0x1a (card, ?, from, to refs) from summon/destroy/place commands; token branch via card_db_is_token
+0x0989a66c,ui,ui_cmd_swap_field_cards,M,draw table id 0x1b: looks up both packed slot refs and moves card A to B and B to A with 0x098509b4
+0x0989a744,ui,ui_cmd_change_card_position,M,draw table id 0x1c = UI event 0x1c posted by duel_core_cmd_change_face / cmd_change_position
+0x0989a83c,ui,ui_cmd_show_card_set,M,draw table id 0x1e = UI event 0x1e (card set) from place_spell_trap_from_hand / summon_from_hand
+0x0989a88c,ui,ui_cmd_show_destroy_by_effect,M,draw table id 0x1f = UI event 0x1f posted only by duel_core_cmd_destroy_by_effect
+0x0989a8e8,ui,ui_cmd_show_destroy_by_battle,M,draw table id 0x20 = UI event 0x20 posted only by duel_core_cmd_destroy_by_battle
+0x0989a940,ui,ui_cmd_show_announce_activation,M,draw table id 0x22 = UI event 0x22 from duel_core_cmd_announce_activation; 0x09862494(side,slot,a,0x22,0)
+0x0989a994,ui,ui_cmd_show_negation,M,draw table id 0x23 = UI event 0x23 posted only by duel_core_cmd_show_negation; 0x09862494(...,0x23,1)
+0x0989aa6c,ui,ui_cmd_on_phase_banner_done,M,draw table id 0x26 = UI event 0x26 posted after the phase banner (duel-phases.md); acts in the Battle Phase (3) only
+0x0989aabc,ui,ui_cmd_show_counters,M,draw table id 0x27 = UI event 0x27 posted only by duel_core_cmd_add_counters; switch maps 20 counter types to 0x098637cc kinds
+0x0989addc,ui,ui_cmd_mark_tribute_pick,M,draw table id 0x2a = UI event 0x2a posted for each tribute pick (summon.md)
+0x0989ae38,ui,ui_cmd_cancel_selection,M,draw table id 0x2b = UI event 0x2b, the cancelled summon/tribute selection (summon.md)
+0x0989ae58,ui,ui_cmd_show_tribute,M,draw table id 0x2c = UI event 0x2c posted only by duel_core_cmd_tribute_card
+0x0989aed8,ui,ui_cmd_mark_fusion_material,M,draw table id 0x2d = UI event 0x2d from duel_effects_resolve_fusion_summon / fossil_fusion; 0x09862c54(card,1)
+0x0989af34,ui,ui_cmd_end_fusion_material_marks,M,draw table id 0x2e = UI event 0x2e posted only by duel_effects_resolve_fusion_summon; calls 0x09862f54
+0x0989aff4,ui,ui_cmd_mark_synchro_material,M,draw table id 0x30 = UI event 0x30, synchro material pick (summon.md); 0x09862c54(card,0)
+0x0989b050,ui,ui_cmd_end_synchro_material_marks,M,draw table id 0x31; same body as id 0x2e (0x09862f54) and follows the synchro mark command 0x30
+0x0989b110,ui,ui_cmd_show_chain_link_activated,M,draw table id 0x33 = UI event 0x33 posted only by duel_core_cmd_chain_link_activated
+0x0989b1d4,ui,ui_finish_chain_link_resolve_anim,M,callback installed by the 0x34 handler for layout 0x2000c; replays 0x09862494(...,0x34) and frees its 8-byte record
+0x0989b250,ui,ui_cmd_show_chain_link_resolving,M,draw table id 0x34 = UI event 0x34 from duel_core_cmd_chain_link_resolving; reads top chain link 0x09e28cb4+(n-1)*0x18
+0x0989b438,ui,ui_cmd_show_prompt,M,draw table id 0x36 = UI event 0x36 menu/prompt (duel-phases.md); text via card_db_get_dialog_string, opens prompt by kind
+0x0989b81c,ui,ui_cmd_open_card_list,M,draw table id 0x37 = UI event 0x37 posted only by duel_core_open_card_list; ids 0x4b-0x4e open the card-name picker
+0x0989ba9c,ui,ui_cmd_show_summon_complete,M,draw table id 0x38 = UI event 0x38 posted only by duel_core_cmd_summon_complete
+0x0989bdb0,ui,ui_cmd_dispatch_duel_end_scene,M,draw table id 0x3f (posted by result handler 0x09dbbf38); case 3 ui_duel_start_exodia_win_scene (effect-helpers-misc.md)
+0x0989be3c,ui,ui_cmd_show_turn_limit_milestone,M,draw table id 0x41 = UI event 0x41 from turn-limit command 9 handler 0x09dbcec8
+0x0989be84,ui,ui_cmd_play_lp_change_cutin,M,draw table id 0x4d = UI event 0x4d from duel_core_step_apply_lp_change; calls cut-in code 0x09840fbc
+0x0989cb20,ui,ui_show_phase_banner,M,exported; same layout 0x20009 and phase frame ranges as ui_cmd_show_phase_banner, only for param_1 == 0
+# family draw_tasks
+0x0987835c,ui,ui_duel_init_draw_tasks,M,memset 0x098e7680 (task table 0x098e7684) size 0x1cf0, then clears the cut-in fx slots (0x0987fb40)
+0x09878394,ui,ui_duel_destroy_all_draw_tasks,H,walks 254 entries of 0x1c at 0x098e7684 and frees every used one via 0x09878688
+0x098783fc,ui,ui_duel_run_draw_tasks,H,per entry: state 4 -> free, 3 -> 4, 1/2 -> state = callback(+0xc)(state, data +0x18); resets display lists first
+0x098784bc,ui,ui_duel_lookup_draw_task,H,handle >> 24 indexes 0x1c-byte entries at 0x098e7684; valid only if entry +8 == handle, else 0
+0x09878644,ui,ui_duel_stop_draw_task,H,lookup handle; live entry -> state 3 (stop requested); used by field_3d_backdrop_stop_extra
+0x09878688,ui,ui_duel_free_draw_task,H,calls destroy callback +0x10(+0x14), frees data +0x18 (0x098a0888), clears state, handle -1
+0x098786e8,ui,ui_duel_is_draw_task_alive,H,lookup handle; returns entry state != 0
+0x09878718,ui,ui_duel_get_draw_task_data,H,lookup handle; returns entry +0x18 (data block allocated by ui_duel_create_draw_task); 94 callers
+0x09878740,ui,ui_duel_set_draw_task_flags,H,lookup handle; entry +4 |= mask
+0x09878778,ui,ui_duel_test_draw_task_flags,H,lookup handle; returns (entry +4 & mask) != 0
+0x098787ac,ui,ui_duel_set_draw_task_flag1,M,8-byte body: same as ui_duel_set_draw_task_flags with mask 1
+# family duel_board
+0x09850574,field_3d,field_3d_board_init_all,M,ui_field_cursor_init then field_3d_board_init; callers duel draw init 0x0985a838, 0x0989c488
+0x09850598,field_3d,field_3d_board_build_deck_objects,M,per duelist (0xb00 block): one object per id into zone 0xd list (+0x8f0) and zone 0xc list (+0x840) from a deck record
+0x0985072c,field_3d,field_3d_board_clear,H,memset(0x098d5db0, 0, 0x10ae0)
+0x09850744,field_3d,field_3d_board_assign_duelist,M,0x098e6664[side] = duelist; sets bit 0 of the location of every object in its zones 0xb, 0xc, 0xd
+0x09850814,field_3d,field_3d_board_get_side_duelist,M,returns 0x098e6664[side != 0] (written by field_3d_board_assign_duelist)
+0x09850838,tag_duel,tag_duel_get_side_partner_duelist,M,duelist of the side +2 for 0/1, -2 for 2/3: the tag partner of that duelist
+0x09850870,field_3d,field_3d_board_draw,M,camera, mat, piles, hand layout for both sides, zone highlights, cursor draw; called by duel draw 0x0985a8b8
+0x09850914,field_3d,field_3d_board_update,M,for both sides and 16 zones updates every object (0x098566bc, dt) then 0x09857960; called by ui_update_duel_scene
+0x09850e6c,field_3d,field_3d_copy_location_code,M,copies one u16 location code; callers board code 0x098509b4, 0x09852de8
+0x098512fc,field_3d,field_3d_board_get_location_transform,M,(pos out, rotation out, location u16): world placement per side/zone/index; 21 callers incl. cursor and object creation
+0x09851ed4,field_3d,field_3d_board_count_zone_objects,H,counts nodes of the list 0x09856d84(side, zone)
+0x09851f14,field_3d,field_3d_board_get_zone_object,M,n-th object of list (side, zone), 0 if out of range; 0xff/0xffff return the first
+0x09851f90,field_3d,field_3d_board_find_zone_object,M,first object in (side, zone) whose +0x88 equals the reference (0 = first object)
+0x09851ff8,field_3d,field_3d_board_sync_zone,M,for hand 0xb, 0xc, 0xd, grave 0xe, 0xf: compares objects with engine lists (0x0989d5b0...) and recreates them
+0x09852654,field_3d,field_3d_board_rebuild,M,re-inits the 4x16 zone lists at 0x098e3a60 and free list 0x098e39b0, then rebuilds the 0x140 objects from duel state
+0x09852dd8,field_3d,field_3d_board_set_object_card,H,object +0x88 = ref & 0xffff, +0x80 = card id
+0x09852de8,field_3d,field_3d_board_create_object_at,M,new object with card id/ref and location; position and rotation from field_3d_board_get_location_transform; appended to zone list
+0x09852f34,field_3d,field_3d_board_release_object_at,M,unlinks the object at a location and links it into free list 0x098e39b0
+0x09852fd0,field_3d,field_3d_board_resync_hand,M,flags every hand object (+0x8c bit 5), field_3d_board_sync_zone(side, 0xb), marks layout dirty
+0x0985306c,field_3d,field_3d_board_update_hand_reveal,M,sets +0x8d bit 3 of hand objects from duel_core_is_hand_card_revealed (all, or the one with ref)
+0x09853178,field_3d,field_3d_board_is_object_busy,M,1 when any animation flag of +0x8c bits 2-7 or +0x8d bit 0 is set
+0x098531fc,field_3d,field_3d_board_any_object_busy,M,scans both sides x 16 zones with field_3d_board_is_object_busy
+0x09853298,field_3d,field_3d_board_mark_layout_dirty,M,0x098e6660 = 1; field_3d_board_draw passes it to the hand layouts and clears it
+0x098532a8,field_3d,field_3d_board_get_pile_height,M,0 for n < 1; linear in n up to 120 cards, constant above (floats 0x098c4bdc-0x098c4be4)
+0x098532fc,field_3d,field_3d_board_is_settled,M,0 while any object in zones 0-14 is moving (+0x70 < +0x74) or flagged, else 1
+0x09853ce0,field_3d,field_3d_board_init,M,memset 0x098d5db0 (0x10ae0), list heads 4 duelists x 16 zones (0xb0 apart) and free list, resets objects
+0x09853e2c,field_3d,field_3d_board_reset_object,H,memset(obj, 0, 0xb0); +0x90, +0x94, +0x98 = -1
+0x09853e68,field_3d,field_3d_board_layout_hand_side0,M,camera-facing placement of side 0 hand objects (count of zone 0xb, up to 8 spread); called with the dirty flag
+0x09854450,field_3d,field_3d_board_layout_hand_side1,M,same layout for side 1 hand (zone 0xb of side 1)
+0x09854aa4,field_3d,field_3d_board_set_camera,M,list 4: projection (near 100, far 10000), view from 0x08831bcc/0x08831c50, viewport 0x84a/0x7fc 960x544
+0x09854c50,field_3d,field_3d_board_reset_viewport,M,list 7: 0x08829e9c(0x800, 0x800, 480, 272)
+0x09854c90,field_3d,field_3d_board_draw_mat,M,draws duel object 0x10002 of table 0x098d0960 (next to field-duelsheet01, field_3d.md) with identity model matrix
+0x09854dbc,field_3d,field_3d_board_draw_piles,M,per side for zones of the 4-entry table 0x098cef88 (zones 0xc-0xf): counts settled objects, top card face via 0x0989de24
+# family duel_camera
+0x0985b00c,field_3d,field_3d_get_duel_view_matrix,M,copies the 4x4 matrix 0x098e6b60 stored by field_3d_set_duel_scene into the caller buffer
+0x0985b034,field_3d,field_3d_get_duel_projection,M,returns fov, aspect, near, far (0x098e6ba0..0x098e6bac) saved by field_3d_set_duel_scene; null pointers skipped
+0x0985b0ec,field_3d,field_3d_set_duel_scene,M,default scene 0x0985ba50 or field_3d_apply_scene_etc into 0x098e6a00, projection, look-at, saves projection/view, fog, ambient, four lights, viewport 480x272
+0x0985b9e4,field_3d,field_3d_copy_scene_header,M,copies words 0-3, 4-11 and 12-14 of a scene record (0x3c bytes); only caller field_3d_apply_scene_etc
+0x0985ba50,field_3d,field_3d_build_default_scene,M,the default scene used by field_3d_backdrop_set_scene when there is no -etc track (field_3d.md); packs colours with 0x0985c1d0
+0x0985c1d0,field_3d,field_3d_pack_rgb_float,H,converts float r,g,b in 0..1 to a 0x00BBGGRR word (x255 each)
+# family duel_dialogs
+0x098a79d8,ui,ui_duel_open_card_prompt_dialog,M,case 3 of dialog dispatcher 0x0989b438; collects cards (0x098a7db8), opens menu window 0x098a61f8, decide 0x098a7ad8, SE 0x7a0c via 0x08841898
+0x098a7ad8,ui,ui_card_prompt_on_decide,M,reads menu selection 0x098a63e8; replies 1 for choice 1 or 2, else 0, through engine answer 0x09be1db8 (tutorial.md answer word)
+0x098a7b24,ui,ui_card_prompt_draw_cards,M,loops card list 0x09bdd6d8, binds card picture 0x0989f224(card id from 0x09be1a10), 64x64 sprites at 22 px; ellipsis text on overflow flag
+0x098a7db8,ui,ui_card_prompt_collect_cards,M,scans 2 sides x 11 zones (0x0989e058/0x0989d718) and a second list; up to 16 ids at 0x09bdd6d8, count 0x09bdd718, overflow 0x09bdd71c
+0x098a7f58,ui,ui_clear_card_info_menu_state_a,M,memset(0x09bdd720, 0, 0x24): the card info menu state; caller 0x098abfc4
+0x098a7f6c,ui,ui_clear_card_info_menu_state_b,M,memset(0x09bdd720, 0, 0x24), identical twin; caller 0x098abfe8
+0x098a87d0,ui,ui_duel_update_aux_window,M,when 0x098a0bc4() allows, stores the window update result 0x088345fc(window 0x09bdd744) in 0x09bddc68
+0x098a880c,ui,ui_duel_is_aux_window_open,M,state byte of window 0x09bdd744 (+0xe9 = 0x09bdd82d) not 0, 1 or 6; same test as 0x098a60f8 for the main dialog window
+0x098a9700,ui,ui_duel_open_simple_choice_dialog,M,dispatcher 0x0989b438 opener: window 0x098a61f8, decide 0x098a9790, SE 0x7a0c
+0x098a9790,ui,ui_simple_choice_on_decide,H,replies the menu selection 0x098a63e8() to the engine via 0x09be1db8
+0x098a97b4,ui,ui_draw_two_way_card_choice,M,1.5x card (0x0985d7d8) whose flag follows the cursor, left/right arrows (0x08835868 2/3) and centred duel string 10 or 11
+0x098abfc4,ui,ui_reset_card_menus_a,M,clears the card action menu (0x098aede8) and the card info menu (0x098a7f58); caller 0x0989bf24
+0x098abfe8,ui,ui_reset_card_menus_b,M,clears the card action menu (0x098aee18), 0x098a450c and the card info menu (0x098a7f6c); caller 0x0989bfb4
+0x098ac014,ui,ui_stub_noop_dialog_hook,M,empty body; sole caller 0x0989bff4, beside the dialog reset hooks 0x098abfc4/0x098abfe8
+0x098ad480,ui,ui_duel_get_frame_rate,H,returns word +4 of system_get_frame_timing() (the frame rate, field_3d.md)
+0x098ad71c,ui,ui_draw_number_up_to_9999,H,decimal number clamped to 9999 drawn right to left, 7 px per digit, font 10x12; placeholder string when negative
+0x098ad824,ui,ui_pick_first_two_flag_values,H,scans 11 {mask, value} pairs at 0x098d3100 and writes the values of the first two whose mask intersects param_2
+0x098ad8b0,ui,ui_draw_hud_atlas_icon16,H,16x16 sprite from atlas 0x40005, cell param_4 in rows of 8 (u = (i%8)*16, v = (i/8)*16)
+0x098afd08,ui,ui_draw_nine_slice_frame,H,w x h frame from texture param_6: 4 px corners, stretched edges and centre (UV rows 0x36/0x3a/0x3b)
+# family duel_draw_heaps
+0x098a0850,system,system_duel_draw_set_heaps,H,stores main heap 0x09bdd008 and movie heap 0x09bdd00c (from 'HeapMain'/'HeapMovie' in the scene start)
+0x098a0864,system,system_duel_draw_clear_heaps,H,clears 0x09bdd008 and 0x09bdd00c
+0x098a0878,system,system_duel_draw_heap_alloc,H,system_heap_alloc(main heap 0x09bdd008, size)
+0x098a0888,system,system_duel_draw_heap_free,H,system_heap_free(main heap 0x09bdd008, ptr)
+0x098a0898,system,system_duel_draw_get_heap,H,returns main heap 0x09bdd008
+0x098a08a4,system,system_duel_draw_movie_heap_alloc,H,system_heap_alloc(movie heap 0x09bdd00c, size)
+0x098a08b4,system,system_duel_draw_movie_heap_free,H,system_heap_free(movie heap 0x09bdd00c, ptr)
+# family duel_draw_lifecycle
+0x098584e0,ui,ui_stub_noop_hud_term,M,empty function called from ui_term_duel_draw_state where the HUD state would be released
+0x0985a838,ui,ui_init_duel_draw_state,H,calls field_3d_backdrop_init, 0x0984d0b4, 0x0984e314, 0x09850574, ui_init_hud_layout_anim, ui_init_hud_state
+0x0985a87c,ui,ui_term_duel_draw_state,H,calls field_3d_backdrop_term, 0x0984d194, 0x0985072c, ui_term_hud_layout_anim and the HUD term stub; mirror of ui_init_duel_draw_state
+0x0985a8b8,ui,ui_draw_duel_scene,M,called by ui_run_duel_draw_frame: clears display list 0, then by draw flags 0x098e94d0 bit 1 field_3d_backdrop_draw, bit 2 0x09850870 (field), bit 4 ui_draw_duel_hud and 0x0984d1d8
+0x0989bf24,ui,ui_duel_draw_init,M,exported; thread attr, stores main/movie heaps, allocator hooks 0x0882f3b4(alloc,free), sorts resource tables
+0x0989bfb4,ui,ui_duel_draw_term,M,exported counterpart of init: releases resources, clears allocator hooks and heaps
+0x0989bff4,ui,ui_duel_draw_setup,M,exported; copies 0x74-byte setup to 0x098e94d8, per-duelist 0xc0/0x60 blocks, tag flag from count > 2
+0x0989c1b0,ui,ui_copy_duel_draw_setup,H,plain copy of 29 words (0x74 bytes) from param_2 to param_1, returns param_1; only caller ui_duel_draw_setup
+0x0989c2a0,ui,ui_duel_draw_reset,M,exported; clears view matrices, UI mode state and object models through eight reset helpers
+0x0989c2f4,ui,ui_duel_draw_start_loading,M,exported; requests archives 0x80001/0x80002, cut-in slots per duelist, card-art list with decks
+0x0989c3c4,ui,ui_duel_draw_poll_loading,M,exported; 1 once archives 0x80001/0x80002, cut-ins and both card-art caches are loaded; scene start loops on it
+0x0989c488,ui,ui_duel_draw_begin,M,exported; side map, backdrop init 0x0985a838, LP display 8000 for both sides, phase 7, UI mode 1, sets running flag
+0x0989c5d0,ui,ui_duel_draw_stop,H,clears running flag 0x098e94c8 (tested by ui_duel_draw_frame_if_active), returns 1
+0x0989c5e0,ui,ui_duel_draw_release_cutins,M,exported; 0x09840c34 then field_3d_release_cutin_slots
+0x0989c60c,ui,ui_duel_draw_frame_if_active,H,calls ui_run_duel_draw_frame only while running flag 0x098e94c8 is set
+0x0989c640,ui,ui_duel_draw_update_input,M,exported per-frame call: resets input-consumed flag, reads pad, global input handler 0x098a3230, returns exit flag 0x098e94cc
+# family duel_draw_scene
+0x0989bee4,system,system_duel_draw_module_entry,M,calls system_scene_register(0x0989ccb4, 0x0989ceb4, 0x098e94bc) when argc < 1, returns 0 (modules.md entry pattern)
+0x0989ccb4,system,system_duel_draw_scene_start,H,registered scene start: deck_load_recipe x2, FPLs 'HeapMain'/'HeapMovie', init, load loop, frame callback, system_scene_return(3)
+0x0989ceb4,system,system_duel_draw_scene_end,M,registered scene end callback: releases resources, clears heaps, unloads module
+0x0989cee0,system,system_duel_draw_frame_callback,H,frame callback set by scene start via system_scene_set_frame_callback (field_3d.md); calls 0x0989c604 and 0x0989c60c
+0x0989cf04,system,system_duel_draw_load_engine_module,M,system_module_load(8), waits for system_module_all_loaded, stores id 8 in 0x098e94d4 (module 8 assumed rel_duel_eng)
+0x0989cf68,system,system_duel_draw_unload_engine_module,M,system_module_unload(0x098e94d4) then stores -1
+# family duel_draw_state
+0x0989cc4c,ui,ui_test_set_draw_flags,H,returns mask & 0x098e94d0; op 0 clears, op > 0 sets, op < 0 only tests; 26 callers
+0x0989cc94,ui,ui_get_duelist_setup_block,M,returns 0x098e9858 + i*0x60, the per-duelist 0x60-byte blocks copied by ui_duel_draw_setup
+0x0989d1cc,ui,ui_get_duelist_character,M,character/variant of duelist i from 0x098e94dc/0x098e94ec, link-duel override 0x098e94fc/0x098e950c; feeds cut-in setup
+0x0989e108,ui,ui_init_duel_draw_options,M,clears 0x44 bytes at 0x098e9ab0, +4 = setup word +0x70 (non-zero disables cut-ins in 0x0989e514), +0x18 = -1
+0x0989e158,ui,ui_is_tag_duel,M,returns 0x098e9ab0, set from setup duelist count > 2; 0x0989e564 scans 4 duelists instead of 2 when set
+0x0989e164,ui,ui_set_tag_duel,M,stores 0x098e9ab0; only caller ui_duel_draw_setup with (count > 2)
+0x0989e388,ui,ui_get_turn_number_for_display,M,0x09be1840 (turn counter 0x09e2d1e0) + 1
+0x0989e454,ui,ui_get_input_prompt_kind,M,returns 0x098e9acc, written by the UI event 4 and 0x36 handlers with their kind argument
+0x0989e460,ui,ui_set_input_prompt_kind,M,stores 0x098e9acc; callers ui_cmd_begin_player_input (-1) and ui_cmd_show_prompt
+0x0989e514,ui,ui_is_cutin_display_enabled,M,0 in link duels (0x08835a7c) and when 0x098e9ab4 is set, else save_get_option_flag(0); gates cut-in loads and the Exodia scene
+0x0989e744,ui,ui_can_view_card_at_ref,M,packed ref: local side, face-up (duel_core_view_is_card_face_up_at) or card-object flags +0x8c/+0x8d decide visibility
+0x0989e904,ui,ui_is_duel_intro_enabled,M,returns 0x098e9ad8 == 0; ui_cmd_show_duel_start shows layout 0x20004 only when true
+0x0989e91c,ui,ui_set_duel_intro_enabled,M,0x098e9ad8 = (param == 0); counterpart of ui_is_duel_intro_enabled
+# family duel_help
+0x098b22dc,ui,ui_draw_solid_rect,M,untextured w x h sprite with colour param_6 (0x08829fd8)
+0x098b237c,ui,ui_call_draw_sprite_region,M,only calls 0x098b239c with its arguments
+0x098b239c,ui,ui_draw_sprite_region,H,sets the sprite size (0x0882979c) then draws at (x, y) with UV (u, v) (0x088295a4)
+0x098b2418,ui,ui_draw_nine_slice_box,H,four corners, edges and centre from one texture region with corner size (cw, ch)
+0x098b2648,ui,ui_help_text_open,M,clears 0x09be0d60, text view window at (200,0x20) 0x113x0xcd (0x088425f8/0x08842654), sets the body (0x098b2734)
+0x098b2734,ui,ui_help_text_set_body,M,stores body string 0x09be0e34, resets scroll, body font (0x098b2b1c), text height via 0x098b27ac, total height
+0x098b27ac,ui,ui_stub_noop_help_measure_text,M,empty body where ui_help_text_set_body measures the text height
+0x098b27b8,ui,ui_stub_noop_help_update_hook,M,empty body called first by ui_duel_help_update
+0x098b27c0,ui,ui_help_text_draw,M,scroll bar (0x098b2cd8), separator, clip rect, boxed body text at the scroll offset, optional image 0x09be0d6c
+0x098b296c,ui,ui_help_text_close,M,closes window 0x09be0d70 (0x088428fc) and clears 0x09be0d60 (0xec bytes)
+0x098b29a0,ui,ui_help_text_scroll_by_stick,M,pad word +0x14 (analog axis) above 0xc0 or below 0x40 scrolls 0x09be0e38 by 6/64 per unit, clamped to the content height
+0x098b2a9c,ui,ui_help_text_set_image,M,stores image 0x09be0d6c and its width/height from 0x088246c4(gim, 4) +8/+10, updates content height
+0x098b2af8,ui,ui_help_text_update_content_height,H,0x09be0e48 = text height 0x09be0e3c + image height 0x09be0e44 + 10
+0x098b2b1c,ui,ui_help_set_body_font,M,text flags (0x0884862c, 0x088486dc, 0x088485d4, 0x0884857c), size 14x14, colour black
+0x098b2b64,ui,ui_draw_list_cursor_box,M,nine-slice box from UV (0,0x70) with 11 px corners, colour param_7 or default 0xff389dff
+0x098b2c4c,ui,ui_draw_list_cursor_box_blink,M,wrapper of ui_draw_list_cursor_box taking the frame counter; used for the active list
+0x098b2ca4,ui,ui_draw_list_cursor_box_flash,M,wrapper of ui_draw_list_cursor_box taking the frame counter; used in the decided state 4
+0x098b2cd8,ui,ui_draw_scroll_bar,H,track, thumb sized visible/total at offset ratio, blinking up/down arrows (frame counter % 30) when scrollable
+0x098b2fa0,ui,ui_draw_three_part_column,H,top, stretched middle and bottom sprites of a vertical bar
+0x098b30b4,ui,ui_draw_scroll_track,M,wrapper of ui_draw_three_part_column called by ui_draw_scroll_bar for the track
+0x098b3110,ui,ui_draw_scroll_thumb,M,wrapper of ui_draw_three_part_column called by ui_draw_scroll_bar for the thumb
+0x098b317c,ui,ui_draw_scroll_bar_caps,M,two 7x6 sprites at the bar ends via ui_call_draw_sprite_region
+0x098b31dc,ui,ui_draw_scroll_up_arrow,M,wrapper of ui_call_draw_sprite_region drawn at the bar top when scrolled down
+0x098b31f0,ui,ui_draw_scroll_down_arrow,M,wrapper of ui_call_draw_sprite_region drawn at the bar bottom when more content follows
+0x098b3204,ui,ui_duel_help_open,M,topic viewer: window01.gim, two layouts by topic group (0x098b3d44), body and label dictionary tables, lists, text view, fade 0x08844e0c
+0x098b3494,ui,ui_duel_help_update,M,updates lists and text; state 0x09be0e64 (1 browse, 2 fading out 0x08844ec0, 3 done); topic changes reload text (0x098b39dc/0x098b3a5c)
+0x098b37fc,ui,ui_duel_help_draw,M,header, text view, index list, dim overlay when inactive, footer, topic list, then the fade (0x08844fbc)
+0x098b38a0,ui,ui_duel_help_close,M,closes topic list, index list, text view, footer and main window, frees the loaded archive, clears 0x09be0e4c
+0x098b393c,ui,ui_duel_help_read_input,H,pad: START (8) -> 3 exit; while browsing cancel (0x08836a98) -> 3, triangle (0x1000) -> 1
+0x098b39dc,ui,ui_duel_help_load_topic_list,M,range from topic table 0x09be0eac[topic]: opens the index list (0x098b52a4) or only resets its range (0x098b5478)
+0x098b3a5c,ui,ui_duel_help_load_topic_text,M,body = card_db_get_dictionary_word(body table 0x09be0e5c, table offset + page) into the text view (0x098b2648/0x098b2734)
+0x098b3b00,ui,ui_duel_help_update_page_index,M,0x09be0e80 = page 0x09be0e70 + topic start - (base + 1)
+0x098b3b58,ui,ui_duel_help_draw_header,M,two coloured bars, an icon and label string 8 of the label table 0x09be0e60
+0x098b3c5c,ui,ui_stub_noop_help_header_text,M,empty body called by ui_duel_help_draw_header where the title text draw would be
+0x098b3c70,ui,ui_help_set_header_font,M,text flags, size 15x15, colour black; caller ui_duel_help_draw_header
+0x098b3cb0,ui,ui_stub_noop_help_close_hook,M,empty body called by ui_duel_help_close
+0x098b3d44,ui,ui_duel_help_get_topic_group,H,returns 0 for topics 0..0x0c and 1 for 0x0d..0x18
+0x098b3d84,ui,ui_duel_help_topic_from_index,H,returns index + topic base 0x09be0ea4
+0x098b3d94,ui,ui_duel_help_index_from_topic,H,returns topic - topic base 0x09be0ea4
+0x098b3da4,ui,ui_duel_help_open_footer,M,clears 0x09be0f78, footer window at (5,0xee) 0x1d6x0x1e (0x088425f8/0x08842654)
+0x098b3e74,ui,ui_duel_help_draw_footer,M,per-language (save_get_language) positions of the button hints from the label table, in the footer window
+0x098b4138,ui,ui_stub_noop_help_footer_text,M,empty body called by ui_duel_help_draw_footer where text is drawn
+0x098b414c,ui,ui_duel_help_close_footer,M,closes window 0x09be0f84 (0x088428fc) and clears 0x09be0f78 (0xd0 bytes)
+0x098b4180,ui,ui_help_set_footer_font,M,text flags, size 14x14, colour black; caller ui_duel_help_draw_footer
+0x098b4374,ui,ui_duel_help_open_topic_list,M,list record 0x09be1060 at (0x4b,0x1e) 0x191x0xd0 with draw/item/cursor/measure callbacks, then its window (0x098b44d4)
+0x098b44d4,ui,ui_duel_help_reset_topic_list,M,sets topic range and cursor, recreates window 0x09be1094 (0x088428fc/0x088425f8/0x08842654)
+0x098b45d0,ui,ui_duel_help_update_topic_list,M,list input then state 0x09be1048: 1 open (SE 0x7a08), 2 opening, 3 browse, 4 decided delay, 5/6 closing, 7 closed
+0x098b4774,ui,ui_duel_help_draw_topic_list,M,list (0x098b502c), nine-slice title bar and the current topic name from table 0x09be1058
+0x098b4850,ui,ui_stub_noop_topic_list_title_text,M,empty body called by ui_duel_help_draw_topic_list where the title text draw would be
+0x098b4864,ui,ui_duel_help_close_topic_list,M,list term stub, closes window 0x09be1094, clears 0x09be1048 (0x120 bytes)
+0x098b48a4,ui,ui_duel_help_set_topic_list_active,H,sets bit 0 of 0x09be1064 (topic list active flag)
+0x098b48c8,ui,ui_duel_help_start_topic_list,H,sets topic list state 0x09be1048 = 1 (open)
+0x098b48d8,ui,ui_duel_help_get_topic_cursor,H,ui_list_get_cursor(0x09be1060)
+0x098b48e4,ui,ui_duel_help_get_topic_list_result,H,0 while open; in state 7: 2 when the result was cancel, else 1
+0x098b4920,ui,ui_duel_help_draw_topic_scroll_bar,M,window draw then the scroll track (0x098b4ca4) at x 0x1d1
+0x098b4978,ui,ui_duel_help_draw_topic_item,M,icon sprite and boxed topic name (table 0x09be1058, index + base) while the list is shown
+0x098b4b4c,ui,ui_duel_help_draw_topic_cursor,M,cursor box: flash in state 4, blink when active, plain otherwise
+0x098b4ca4,ui,ui_duel_help_draw_topic_scroll_track,M,separator rect and ui_draw_scroll_bar for the topic list
+0x098b4d90,ui,ui_duel_help_measure_topic_item,M,item height from the topic name text height (via stub 0x098b4e1c) for the list layout
+0x098b4e1c,ui,ui_stub_noop_measure_topic_text,M,empty body where ui_duel_help_measure_topic_item measures the text
+0x098b4e28,ui,ui_help_set_text_flags,M,0x0884862c(1), 0x088486dc(0), 0x088485d4(1), 0x0884857c(1)
+0x098b4e5c,ui,ui_help_set_topic_title_font,M,text flags, size 14x14, colour white
+0x098b4e8c,ui,ui_help_set_topic_item_font,M,text flags, size 14x14, colour black
+0x098b52a4,ui,ui_duel_help_open_index_list,M,window 0x09be11b4 and list 0x09be1180 at (7,0x1f) 0xbfx0xcd with callbacks, then its range (0x098b5478)
+0x098b5478,ui,ui_duel_help_set_index_range,H,first/last entry 0x09be1278/0x09be127c, item count = last - first + 1, cursor 0
+0x098b54ac,ui,ui_duel_help_update_index_list,H,ui_list_update_scroll(0x09be1180)
+0x098b54b8,ui,ui_duel_help_draw_index_list,H,ui_list_draw(0x09be1180)
+0x098b54c4,ui,ui_duel_help_close_index_list,M,list term stub, closes window 0x09be11b4, clears 0x09be1168 (0x118 bytes)
+0x098b5504,ui,ui_duel_help_set_index_list_active,H,ui_list_set_active(0x09be1180, flag)
+0x098b5514,ui,ui_duel_help_get_index_cursor,H,ui_list_get_cursor(0x09be1180)
+0x098b5520,ui,ui_duel_help_set_index_cursor,H,ui_list_set_cursor(0x09be1180, value)
+0x098b5864,ui,ui_duel_help_draw_index_cursor,M,cursor box for the index list, blinking when active (bit 0 of 0x09be1184)
+0x098b5924,ui,ui_duel_help_draw_index_scroll_bar,M,window draw then ui_draw_scroll_bar for the index list
+0x098b59e4,ui,ui_duel_help_measure_index_item,M,item height of the entry text (table 0x09be1178) minus an indent marker (label 6), via stub 0x098b5ab4
+0x098b5ab4,ui,ui_stub_noop_measure_index_text,M,empty body where ui_duel_help_measure_index_item measures the text
+0x098b5ac0,ui,ui_help_set_index_font,M,text flags, size 14x14, colour black
+0x098b5b08,ui,ui_duel_help_is_indented_entry,M,true when the entry's first character equals the first character of label string 6
+# family duel_messages
+0x098abf48,ui,ui_duel_open_flag_message,M,clears flag 0x09bde00c, opens a message box (0x098a67b4) whose close test reads the flag, sets +8 = 3
+0x098abfa0,ui,ui_duel_signal_flag_message,H,sets 0x09bde00c = 1, the close flag of ui_duel_open_flag_message; caller 0x098a2ea8
+0x098b83e4,ui,ui_duel_open_auto_close_message,M,message box (0x098a67b4) that closes when 0x0989e940() returns 0 (0x098b8418); timer 0x09be1288 = 10
+0x098b8418,ui,ui_auto_close_message_is_done,M,returns 0x0989e940() == 0; close test installed by ui_duel_open_auto_close_message
+# family duel_models
+0x09855ebc,field_3d,field_3d_draw_scaled_model_10003,M,gets model 0x10003 (model table 0x098d0960), scale param_1, play_animation, update_model to frame param_5, node callbacks 0x098562b8/0x09856358, draw_model in display list param_2
+0x098562b8,field_3d,field_3d_node_cb_set_card_texture,M,node callback installed by 0x09855ebc (slot 0); binds texture via 0x0989f224(card) when [0x098e6890] >= 0
+0x09856358,field_3d,field_3d_node_cb_blink_tint,M,node callback slot 1 of 0x09855ebc; when [0x098e6894] set, blinks with frame bit 4 (tex func 4, colour 0xff404040), else white
+# family duel_movie
+0x098a4304,ui,ui_preload_duel_movie,M,container_read_async(3, path from ui_find_duel_movie_path, 0x09bdd104, ...)
+0x098a4350,ui,ui_play_duel_movie,M,0x17cc00-byte buffer from the movie heap, system_end_frame, player 0x0883debc, then clears 0x110000 bytes of EDRAM
+0x098a4400,ui,ui_find_duel_movie_path,M,qsort/bsearch table 0x098d27f0 (75 x 16 bytes) by id + 100000, then by id; returns entry +8
+# family duel_objects
+0x09861738,ui,ui_init_duel_objects,M,clears 0x098e6d7c (0x8a4 bytes), makes the list sentinel, 16 shared handles -1, inits attack pointer, zone highlights, LP panel textures and 0x0987835c
+0x098617e4,ui,ui_term_duel_objects,M,stops zone highlights and the attack pointer, destroys every object of list 0x098e6d7c, clears the LP panel state, 0x09878394
+0x09861864,ui,ui_draw_duel_objects,M,called by ui_run_duel_draw_frame: updates zone highlights, then calls each object draw cb (+0x08) with its data, deleting objects flagged by 0x09861a54
+0x09861918,ui,ui_update_duel_objects,M,called by ui_run_duel_draw_frame: per object time +0x14 += dt and update cb (+0x0c)(dt, obj, data), deleting flagged objects
+0x098619a8,ui,ui_create_duel_object,M,allocates a 0x1c-byte node, copies the template (draw, update, free cb, data), links it at the head of list 0x098e6d7c; 22 callers
+0x09861a14,ui,ui_copy_duel_object_template,H,copies 7 words; only caller ui_create_duel_object
+0x09861a54,ui,ui_delete_current_duel_object,H,sets [0x098e6d98] = 1, which makes the draw/update walkers destroy the object being processed; returns 0
+0x09861a68,ui,ui_destroy_duel_object,H,unlinks the node, calls free cb +0x10 with data +0x18, frees the node (0x098a0888)
+0x098627c0,ui,ui_free_task_handle_object,H,free cb: ends task *data (0x09878644) when not -1, then frees data
+0x09864628,ui,ui_free_duel_object_data,H,free cb: frees data and clears the object data pointer +0x18 when it matches
+# family duel_options
+0x098affb8,ui,ui_duel_options_open,M,heap block 0x3c (0x09be0d5c), two settings snapshots (0x098b0110), colours by kind, texture menu_opt01.gim (+kind*0x40) via container_ehp_find_member
+0x098b0110,ui,ui_duel_options_capture_settings,H,packs save_get_option_flag 0/2/3/4/5, three 0x088416f8 levels and other getters into an 8-byte bitfield
+0x098b0280,ui,ui_duel_options_apply_settings,H,inverse of the capture: save_set_option_flag 0/5/2/4/3, 0x08841724 levels 2/0/1, setters 0x08857860/0x088577b4/0x08857aac/0x08857b18
+0x098b0370,ui,ui_duel_options_update,H,confirm (0x08836a98(0)): apply, return 2; cancel: restore snapshot (0x098b0bf4) and apply; up/down moves the cursor (SE 0x7a04)
+0x098b0bf4,ui,ui_duel_options_copy_settings,H,copies four halfwords (the 8-byte settings snapshot); used to restore on cancel
+0x098b0c1c,ui,ui_duel_options_draw,M,copies layout tables 0x098d3398..0x098d3408, draws frames, labels and values (0x098b14f4, 0x098b1210, 0x098b1bd0, 0x098b1f90)
+0x098b10bc,ui,ui_duel_options_draw_cursor,M,cursor row y from item 0x09be0d5c[1] with section gaps, then the cursor frame (0x098b14bc)
+0x098b1210,ui,ui_duel_options_draw_item_value,M,per section/item: choice pairs (0x098b1854) or level bars (0x098b1d1c) from the settings bitfield
+0x098b14bc,ui,ui_duel_options_draw_cursor_frame,M,wide (250x11) or narrow (40x11) nine-slice cursor via 0x098b14f4
+0x098b14f4,ui,ui_draw_nine_slice_from_table,M,9 parts with UV/size from table 0x098d3420 at the corners/edges of a w x h box
+0x098b1700,ui,ui_duel_options_draw_icon,M,sprite with UV from table 0x098d3468[index] (10 entries)
+0x098b17c4,ui,ui_duel_options_draw_level_bar,M,15 segments 7 px apart: icon 0 below the level, icon 1 above
+0x098b1854,ui,ui_duel_options_draw_choice_pair,M,two choice icons 0x4c apart, highlighted by the current value, alpha blink when the row is selected
+0x098b19ac,ui,ui_duel_options_set_render_state,M,GE state setup (blend 0x0882b160, texture function, clears) and binds the options texture
+0x098b1a90,ui,ui_duel_options_draw_message,H,card_db_get_dictionary_word(find_member(archive, option_msg_<l>.bin by save_get_language), index), optionally centred
+0x098b1bbc,ui,ui_stub_noop_options_text,M,empty body called by ui_duel_options_draw_message where the text draw would be
+0x098b1bd0,ui,ui_duel_options_draw_item_label,M,message index per section/item, highlighted on the cursor row, via 0x098b21bc
+0x098b1d1c,ui,ui_duel_options_draw_level_item,M,level bar for items 1..3 from settings bytes +0xa/+0xc/+0xe (item 1 skipped outside Japanese)
+0x098b1dd8,ui,ui_duel_options_draw_section_frame,M,nine-slice section frames at x+0xab (0x098b14f4)
+0x098b1ed4,ui,ui_duel_options_draw_help_bar,M,bottom bar at y 0xf8 (0x1cf x 0x16) with message 0x1b + item
+0x098b1f90,ui,ui_duel_options_draw_value_label,M,message index for the current value of each item (0x10+, 0x14, 0x16..0x19) via 0x098b21bc
+0x098b21bc,ui,ui_duel_options_draw_text_colored,H,font 13, colour from options block +0x34/+0x38/+0x30 by state 0/1/2, then ui_duel_options_draw_message
+# family duel_resources
+0x0989eaf8,ui,ui_sort_duel_resource_tables,H,qsort of object 0x098d0960 (40 x 0x18), archive 0x098d0dd0 (4 x 0xcc), texture 0x098d1380 (35 x 0x10), layout 0x098d16e0 (13 x 0x14)
+0x0989eb7c,ui,ui_duel_draw_release_all,M,ui_release_duel_resources, card-art readers, cut-in slots, object models, then waits until 0x0881dd48 is idle
+0x0989ebd0,field_3d,field_3d_destroy_duel_object_models,M,field_3d_destroy_model_instance for each of 40 object entries; frees or marks the backdrop archive slots 0x09adcf20
+0x0989ec90,ui,ui_release_duel_resources,M,destroys object models, frees archive buffers 0x098d0e94 and owned textures, clears layout cache 0x098d16f0
+0x0989edb4,field_3d,field_3d_get_duel_object_model,M,object table 0x098d0960: archive members tms/tmt/tma, field_3d_create_model_instance, set_animation (TGMT), set_tma; cached
+0x0989ef30,ui,ui_get_duel_layout,M,table 0x098d16e0 (e.g. 'score_atkdef10.ehf'/'.tmf'): finds members in the archive and binds ehf with tmf (0x08821b70)
+0x0989effc,ui,ui_get_duel_texture,M,table 0x098d1380 (e.g. 'cil_0000.gim'): container_ehp_find_member in its archive, cached at +0xc
+0x0989f084,ui,ui_get_duel_string_table,M,table 0x098d1b1c (e.g. 'ddstrtbl_jpn_idx.bin'): member of its archive, cached
+0x0989f10c,ui,ui_load_duel_archive,M,table 0x098d0dd0: per-language name (save_get_language, fallback 'basic_jj') + ext, container_load_file(4, ...); buffer once loaded
+0x0989ff40,ui,ui_find_resource_entry,M,binary search on the u32 id at entry +0 (count and stride arguments); used by all five resource tables
+0x098a0368,ui,ui_on_duel_archive_loaded,M,container_load_file callback of ui_load_duel_archive: container_ehp_bind_with_callback(0, +0xc4), clears loading flag +0xc8
+0x098a08c4,ui,ui_get_duel_dict_word,M,card_db_get_dictionary_word on string table 0x8000d + language (ui_get_duel_string_table), cached in 0x09bdd020
+# family duel_text_wrappers
+0x098a7d98,ui,ui_card_prompt_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str): one-line text draw in 26.6 fixed point
+0x098a8778,ui,ui_card_info_menu_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098a9510,ui,ui_attribute_select_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098a9960,ui,ui_two_way_choice_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098aa7c8,ui,ui_option_list_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098aa7e8,ui,ui_option_list_draw_text_box,M,only calls 0x08846db0(x<<6, y<<6, w<<6, h<<6, str, -1, 0): boxed text draw
+0x098aac1c,ui,ui_number_choice_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098ab198,ui,ui_race_select_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098ab764,ui,ui_label_panel_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098abb54,ui,ui_label_panel_draw_text_box,M,only calls 0x08846db0(x<<6, y<<6, w<<6, h<<6, str, -1, 0)
+0x098abf2c,ui,ui_card_yes_no_draw_text_box,M,only calls 0x08846db0(x<<6, y<<6, w<<6, h<<6, str, -1, 0)
+0x098ad054,ui,ui_card_list_draw_text,M,only calls 0x08846b34(x<<6, y<<6, w<<6, ...)
+0x098ad804,ui,ui_draw_number_digit_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str); caller 0x098ad71c
+0x098af9c0,ui,ui_card_action_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+0x098b2950,ui,ui_help_text_draw_text_box,M,only calls 0x08846db0(x<<6, y<<6, w<<6, h<<6, str, -1, 0)
+0x098b4ab0,ui,ui_duel_help_topic_draw_text_box,M,only calls 0x08846db0(x<<6, y<<6, w<<6, h<<6, str, -1, 0)
+0x098b56dc,ui,ui_duel_help_index_draw_text_box,M,only calls 0x08846db0(x<<6, y<<6, w<<6, h<<6, str, -1, 0)
+0x098b56f8,ui,ui_duel_help_index_draw_text,M,only calls 0x08846b34(x<<6, y<<6, (480-x)<<6, str)
+# family duel_ui_modes
+0x098a2eb8,ui,ui_reset_duel_ui_mode_state,H,memset(0x09bdd0b4, 0, 0x4c): mode, argument and mode stack; caller ui_duel_draw_setup
+0x098a2ecc,ui,ui_clear_duel_ui_mode_state,H,memset(0x09bdd0b4, 0, 0x4c); caller ui_duel_draw_reset
+0x098a2ee0,ui,ui_set_duel_ui_mode,M,exit callback of mode 0x09bdd0b4 (table 0x098d1f5c +0x0c), store the new mode, enter callback (+0x00); no push
+0x098a2f9c,ui,ui_get_duel_ui_mode,H,returns the current mode 0x09bdd0b4; 15 callers compare it with mode numbers
+0x098a2fa8,ui,ui_push_duel_ui_mode,M,saves the 8-byte mode state on stack 0x09bdd0bc (depth 0x09bdd0dc), sets the new mode, runs its enter callback
+0x098a3068,ui,ui_copy_duel_ui_mode_state,H,copies two words; used by push and pop of the mode stack
+0x098a3080,ui,ui_pop_duel_ui_mode,M,runs the current mode's exit callback, depth - 1, restores the saved 8-byte mode state
+0x098a3114,ui,ui_draw_duel_ui_mode,M,calls the draw callback (+0x04) of the current mode once entered, then overlay 0x098b8440 when 0x09bdd0fc is set
+0x098a31dc,ui,ui_draw_duel_ui_mode_by_index,M,calls the draw callback (+0x04) of mode param_2 from table 0x098d1f5c
+0x098a3484,ui,ui_close_active_duel_ui_mode,M,per current mode (2, 3/4, 5, 7, 8, 9, 0xc) closes its window or pops; returns mode == 1; callback of commands 0xf/0x41
+0x098a3608,ui,ui_set_duel_ui_mode_arg,M,stores 0x09bdd0b8 (saved with the mode on push); non-negative values call 0x088369f4
+0x098a3630,ui,ui_get_duel_ui_mode_arg,H,returns 0x09bdd0b8
+# family effect_rand
+0x098667d8,system,system_effect_rand_float,M,LCG x*0x41c64e6d+0x3039 on its state word, returns ((x & 0x7fffffff) >> 16)/32767.0; 9 effect callers
+0x09866838,system,system_effect_rand_u15,M,same LCG step, returns (x & 0x7fffffff) >> 16; 11 effect callers
+# family engine_option_list
+0x098aa08c,ui,ui_duel_open_engine_option_list,M,dispatcher opener, window titled duel string 0x2c; replies 0 at once when no entry of the 0x09be1df4 list is enabled; decide 0x098aa22c
+0x098aa13c,ui,ui_engine_option_list_setup_window,M,reads list 0x09be1df4() (count +0xc, entries +0x14, bit 7 of +0x15 = enabled): disabled mask +0xdc, item width 0x118/count
+0x098aa22c,ui,ui_engine_option_list_on_decide,H,replies the menu selection 0x098a63e8() via 0x09be1db8
+0x098aa250,ui,ui_engine_option_list_draw_item,M,selected entry text card_db_get_dialog_string(entry & 0x3fff), black when enabled, grey 0xff666666 otherwise; tab sprites (atlas 0x4001a)
+0x098aa80c,ui,ui_engine_option_list_update,M,window update; in state 3 L/R (pad 0x100/0x200) page with 0x0883549c/0x08835658 and SE 0x7a04; true when closed
+# family field_cursor
+0x0984e314,ui,ui_field_cursor_init,M,memset cursor record 0x098d5d20 (0x90), ui_field_cursor_set(side 0, zone 7, 0, 0)
+0x0984e350,ui,ui_field_cursor_handle_input,M,moves location 0x098d5d40 on pad bits 0x10/0x20/0x40/0x80 (up/right/down/left), hand/field switch, sound 0x7a04
+0x0984e8f8,ui,ui_copy_location_code,M,copies one u16 (location: bit 0 side, bits 1-5 zone, bits 6+ index, chain.md); 15 callers
+0x0984e908,ui,ui_field_cursor_set,M,0x098d5d40 = side, zone, index (10 bits); optional save to 0x098d5d50; grid cell 0x098d5d44/48 from 7x7 table 0x098ce928
+0x0984ea80,ui,ui_field_cursor_restore,M,when save flag 0x098d5d4c set, ui_field_cursor_set from saved location 0x098d5d50
+0x0984eacc,ui,ui_field_cursor_get_location,M,returns 0x098d5d40; zones 0xc/0xd index 0, zones 0xe/0xf the last index (counts 0x0989d6d0 / 0x0989d6f4)
+0x0984ebe4,ui,ui_field_cursor_set_locked,M,0x098d5d58 = flag; ui_field_cursor_handle_input returns at once while set, draw uses the locked variant
+0x0984ebf8,ui,ui_field_cursor_draw,M,updates position, model matrix from pos 0x098d5d20 / rotation 0x098d5d30, list 5: normal or locked cursor draw
+0x0984ed20,ui,ui_field_cursor_update,M,clamps hand index, world transform of the location (field_3d_board_get_location_transform), eases 0x098d5d20, shows card info
+0x0984f10c,ui,ui_field_cursor_jump_to_selectable,M,in engine states 4-9 scans 16 zones x both sides for flags 0x808 (0x0989d8c4) and moves the cursor there
+0x0984f2a4,ui,ui_field_cursor_cycle_or_toggle_hand,M,if any location has selectable flags: ui_field_cursor_cycle_selectable, else ui_field_cursor_toggle_hand
+0x0984f3c8,ui,ui_field_cursor_draw_model,M,object 0x1000e-0x10013 (+8 alt) by zone/side from 0x0989edb4, texture hooks 0x0984f78c and 0x0984f928/0x0984f7e8, draws it
+0x0984f5bc,ui,ui_field_cursor_nearest_zone,M,for zones 5-9 of a side picks the location whose world position is nearest (vfpu distance) to the given point
+0x0984f6d4,ui,ui_field_cursor_nearest_hand_card,M,index of the hand object (zone 0xb) nearest to a point, -1 if none
+0x0984f7e8,ui,ui_field_cursor_animate_texture,M,layer 'field_cursor02.iff': texture 0x40021 + (frame/4 % 3), layer offsets/scale applied
+0x0984f928,ui,ui_field_cursor_bind_highlight_texture,M,when 0x098d5da4 set: 'field_cursor00.iff' -> 0x40027, 'field_cursor01.iff' -> 0x40028
+0x0984fa7c,ui,ui_field_cursor_draw_normal,M,draws cursor model, overlay (unless 0x0989e3a8) and list-6 marker 0x0984fecc at 0x098d5d40
+0x0984fb6c,ui,ui_field_cursor_draw_locked,M,cursor model plus overlay with flags (1, 1); used while 0x098d5d58 is set
+0x0984fba8,ui,ui_field_cursor_draw_overlay,M,projects the cursor through model/view/projection to 480x272 screen coords and draws a 2D sprite per zone table 0x098ce98c
+0x09850284,ui,ui_field_cursor_toggle_hand,M,sound 0x7a04; from the hand returns to saved 0x098d5d9c (or zone 2), else saves location and jumps to hand index 0x098d5da0
+0x0985037c,ui,ui_field_cursor_cycle_selectable,M,sound 0x7a04; next location after the cursor with selectable flags (0x0989d8c4 & ~0x402), wrapping to the first
+0x09855264,ui,ui_field_draw_zone_highlights,M,list 5: for selectable locations (0x0989d8c4) draws cursor models (ui_field_cursor_draw_model) and 0x09855920 markers
+0x0989c774,ui,ui_move_field_cursor,M,exported; engine side to view, then 0x0984e908(side, location, index, 0) like draw command 8
+0x0989c7b8,ui,ui_get_field_cursor_position,M,reads packed cursor ref from 0x0984eacc and splits side (bit 0), slot (bits 1-5), index (>> 6)
+0x0989c840,ui,ui_get_cursor_card_id,M,card object of the cursor position (0x09851f14) and returns its u16 +0x80, -1 when empty
+# family flag_choice_dialog
+0x098a8848,ui,ui_duel_open_flag_choice_dialog,M,dispatcher 0x0989b438 opener: allowed-item mask param_2 at 0x09bddc70, window with setup 0x098a88e4, decide 0x098a8a98, SE 0x7a08
+0x098a88e4,ui,ui_flag_choice_setup_window,M,init: 6 items, cursor on the first allowed bit, disabled mask ~0x09bddc70 at +0xdc, draw cb 0x098a8b58; layout measures strings 0x15..0x19
+0x098a8a60,ui,ui_flag_choice_set_caption,M,sets the window caption to duel string 0x15+item (0x098a08c4, 0x098a64d0) and keeps the item in 0x09bddc74
+0x098a8a98,ui,ui_flag_choice_on_decide,M,optionally sends action selection+0x0d (0x098a0bf0), then replies the selected or first allowed index via 0x09be1db8
+0x098a8b58,ui,ui_flag_choice_draw_item,M,item icon from atlas 0x40025 (u = item*0x14, greyed when not allowed), cursor blinking on frame counter/15 (system_get_frame_timing)
+# family fx_easing
+0x09879c98,ui,ui_duel_get_progress_ratio,H,returns clamp(t, 0, n) / n as float; 66 callers
+0x09879ccc,ui,ui_duel_get_inverse_progress_ratio,H,returns 1 - ui_duel_get_progress_ratio(t, n)
+0x09879cf4,ui,ui_duel_get_fade_out_ratio,H,1 - progress_ratio(t - (end - n), n): falls to 0 over the last n frames before end
+0x09879d20,ui,ui_duel_ease_sine,M,r = clamp(t,0,n)/n, then k times r = sinf(c*r) (BOOT 0x0881820c is a sine)
+0x09879d98,ui,ui_duel_ease_sine_inverse,H,returns 1 - ui_duel_ease_sine(...)
+0x09879dc0,ui,ui_duel_ease_cosine,M,r = 1 - clamp(t,0,n)/n, then k times r = cosf(c*(1 - r)) (BOOT 0x08818340 is a cosine)
+0x09879e50,ui,ui_duel_ease_cosine_inverse,H,returns 1 - ui_duel_ease_cosine(...)
+0x09879e78,ui,ui_duel_ease_cosine_tail,H,ui_duel_ease_cosine(t - (end - n), n, k): eases over the last n frames before end
+0x0987a03c,ui,ui_duel_step_toward_limit,H,v += step, clamped to limit in the step direction
+0x0987a4c4,ui,ui_duel_get_anim_speed_value,M,table 0x098cff64[0x0989ea74()]: second per-speed-setting value, read by the model fx tasks
+0x0987a518,ui,ui_duel_get_anim_frame_step,M,table 0x098cff74[0x0989ea74()] (speed setting); tasks add it to their frame counters (e.g. 0x0987ad60)
+# family fx_matrices
+0x0987234c,field_3d,field_3d_fx_node_hook_rotate_y,M,node hook: when context +8 == 1 multiplies the node matrix by RotY(const 0x098c4f38)
+0x0987287c,field_3d,field_3d_fx_node_hook_rotate_by_kind,M,node hook stored at task +0x5c by 0x09872a30: RotX/RotY/RotZ by kind (context +8 = 2..6)
+0x0987912c,field_3d,field_3d_setup_default_fx_camera,M,field_3d_setup_fx_camera with near 100.0, far 10000.0, eye from 0x098cff24
+0x098791d8,field_3d,field_3d_setup_fx_camera,M,list n: perspective (0x0882557c fovy,aspect,near,far), look-at (0x088256a4), offset/viewport 0x710+x,0x778+y 480x272
+0x098792e0,field_3d,field_3d_restore_fx_viewport,M,list n: pop modes 0 and 1, offset/viewport 0x800,0x800 480x272 (list 5: 960x544 at 0x84a,0x7fc)
+0x098794c8,field_3d,field_3d_make_rotation_only_matrix,H,copy matrix, field_3d_strip_matrix_translation, copy to out (billboard basis)
+0x09879508,field_3d,field_3d_get_view_rotation_matrix,M,stores matrix mode 1 (view) and strips its translation
+0x0987954c,field_3d,field_3d_get_main_camera_rotation_matrix,M,rotation-only copy of the main camera view matrix *0x098d4d48+0x110
+0x0987957c,field_3d,field_3d_get_backdrop_view_rotation_matrix,M,0x0985b00c copies the backdrop view matrix (mgr 0x098e69a0+0x1C0) then strips translation
+0x098795b0,field_3d,field_3d_scale_matrix_xyz,M,packs (x,y,z) and calls 0x088254a8 (vscl_t of the current matrix columns)
+0x098795f4,field_3d,field_3d_translate_matrix_xyz,M,packs (x,y,z) and calls 0x08825470 (vhtfm4 of (x,y,z,1) into the translation column)
+0x09879638,field_3d,field_3d_compose_mvp_matrix,M,out = model matrix (mode 2) x view x projection via sceVfpuMatrix4Mul
+0x098796ac,field_3d,field_3d_get_mvp_matrix,M,reads matrix modes 1 (view) and 0 (projection), field_3d_compose_mvp_matrix; used to project points to 480x272
+0x098796fc,field_3d,field_3d_get_main_camera_mvp_matrix,M,compose_mvp with view *0x098d4d48+0x110 and projection +0xd0 (0x09841154/0x09841144)
+0x09879750,field_3d,field_3d_set_fx_perspective,M,saves current params to 0x098e924c; zero arguments default to the saved 0x098e9360 values; sets projection
+0x0987983c,field_3d,field_3d_restore_fx_perspective,M,reloads the projection from the params kept at 0x098e924c by field_3d_set_fx_perspective
+0x0987988c,field_3d,field_3d_strip_matrix_translation,H,copies 4x4, zeroes elements 3, 7, 11 and sets row 3 to (0,0,0,1)
+0x098798e8,field_3d,field_3d_push_identity_matrices,H,for matrix modes 0,1,3,2: push (0x088257fc) and load identity (0x08825254)
+0x0987995c,field_3d,field_3d_pop_all_matrices,H,for matrix modes 0,1,3,2: pop (0x08825864); 34 callers pair it with the push helpers
+0x098799b0,field_3d,field_3d_save_matrix_state,H,stores modes 0,1,3,2 to 0x098e9260/92a0/92e0/9320 and the perspective (0x08825524) to 0x098e9360..936c
+0x09879a2c,field_3d,field_3d_push_saved_matrices,H,for modes 0,1,3,2: push and load the matrices saved at 0x098e9260..0x098e9320
+0x09879ab0,field_3d,field_3d_push_main_camera_matrices,M,push; projection = *0x098d4d48+0xd0, view = +0x110, modes 3 and 2 identity
+0x09879b34,field_3d,field_3d_push_backdrop_camera_matrices,H,push; perspective from 0x0985b034 (backdrop mgr +0x200..+0x20C), view from mgr +0x1C0, others identity
+0x09879bd8,field_3d,field_3d_mul_matrix3_by_axis_rotation,M,identity 3x3, 0x0881a43c(angle, axis) rotation, sceVfpuMatrix3Mul(out, in, rot)
+0x09879c38,field_3d,field_3d_mul_matrix4_by_rot_x,H,identity, sceVfpuMatrix4RotX(angle), sceVfpuMatrix4Mul(out, in, rot)
+0x0987a184,field_3d,field_3d_get_main_scene_node_position,M,0x09842354(*0x098d4d48, node) matrix, returns its translation as vec3
+0x0987a1c4,field_3d,field_3d_transform_point_by_main_scene_node,M,sceVfpuMatrix4Transform of a vec3 by the 0x09842354 node matrix of *0x098d4d48
+# family fx_model
+0x0987a0e8,field_3d,field_3d_is_animation_finished,H,field_3d_get_frame(inst) >= field_3d_get_loop_length
+0x0987a13c,field_3d,field_3d_rewind_model_animation,H,field_3d_play_animation(inst, 0, 0) then field_3d_update_model with a zero step
+# family fx_random
+0x09879e88,field_3d,field_3d_fx_random_direction,M,three random magnitudes with random signs, normalised (0x0881987c), scaled by arg, copied to out
+0x09879f94,field_3d,field_3d_fx_rand_int,H,LCG x = x*0x41c64e6d + 0x3039, returns (x & 0x7fffffff) >> 16
+0x09879fdc,field_3d,field_3d_fx_rand_unit,H,same LCG, returns ((x & 0x7fffffff) >> 16) / 32767.0
+0x0987a070,field_3d,field_3d_fx_rand_chance_percent,H,returns field_3d_fx_rand_int() % 100 < percent
+0x0987a468,field_3d,field_3d_fx_rand_pick_of_five,H,returns one of the 5 words at 0x098cff50 chosen by field_3d_fx_rand_int() % 5
+0x0987b3a8,field_3d,field_3d_backdrop_extra_rand_int,H,LCG copy (0x41c64e6d, 0x3039) used by the eight backdrop extra tasks
+0x0987b3f0,field_3d,field_3d_backdrop_extra_rand_unit,H,LCG copy returning [0,1] float; callers are the backdrop extra tasks
+0x09881ad0,field_3d,field_3d_cutin_fx_rand_int,H,LCG copy (0x41c64e6d, 0x3039); callers are the cut-in fx tasks
+0x09884524,field_3d,field_3d_cutin_fx_rand_unit,H,LCG copy returning [0,1] float; callers are the cut-in fx tasks
+# family fx_render_state
+0x098787b4,field_3d,field_3d_dl_reset_render_state,M,display list n: enables/disables GE states 0..0x15 (0x08828cfc/0x08828ee4), zero colours, tex scale 1, default modes
+0x09878974,field_3d,field_3d_reset_fx_display_lists,H,calls field_3d_dl_reset_render_state for display lists 1,2,3,5,7,8; first step of ui_duel_run_draw_tasks
+0x098789b8,field_3d,field_3d_dl_set_texture_state,M,flag 1: enable GE state 9 (texture), filter 0xC6, func 0xC9, wrap 0xC7, offset 0, scale 1; else disable state 9
+0x09878a88,field_3d,field_3d_dl_set_texture_state_with_offset,M,as field_3d_dl_set_texture_state but texture offset from the first two arguments
+0x09878b70,field_3d,field_3d_dl_set_texture_state_with_offset_scale,M,as field_3d_dl_set_texture_state with caller texture offset and scale
+0x09878c6c,field_3d,field_3d_dl_set_depth_test,M,flag 1: enable GE state 1 (depth test) and depth func (cmd 0xE7); else disable state 1
+0x09878cb8,field_3d,field_3d_dl_set_blend,M,flag 1: enable state 4 (blend) and blend func 0x0882b160 (cmds 0xDF/0xE0/0xE1); else disable state 4
+0x09878d44,field_3d,field_3d_dl_bind_fx_texture,H,binds GIM named by table 0x098cfe8c[i] (window01.gim ...); i 0x19-0x22 come from the fmagic archives of their field cards
+0x09878e68,field_3d,field_3d_dl_bind_framebuffer_texture,M,texture image 512x512 at the VRAM framebuffer from 0x09879414(0) (cmd builder 0x0882a754, cmds 0xA0/0xA8/0xB8)
+0x09878ed4,field_3d,field_3d_dl_bind_framebuffer_region_texture,M,as bind_framebuffer_texture but at framebuffer + (x + y*512)*4 with caller width/height
+0x09878f7c,field_3d,field_3d_dl_copy_framebuffer_to_texture,M,copy-image cmds 0xB2-0xEE (0x0882b5d0) 480x272 from the back buffer to VRAM+0x174000, then binds it 512x512
+0x09879054,field_3d,field_3d_dl_bind_card_face_texture,M,renders a card (0x08837f68 uses card_db_get_name/description) into VRAM+0x160000 128x256 and binds it; flag 1 -> 0x0989f224
+0x098793c8,field_3d,field_3d_dl_set_offset,M,list n: 0x08829f7c emits GE cmds 0x4C/0x4D (screen offset x<<4, y<<4)
+0x09879414,field_3d,field_3d_get_framebuffer_vram_addr,H,sceGeEdramGetAddr + 0 or 0x88000 chosen by frame parity (system_get_frame_timing bit 0) and the argument
+0x098794a0,field_3d,field_3d_get_vram_addr,H,returns sceGeEdramGetAddr() + offset
+0x0988510c,field_3d,field_3d_dl_disable_depth_test,H,field_3d_dl_set_depth_test(dl, 0, 1)
+# family fx_sound_cues
+0x0987a2b0,audio,audio_play_se_once_at_frame,H,if 0 <= frame <= timer and flag bit clear: set bit, BOOT 0x08841898(se) (plays a sound effect, story.md); 53 callers
+0x0987a308,audio,audio_play_se_once_at_time,H,float-timer variant of audio_play_se_once_at_frame
+0x0987a370,audio,audio_play_se_ex_once_at_frame,M,once-at-frame guard, then BOOT 0x088418a4(se, frames*1000/30) -> 0x0886da0c(se, ms, 0)
+0x0987a3ec,audio,audio_stop_track_once_at_frame,M,once-at-frame guard, then 0x0886c164(track, frames*1000/30): stop with fade (story.md bgm_stop)
+# family fx_utils
+0x09876bb8,ui,ui_duel_copy_two_words,H,copies 2 u32 from src to dst and returns dst
+0x09878324,ui,ui_duel_copy_six_words,H,copies 6 u32 from src to dst and returns dst
+0x0988bea4,field_3d,field_3d_copy_vec4_2,H,copies 4 u32 from src to dst and returns dst (second function given this name in the round; suffix _2 added)
+# family hud_layout_anim
+0x09857dc8,ui,ui_init_hud_layout_anim,M,memset(0x098e6898, 0, 0x9c) from the duel draw init 0x0985a838
+0x09857ddc,ui,ui_term_hud_layout_anim,M,memset(0x098e6898, 0, 0x9c) from the duel draw term 0x0985a87c
+0x09857df0,ui,ui_draw_hud_layout_anim,M,when [0x098e68dc] active draws layout [0x098e6898] (0x0881ec8c) at frame, optionally in its own display list, then a caption string 0x098a08c4 with the font
+0x0985808c,ui,ui_draw_text_box_px,M,forwards pixel x,y,w,h <<6 to the font box renderer 0x08846db0 with colour -1
+0x098580a8,ui,ui_update_hud_layout_anim,M,steps layout [0x098e6898] frame, loops between +0x10/+0x0c, ends at +0x08: clears active flag, calls callback +0x14(+0x18), starts queued request 0x098e68f0
+0x098582b0,ui,ui_play_hud_layout_anim,M,if idle copies the 0x44-byte request to 0x098e6898, sets frame range, plays sound req[9] (0x08841898) unless flag 8; else queues it at 0x098e68f0
+0x09858390,ui,ui_copy_hud_layout_anim_request,H,copies 17 words (0x44 bytes) from param_2 to param_1; only caller ui_play_hud_layout_anim
+0x09858420,ui,ui_is_hud_layout_anim_looping,M,returns [0x098e68e8], the loop-phase flag set by ui_update_hud_layout_anim
+# family hud_lp
+0x09858c84,ui,ui_set_lp_display_target,M,writes the target LP of a player at 0x098e6940; with param_3 also sets shown, from and to values (0x098e6938/48/50) for an immediate change
+0x09858cbc,ui,ui_get_lp_display_target,M,returns 0x098e6940[player], the target written by ui_set_lp_display_target
+0x09858cd4,ui,ui_add_lp_display_target,M,adds a delta to 0x098e6940[player] and clamps it at 0
+0x09858f98,ui,ui_draw_lp_digits,M,clamps to 0..99999, draws digits right to left 8 px apart with HUD glyphs 0x22+d of 0x098cf27c
+0x098592c0,ui,ui_draw_lp_counters,M,draws the LP labels at x 0x98/0x9f and 0x1a6/0x1ad and both shown LP values 0x098e6938[p] in colour 0xff00ffff
+0x098593b8,ui,ui_update_lp_display,M,per player: when target changes stamps the frame, then lerps shown LP 0x098e6938 from old to target over 60 frames
+# family hud_numbers
+0x0985845c,ui,ui_draw_hud_glyph,M,sets sprite size (0x0882979c) then draws a sprite at x,y with the uv pair *param_4 (0x088295a4); used by every HUD digit routine
+0x09858adc,ui,ui_draw_text_to_right_edge,M,font draw 0x08846b34 at x<<6, y<<6 with width (480-x)<<6
+0x09859054,ui,ui_draw_hud_counter_blinking,M,draws a prefix glyph and up to 999 in glyphs 0x2d+d; blinks on frame bit 3 when the value is below 31 and the flag is set, grey when flag 0
+0x098591b8,ui,ui_draw_hud_centre_number,M,value of 0x0989e388 clamped to 999, black, centred by digit count, glyphs 0x22+d; drawn at (0x12d, 9) by ui_draw_duel_hud
+0x0985a508,ui,ui_draw_hud_button_prompt,M,when 0x0989e224 and 0x0989d7f8(0) draws the animated button icon at (0x94, 0x4b)
+0x0985a55c,ui,ui_draw_button_icon,H,finds 'buttom_icon1.gim' in archive 0x08835d5c, draws a 18x22 sprite cycling 4 frames every 15 frames
+# family hud_phase
+0x09858d0c,ui,ui_set_hud_turn_player,M,stores the player at 0x098e6964 (and 0x098e6960 when immediate), sets phase indicator 0x098e696c to 7 (no phase)
+0x09858d38,ui,ui_set_hud_phase,M,stores the phase at 0x098e696c; with param_2 sets indicator state 0x1a and frame 0x20e of layout 0x20003
+0x09858d88,ui,ui_set_phase_indicator_state,M,maps phase 0-5/7 to indicator states 1,3,5,7,9,11/0x1a at 0x098e6968, +0xd for player 1
+0x098594c4,ui,ui_draw_turn_indicator_layout,M,draws layout 0x20002 (0x0989ef30) at the current frame, with a colour override when 0x0989e170 is set
+0x09859560,ui,ui_update_turn_indicator,M,drives layout 0x20002 frames (0, 0x79, 0x82, 0xf9) toward the turn player 0x098e6964 shown at 0x098e6960
+0x098596bc,ui,ui_update_phase_indicator,M,drives layout 0x20003 through the state table 0x098cf12c/0x098cf0c0 toward phase 0x098e696c and turn player 0x098e6964
+# family hud_portrait
+0x09858e30,ui,ui_set_portrait_expression_slot,M,sets 0x098e6974[player] = expression and resets its timer 0x098e6984[player] when it changes; returns whether it changed
+0x09858e78,ui,ui_set_portrait_expression,M,current player via 0x0989e564, checks the character supports expression bit (0x0885b7f4, table +0x3c) and stores it via ui_set_portrait_expression_slot
+0x09858f2c,ui,ui_get_portrait_expression,M,returns 0x098e6974[player] and its timer 0x098e6984[player]
+0x09858f5c,ui,ui_is_portrait_expression_settled,M,timer 0x098e6984[current player] > 14 frames
+0x09859a50,ui,ui_draw_player_portrait_panel,M,picks the highlight from per-player state, then draws the portrait 0x09859dac with expression 0x098e6974 and timer 0x098e6984 of the panel character
+0x09859dac,ui,ui_draw_character_portrait,M,frame of texture 0x4001f (0x0985a0e0), face icon grid 40x40 by expression, or bust-up kao.gim/karada.gim through 0x098b5b48
+0x0985a0e0,ui,ui_draw_portrait_frame,M,nine-slice: centre, four 3/4-px corners and four edges from a 0x30-wide column of the bound texture
+0x0985a370,ui,ui_draw_portrait_pulse,M,texture 0x4001f, additive blend, alpha pulsing with frame % 40, 32x32 sprite at x 0x8a (player 0) or 0x1a9 (player 1)
+# family hud_state
+0x098584cc,ui,ui_init_hud_state,M,memset(0x098e6934, 0, 0x60) from the duel draw init 0x0985a838 (LP display, turn and phase indicator state)
+0x098584e8,ui,ui_draw_duel_hud,M,display list 7: layouts 0x20002, HUD layout anim, two player names, LP (0x098592c0), centre number, two counters, portraits (0x09859a50), button prompt
+0x09858b10,ui,ui_draw_phase_indicator_layout,M,draws layout 0x20003 (0x0989ef30) with the current frame via 0x0881ec8c
+0x09858b90,ui,ui_update_duel_hud,M,called by ui_update_duel_scene: updates HUD layout anim, LP counters, turn and phase indicators, advances frame counters [0x098e6934] and 0x098e6984[4] by dt*30
+# family info_panel
+0x098a67b4,ui,ui_open_info_panel,M,panel 0x09bdd3f0: copies 0x200 bytes of text, 0x088425f8/0x08842654, top or bottom by cursor side, sound 0x7a0c
+0x098a6964,ui,ui_open_info_panel_at_offset,M,ui_open_info_panel then x/y offsets 0x09bdd6c8/0x09bdd6cc
+0x098a69a4,ui,ui_draw_info_panel,M,called by ui_run_duel_draw_frame: ui_update_info_panel, then 0x08842960 draw and optional hook 0x09bdd6c4
+0x098a6a50,ui,ui_is_info_panel_idle,M,true when state 0x09bdd6b4 is 0 or 6
+0x098a6ab4,ui,ui_update_info_panel,M,state machine 0x09bdd6b4 (1-6): y 0x42 or 0xca by side, x 314 - w/2, open/close through 0x08842cf0
+# family label_panel
+0x098ab3bc,ui,ui_duel_draw_label_panel,M,measures two 0x60-byte label records at 0x098d2fe8, positions by save_get_language, frame 0x098afd08 (atlas 0x40026) and records
+0x098ab784,ui,ui_label_panel_measure_label,H,0x0884815c(0x7800, 0x4400, duel string) and rounds the packed 26.6 width/height to pixels
+0x098ab7e8,ui,ui_label_panel_measure_record,M,sums widths of labels +0x30/+0x48 and heights of +0x00/+0x18 plus per-label extents (0x0880a3a8)
+0x098ab8ec,ui,ui_label_panel_draw_badge,M,47x38 sprite from atlas 0x40026 at u = (1-variant)*47
+0x098ab9c8,ui,ui_label_panel_draw_label,M,one label record (string, anchor 0..3, offset) as boxed text; skipped when its mask misses 0x0989d8c4(side, zone, index)
+0x098abb70,ui,ui_label_panel_draw_record,M,badge (0x098ab8ec) then the four labels at +0, +0x18, +0x30, +0x48 of the record
+# family list_selection
+0x098a5594,ui,ui_get_list_selection_mask,M,one bit per selected index of 0x09bdd188, shifted by the first index 0x09bdd14c
+0x098a5a7c,ui,ui_is_list_item_selected,M,true when the index is in array 0x09bdd188 (count 0x09bdd208)
+0x098a5ac4,ui,ui_toggle_list_item_selection,M,removes the index from 0x09bdd188 when present (param 0) or appends it
+# family lp_effect
+0x09863bd8,ui,ui_on_lp_change_effect_done,M,done cb: destroys the wait object, applies the delta with ui_add_lp_display_target(player, delta), frees the record
+0x09863c14,ui,ui_start_lp_change_effect,M,wait object 0x10, effect 0x09871dcc at per-player positions with red (delta < 0) or green colour; done cb ui_on_lp_change_effect_done
+# family lp_panel
+0x0985ebf4,ui,ui_load_lp_panel_textures,H,strings 'lp_pnl01_j.gim', 'lp_pnl_nmb01_j.gim' (Japanese) or 'lp_pnl_a01.gim', 'pnl_a00.ehf/.tmf' from archive 0x80001 into 0x098e6d60..0x098e6d78
+0x0985ed34,ui,ui_clear_lp_panel_state,M,memset(0x098e6d4c, 0, 0x30) from the duel-object term 0x098617e4
+0x0985ed48,ui,ui_create_lp_roll_panel,M,0x90-byte panel (x, y, from LP, to LP clamped 0..99999), per-language offsets, digits set by 0x09860cb8, draw cb 0x09860188
+0x0985ef50,ui,ui_create_number_pair_panel,M,0x34-byte panel at x, y with two values clamped to 99999, negative shown as '?' digits; drawn by 0x09861174, timed by 0x098616d0
+0x0985f310,ui,ui_is_lp_panel_open,H,returns [0x098e6d4c] != 0 (the panel object handle)
+0x0985f320,ui,ui_close_lp_panel,M,destroys object [0x098e6d4c] (0x09861a68) and clears the handle
+0x0985f35c,ui,ui_begin_lp_panel_projection,M,saves the projection (0x08825524 into 0x098e6d50..5c), offsets the screen by the panel x/y, sets a fixed perspective, look-at and 2D states for display list 9
+0x0985f59c,ui,ui_end_lp_panel_projection,M,restores the screen offset 0x710/0x778, pops matrices 0 and 1 and the saved projection 0x098e6d50..5c
+0x0985f610,ui,ui_build_sprite_quad_s16,M,fills four 16-bit vertices (u, v, colour, x, y, z) of a w x h quad at x, y with the given uv origin
+0x0985f688,ui,ui_build_textured_quad_f32,H,fills four float vertices (u, v, colour, x, y, z) of a w x h quad centred at x, y, uv from a pixel rect over the texture size with half-texel offset
+0x0985f77c,ui,ui_draw_lp_panel_frame,M,Japanese panel frame at x, y: 3 colours cycling with the frame (0x0985fe50), quads built in the display list
+0x0985fe50,ui,ui_get_lp_panel_glow_colour,M,interpolates an RGB triple of table 0x098cf80c for channel param_1 by frame % 45 in 5-frame steps, returns 0xffBBGGRR
+0x09860188,ui,ui_draw_lp_roll_panel,M,draw cb, display list 9: Japanese frame, label and five rolling digits (0x098603ac) or the international pnl_a00 layout (0x0986068c) and digits (0x098609c0)
+0x09860310,ui,ui_draw_lp_panel_label,M,sprite 0x30x0x22 of texture [0x098e6d68] (lp_pnl_nmb01_j) at panel x+15, y+10
+0x098603ac,ui,ui_draw_lp_roll_digit,M,draws one digit drum: two digit quads rotated about X by the roll angle (+4) through sceVfpuMatrix4RotX, slot param_3 of five
+0x0986068c,ui,ui_draw_lp_roll_panel_intl,M,pnl_a00 frame sprite 0xb8x0x7a, layout pnl_a00.ehf at frame by progress, two bars scaled by +0x7c/+0x80, a 3-frame blinking icon
+0x098609c0,ui,ui_draw_lp_digit_intl,M,one digit of the international panel from uv table 0x098c4d50, width 0x12 or 0xd when +0x8c (five-digit mode)
+0x09860aa0,ui,ui_update_lp_roll_panel,M,update cb: state 1 waits 10 frames, 2 lerps value from +8 to +0xc over 35 frames rolling digits (loop sound 0x7a1f), lands with 0x7a1d (0 LP) or 0x7a20, 3 holds 45 frames
+0x09860cb8,ui,ui_set_lp_roll_digits,M,for the five digit slots stores digit n of the value (0x09860d58) via 0x09860d24
+0x09860d24,ui,ui_reset_lp_roll_digit,H,slot {rolling, angle, digit, target}: rolling = 0, digit = target = value, angle 0 or angle-1 when param_3
+0x09860d58,ui,ui_get_decimal_digit_or_blank,H,digit = value % 10^(n+1) / 10^n (sceVfpuScalarPow); -1 for a leading zero when requested (Japanese, or n > 3)
+0x09860e1c,ui,ui_update_lp_roll_digit,M,starts a digit rolling when its target differs or a higher digit rolls (random digit via system_rand_shifted), advances its angle by table 0x098c4cec
+0x09860fe8,ui,ui_update_lp_panel_bar_pulse,H,ping-pongs +0x7c by +0x84 and +0x80 by +0x88 between 0.5 and 1.0
+0x09861138,ui,ui_free_lp_roll_panel,M,free cb: 0x0881eaf8, stops sound 0x7a1f (0x088418f8), frees the data, clears [0x098e6d4c]
+0x09861174,ui,ui_draw_number_pair_panel,M,draw cb, display list 9: panel projection, frame (Japanese) or pnl_a00 frame, then both values (0x09861328 with 1 and 0)
+0x09861260,ui,ui_draw_number_pair_labels,M,two 0x2b x 0x11 label sprites of texture [0x098e6d6c] (lp_pnl_nmb02_j) at panel +15,+7 and +15,+0x30
+0x09861328,ui,ui_draw_number_pair_value,M,draws one of the two 5-character values right-aligned with per-language glyph sizes and 0x09861560
+0x09861560,ui,ui_draw_lp_panel_glyph,M,draws '0'-'9' from uv table 0x098c4da0 (Japanese) or 0x098c4df0, '?' with a fixed uv; other characters skipped
+0x0986163c,ui,ui_draw_number_pair_frame_intl,M,sprite 0xb8 x 0x7a of texture [0x098e6d70] (lp_pnl_a01) from uv (0, 0x7a) at the panel position
+0x098616d0,ui,ui_update_number_pair_panel,M,update cb: counts +0x1c to 45 frames then clears +0x18 and deletes the object (0x09861a54)
+0x09861714,ui,ui_free_number_pair_panel,M,free cb: frees the data and clears the panel handle [0x098e6d4c]
+# family math
+0x0986467c,field_3d,field_3d_matrix_to_euler,M,clamps m[2] to [-1,1], asin (0x0881afc4), then atan2 (0x0881b01c) of matrix terms with gimbal special cases; returns x, y, z, 0
+0x09864770,field_3d,field_3d_quat_to_euler,M,from quaternion x,y,z,w: pitch = asin(-(2xz - 2wy)) clamped, yaw/roll by atan2 of the rotation-matrix terms
+0x09864998,field_3d,field_3d_get_zone_pose_turned,M,zone position and rotation via 0x098512fc (defaults to locals when null), rotation multiplied by constant quaternion 0x098cf8f0
+# family math_copy
+0x098431dc,field_3d,field_3d_copy_rotation,M,copies 4 words; 60 callers, used for rotation/quaternion fields (offset tables +0x10, board objects +0x40)
+0x09843204,field_3d,field_3d_copy_vec4,H,copies 4 words; 70 callers (positions)
+0x09843da4,field_3d,field_3d_copy_matrix4,H,copies 16 words (4x4 matrix); callers 0x09843b74, 0x0985b00c
+0x09850264,field_3d,field_3d_copy_vec3,H,copies 3 words; 10 callers
+# family message_window
+0x098a5b84,ui,ui_open_confirm_prompt,M,prompt kinds 0-2 of command 0x36: message window style 1 or 3, push UI mode 4 arg 0x36, sound 0x7a0c
+0x098a5ce8,ui,ui_close_confirm_prompt,M,close callback: 0x09be1db8(choice 1 or 2 -> 1, else 0) stores the decision result 0x09e2d248
+0x098a5d38,ui,ui_update_confirm_prompt,M,update callback: confirm/cancel buttons (0x08836a98) pick the option byte, optional hook 0x09bdd2a8, sets the choice
+0x098a5f58,ui,ui_free_message_window,M,0x08834d24(0x09bdd2ac) and frees both string copies 0x09bdd3e0/0x09bdd3e4
+0x098a5fb8,ui,ui_draw_message_window,M,font by language, optional draw callback 0x09bdd3d0, then 0x08833be4(dl, window)
+0x098a6044,ui,ui_update_message_window,M,update callback 0x09bdd3d8 or default: 0x088345fc result to 0x09bdd3dc, cursor callback 0x09bdd3d4 on index change
+0x098a6148,ui,ui_run_message_window_close_cb,M,calls close callback 0x09bdd3cc once and clears it
+0x098a61b8,ui,ui_move_message_window,M,adds dx/dy to the window position 0x09bdd304/0x09bdd306
+0x098a61ec,ui,ui_get_message_window,H,returns 0x09bdd2ac, the window opened by ui_open_message_window
+0x098a61f8,ui,ui_open_message_window,M,window 0x09bdd2ac (0x144 bytes): defaults, caption, text, style bits, centred at 0x13a/0x84, 0x088338e4
+0x098a63ac,ui,ui_close_message_window,M,0x08834d24(0x09bdd2ac)
+0x098a63b8,ui,ui_set_message_window_draw_cb,M,stores 0x09bdd3d0, called by ui_draw_message_window
+0x098a63c4,ui,ui_set_message_window_cursor_cb,M,stores 0x09bdd3d4, called by ui_update_message_window when the cursor index changes
+0x098a63d0,ui,ui_set_message_window_close_cb,M,stores 0x09bdd3cc, run by ui_run_message_window_close_cb
+0x098a63dc,ui,ui_set_message_window_update_cb,M,stores 0x09bdd3d8, replaces the default update of ui_update_message_window
+0x098a63e8,ui,ui_get_message_window_choice,M,returns 0x09bdd3dc; 0 while a choice style is set and the value is not 1-3
+0x098a6444,ui,ui_set_message_window_choice,M,stores 0x09bdd3dc
+0x098a6450,ui,ui_set_message_window_caption,M,heap copy of the wide string param (system_wcscpy) stored at window +0xa0 (0x09bdd34c); old copy freed
+0x098a64d0,ui,ui_set_message_window_text,M,heap copy of the wide string param stored at window +0x84 (0x09bdd330); receives the dialog text
+0x098a6574,ui,ui_init_window_defaults,M,memset 0x120 then default margins 10/10/8/8, colour 0xff000000, scales 1.0, main heap at +0xc4; 5 callers
+# family number_choice
+0x098aa8b4,ui,ui_duel_open_number_choice_dialog,H,stores base, count, step and format string id (0x09bddde4..0x09bdddf0), window titled string 0x2c, decide 0x098aa9c4
+0x098aa9c4,ui,ui_number_choice_on_decide,H,replies base + selection * step (0x09bddde4 + sel*0x09bdddec) via 0x09be1db8
+0x098aaa00,ui,ui_number_choice_format_value,H,formats card_db_get_dialog_string(0x09bdddf0) with base + index*step into buffer 0x09bdddf8 (0x088589c8) and returns it
+0x098aaa60,ui,ui_number_choice_draw_value,M,measures the formatted value, frame (0x08835098), centred text, up/down arrows when more values exist
+# family pad_input
+0x098a0b44,ui,ui_get_pad_state,M,pad record from 0x088284b8, or a zeroed 0x28-byte record at 0x09bdd024 while input is locked or consumed
+0x098a0ba8,ui,ui_consume_pad_input,M,0x09bdd018 = 1, set by the global input handler once it used the pad this frame
+0x098a0bb8,ui,ui_reset_pad_input_consumed,M,0x09bdd018 = 0 at the start of ui_duel_draw_update_input
+0x098a0bc4,ui,ui_is_pad_input_available,M,true when lock 0x09bdd014 and consumed flag 0x09bdd018 are both clear
+0x098a0bf0,ui,ui_submit_player_action,M,unless guard hook 0x09bdd01c refuses: clears prompt flag, then duel_core_view_submit_player_action(side, loc, idx, action) for action < 0xd
+0x098a1fc0,ui,ui_debug_place_card,M,callers 0, next to the debug field selector; duel_core_push_command(0x43 place card, side bit) then refreshes the card object
+0x098a365c,ui,ui_is_only_l_trigger_held,M,(buttons & 0x300) == 0x100 in both words (PSP L trigger 0x100)
+0x098a3688,ui,ui_is_only_r_trigger_held,M,(buttons & 0x300) == 0x200 in both words (PSP R trigger 0x200)
+0x098a36b4,ui,ui_are_both_triggers_held,M,(buttons & 0x300) == 0x300 in both words (L and R)
+# family pose_tables
+0x098b7d20,field_3d,field_3d_lookup_pose_table_a,M,sorts 17 tables of 0x20-byte records once (0x098b80d4), bsearch by key; writes +4 vec3 (w = 1.0) and +0x10 vector to the outputs
+0x098b80a0,field_3d,field_3d_search_pose_table_a,H,system_bsearch(key, table, count, 0x20, compare 0x098a0d04)
+0x098b80d4,field_3d,field_3d_sort_pose_table_a,H,system_qsort(table, count, 0x20, compare 0x098a0d04)
+0x098b8b34,field_3d,field_3d_lookup_pose_table_b,M,sorts the 5-record table 0x098d4a90 once, bsearch by key; writes +4 vec3 (w = 1.0) and +0x10 vector
+0x098b8bdc,field_3d,field_3d_search_pose_table_b,H,system_bsearch(key, table, count, 0x20, compare 0x098a0d04)
+0x098b8c10,field_3d,field_3d_sort_pose_table_b,H,system_qsort(table, count, 0x20, compare 0x098a0d04)
+0x098b9084,field_3d,field_3d_lookup_pose_table_c,M,sorts the 5-record table 0x098d4b40 once, bsearch by key; writes +4 vec3 (w = 1.0) and +0x10 vector
+0x098b912c,field_3d,field_3d_search_pose_table_c,H,system_bsearch(key, table, count, 0x20, compare 0x098a0d04)
+0x098b9160,field_3d,field_3d_sort_pose_table_c,H,system_qsort(table, count, 0x20, compare 0x098a0d04)
+0x098b94f4,field_3d,field_3d_lookup_pose_table_d,M,sorts the 5-record table 0x098d4bf0 once, bsearch by key; writes +4 vec3 (w = 1.0) and +0x10 vector
+0x098b959c,field_3d,field_3d_search_pose_table_d,H,system_bsearch(key, table, count, 0x20, compare 0x098a0d04)
+0x098b95d0,field_3d,field_3d_sort_pose_table_d,H,system_qsort(table, count, 0x20, compare 0x098a0d04)
+0x098b97b0,field_3d,field_3d_lookup_pose_table_e,M,sorts the 5-record table 0x098d4c90 once, bsearch by key; writes +4 vec3 (w = 1.0) and +0x10 vector
+0x098b9858,field_3d,field_3d_search_pose_table_e,H,system_bsearch(key, table, count, 0x20, compare 0x098a0d04)
+0x098b988c,field_3d,field_3d_sort_pose_table_e,H,system_qsort(table, count, 0x20, compare 0x098a0d04)
+# family race_select
+0x098aac3c,ui,ui_duel_open_race_select_dialog,H,grid descriptor: 0x16 items, 5 columns, name callback card_db_get_race_name (0x098a4c68); window callbacks; SE 0x7a0c
+0x098aad40,ui,ui_race_select_setup_window,M,init keeps the window in 0x09bddffc, disabled mask ~(param>>1), panel draw 0x098aae84, window size from the grid
+0x098aadf0,ui,ui_race_select_on_decide,H,replies the lowest set bit 1..0x15 of grid result 0x098a5594 (race index), or 0, via 0x09be1db8
+0x098aae50,ui,ui_race_select_update,M,updates the grid (0x098a50ac); true when the dialog window has closed (0x098a60f8 == 0)
+0x098aae84,ui,ui_race_select_draw_panel,M,grid backdrop with window01.gim and atlas 0x40005 (UV 0x66,0x20), title duel string 0x2d
+0x098ab2fc,ui,ui_race_select_draw_cursor,M,25x24 sprite from atlas 0x40005 at UV (0x1c,0x5d)
+# family render_to_texture
+0x0985de6c,field_3d,field_3d_copy_matrix_triple,H,copies 0x30 words (three 4x4 matrices) from param_2 to param_1
+0x0985df4c,field_3d,field_3d_render_model_to_texture_128,M,render target at VRAM +0x160000 (0x08822e38) 128x128, viewport 0x80, ortho -64..64/-100..100, then field_3d_draw_model
+# family scroll_list
+0x098b41c8,ui,ui_list_clear_result,H,sets list word +8 (decide result) to 0
+0x098b41d0,ui,ui_list_handle_input,H,down/up wrap the cursor +2 (SE 0x7a04); confirm sets result 1 (SE 0x7a05), cancel result 2 (SE 0x7a06), each maskable by flag bits
+0x098b4340,ui,ui_stub_noop_list_term,M,empty body (thunked) called by the topic and index list close functions before they close their windows
+0x098b4348,ui,ui_list_set_active,H,sets bit 0 of list byte +4 (the active flag tested by ui_list_handle_input)
+0x098b4364,ui,ui_list_get_cursor,H,returns list halfword +2 (cursor)
+0x098b4ebc,ui,ui_list_reset,H,ui_list_clear_result, then scroll words +0x30 and +0x32 = 0
+0x098b4ee8,ui,ui_list_update_scroll,H,handles input, sums item heights (callback +0x2c), adjusts scroll +0x30 so the cursor item stays inside the view
+0x098b502c,ui,ui_list_draw,H,frame callback, clip rect inside the screen (0x0882ae8c), then each visible item with the item and cursor callbacks
+0x098b529c,ui,ui_list_set_cursor,H,stores halfword +2 (cursor)
+# family text_draw
+0x098a57c4,ui,ui_draw_text_to_screen_right_edge,M,0x08846b34(x<<6, y<<6, (0x1e0 - x)<<6, text): width up to the 480-pixel screen edge
+# family thing_sprites
+0x0986c79c,ui,ui_duel_update_thing_sprite_a,M,projected sprite from duel_thing01.gim (texture 0x18): 38x30 cell at u = index*38 (or 76), fading
+0x0986cc1c,ui,ui_duel_create_thing_sprite_b_task,M,ui_duel_create_draw_task(0x0986cca4, 0x50) with world position at +0x20
+0x0986cca4,ui,ui_duel_update_thing_sprite_b,M,projected 38x30 sprite of duel_thing01.gim (texture 0x18) at u 0x72 v 0x16
+0x0986d1d0,ui,ui_duel_create_thing_sprite_c_task,M,ui_duel_create_draw_task(0x0986d258, 0x50) with world position at +0x20
+0x0986d258,ui,ui_duel_update_thing_sprite_c,M,projected 45x58 sprite of duel_thing01.gim (texture 0x18) at u 99 v 0x46, pulsing scale
+0x0986d784,ui,ui_duel_create_thing_sprite_d_task,M,ui_duel_create_draw_task(0x0986d854, 0x58), data[0] = 0, position at +0x28
+0x0986d810,ui,ui_duel_create_thing_sprite_d_task_variant1,H,ui_duel_create_thing_sprite_d_task then data[0] = 1
+0x0986d854,ui,ui_duel_update_thing_sprite_d,M,projected duel_thing01.gim sprite whose cell comes from the 4-entry table 0x098cfa10 indexed by data[0]
+0x0986de08,ui,ui_duel_create_thing_sprite_e_task,M,ui_duel_create_draw_task(0x0986df1c, 0x75c), data[0] = 0, position at +0x24
+0x0986de94,ui,ui_duel_create_thing_sprite_e_task_variant1,H,ui_duel_create_thing_sprite_e_task then data[0] = 1
+0x0986ded8,ui,ui_duel_create_thing_sprite_e_task_variant2,H,ui_duel_create_thing_sprite_e_task then data[0] = 2
+0x0986df1c,ui,ui_duel_update_thing_sprite_e,M,projected duel_thing01.gim sprites, cells from the 6-entry table 0x098cfa50 by data[0]
+0x0986ea5c,ui,ui_duel_create_thing_icon_task_r0c0,M,ui_duel_create_draw_task(0x0986eae4, 0x50); data +0x20 = world position (vec3 copy 0x088193c0)
+0x0986eae4,ui,ui_duel_update_thing_icon_task_r0c0,M,projects data +0x20 (field_3d_get_mvp_matrix) to 480x272, draws 60x60 cell u 0 v 0x100 of duel_thing01.gim (texture 0x18)
+0x0986ef6c,ui,ui_duel_create_thing_icon_task_r0c1,M,ui_duel_create_draw_task(0x0986eff4, 0x50); data +0x20 = world position
+0x0986eff4,ui,ui_duel_update_thing_icon_task_r0c1,M,projected 60x60 cell u 0x3c v 0x100 of duel_thing01.gim (texture 0x18), fading
+0x0986f47c,ui,ui_duel_create_thing_icon_task_r0c2,M,ui_duel_create_draw_task(0x0986f504, 0x50); data +0x20 = world position
+0x0986f504,ui,ui_duel_update_thing_icon_task_r0c2,M,projected 60x60 cell u 0x78 v 0x100 of duel_thing01.gim (texture 0x18), fading
+0x0986f990,ui,ui_duel_create_thing_icon_task_r0c3,M,ui_duel_create_draw_task(0x0986fa18, 0x50); data +0x20 = world position
+0x0986fa18,ui,ui_duel_update_thing_icon_task_r0c3,M,projected 60x60 cell u 0xb4 v 0x100 of duel_thing01.gim (texture 0x18), fading
+0x0986fea4,ui,ui_duel_create_thing_icon_task_r1c0,M,ui_duel_create_draw_task(0x0986ff2c, 0x50); data +0x20 = world position
+0x0986ff2c,ui,ui_duel_update_thing_icon_task_r1c0,M,projected 60x60 cell u 0 v 0x13c of duel_thing01.gim (texture 0x18), fading
+0x098703b4,ui,ui_duel_create_thing_icon_task_r1c1,M,ui_duel_create_draw_task(0x0987043c, 0x50); data +0x20 = world position
+0x0987043c,ui,ui_duel_update_thing_icon_task_r1c1,M,projected 60x60 cell u 0x3c v 0x13c of duel_thing01.gim (texture 0x18), fading
+0x098708c4,ui,ui_duel_create_thing_icon_task_r1c2,M,ui_duel_create_draw_task(0x0987094c, 0x50); data +0x20 = world position
+0x0987094c,ui,ui_duel_update_thing_icon_task_r1c2,M,projected 60x60 cell u 0x78 v 0x13c of duel_thing01.gim (texture 0x18), fading
+0x09870dd8,ui,ui_duel_create_thing_icon_task_r1c3,M,ui_duel_create_draw_task(0x09870e60, 0x50); data +0x20 = world position
+0x09870e60,ui,ui_duel_update_thing_icon_task_r1c3,M,projected 60x60 cell u 0xb4 v 0x13c of duel_thing01.gim (texture 0x18), fading
+0x098712ec,ui,ui_duel_create_thing_icon_task_r2c0,M,ui_duel_create_draw_task(0x09871374, 0x50); data +0x20 = world position
+0x09871374,ui,ui_duel_update_thing_icon_task_r2c0,M,projected 60x60 cell u 0 v 0x178 of duel_thing01.gim (texture 0x18), fading
+0x098717fc,ui,ui_duel_create_thing_icon_task_r2c1,M,ui_duel_create_draw_task(0x09871884, 0x50); data +0x20 = world position
+0x09871884,ui,ui_duel_update_thing_icon_task_r2c1,M,projected 60x60 cell u 0x3c v 0x178 of duel_thing01.gim (texture 0x18), fading
+# family value_change
+0x098634a8,ui,ui_show_value_increment_popup,M,wait object for flag 0x25 and ui_create_value_change_popup(point, n-1, n)
+0x09863590,ui,ui_retry_value_increment_popup,M,update cb: waits until the card-info object has gone and 0x098a2f9c() == 1, then ui_show_value_increment_popup and deletes itself
+0x09863634,ui,ui_request_value_increment_popup,M,with no card object shows the card info of the instance first and queues ui_retry_value_increment_popup, else shows the popup at the object position
+0x098637cc,ui,ui_start_zone_value_change,M,switch on the value kind selects a per-zone getter (0x0989dac4, 0x0989db14, ...) and an animation task (0x0986c734, 0x0986cc1c, ...), waits on flag 0x27 (0x28 for kind 3)
+0x0986b8a0,ui,ui_draw_rolling_digit_glyph,M,19 x 22 digit glyph; a fraction below 1 shows only part of its height, from the top or bottom (rolling digit)
+0x0986ba68,ui,ui_draw_value_change_digits,M,splits from and to values into digits and draws them with ui_draw_rolling_digit_glyph; 16 value-change tasks call it
+0x0986bea8,ui,ui_create_value_change_popup,M,draw task 0x0986bf7c (0x100 bytes) with from value, to value and 3D point
+0x0986bf38,ui,ui_create_value_change_popup_alt,M,ui_create_value_change_popup then sets flag +0x34 = 1
+0x0986bf7c,ui,ui_draw_value_change_popup,M,projects the 3D point to screen, fades in and out, counts from the start to the end value and draws it with ui_draw_value_change_digits
+0x0986c694,ui,ui_create_stat_change_popup,M,draw task 0x0986c79c (0x54 bytes) with kind flag, point, from and to values; callers ui_show_stat_change and 0x0986c734
+0x0986c734,ui,ui_create_stat_change_popup_alt,M,ui_create_stat_change_popup with flag 0 then sets +0x2c = 1; kind-0 animation of ui_start_zone_value_change
+# family value_popup
+0x09871d0c,ui,ui_duel_create_value_popup_task,M,ui_duel_create_draw_task(0x09871f04, 0x50): value +0x14, position +0x18, colour +0x24..+0x30
+0x09871dcc,ui,ui_duel_create_value_popup_task_moving,M,ui_duel_create_value_popup_task, then +0x34 = 1 and a second position at +0x38
+0x09871e30,ui,ui_duel_draw_bouncing_value,M,0x0986b8a0(1.0, 7, x, y - 11*sin(t), 0x13, value, 1): value drawn with a sine bounce
+0x09871f04,ui,ui_duel_update_value_popup,M,duel_thing01.gim on list 7 with the popup colour, SE 0x7a36 (value < 1) or 0x7a37 once; digits via ui_duel_draw_bouncing_value
+# family view_matrices
+0x0989d270,field_3d,field_3d_init_view_matrices,M,clears 0xc0 bytes at 0x098e99e0 and sets three 4x4 identities (system_vfpu_vmidt_q)
+0x0989d2cc,field_3d,field_3d_clear_view_matrices,H,memset(0x098e99e0, 0, 0xc0), the three matrices of field_3d_init_view_matrices
+0x0989d2e0,field_3d,field_3d_store_view_matrix,M,stores the current GU matrix (mode switched with 0x08825774) into 0x098e99e0 + i*0x40; caller field_3d_backdrop_set_scene
+# family view_side_wrappers
+0x0989d4c8,duel_core,duel_core_init_view_side_map,M,0x09be18c0(1) (side 1 is local, 0x09e02994): fills maps 0x098e9aa0/0x098e9aa8 so the local side is view side 0
+0x0989d534,duel_core,duel_core_engine_side_to_view,H,returns map 0x098e9aa0[side]; applied to every engine side argument of the draw command handlers
+0x0989d53c,duel_core,duel_core_engine_side_to_view_b,H,second copy of the 0x098e9aa0[side] lookup; used on engine results (turn side, default target side)
+0x0989d554,duel_core,duel_core_view_side_to_engine,H,returns map 0x098e9aa8[side] (inverse of the side map)
+0x0989d55c,duel_core,duel_core_view_side_to_engine_b,H,second copy of 0x098e9aa8[side]; applied before each of 66 engine export calls
+0x0989d574,duel_core,duel_core_view_get_turn_side,H,0x09be17f8 returns turn side 0x09e2d1d8; mapped with duel_core_engine_side_to_view_b
+0x0989d5b0,duel_core,duel_core_view_get_hand_instance,H,0x09be1a34: instance number of hand entry (list +0x124, duel_core.md card references)
+0x0989d5d4,duel_core,duel_core_view_get_deck_instance,H,0x09be1a7c: instance number of deck entry (list +0x304)
+0x0989d5f8,duel_core,duel_core_view_get_extra_deck_instance,H,0x09be1ac4: instance number of extra deck entry (list +0x4e4)
+0x0989d61c,duel_core,duel_core_view_get_graveyard_instance,H,0x09be1b0c: instance number of graveyard entry (list +0x55c)
+0x0989d640,duel_core,duel_core_view_get_banished_instance,H,0x09be1b54: instance number of banished entry (list +0x7b4)
+0x0989d664,duel_core,duel_core_view_get_hand_count,H,0x09be1b9c returns player +0x0c (hand size)
+0x0989d688,duel_core,duel_core_view_get_deck_count,H,0x09be1bc0 returns player +0x10 (cards left in deck)
+0x0989d6ac,duel_core,duel_core_view_get_extra_deck_count,H,0x09be1be4 returns player +0x18 (extra deck count)
+0x0989d6d0,duel_core,duel_core_view_get_graveyard_count,H,0x09be1c08 returns player +0x14 (graveyard count)
+0x0989d6f4,duel_core,duel_core_view_get_banished_count,H,0x09be1c2c returns player +0x1c (banished count)
+0x0989d718,duel_core,duel_core_view_get_slot_instance,H,0x09be1c88: instance number of field slot (player +0x34 + slot*0x14)
+0x0989d73c,duel_core,duel_core_view_get_slot_face_up,H,0x09be1cd8 reads u16 slot +0x08 (face-up)
+0x0989d760,duel_core,duel_core_view_get_slot_position,H,0x09be1d0c reads u16 slot +0x06 (battle position)
+0x0989d784,duel_core,duel_core_view_get_slot_param,H,0x09be1d78 reads word slot +0x0c (parameter/counter word)
+0x0989d7d4,duel_core,duel_core_view_is_local_side,H,0x09be18c0(side) = (side == 0x09e02994 & 1)
+0x0989d7f8,duel_core,duel_core_view_is_human_duelist,H,0x09be190c(side) = (0x09e02998[side] == 0), duelist kind human (ai.md)
+0x0989d898,duel_core,duel_core_engine_side_bit_to_view,H,returns 0x098e9aa0[side & 1]
+0x0989d8c4,duel_core,duel_core_view_get_card_action_mask,H,side mapped then duel_core_get_card_action_mask
+0x0989d8e8,duel_core,duel_core_view_submit_player_action,H,side mapped then duel_core_submit_player_action
+0x0989d924,duel_core,duel_core_view_get_default_target_side,H,duel_effects_get_default_target_side result mapped to view side
+0x0989d950,duel_core,duel_core_view_get_card_stats,H,side mapped then duel_core_get_card_stats
+0x0989d974,duel_core,duel_core_view_find_field_slot_by_ref,H,duel_core_find_field_slot_by_ref; side byte of the result mapped to view
+0x0989d9c4,duel_core,duel_core_view_find_in_graveyard,H,side mapped then duel_core_find_in_graveyard
+0x0989d9e8,duel_core,duel_core_view_find_in_hand,H,side mapped then duel_core_find_in_hand
+0x0989da0c,duel_core,duel_core_view_can_declare_attack,H,side mapped then duel_core_can_declare_attack
+0x0989da30,duel_core,duel_core_view_get_turn_count,H,side mapped then duel_core_get_turn_count
+0x0989da54,duel_core,duel_core_view_get_battle_destruction_countdown,H,side mapped then duel_core_get_battle_destruction_countdown
+0x0989da78,duel_core,duel_core_view_get_counter_count_type_00,H,duel_core_get_counter_count(side, slot, 0): Spell Counters (effect-helpers-values.md)
+0x0989daa0,duel_core,duel_core_view_get_counter_count_type_01,H,0x09be1e38 = duel_core_get_counter_count with a2 = 1
+0x0989dac4,duel_core,duel_core_view_get_counter_count_type_0f,H,duel_core_get_counter_count(side, slot, 0xf): A-Counter
+0x0989daec,duel_core,duel_core_view_get_counter_count_type_0e,H,duel_core_get_counter_count(side, slot, 0xe): Magic Reflector record
+0x0989db14,duel_core,duel_core_view_get_counter_count_type_0d,H,duel_core_get_counter_count(side, slot, 0xd): Maiden in Love record
+0x0989db3c,duel_core,duel_core_view_get_counter_count_type_10,H,duel_core_get_counter_count(side, slot, 0x10): Ice Master record
+0x0989db64,duel_core,duel_core_view_get_counter_count_type_11,H,duel_core_get_counter_count(side, slot, 0x11): Venom Swamp record
+0x0989db8c,duel_core,duel_core_view_get_counter_count_type_12,H,duel_core_get_counter_count(side, slot, 0x12): Cloudian - Ghost Fog record
+0x0989dbb4,duel_core,duel_core_view_get_counter_count_type_03,H,duel_core_get_counter_count(side, slot, 3): Vennominaga
+0x0989dbdc,duel_core,duel_core_view_get_counter_count_type_02,H,duel_core_get_counter_count(side, slot, 2): Clock Tower Prison
+0x0989dc04,duel_core,duel_core_view_get_counter_count_type_04,H,duel_core_get_counter_count(side, slot, 4): Crystal Tree
+0x0989dc2c,duel_core,duel_core_view_get_counter_count_type_05,H,duel_core_get_counter_count(side, slot, 5): Spell Chronicle
+0x0989dc54,duel_core,duel_core_view_get_counter_count_type_06,H,duel_core_get_counter_count(side, slot, 6): Six Samurai United
+0x0989dc7c,duel_core,duel_core_view_get_counter_count_type_07,H,duel_core_get_counter_count(side, slot, 7): D - Formation
+0x0989dca4,duel_core,duel_core_view_get_counter_count_type_08,H,duel_core_get_counter_count(side, slot, 8): Realm of Light
+0x0989dccc,duel_core,duel_core_view_get_counter_count_type_09,H,duel_core_get_counter_count(side, slot, 9): Spacegate
+0x0989dcf4,duel_core,duel_core_view_get_counter_count_type_0a,H,duel_core_get_counter_count(side, slot, 10): Worm Counter
+0x0989dd1c,duel_core,duel_core_view_get_counter_count_type_0b,H,duel_core_get_counter_count(side, slot, 0xb): Morphtronic Clocken
+0x0989dd44,duel_core,duel_core_view_get_counter_count_type_0c,H,duel_core_get_counter_count(side, slot, 0xc): The World Tree
+0x0989dd6c,duel_core,duel_core_view_get_counter_count_type_13,H,duel_core_get_counter_count(side, slot, 0x13): Sacred Protective Barrier record
+0x0989dd94,duel_core,duel_core_view_get_slot_name_id,H,side mapped then duel_core_get_slot_name_id
+0x0989de24,duel_core,duel_core_view_is_card_face_up_at,H,side mapped then duel_core_is_card_face_up_at
+0x0989de90,duel_core,duel_core_view_ai_has_card_in_hand_or_field,H,side mapped then ai_has_card_in_hand_or_field
+0x0989ded8,duel_core,duel_core_view_get_level_by_ref,H,side mapped then duel_core_get_level_by_ref
+0x0989dfe4,duel_core,duel_core_view_flip_card_face,H,side mapped then duel_core_flip_card_face
+0x0989e008,duel_core,duel_core_view_change_position,H,side mapped then duel_core_change_position
+0x0989e02c,duel_core,duel_core_view_set_lp,H,side mapped then duel_core_set_lp
+0x0989e08c,duel_core,duel_core_view_build_candidate_list,H,side mapped then duel_effects_build_candidate_list
+0x0989e0e4,duel_core,duel_core_view_get_win_reason,H,0x09be1ea0 returns player +0x30 (win reason, duel_core.md)
+# family zone_highlight
+0x0985e65c,ui,ui_init_zone_highlight_handles,M,memset(0x098e6bcc, 0, 0x180) then 2x16 handles = -1; caller the duel-object init 0x09861738
+0x0985e6d0,ui,ui_stop_zone_highlights,M,for each valid handle of 0x098e6bcc[2][16] requests the task end (0x098787ac), handle -1, companion word +0x80 = 0
+0x0985e770,ui,ui_update_zone_highlights,M,for both players and field slots 0-10 reads the per-slot kinds (0x0989defc) and creates, replaces or ends the highlight task per slot in 0x098e6bcc[2][16]
+0x0985e998,ui,ui_create_zone_highlight,M,maps kind 2-7 to style 1-6, gets the zone position (0x098512fc), raises it by the card-stack height (0x098532a8) for extra deck, deck, graveyard, banished
+0x0985ebd0,ui,ui_end_zone_highlight,M,requests the end of the task (0x098787ac) when the handle is not -1
+0x0986ae44,ui,ui_create_zone_highlight_task,M,draw task 0x0986af78 (0x94 bytes) with style, position, angles and scale; display list 5
+0x0986af14,ui,ui_create_zone_highlight_task_dl,M,ui_create_zone_highlight_task then overrides the display list +4; caller ui_create_zone_highlight
+0x0986af78,ui,ui_draw_zone_highlight_task,M,96 x 96 quad (+-48) with uv cell by style (4 x 2 grid), red-tinted for style 6, alpha pulsing over 32 frames
+# family zone_markers
+0x09855cc8,ui,ui_draw_zone_markers_battle_phase,M,display list 7; loops players 0-1 x zones 0-4, gets zone object 0x09856d84 and draws it via 0x09856ed4 when 0x09856e70 (phase 3) holds
+0x09856000,ui,ui_draw_number_at_zone_position,M,projects a 3D point (matrices 0,1,2) to 480x272 screen, converts int to wide digits (0x088593b8) and draws 7x9 digit glyphs of texture 0x40006
+0x09856400,ui,ui_draw_card_texture_quad_scaled,M,display list 5, scale 1+param/64, binds card texture via 0x0989f224(card), emits a 4-vertex primitive from 0x098cf000
+0x09856e70,ui,ui_is_zone_battle_marker_visible,M,zone code bits1-5 < 5, flag bit 6 of high byte, and duel_core_get_phase() == 3 (Battle Phase)
+0x09856ed4,ui,ui_draw_zone_battle_overlay,M,per monster zone from ui_draw_zone_markers_battle_phase: projects the zone point with matrices 0,1,2 and draws a digit string (wcslen, glyph sprites)
+0x09857a64,ui,ui_draw_badge_number_at_position,M,projects a 3D point to screen, draws badge sprite of texture 0x4001e (52x54) and the number param_3 centred with the font (0x08846b34)
+# family zone_values
+0x09857960,ui,ui_update_zone_value_tweens,M,per player x 5 zones (stride 0x20 at 0x098d5db0+0x108c8): time += dt, lerps two ints from start to end over the duration
+0x09857d08,ui,ui_reset_zone_value_tween,M,clears the 0x20-byte tween at 0x098d5db0+0x108c8+player*0xa0+zone*0x20 and seeds start/end with the values from 0x0989d950

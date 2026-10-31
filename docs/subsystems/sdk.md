@@ -41,6 +41,18 @@ No deflate library is imported, but `BOOT.BIN` contains its own copy of Sony's `
 | `0x08817950` | `sceGzipDecompress(dst, dst_size, src, &crc32)` | Requires CM byte `== 8`, inflates, checks the result against the trailer's `ISIZE`, returns the trailer's CRC-32; errors `0x80000108`/`0x80000004`. |
 | `0x08817bf0` | `sceDeflateDecompress(dst, dst_size, src, &next)` | Bit reader with 2-bit block type and dynamic Huffman header; its code-length order table at `0x08878646` ends with DEFLATE's `0 8 7 9 6 10 5 11 4 12 3 13 2 14 1 15`. PPSSPP's hash database labels it `openseason_data_decode`, so the same code exists in another game. |
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 142 `sdk` names in `BOOT.BIN`, all Sony library code kept under the Sony spelling:
+
+| Family | Count | Evidence |
+| --- | --- | --- |
+| libgu (`gu_core`, `gu_states`, `gu_tex`, `gu_clear`, `gu_draw`, `gu_light`, `gu_sprite`, `gu_debug`, `gu_gup`, `gu_wrappers`) | 99 | The GE opcodes each function emits match the libgu call (mostly H). |
+| libvfpu (`libvfpu_matrix3`, `libvfpu_matrix4`, `libvfpu_scalar`) | 30 | Sony `sceVfpuMatrix3*`/`Matrix4*`/`Scalar*` structure next to the existing `sceVfpu*` names (VFPU: lower confidence). |
+| sceCcc (`ccc_charconv`) | 11 | UTF-8/UTF-16/SJIS conversion; the structure matches libccc, the exact Sony names are inferred (M). |
+
+The game's own GE command writers (`0x088297c4`–`0x0882b6cc`) are not Sony code and are in `system` (`system.md`).
+
 ## Open questions
 
 - ~~PPSSPP saw about 17,500 more function entries in user memory outside `BOOT.BIN`; map each range to its module.~~ Mapped in `modules.md`: `0x08e9aa00` holds `rel_title` and `rel_duel_mgr` (loaded one after the other into the same block), `0x0983fb00` is `rel_duel_draw`, `0x09be1400` is `rel_duel_eng`.

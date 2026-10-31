@@ -7,3 +7,697 @@ address,group,name
 0x08e9cfd0,ui,ui_title_get_menu_archive
 0x08e9d0b8,ui,ui_title_get_layout_name
 0x08e9d0e0,ui,ui_title_get_message_table_name
+# Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
+# Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
+# family card_trade
+0x08ed9078,ui,ui_card_trade_load_resources,M,state 0x08eea3e8: system_module_load(0x1d) (rel_select_card), 0x135000-byte card-art buffer (0x0883cafc), menu layouts
+0x08ed94b0,ui,ui_card_trade_update_link,M,reads peer messages each frame, sends status 4 when needed, reacts to peer states 9/10/0xc by trade step
+0x08ed9c40,ui,ui_card_trade_send_message,M,header {2,1,kind} + 0x1c-byte status 0x08eec05c sent with BOOT 0x08850a18(buf, 0x20); kind 7 sets phase 8
+0x08ed9d48,ui,ui_card_trade_read_peer_messages,M,per peer slot (0x08850ad0/0x088509e8) copies kind-2 messages to 0x08eec094 (index 0x08850af4) or 0x08eec0b0
+0x08ed9f88,ui,ui_card_trade_post_status_4,M,status 4 kind 6 via ui_card_trade_send_message, phase 7, return step 2
+0x08eda070,ui,ui_card_trade_post_status_8,M,status 8 kind 10 via ui_card_trade_send_message, return step 0x13
+0x08eda144,ui,ui_card_trade_post_status,M,status = argument, kind 11 via ui_card_trade_send_message, return to the next step
+0x08eda22c,ui,ui_card_trade_post_status_12,M,status 12 kind 12 via ui_card_trade_send_message, return step argument or current+2
+0x08eda380,ui,ui_card_trade_apply_exchange,H,save_change_card_count(card A, 0) removes one, (card B, 1) adds one, save_write_title_words(0, A, B) records it
+0x08eda488,ui,ui_card_trade_revert_exchange,H,save_read_title_words then the inverse save_change_card_count calls (A added back, B removed)
+0x08eda554,ui,ui_card_trade_post_status_1,M,status 1 kind 13 via ui_card_trade_send_message, return step 3
+0x08eda630,ui,ui_card_trade_post_status_2,M,status 2 kind 14 via ui_card_trade_send_message, return to the next step
+0x08eda710,ui,ui_card_trade_post_status_6,M,status 6 kind 8 via ui_card_trade_send_message, return step 7; sent when both peers report phase 7/8
+0x08eda7e4,ui,ui_card_trade_post_status_4_resume,M,status 4 kind 6, phase 7, returns to the current step instead of step 2
+0x08eda8cc,ui,ui_card_trade_post_offer_list,M,status 0xd kind 0x10: copies the 5-card list without the chosen card to 0x8eec064, count-1, return step 0x21
+0x08edaa48,ui,ui_card_trade_update,M,top-level state 0x08eea3e4: resource load, layout 0x12, the trade steps and the exits (0x12/0x1c/0x1e/0x20)
+0x08edacac,ui,ui_card_trade_update_steps,M,switch on step 0x08eea3e8 showing message windows (words 0x71-0x80 via 0x08ea1c94), save_open, apply/revert
+0x08edba2c,ui,ui_card_trade_advance_timed_steps,M,step 0xb toggles the side with up/down; steps 7/8/10 (15 frames) and 0x15 (90 frames) advance after a delay
+0x08edbc3c,ui,ui_card_trade_handle_select_input,M,result of ui_card_trade_poll_cursor: choose a card (status 5 kind 7), open the picker, cancel (status 4)
+0x08edbe68,ui,ui_card_trade_update_focused_card,M,0x08eec0e0 = card id under the cursor from list 0x8eec09c or 0x8eec0b8 (by row 0x08eeac70), -1 when empty
+0x08edbff8,ui,ui_card_trade_clear_offer_list,H,clears count 0x08eec060 and the five u16 card ids at 0x8eec064
+0x08edc05c,ui,ui_card_trade_post_status_3,M,status 3: backs up the status block to 0x8eec078, clears the offer list, sends kind 6, return step 0x12
+0x08edc10c,ui,ui_card_trade_copy_status_block,H,copies a 0x1c-byte record {u16, u32, 5 x u16, u32, u16}; returns the destination
+0x08edc19c,ui,ui_card_trade_test_flags_bit5_clear,H,returns 1 while bit 5 (0x20) of flag byte 0x08eec0dc is clear; caller 0x08ea458c
+0x08edc204,ui,ui_card_trade_set_flags_bit4,H,sets bit 4 (0x10) of flag byte 0x08eec0dc to the argument's bit 0
+0x08edc270,ui,ui_card_trade_release,M,closes the select_card import if open (flag bit 0), frees the card-art buffer, the work heap and buffer 0x08eec0d8
+0x08edc370,ui,ui_card_trade_destroy_heap,M,BOOT 0x08826414(heap 0x08eea408) when flag bit 3 says ui_card_trade_open_card_select created it
+0x08edc3f8,ui,ui_card_trade_poll_cursor,M,pad repeat bits 0x10/0x40/0x80/0x20 move row 0x08eeac70 (0-2) and column 0x08eeac74 (0-4), SE 0x7a04; cancel -> -2
+0x08edc7ec,ui,ui_card_trade_scroll_by_analog,M,pad analog byte +0x14 below 0x40 or above 0xc0 scrolls the 0x08eec0e0 block by (v-0x40)*6 or (v-0xc0)*6
+0x08edc8c8,ui,ui_add_scroll_clamped,H,position +8 += delta, clamped to [0, max +0xc]; 0 when max is 0
+0x08edc954,ui,ui_card_trade_are_card_images_ready,M,for each card of side k: 0x088565dc art index, BOOT 0x0883d058 request and 0x0883d248 check; 1 when all are loaded
+0x08edcac8,ui,ui_card_trade_open_card_select,M,creates a 0x400000 heap once (system_heap_create, flag bit 3), calls the select_card import 0x08ee1938(2, cfg, &count, list)
+0x08edcbe0,ui,ui_card_trade_update_card_select,M,runs the select_card picker states (open, wait for images, send status 4 with kind 6/7) of top state 0x08eea3e4
+0x08edd018,ui,ui_card_trade_update_picker_result,M,sceUtilityOskGetStatus guard; select_card import 0x08ee1940 returning 1 copies the picked list and restores the status block
+0x08edd208,ui,ui_card_trade_draw,M,draws layouts 7/0x12, frames, both sides, cards, buttons, caption, cursor and the message window 0x8eea594 by step
+0x08edd594,ui,ui_card_trade_draw_focused_card_info,M,BOOT 0x08837f14(dl, &0x08eec0e0): the card under the cursor (id and scroll block of ui_card_trade_update_focused_card)
+0x08edd5fc,ui,ui_card_trade_draw_main_frame,M,single box 0x08eb93d8 at (0x95,0x2f) 0x149x0xc2
+0x08edd650,ui,ui_card_trade_draw_upper_side,M,frame at y 0x42, label 0x15, a name from the 0x8eeae44 records, five card slots at x 0xac+0x3b*i, y 0x48
+0x08edd804,ui,ui_card_trade_draw_lower_side,M,frame at y 0x9e, label 0x14, a name from the 0x8eeae44 records, five card slots at x 0xac+0x3b*i, y 0xa4
+0x08edd998,ui,ui_card_trade_draw_card_row,M,for each card of the chosen side: art index 0x088565dc, BOOT 0x0883d058 card art, quads at x 0xac+0x3b*i
+0x08ede0d8,ui,ui_card_trade_draw_left_button,M,box 0x08eb93d8 at (0x98,0xf6) 0xde wide with message 0x7e
+0x08ede12c,ui,ui_card_trade_draw_right_button,M,box 0x08eb93d8 at (0x17b,0xf6) 0x60 wide with message 0x7f
+0x08ede180,ui,ui_card_trade_draw_status_caption,M,top caption box at (0x95,0x19) with message 0x6c-0x70 chosen by step and list/selection state
+0x08ede2fc,ui,ui_card_trade_draw_cursor,M,cursor rectangle 0x08eb70c8 on a button (rows 2/3) or a card slot (rows 0/1, column 0x08eeac74)
+0x08ede474,ui,ui_card_trade_draw_selection_marks,M,for both status blocks (stride 0x1c) a mark 0x61/0x62 over the chosen card when byte 0x08eec0ac is 1
+# family menu_ctx
+0x08ed3ee8,ui,ui_menu_ctx_init,M,memset 0x150 and stores the archive at +0; called by the mini-result, minigame-menu and 0x08e9cdf8 creators
+0x08ed3f28,ui,ui_menu_ctx_get_message,H,table name (set + language) via 0x08ed3f8c, find_member in ctx archive +0, card_db_get_dictionary_word(index)
+0x08ed3f8c,ui,ui_menu_ctx_get_message_table_name,H,copies entry k (<18) of table 0x08ee9d80: mini_result_<l>.bin, title_msg_<l>.bin, strTbl_<l>.bin
+0x08ed4020,ui,ui_get_archive_dictionary_word,H,container_ehp_find_member(archive, name, 0) then card_db_get_dictionary_word(table, index)
+0x08ed4084,ui,ui_menu_ctx_find_image,H,find_member name k of table 0x08ee9fc0 (result_mini01/02.gim, trnsmt01.gim, m_menu_title01.gim, m_menu_panel01.gim)
+0x08ed410c,ui,ui_menu_ctx_bind_image,H,stores ui_menu_ctx_find_image(ctx, k) at ctx +0x13c + 4k
+0x08ed4150,ui,ui_menu_ctx_get_image,H,returns ctx +0x13c + 4k (image slots filled by ui_menu_ctx_bind_image)
+0x08ed417c,ui,ui_menu_ctx_bind_layout,H,find_member name k of table 0x08eea100 (m_menu_bar01, result_bg01, trans02, d_menu_bg01/03.ehf) -> ctx +0x124+4k, sets range
+0x08ed423c,ui,ui_menu_ctx_set_layout_range,M,layout ctx +0x124+4k: BOOT 0x0881e914(layout, from, to+1) for modes 1/2, (from, from+1) for mode 0
+0x08ed4314,ui,ui_menu_ctx_get_layout_frame,M,BOOT 0x0881e9d8(layout ctx +0x124+4k) or -1 when unbound
+0x08ed4374,ui,ui_menu_ctx_draw_layout,M,layout ctx +0x124+4k drawn with BOOT 0x0881ec8c between 0x08821d20/0x08821d98 using system_get_frame_timing
+0x08ed4420,ui,ui_menu_ctx_reset_window,M,same defaults as ui_partner_menu_reset_window with the heap as a parameter: 0x08834d24, memset 0x120, geometry
+0x08ed4658,ui,ui_menu_ctx_open_message_window,M,resets window, centred 0x168x0x50 at (0x3c,100), text param, choice style per mode 0/1, opens it (BOOT 0x088338e4)
+0x08ed4980,ui,ui_menu_ctx_draw_window,M,optional centring of window x/y on 480x272, then BOOT 0x08833be4(dl, window)
+0x08ed4a34,ui,ui_menu_ctx_draw_panel_part,M,rectangle k of table 0x08eea280 drawn at (x,y) via 0x08ed5630; parts 1-9 add a digit overlay
+0x08ed4c30,ui,ui_menu_ctx_draw_nine_slice,M,loops 9 parts of table 0x08eea318 (corners/edges) with style offsets from the panel index
+0x08ed4fe8,ui,ui_menu_ctx_draw_border_box,M,9-part box from table 0x08eea360 with edges at x, x+2, x+w-3 (thinner variant of the nine-slice)
+0x08ed52ac,ui,ui_menu_ctx_draw_three_slice_bar,M,3 parts of table 0x08eea3a8: left, middle stretched to w-0xb, right at x+w-5
+0x08ed54f4,ui,ui_menu_ctx_begin_sprites,M,same chain of 13 BOOT GE-state calls as ui_partner_menu_begin_sprites
+0x08ed5630,ui,ui_menu_ctx_emit_sprite,M,BOOT 0x0882979c then 0x088295a4: one textured quad (same as ui_partner_menu_emit_sprite)
+0x08ed56e0,ui,ui_menu_ctx_draw_text,M,mode 0 left-aligned, mode 1 centred in the width using text width 0x08846168(str)>>6; colour/size then print stub
+0x08ed5860,ui,ui_stub_noop_menu_ctx_print,M,empty body called by ui_menu_ctx_draw_text with (x, y, width, string): the print call compiled out
+0x08ed5874,ui,ui_menu_ctx_draw_number,M,counts decimal digits of the value (10^n loop), splits the width per digit, draws each through ui_menu_ctx_draw_text
+# family mini_result
+0x08ed60f4,ui,ui_mini_result_create,M,heap_alloc 0x2c4 -> 0x09aee308, menu ctx at +0x54, game type at +0x20, applies the result data, then init
+0x08ed61b8,ui,ui_mini_result_destroy,H,releases window +0x1a4 (BOOT 0x08834d24), heap_free of 0x09aee308, clears the global
+0x08ed6230,ui,ui_mini_result_apply_score,H,per game type: save_get/set_minigame_record_0..8 (new record adds 200), DP = score/divisor, save_add_dp, save_add_duelist_exp
+0x08ed6834,ui,ui_mini_result_init,M,binds layouts 0/1 (m_menu_bar01, result_bg01) and images 0/1 (result_mini01/02.gim), state 1, fade in
+0x08ed68dc,ui,ui_mini_result_update,M,runs ui_mini_result_update_main while +8 of 0x09aee308 is 0, else returns 1
+0x08ed6934,ui,ui_mini_result_update_main,M,switch on state +0xc: intro, input, message window, outro; state 6 returns the result +0x24
+0x08ed69e4,ui,ui_mini_result_wait_intro,M,waits for layout 0 frame >= 0x10, loops range 0x11-0x60, state 3
+0x08ed6a98,ui,ui_mini_result_handle_input,M,on a face button: BGM fade 0x0884192c(600) and close, or open the message window with mini_result word 0xd
+0x08ed6bd4,ui,ui_mini_result_poll_face_buttons,M,pad state 0x088284b8()+4 masked with 0xf000 (the four face buttons); plays SE 0x7a05
+0x08ed6c74,ui,ui_mini_result_update_message_window,M,updates window +0x1a4: choice 2 or 3/-2 stored at +0x24; when closed plays outro 0x36-0x65 and fades out
+0x08ed6db4,ui,ui_mini_result_draw,M,draws layouts, header, panels, labels and window of 0x09aee308; advances state on fade completion 0x08844fbc
+0x08ed6f00,ui,ui_mini_result_draw_header,M,image 1 (result_mini02.gim) part 0xd drawn at (0x70,8) 0x100x0x20 in states 3 and 4
+0x08ed7018,ui,ui_mini_result_draw_panels,M,image 0 boxes for two score blocks of two rows, new-record markers from flags +0x44/+0x46, bottom bar
+0x08ed73f4,ui,ui_mini_result_draw_labels,M,mini_result_<lang> words 1,2,3,5 as captions, then row labels per game type +0x20 (words 4, 6, 7, 0x13, 0x14...)
+0x08ed791c,ui,ui_mini_result_draw_values,M,three rows of two values drawn through ui_menu_ctx_draw_number with per-row positions
+0x08ed7c14,ui,ui_mini_result_is_from_story,M,system_scene_get_caller(0x15 for game 4, 0x18 for game 3): 1 when the caller is scene 2 (story), 0 for 0x0d (title)
+# family minigame_menu
+0x08ed7ce4,ui,ui_minigame_menu_create,M,heap_alloc 0x2dc -> 0x09aee30c, menu ctx at +0x6c, then ui_minigame_menu_init
+0x08ed7d7c,ui,ui_minigame_menu_destroy,H,clears flag bits of 0x08eeda48, releases window +0x1bc, heap_free of 0x09aee30c
+0x08ed7e1c,ui,ui_minigame_menu_init,M,binds layout 5 (d_menu_bg01) and images 2-4 (trnsmt01, m_menu_title01, m_menu_panel01), builds the list, fades in
+0x08ed7ed8,ui,ui_minigame_menu_any_unlocked,M,1 if any of the seven BOOT getters 0x08855788..0x08855a40 (the per-minigame flags of the list builder) is set
+0x08ed7f70,ui,ui_minigame_menu_build_list,M,stores the seven minigame flags at +0x50..+0x68 and the indices of the set ones at +0x28, count at +0x4c
+0x08ed8058,ui,ui_minigame_menu_update,M,dispatches on mode +8: 0 game list, 1 opponent selection, 2 launch
+0x08ed80fc,ui,ui_minigame_menu_update_list,M,switch on state +0xc: init, intro, input, 0x1e-frame wait then fade, finish via ui_minigame_menu_route_selection
+0x08ed81f4,ui,ui_minigame_menu_update_opponent_select,M,system_module_load(0xd) (rel_charalist), opens charalist(5, heap), stores its two results at +0x44/+0x48
+0x08ed8468,ui,ui_minigame_menu_handle_input,M,cancel -> fade out (result 3); confirm -> state 5, result 2, chosen game = list[cursor +0x14]
+0x08ed8548,ui,ui_minigame_menu_poll_cursor,M,up/down (pad bits 0x10/0x40, repeat word +0xc) with wrap, SE 0x7a04; confirm SE 0x7a05 -> 1; cancel SE 0x7a06 -> 2
+0x08ed8778,ui,ui_minigame_menu_route_selection,M,games 3 and 4 go straight to launch (mode 2), the others to opponent selection (mode 1)
+0x08ed8860,ui,ui_minigame_menu_launch_game,M,fills the per-game parameter block (0x0885bd4c..0x0885bdc4), picks scene 0xf/0x11/0x13/0x18/0x15/0x19/0x1c (modules.md minigames)
+0x08ed8ab8,ui,ui_minigame_menu_draw,M,draws the list screen (ui_minigame_menu_draw_main) while mode +8 is 0
+0x08ed8b3c,ui,ui_minigame_menu_draw_main,M,draws layout 5, the shared bars, panel, labels and window +0x1bc; advances state on fade completion
+0x08ed8c9c,ui,ui_minigame_menu_draw_opponent_select,M,calls the charalist draw import 0x08ede828 while mode is 1 and state 3
+0x08ed8cec,ui,ui_minigame_menu_draw_panel,M,image 2 frame plus one row box per listed game (stride 0x18) and the cursor box at row +0x14
+0x08ed8eb8,ui,ui_minigame_menu_draw_labels,M,title_msg word 0x59 centred as heading, then title_msg word 0x52+game for each unlocked game
+# family partner_menu
+0x08ed15b4,ui,ui_partner_menu_create,H,heap_alloc 0x1a0 -> global 0x09aee304, memset, stores heap/archive at +0/+4, calls the init 0x08ed1684
+0x08ed1648,ui,ui_partner_menu_destroy,H,heap_free of the 0x09aee304 work area with the heap stored at its +0
+0x08ed1684,ui,ui_partner_menu_init,M,binds m_menu_bar01/d_menu_bg01 layouts and 6 gims (team_name01_<lang> via save_get_language), stores partner at +0x20/+0x24, fades in
+0x08ed1778,ui,ui_partner_menu_build_team_name,M,wcscpy save_get_player_name + separator + partner name (0x08836734 kind 2), passed to BOOT 0x08854910 (team-name setter, world.md)
+0x08ed1874,ui,ui_partner_menu_commit_partner,M,save_copy_partner_field then save_set_partner(+0x20,+0x24) of the 0x09aee304 work area; state 10 of the menu
+0x08ed18e0,ui,ui_partner_menu_update,M,dispatches on mode +0x10 of 0x09aee304: 0 main state machine 0x08ed1954, 1 team-name entry 0x08ed216c
+0x08ed1954,ui,ui_partner_menu_update_main,M,switch on state +0x14 (intro, input, prompt, 0x1e-frame wait, outro, commit) of the 0x09aee304 work area
+0x08ed1a4c,ui,ui_partner_menu_wait_intro,M,waits for layout 0 frame >= 0x10, switches it to loop range 0x11-0x60, opens the help window, state 3
+0x08ed1af4,ui,ui_partner_menu_handle_input,M,result of 0x08ed1cdc: cancel -> fade out (result 3), confirm -> name entry, START -> team-name check then fade or prompt
+0x08ed1c54,ui,ui_partner_menu_wait_prompt_closed,M,updates window +0x28 (BOOT 0x088345fc) until its state byte +0x111 is 6, then state 5 and fade out 0x08844ec0
+0x08ed1cdc,ui,ui_partner_menu_poll_buttons,M,pad state 0x088284b8()+4: START bit 8 -> 1, confirm/cancel masks 0x08836a98(0/1) -> 2/3, plays SE 0x7a05/0x7a06
+0x08ed1de4,ui,ui_partner_menu_wait_team_name_window,M,state 7: when window state +0x111 is 6 and ui_partner_menu_has_team_name, plays layout range 0x61-0x65, state 9
+0x08ed1eb0,ui,ui_partner_menu_has_team_name,H,copies save_get_team_name (0x20 bytes); returns 1 if any of 16 UTF-16 chars is not 0, 0x20 or U+3000
+0x08ed1fa4,ui,ui_partner_menu_draw,M,draws both layouts, panels, faces, names and window of 0x09aee304; advances state on fade completion 0x08844fbc
+0x08ed216c,ui,ui_partner_menu_update_name_entry,M,mode 1: 0x08ecaa20(save_get_team_name, strTbl word 0x45, 0x11, callback 0x08ed22f0), then back to mode 0 state 6
+0x08ed2230,ui,ui_partner_menu_get_string,H,find_member strTbl_<lang>.bin (table 0x08ee9670, save_get_language) in archive +4, card_db_get_dictionary_word(index)
+0x08ed22f0,ui,ui_partner_menu_on_name_entry_event,M,callback passed to 0x08ecaa20 by ui_partner_menu_update_name_entry; moves flag +0x148 of 0x09aee304 from 1 to 2
+0x08ed2334,ui,ui_partner_menu_find_image,H,find_member of name k of table 0x08ee97f0 (d_menu01.gim, mdl_bup01/02/11/12.gim, team_name01_<l>.gim) in archive +4
+0x08ed23c4,ui,ui_partner_menu_get_image,H,returns image pointer +0x170 + 4*k of 0x09aee304 (filled by ui_partner_menu_init)
+0x08ed23f8,ui,ui_partner_menu_bind_layout,H,find_member name k of table 0x08ee9ab0 (m_menu_bar01.ehf, d_menu_bg01.ehf, d_menu_partner_<l>.ehf) -> +0x150+4k, sets its range
+0x08ed24b8,ui,ui_partner_menu_set_layout_range,M,layout +0x150+4k: BOOT 0x0881e914(layout, from, to+1) for play modes 1/2, (from, from+1) for mode 0
+0x08ed2598,ui,ui_partner_menu_get_layout_frame,M,BOOT 0x0881e9d8(layout +0x150+4k) or -1 when unbound; callers compare it with frame 0x10
+0x08ed2600,ui,ui_partner_menu_draw_layout,M,layout +0x150+4k drawn with BOOT 0x0881ec8c between 0x08821d20/0x08821d98 using system_get_frame_timing
+0x08ed26b4,ui,ui_partner_menu_reset_window,M,BOOT 0x08834d24(win), memset 0x120 and default geometry/colours of a message window; heap from 0x09aee304+0
+0x08ed28f8,ui,ui_partner_menu_open_help_window,M,resets window, bottom bar at (0x28,0xe0) 0x191x0x2e, text strTbl word 0x43, opens it with BOOT 0x088338e4
+0x08ed2a94,ui,ui_partner_menu_open_team_name_prompt,M,centred window (0x3c,100) with choices (+0xca=1), text strTbl word 0x44; opened when START is pressed without a team name
+0x08ed2cdc,ui,ui_partner_menu_draw_window,M,optional centring of window x/y from size +0x6c/+0x6e on 480x272, then BOOT 0x08833be4(dl, window)
+0x08ed2d90,ui,ui_partner_menu_draw_panels,M,image 0 (d_menu01.gim) bound as texture, draws fixed parts and nine-slice boxes at constant positions
+0x08ed2fe8,ui,ui_partner_menu_draw_names,M,draws save_get_player_name, partner name (0x08836734 kind 0) and save_get_team_name with the menu text helper
+0x08ed310c,ui,ui_partner_menu_draw_team_name_caption,M,image 5 (team_name01_<lang>.gim per ui_partner_menu_init) bound and part 0xc drawn at (0x70,7)
+0x08ed31c4,ui,ui_partner_menu_draw_panel_part,M,rectangle k of the u16 table 0x08ee9cb0 drawn at (x,y) via 0x08ed3804; parts 1-9 add a 64x64 digit overlay
+0x08ed33c0,ui,ui_partner_menu_draw_nine_slice,M,loops 9 parts of table 0x08ee9d18 placing corners/edges at x, x+4, x+w-5 (and y equivalents) via 0x08ed3804
+0x08ed36c8,ui,ui_partner_menu_begin_sprites,M,chain of 13 BOOT GE-state calls (0x0882b3d4, 0x08828cfc 9/1/4, 0x0882a488 -1...) before the sprite draws
+0x08ed3804,ui,ui_partner_menu_emit_sprite,M,BOOT 0x0882979c(dl, tex w/h, size) then 0x088295a4(dl, x, y, 0, u, v, ...): one textured quad
+0x08ed38b4,ui,ui_partner_menu_draw_text,M,mode 0: 0x0884874c(dl), colour 0x08846124, glyph size 0x088460f4(w,h), print stub, 0x0884877c() returns dl
+0x08ed396c,ui,ui_stub_noop_partner_menu_print,M,empty body called by ui_partner_menu_draw_text with (x, y, width, string): the print call compiled out
+0x08ed3980,ui,ui_partner_menu_draw_faces,M,images 1/2 (mdl_bup01/02) by state; face tiles of player and partner via 0x08ed3b88; ids >= 0x2e use the common head
+0x08ed3b88,ui,ui_partner_menu_draw_face_icon,M,BOOT 0x0885b168(id, variant; 0x1b->1, 0x10->0) gives a tile index, drawn as a 64x64 cell of an 8-wide grid
+0x08ed3d64,ui,ui_partner_menu_draw_common_face,H,finds common_head.gim and common_body.gim in archive +4, clips to x<0x1e0, draws them via 0x08eca318
+# family title_audio
+0x08ea11b8,audio,audio_title_reload_sound_banks,M,0x08841908, waits until 0x088685d8()+0x08868644() == 0 (busy voices, story.md), 0x08841858, requests 0x2c8 (+0x2c5, 0x2cf when param 0)
+0x08ea124c,audio,audio_title_release_sound_banks,M,0x08841850(0x2c5) and (0x2cf) (0x08841850 = release track, ppsspp-plan.md); called before library states
+0x08ea3300,audio,audio_title_apply_saved_volumes,M,0x08841724(n, 0x088416f8(n)) for channels 2, 0, 1 (volume getters/setters of the options screen)
+# family title_character_grid
+0x08eb0e00,ui,ui_title_build_character_grid,M,10-byte cells at 0x08eec1ca for characters 1-0x2d with their listed variants (world_count_character_variants, ui_title_get_character_entry_filtered)
+0x08eb10e4,ui,ui_title_update_wireless_character_select,M,step 0x25: builds the grid, input ui_title_step_character_grid, stores 0x08eeb364/368 in the entry and sends it
+0x08eb1328,ui,ui_title_step_character_grid,M,ui_title_handle_character_grid_input: -2 cancel, pick -> ui_title_apply_character_grid_choice
+0x08eb13f4,ui,ui_title_handle_character_grid_input,M,9-column grid of 0x2d cells (cursor 0x08eeac74), L/R (0x100/0x200) change the variant index of the cell, SE 0x7a04/0x7a07
+0x08eb17ac,ui,ui_title_apply_character_grid_choice,M,character id of cell -> 0x08eeb364, variant via ui_title_normalize_character_variant -> 0x08eeb368 high nibble
+0x08eb18d0,ui,ui_title_draw_character_grid,M,windows, cells, faces, pulsing cursor at (cursor%9*0x30+0x17, cursor/9*0x30+0x18) and variant arrows
+0x08eb1a2c,ui,ui_title_draw_character_grid_cells,H,binds 'd_menu01.gim' and draws 9x5 cells of 0x2f px with ui_title_draw_duel_menu_sprite_unbound
+0x08eb1bc8,ui,ui_title_draw_character_grid_faces,M,gim 0x14 of the name table; face index ui_title_get_character_face_index -> 0x28-px cell of a 12-wide sheet per grid cell
+0x08eb1e04,ui,ui_title_draw_character_grid_variant_arrows,M,for the cursor cell draws previous/next variant faces (0x0885b168) with arrow parts ui_menu_ctx_draw_panel_part
+# family title_charalist
+0x08ed5ea0,ui,ui_title_get_character_entry_filtered,M,BOOT 0x0885522c(id, variant) masked by ui_title_mask_character_variant; caller 0x08eb0e00
+0x08ed5f04,ui,ui_title_mask_character_variant,M,zeroes the value for ids 0x94/0x95, 0x1b unless variant 1, 0x10 unless variant 0, id 6 variant 3 in mode 1
+0x08ed5fdc,ui,ui_title_is_character_listed,H,world_character_exists(id, 0), forced to 0 for ids 0x94 and 0x95
+0x08ed604c,ui,ui_title_get_character_face_index,M,BOOT 0x0885b168(id, ui_title_normalize_character_variant(id, v)): same tile index the face drawers use
+0x08ed60a0,ui,ui_title_normalize_character_variant,H,returns 1 for id 0x1b, 0 for id 0x10, otherwise the given variant
+# family title_comm
+0x08ea3f6c,ui,ui_title_clear_comm_rules_work,M,system_memset(param, 0, 0x1608); only caller ui_title_enter_comm_rules
+0x08ebeb5c,ui,ui_title_enter_comm_menu,M,case 0xb of FUN_08e9abd0; window 0x08eea984, list callback FUN_08ec097c, duel setup panel FUN_08ecb974, layout 0xb (d_menu_bg01)
+0x08ebedc0,ui,ui_title_init_comm_player_slots,M,slot 0 = save_get_player_name (FUN_08ecc4e0), slots 1-3 refreshed by FUN_08ec2ce4
+0x08ebeec8,ui,ui_title_update_comm_menu,M,update dispatcher for state 0xb (from FUN_08e9b8b4); dispatches sub-states 2-7; exit FUN_08e9abd0(9,4)
+0x08ebf220,ui,ui_title_enter_comm_step,M,switch on sub-state: 0 load charalist, 2 rules, 3 single duel, 4 tag duel, 6 charalist start 0x08ede7e0(2)
+0x08ebf354,ui,ui_title_load_external_decks,M,for slot type 0x2e/1 reads 0x1c0-byte records via 0x0884c978/0x0884ca30(1)/0x0884cbbc (max 0x100), then FUN_08ec30e0
+0x08ebf758,ui,ui_title_update_comm_layouts,M,per sub-state layout stepping for comm screens (rules layout 0x10, vs layouts)
+0x08ebf800,ui,ui_title_enter_comm_rules,M,message box 0x08eea594 list with item callback FUN_08ec0448, layout 0x10 frames 0..0x11
+0x08ebf9dc,ui,ui_title_update_comm_rules,M,edits rule bitfields 0x08eebfdc-0x08eebfde through message box result 0x088345fc
+0x08ec0060,ui,ui_title_update_comm_rules_layout,M,steps layout 0x10 (frames 0x11, 0x12-0x35, 0x3a) by sub-step
+0x08ec0160,ui,ui_title_draw_comm_rules,M,top window (FUN_08ec2efc), bottom message (help index FUN_08ec083c, k=0xc), help window and cursor
+0x08ec033c,ui,ui_title_draw_comm_rules_help,M,tushin message 0x5c/0x56-0x59/0x9c by row in window (8,0x5f,0x1d0,0xf)
+0x08ec0448,ui,ui_title_draw_comm_rule_value,M,list callback: title message for the current rule value (99+, 0x65+, 0x67+, 0x97+) from 0x08eebfdc bits
+0x08ec069c,ui,ui_title_draw_comm_menu,M,draw dispatcher entry for state 0xb (FUN_08e9c3a0); layout 0xb and per-sub-state drawers
+0x08ec083c,ui,ui_title_get_comm_rules_help_index,M,returns tushin help index 0x87-0x8e by rule row and value
+0x08ec097c,ui,ui_title_draw_comm_cursor,M,list callback drawing the pulsing cursor frame at the row or at (0x147,0xf4)
+0x08ec0a30,ui,ui_title_enter_comm_single_duel,M,duel setup mode 1 (FUN_08ecc2f8), layouts 0xd (d_menu_vs01) and 0x10
+0x08ec0b00,ui,ui_title_copy_deck_record,M,copies 0xc0 bytes of card ids then 0x40 bytes (deck name); used to swap 0x08eed614/0x08eed814
+0x08ec0b84,ui,ui_title_update_comm_vs_layouts,M,steps layout 0xd (vs) frames 0x1d-0x3b or 0x81-0x9f and 0x10 for single/tag modes
+0x08ec0e64,ui,ui_title_update_comm_single_duel,M,input result of FUN_08ec0f88 -> mode 3 (0x08eec38d) and next sub-state 6/7/0xe
+0x08ec0f88,ui,ui_title_handle_comm_single_duel_input,M,pad directions move cursor 0x08eeac70 with SE 0x7a04
+0x08ec1474,ui,ui_title_draw_comm_single_duel,M,layouts 0xd/0x10, SE 0x7a81/0x7a82 on vs frames, duel setup panel FUN_08ecccbc, cursor table 0x08ee5a90
+0x08ec1678,ui,ui_title_draw_comm_start_hint,M,title message 0x11 at (0x25,0xf6,0xe0) through FUN_08ea141c
+0x08ec16d4,ui,ui_title_draw_comm_bottom_caption,M,window callback: title message 7 or 6 by sub-state, greyed 0xff808080 when not selectable
+0x08ec1854,ui,ui_title_enter_comm_tag_duel,M,duel setup mode 3/4 (FUN_08ecc2f8), layouts 0xd, 0xc (d_menu_partner), 0x10
+0x08ec1a4c,ui,ui_title_update_comm_tag_duel,M,mode 4 (0x08eec38d) with 8 cursor positions mapped to 4 slots; next sub-state 6/0xe
+0x08ec1e14,ui,ui_title_handle_comm_tag_team_input,M,pad up/down cursor with SE 0x7a04; swaps deck records 0x08eed614/0x08eed814 via ui_title_copy_deck_record
+0x08ec219c,ui,ui_title_handle_comm_tag_slot_input,M,pad input over 8 slot positions; rejects locked slots (SE 0x7a07), accepts with SE 0x7a05 and FUN_08ec2ce4
+0x08ec2680,ui,ui_title_step_comm_tag_slot_cursor,M,moves cursor 0x08eeac74 by param and skips slots whose player type is 1
+0x08ec278c,ui,ui_title_draw_comm_tag_duel,M,tag counterpart of the single-duel drawer: layouts 0xd/0x10/0xc, SE 0x7a81/0x7a82, cursor table 0x08ee5ae0
+0x08ec2adc,ui,ui_title_load_comm_charalist,M,system_module_load(0xd) (rel_charalist), waits system_module_all_loaded, then sub-state 1
+0x08ec2bbc,ui,ui_title_update_comm_partner_pick,M,polls charalist 0x08ede7e8; on result reads 0x08ede818/0x08ede820 into the slot via FUN_08ecc4e0
+0x08ec2ce4,ui,ui_title_refresh_comm_player_slot,M,fills a duel setup slot from the charalist result (0x08ede818/820) or default 2; deck id from FUN_08ec3830
+0x08ec2dfc,ui,ui_title_map_cursor_to_player_slot,M,mode 4: cursor 0-7 -> slot 1,0,3,2 in pairs; else 0-3 -> 1/0; stored at 0x08eec38f
+0x08ec2efc,ui,ui_title_draw_comm_top_caption,M,window callback: title message 0x22/0x23/0x24/0x25 by sub-state
+0x08ec303c,ui,ui_title_clear_deck_lists,M,memsets deck list tables 0x08eec3f8 (0x132), 0x08eec52a (0xad4), count 0x08eed5fe and cursors
+0x08ec30e0,ui,ui_title_enter_deck_select,M,clears lists, reads selected slot (FUN_08ecc6dc), chooses tabs by slot type 0x2e/1, layout 4, builds list FUN_08ec3264
+0x08ec3264,ui,ui_title_build_deck_list,M,for a character: save_get_character_record recipes (deck_get_recipe_level) and deck_copy_slot_cards; else stored decks/recipes
+0x08ec3928,ui,ui_title_update_comm_deck_select,M,state 0xb sub 7: FUN_08ec3ebc result -> ui_title_apply_selected_deck, back to the mode in 0x08eec38d
+0x08ec3a6c,ui,ui_title_get_deck_list_entry,M,returns id of entry param_3 of list type 0 (0x08eec3f8), 2 (0x08eecffe) or 1 (0x08eec52a)
+0x08ec3c18,ui,ui_title_apply_selected_deck,M,copies 0x40-byte name and deck of a 0x1c0 record into slot buffers 0x08eed6d4/0x08eed614 or sets recipe id (FUN_08ecc328)
+0x08ec3ebc,ui,ui_title_handle_deck_select_input,M,tab switching (pad 0x20/0x200/0x8000 vs 0x80/0x100) with SE 0x7a0d and layout 4 frames; list cursor
+0x08ec44e8,ui,ui_title_draw_deck_select_list,M,list count from 0x08eed5fe/0x08eec3b4/0x33, scrollbar FUN_08eb7f9c/FUN_08eb80bc, layout 4, rows FUN_08ec4c94
+# family title_deck
+0x08ea7594,ui,ui_title_copy_deck_cards,H,copies a 0xc0-byte deck: 3 words + 60 main + 15 extra + 15 side halfwords; callers apply deck and wireless set-up
+# family title_duel_setup
+0x08eabdac,ui,ui_title_reset_duel_setup_slots,M,ui_title_set_duel_setup_slot_full(i, 0, i, 3, ...) for 4 slots then ui_title_set_duel_setup_mode(param)
+0x08ec2aac,ui,ui_title_call_draw_duel_setup_panel,M,forwards to FUN_08ecccbc (duel setup panel drawer)
+0x08eca318,ui,ui_title_call_draw_character_face,M,forwards to FUN_08eca37c with zero offsets; caller passes kao.gim/karada.gim members
+0x08eca37c,ui,ui_title_draw_character_face,M,character ids 0x79+ mapped to 0x33x0x54 cells of the face texture; sprite blit 0x088295a4
+0x08ecb974,ui,ui_title_create_duel_setup_panel,M,heap alloc 0x98 at 0x09aee300 {heap, archive, ...}, then init with mode param_3
+0x08ecba38,ui,ui_title_free_duel_setup_panel,H,system_heap_free(*0x09aee300, 0x09aee300)
+0x08ecba74,ui,ui_title_init_duel_setup_panel,M,sets mode +0x11, layouts by mode (frames 0x1d/0x81), duel config 0x0883634c, players for modes 8/9
+0x08ecbce4,ui,ui_title_load_duel_setup_players,M,reads up to 4 player records (stride 0x1ac from 0x0883634c +0x1a4) into slots with FUN_08ecc628
+0x08ecc2f8,ui,ui_title_set_duel_setup_mode,H,writes mode byte +0x11 of the panel 0x09aee300
+0x08ecc328,ui,ui_title_set_duel_setup_slot,M,slot +0x14+i*0x18: char id, variant, deck type, deck index; deck name from deck_get_recipe_name or save_get_stored_deck+4
+0x08ecc4e0,ui,ui_title_set_duel_setup_slot_name,M,ui_title_set_duel_setup_slot then name pointer at slot +0x24
+0x08ecc580,ui,ui_title_set_duel_setup_slot_deck_name,M,ui_title_set_duel_setup_slot_name then deck name pointer at slot +0x28
+0x08ecc628,ui,ui_title_set_duel_setup_slot_full,M,ui_title_set_duel_setup_slot_deck_name then halfwords +0x18/+0x1a
+0x08ecc6dc,ui,ui_title_get_duel_setup_slot,H,copies the 0x18-byte slot min(i,3) at panel +0x14
+0x08ecc778,ui,ui_title_start_duel_setup_timer,M,FUN_08ed0eec(panel+0x74, flag, frames)
+0x08ecc7c8,ui,ui_title_call_update_duel_setup_panel,M,FUN_08ecc7ec(1)
+0x08ecc7ec,ui,ui_title_update_duel_setup_panel,M,intro step +0xc: fade 0x08844e0c, SE 0x7a7e, layout frames 0x1d-0x5d or 0x81-0xc1 by mode
+0x08ecccbc,ui,ui_title_draw_duel_setup_panel,M,layouts +0x7c, SE 0x7a81/0x7a82, then icon, name, deck and info layers for mode +0x11
+0x08eccf60,ui,ui_title_get_duel_setup_slide_offset,M,slide offset 0..0x168 px from timer panel+0x74 by side and mode
+0x08ecd200,ui,ui_title_bind_duel_setup_layout,M,string 'd_menu_partner.ehf' name table, container_ehp_find_member into panel +0x7c+4*i, then play
+0x08ecd3d4,ui,ui_title_play_duel_setup_layout,M,0x0881e914(layout, from, to+1) on panel layout i (same pattern as FUN_08ea0b2c)
+0x08ecd4b4,ui,ui_title_get_duel_setup_layout_frame,M,0x0881e9d8(panel layout i) or -1 (same pattern as FUN_08ea0c0c)
+0x08ecd594,ui,ui_title_draw_duel_setup_layout,M,frame timing + 0x08821d20/0x0881ec8c/0x08821d98 on panel layout i (same as FUN_08ea0c74)
+0x08ecd704,ui,ui_title_draw_duel_setup_icons,M,per slot frame and character icon FUN_08ecfa04 offset by the slide offset
+0x08ecdd28,ui,ui_title_draw_duel_setup_names,M,per slot frames and player name FUN_08ece254
+0x08ece254,ui,ui_title_draw_duel_setup_player_name,M,slot name (type 1: pointer +0x10) or 0x08836734(0, char, variant), font 0xe/0xc
+0x08ece390,ui,ui_title_draw_duel_setup_decks,M,per slot frames and deck caption FUN_08ece8b8
+0x08ece8b8,ui,ui_title_draw_duel_setup_deck_name,M,deck name via deck_get_recipe_name or slot pointer, duelmenu message FUN_08ed1178, font 0xe
+0x08ecec94,ui,ui_title_draw_duel_setup_info,M,frames, duelmenu messages and caption FUN_08ecf37c for the panel modes
+0x08ecf37c,ui,ui_title_build_duel_setup_caption,M,builds a wide string with wcscpy/wcscat from save_get_team_name, story block and duelmenu messages
+0x08ecfa04,ui,ui_title_draw_character_icon,M,icon cell from FUN_08ecfc94 or portrait FUN_08ecfb10; frame 0x16/0x17 by 0x0885b168 index
+0x08ecfb10,ui,ui_title_draw_character_portrait,M,strings 'kao.gim'/'karada.gim' (face/body) from panel archive, clipped to x < 0x1e0, then character face drawer
+0x08ecfc94,ui,ui_title_get_character_icon_cell,M,0x0885b168(char, variant) -> 64 px cell (index&7, index>>3) of an 8x8 grid; ids < 0x2e only
+0x08ecfdd0,ui,ui_title_draw_duel_menu_frame_default,M,FUN_08ecff34 with all optional sizes -1
+0x08ecfe38,ui,ui_title_begin_sprite_batch,M,same GU state sequence as ui_title_begin_textured_sprite_batch without the texture bind
+0x08ecff34,ui,ui_title_draw_duel_menu_frame,M,frame kinds: pieces 2-0xa (9-slice) plus 1, or 0x12-0x1a, drawn with FUN_08ed03d4
+0x08ed03d4,ui,ui_title_draw_duel_menu_sprite,M,string 'd_menu01.gim' name table: binds gim of the piece, sprite blit 0x088295a4
+0x08ed0570,ui,ui_title_draw_duel_menu_sprite_unbound,M,same as ui_title_draw_duel_menu_sprite without the texture bind
+0x08ed0684,ui,ui_title_get_duel_menu_sprite,M,copies 0x87-halfword table 0x08ee90dc and fills texture index, uv and size of (kind, piece)
+0x08ed0ec0,ui,ui_title_reset_frame_timer,H,{u8 active, s16 count, s16 max} cleared
+0x08ed0eec,ui,ui_title_init_frame_timer,H,{u8 active = a, s16 count = 0, s16 max = b}
+0x08ed0f2c,ui,ui_title_step_frame_timer,H,increments count while < max; returns 1 when inactive or finished (then resets)
+0x08ed0fb4,ui,ui_title_get_frame_timer,H,returns active byte and writes count and max
+# family title_duel_start
+0x08ea00fc,ui,ui_title_start_random_deck_duel,M,duel set-up 0x0883634c type +0x190 = 5 with random recipes from tables 0x08ee4b70/0x08ee4b90 (system_rand_shifted), duel_setup_load_decks
+0x08ea03a8,ui,ui_title_start_duel_type_3,M,duel set-up +0x190 = 3, +0x193 = step 0x08eea3e4, then ui_title_switch_scene(6) (duel session)
+0x08ea0440,ui,ui_title_map_rule_to_duel_setting,H,maps rule value 0->1, 1->2, 2->0, 3->3, 4->4; result stored at duel set-up +0x196 from rule bits 0x08eebfdd
+0x08ea04d0,ui,ui_title_start_comm_duel,M,builds the duel set-up from rule bitfields 0x08eebfdc-de and duel setup slots (ui_title_get_duel_setup_slot), duel_setup_load_decks
+0x08ea08f4,ui,ui_title_copy_duel_setup_slot,H,copies a 0x18-byte slot (7 halfwords + 2 words) returned by ui_title_get_duel_setup_slot; 11 callers
+0x08ea09a0,ui,ui_title_start_duel_type_2,M,duel set-up +0x190 = 2, +0x193 = cursor 0x08eeac74 - 8, random seed, then ui_title_switch_scene(6)
+# family title_external
+0x08ebdc78,ui,ui_title_enter_external_cards,M,case 6 of title state switch FUN_08e9abd0; layouts 5,6,0xe; fade 0x08844e0c
+0x08ebdd34,ui,ui_title_update_external_cards,M,reads 0x44-byte records via BOOT 0x0884c978/0x0884ca30(0)/0x0884cbbc; grants a card once with save_change_card_count (flag 0x088563dc/0x088563a0)
+0x08ebe15c,ui,ui_title_draw_external_cards,M,draw dispatcher entry for state 6 (FUN_08e9c3a0); menu 0x08eea8f4 via ui_title_draw_menu
+0x08ebe2f8,ui,ui_title_draw_external_cards_legend,M,icons 0x3c/0x3d/0x3e and title messages 2,3,1 along y=0x102
+0x08ebe498,ui,ui_title_setup_external_cards_list,M,list struct 0x08eea8f4 sized by record count 0x08eec3b0, callbacks FUN_08ebe6b0/FUN_08ebe7cc/FUN_08ebea68
+0x08ebe6b0,ui,ui_title_draw_external_cards_tab,M,list callback: title message param_2+9, colour selected (0x08eeac02) or not
+0x08ebe7cc,ui,ui_title_draw_external_card_row,M,list callback: copies record 0x44*i, icon by flag/0x088563dc, record text and card_db_get_name(card id)
+0x08ebea68,ui,ui_title_draw_external_cards_caption,M,list callback: title message 5 or 4 by param_2
+0x08ebf628,ui,ui_title_reset_external_list_flags,M,clears bits 1-4 of 0x08eec3ac (external list state)
+0x08ebf67c,ui,ui_title_free_external_list,M,frees deck records 0x08eec3a4 or card records 0x08eec3a8 when 0x08eec3ac bits set; clears counts 0x08eec3b0/b4
+# family title_fade
+0x08e9da30,ui,ui_title_init_color_fade,H,struct {target ptr, start colour = *target, end colour, duration u16, counter u16, active u16}
+0x08e9da94,ui,ui_title_start_color_fade,H,sets active halfword +0x10 = 1 of the colour fade struct
+0x08e9dab4,ui,ui_title_step_color_fade,H,per-channel ARGB lerp start->end by counter/duration into *target; clears active when done
+0x08e9de04,ui,ui_title_start_screen_fade_default,M,ui_title_start_screen_fade_black(type, 0x10 frames); 13 callers
+0x08e9de30,ui,ui_title_start_screen_fade_black,M,ui_title_start_screen_fade(type, 1, 0xff000000, duration)
+0x08e9df00,ui,ui_title_start_screen_fade,M,types 0-5 -> 0x08844e0c/0x08844ec0 with black, white or given colour; sets fade flag 0x08eea400 = 1, pending state 0xfff
+0x08e9e254,ui,ui_title_get_fade_state,H,returns 0x08eea400 (set to 1 by ui_title_start_screen_fade, tested == 2 before applying pending state)
+# family title_imports
+0x08ede5d0,ui,ui_title_draw_module_overlays,M,mode 0xf: select_card draw import 0x08ee1958 and window 0x8eea9b8; mode 9: charalist draw import 0x08ede828
+0x08ede7c8,ui,ui_call_cardalbum_0ab67a89,H,import stub, rel_title .lib.stub: libcardalbum_rel NID 0x0ab67a89 (provider base unknown); caller 0x08ec902c
+0x08ede7d0,ui,ui_call_cardalbum_ee554159,H,import stub, rel_title .lib.stub: libcardalbum_rel NID 0xee554159; caller 0x08ec8f1c
+0x08ede7d8,ui,ui_call_cardalbum_43ab5667,H,import stub, rel_title .lib.stub: libcardalbum_rel NID 0x43ab5667; caller 0x08ec8f1c
+0x08ede7e0,ui,ui_call_charalist_open,M,import stub libcharalist_rel NID 0x0b63a183; called (mode 5, heap) right after module 0xd loads, before polling 0x08ede7e8
+0x08ede7e8,ui,ui_call_charalist_update,M,import stub libcharalist_rel NID 0xfd65b042; polled after open, returns 1 (chosen) or 2 (cancelled)
+0x08ede7f0,ui,ui_call_charalist_6e5ebe0f,H,import stub, rel_title .lib.stub: libcharalist_rel NID 0x6e5ebe0f; caller 0x08eb4f84
+0x08ede7f8,ui,ui_call_charalist_e11636ec,H,import stub, rel_title .lib.stub: libcharalist_rel NID 0xe11636ec; callers 0x08eacc04, 0x08ec2ce4
+0x08ede818,ui,ui_call_charalist_get_selected_character,M,import stub libcharalist_rel NID 0x342a4009; first picker result, stored +0x44 and passed as the opponent to the minigame
+0x08ede820,ui,ui_call_charalist_get_selected_variant,M,import stub libcharalist_rel NID 0xbac2ba34; second picker result, stored +0x48 next to the character id
+0x08ede828,ui,ui_call_charalist_draw,M,import stub libcharalist_rel NID 0x99d1857c; called only from draw paths while the picker is open
+0x08ede830,ui,ui_call_charalist_close,M,import stub libcharalist_rel NID 0xb80f59ad; called once the picker returned 1 or 2
+0x08ede838,deck,deck_call_deck_tutorial_e5389f40,H,import stub, rel_title .lib.stub: libdeck_tutorial_rel NID 0xe5389f40; caller 0x08ec9890
+0x08ede840,deck,deck_call_deck_tutorial_4e16f5a6,H,import stub, rel_title .lib.stub: libdeck_tutorial_rel NID 0x4e16f5a6; caller 0x08ec9778
+0x08ede848,deck,deck_call_deck_tutorial_9f1777a8,H,import stub, rel_title .lib.stub: libdeck_tutorial_rel NID 0x9f1777a8; caller 0x08ec9778
+0x08ede850,ui,ui_call_duelrecord_6adb95db,H,import stub, rel_title .lib.stub: libduelrecord_rel NID 0x6adb95db; caller 0x08ec90f0
+0x08ede858,ui,ui_call_duelrecord_420f9405,H,import stub, rel_title .lib.stub: libduelrecord_rel NID 0x420f9405; caller 0x08ec90f0
+0x08ede860,ui,ui_call_duelrecord_8d53dc42,H,import stub, rel_title .lib.stub: libduelrecord_rel NID 0x8d53dc42; caller 0x08ec91fc
+0x08ee1908,deck,deck_call_limitlist_e69a45d2,H,import stub, rel_title .lib.stub: liblimitlist_rel NID 0xe69a45d2; caller 0x08ec929c
+0x08ee1910,deck,deck_call_limitlist_56e1ca7a,H,import stub, rel_title .lib.stub: liblimitlist_rel NID 0x56e1ca7a; caller 0x08ec929c
+0x08ee1918,deck,deck_call_limitlist_780ba2ad,H,import stub, rel_title .lib.stub: liblimitlist_rel NID 0x780ba2ad; caller 0x08ec9414
+0x08ee1920,deck,deck_call_recipe_viewer_98e7e882,H,import stub, rel_title .lib.stub: librecipe_viewer_rel NID 0x98e7e882; caller 0x08ec8a50
+0x08ee1928,deck,deck_call_recipe_viewer_099048e2,H,import stub, rel_title .lib.stub: librecipe_viewer_rel NID 0x099048e2; caller 0x08ec8a50
+0x08ee1930,deck,deck_call_recipe_viewer_363d43c5,H,import stub, rel_title .lib.stub: librecipe_viewer_rel NID 0x363d43c5; caller 0x08e9c3a0 (a draw path)
+0x08ee1938,ui,ui_call_select_card_open,M,import stub libselect_card_rel NID 0xbf2b46d7; called (2, cfg {heap, art reader, archive}, &count, list) after module 0x1d loads
+0x08ee1940,ui,ui_call_select_card_update,M,import stub libselect_card_rel NID 0x5b395307; polled each frame, 1 = picking finished (list copied)
+0x08ee1948,ui,ui_call_select_card_0787468b,H,import stub, rel_title .lib.stub: libselect_card_rel NID 0x0787468b; caller 0x08edceac (a gate query)
+0x08ee1950,ui,ui_call_select_card_close,M,import stub libselect_card_rel NID 0x4d3d501f; called by ui_card_trade_release when flag bit 0 says the picker is open
+0x08ee1958,ui,ui_call_select_card_draw,M,import stub libselect_card_rel NID 0xcfa64443; called from ui_title_draw_module_overlays in card-trade mode
+0x08ee1968,ui,ui_call_tutoriallist_c1b2b589,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0xc1b2b589; caller 0x08ec96d8
+0x08ee1970,ui,ui_call_tutoriallist_41015b0f,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0x41015b0f; caller 0x08ec9510
+0x08ee1978,ui,ui_call_tutoriallist_cf2830ff,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0xcf2830ff; caller 0x08ec9510
+0x08ee1980,ui,ui_call_tutoriallist_f498562a,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0xf498562a; caller 0x08ec9510
+# family title_input
+0x08eb26a8,ui,ui_title_is_confirm_or_cancel_pressed,H,returns 1 if pad +4 has the confirm (0x08836a98(0)) or cancel (0x08836a98(1)) button
+0x08ebd470,ui,ui_title_read_start_confirm_cancel,M,pad +4: START (8) -> 0, confirm button 0x08836a98(0) -> 1, cancel 0x08836a98(1) -> 2, SE 0x7a05/0x7a06
+0x08ec3d70,ui,ui_title_update_key_repeat,M,hold counter 0x08eed612 on pad & 0x50 raises repeat speed through 0x088285d4/0x088285fc
+# family title_language
+0x08ec5a94,ui,ui_title_enter_language_select,M,list 0x08eeac84 of 5 items, initial item from 0x08eeda14, item callback FUN_08ec60a0; layouts 5,6,0xe
+0x08ec5c30,ui,ui_title_update_language_select,M,list result 0-4 -> 0x08eeda18; save_set_language, card_db_load_cardinfo/bind_cardinfo on change
+0x08ec5fcc,ui,ui_title_draw_language_select,M,layouts 6,5,0xe, cursor sprite FUN_08ec6288 and list 0x08eeac84
+0x08ec60a0,ui,ui_title_draw_language_item,M,list callback: title messages 0x31-0x35 per language row, then icon FUN_08ec6500
+0x08ec6288,ui,ui_title_draw_language_cursor,M,sprite 0x23 of a second sprite table (FUN_08e9d004) at a cell chosen by the selected language 0x08eeacdd
+0x08ec6500,ui,ui_title_draw_language_icon,M,sprite 0x24 (FUN_08e9d004) with u offset (row+1)*w per language row
+0x08ec66f0,ui,ui_title_reset_boot_language_step,M,clears step 0x08eedfbc used by the boot language flow
+0x08ec6720,ui,ui_title_update_boot_language,M,step machine 0x08eedfbc: autoload (FUN_08ec686c), start select (FUN_08ec69c0), select (ui_title_update_language_select)
+0x08ec67d8,ui,ui_title_draw_boot_language,M,draws the language select only while step 0x08eedfbc == 3
+0x08ec686c,ui,ui_title_update_boot_autoload,M,save_open(3, heap) and 0x0884123c; on 2 save_set_language(save_get_language) and card_db_load_cardinfo; on 3 language select
+0x08ec69c0,ui,ui_title_start_boot_language_select,M,after a failed autoload: FUN_08ea11b8(0), FUN_08e9ccec(0), then ui_title_enter_language_select
+# family title_layout
+0x08ea0a94,ui,ui_title_bind_layout,H,finds layout name k (table 'main_title01.ehf' + 0x40*k) in the menu archive, stores it at 0x08eea484 + 4k, then sets its frame range
+0x08ea0b2c,ui,ui_title_set_layout_range,M,layout k of 0x08eea484: 0x0881e914(layout, start, end+1) (mode 0: single frame)
+0x08ea0c0c,ui,ui_title_get_layout_frame,M,0x0881e9d8(layout k of 0x08eea484), -1 when not bound; 23 callers compare it with frame numbers
+0x08ea0c74,ui,ui_title_draw_layout,M,draws layout k of 0x08eea484 via 0x08821d20/0x0881ec8c/0x08821d98 with system_get_frame_timing
+0x08ea0d28,ui,ui_title_draw_menu_bar_label,M,image record chosen by state (0xe/0xf/0x10/0x13) drawn with ui_title_draw_image_full at offsets following ui_title_get_layout_frame
+# family title_library
+0x08ea1154,ui,ui_title_unload_library_module,H,if bit 4 of 0x08eeda48: system_module_unload(0x08eeda4c) and clear the bit; 18 callers
+0x08ec8a00,ui,ui_title_enter_recipe_viewer,H,system_module_load(0x1b) (rel_recipeviewer, modules.md); 0x08eeda4c = 0x1b
+0x08ec8a50,ui,ui_title_update_recipe_viewer,M,after system_module_all_loaded starts library 0x08ee1920 and polls 0x08ee1928; -2 -> FUN_08e9abd0(9,5)
+0x08ec8ba4,ui,ui_title_enter_charalist,H,system_module_load(0xd) (rel_charalist, modules.md); 0x08eeda4c = 0xd
+0x08ec8bfc,ui,ui_title_update_charalist,M,starts charalist 0x08ede7e0(0, heap), polls 0x08ede7e8; done -> FUN_08e9abd0(9,7)
+0x08ec8d44,ui,ui_title_update_charalist_select,M,charalist 0x08ede7e0(3/0) for states 0x1d/0x1e; result 0x08ede818 passed to FUN_08ea172c
+0x08ec8ec4,ui,ui_title_enter_card_album,H,system_module_load(0xc) (rel_cardalbum, modules.md); 0x08eeda4c = 0xc
+0x08ec8f1c,ui,ui_title_update_card_album,M,starts 0x08ede7d0(0, heap), polls 0x08ede7d8; done -> FUN_08e9abd0(9,7)
+0x08ec902c,ui,ui_title_draw_card_album,M,calls 0x08ede7c8 (card album import next to its start/update stubs) while library active 0x08eeda19
+0x08ec9098,ui,ui_title_enter_duel_record,H,system_module_load(0x14) (rel_duelrecord, modules.md)
+0x08ec90f0,ui,ui_title_update_duel_record,M,starts 0x08ede850(heap), polls 0x08ede858; done -> FUN_08e9abd0(9,7)
+0x08ec91fc,ui,ui_title_draw_duel_record,M,calls 0x08ede860 while library active 0x08eeda19
+0x08ec9238,ui,ui_title_enter_limit_list,H,system_module_load(0x18) (rel_limitlist, modules.md)
+0x08ec929c,ui,ui_title_update_limit_list,M,starts 0x08ee1908(0, heap), polls 0x08ee1910; 1 -> main menu, 2 -> state 0x12
+0x08ec9414,ui,ui_title_draw_limit_list,M,calls 0x08ee1918 while library active 0x08eeda19
+0x08ec9450,ui,ui_title_enter_tutorial_list,H,system_module_load(0x21) (rel_tutoriallist, modules.md)
+0x08ec9510,ui,ui_title_update_tutorial_list,M,starts 0x08ee1970(arg, heap), polls 0x08ee1978; on pick 0x08ee1980 -> states 0x2b/0x2c
+0x08ec96d8,ui,ui_title_draw_tutorial_list,M,calls 0x08ee1968 while library active 0x08eeda19
+0x08ec9714,ui,ui_title_enter_deck_tutorial,H,system_module_load(0x12) (rel_decktutorial, modules.md)
+0x08ec9778,ui,ui_title_update_deck_tutorial,M,starts 0x08ede840(arg, &heap), polls 0x08ede848; done -> FUN_08e9abd0(0x18, arg)
+0x08ec9890,ui,ui_title_draw_deck_tutorial,M,calls 0x08ede838 while library active 0x08eeda19
+0x08ec9c6c,ui,ui_title_enter_partner_deck_select,M,clears 0x08eedfb4, system_module_load(0xd) (charalist), sub 1
+0x08ec9d24,ui,ui_title_update_partner_deck_select,M,result 2 -> open deck editor for the picked character, 1 -> back to FUN_08e9abd0(9,5)
+0x08ec9dcc,ui,ui_title_step_partner_deck_select,M,charalist 0x08ede7e0(4, heap); on pick stores 0x08ede818/0x08ede820 in 0x08eedfb4/0x08eedfb8
+0x08ec9f3c,ui,ui_title_open_partner_deck_editor,M,BGM fade 0x0884192c(600) and FUN_08e9abd0(0x12, character<<8 | 8) (state 0x12 jumps to scene 4)
+0x08ec9fac,ui,ui_title_draw_partner_deck_select,M,calls charalist import 0x08ede828 while sub-state 3
+# family title_list
+0x08e9e5e8,ui,ui_title_init_list_menu,M,defaults of the list menu struct (8 items, rect 0x80,0x28,0xf0,0x20, colours 0xff808080), fade via ui_title_init_list_fade; 7 callers
+0x08e9e7f8,ui,ui_title_update_list_menu_hold,M,tracks a held button mask (pad 0x088284b8) into +0x75 around ui_title_update_list_menu and reports it via *param_5
+0x08e9e9a4,ui,ui_title_update_list_menu,M,list state machine (+0): opening fade (ui_title_step_list_fade_in), pad cursor with skip of disabled items +0x3c.., returns selection
+0x08e9f2d8,ui,ui_title_resume_list_menu,H,list state 4 -> 3; called by submenu updaters after a cancel
+0x08e9f318,ui,ui_title_init_list_fade,H,fade length +0xa, stagger +0xc, counter +0xe, end +0x10 = len + stagger*count; clears 10 item colours at +0x14
+0x08e9f3b0,ui,ui_title_step_list_fade_in,H,per-item colour param_2 with alpha ramp by counter - stagger*i; returns 1 when done
+0x08e9f4f4,ui,ui_title_stub_return_1_list_open,M,constant 1; list opening mode 1 of ui_title_update_list_menu
+0x08e9f508,ui,ui_title_draw_list_menu,M,draws list struct items with cursor animation +0x74 and cells from image table 0x08ee7510; callers main menu, language and title screen drawers
+0x08e9fe3c,ui,ui_title_get_list_item_color,H,returns +0x70 if item disabled (+0x3c+i == 1), +0x68 for the highlighted item, else +0x64
+# family title_logo
+0x08e9bdac,ui,ui_title_enter_logos,M,case 3 of ui_title_enter_state: black fade (type 4, 0x1e frames), state/sub set, flag bit 3 of 0x08eeda48
+0x08e9be34,ui,ui_title_update_logos,M,state 3: START/confirm skips (0x08eea420), 0x3d-frame timers between logo pages, then requests state 0x1e (language 0 vs others)
+0x08e9c1f4,ui,ui_title_enter_opening_movie,H,case 4: system_heap_alloc(0x500000), system_load_movie_modules(0,1), waits system_module_all_loaded, 0x0882b8ac(buf, 0x500000)
+0x08e9c28c,ui,ui_title_play_opening_movie,H,string 'movie/TF3_opening*.pmf'; clears EDRAM 0x110000, frees the movie heap and system_unload_movie_modules
+0x08e9ca78,ui,ui_title_draw_logos,M,draw for state 3: sub 0-2, 3-5, 6-8 select the three logo page drawers
+0x08e9d554,ui,ui_title_draw_logo_page_1,M,logo sub 0-2: binds gim of image record DAT_08ee4b14 and draws records 0x08ee4b14/18 with sprite blit 0x088295a4
+0x08e9d6ec,ui,ui_title_draw_logo_page_2,M,logo sub 3-5: same as page 1 with image records DAT_08ee4b1c/20
+0x08e9d884,ui,ui_title_draw_logo_page_3,M,logo sub 6-8: binds 'e3_end_00.gim' and draws three image records DAT_08ee4b24..2c
+# family title_main_menu
+0x08ec6fec,ui,ui_title_enter_main_menu,M,case 9 of FUN_08e9abd0; save_psid_checksum_changed -> sub 0xf warning; inits main menu or submenus 5/7
+0x08ec7378,ui,ui_title_update_main_menu,M,update dispatcher for state 9 (FUN_08e9b8b4): subs 2,3,5,7,10,0xf
+0x08ec748c,ui,ui_title_draw_main_menu,M,draw dispatcher entry for state 9: layouts 6,5,0xe, lists 0x08eeac84 and 0x08eead04
+0x08ec7610,ui,ui_title_get_menu_bar_anim_phase,M,layout 0xe (m_menu_bar01) frame: <0x10 -> 0, ==0x10 starts loop 0x11-0x60 -> 1, <0x60 -> 2, else 3
+0x08ec76a4,ui,ui_title_init_main_menu,M,list 0x08eeac84 of 9 items at (0x72,0x31), item callback FUN_08ec7a30, layout 0xe
+0x08ec777c,ui,ui_title_handle_main_menu,M,list result 0-8 -> submenus or states 0xb, 0xd, 0xf, 0x10 (options), 0x22 (language); cancel -> state 5
+0x08ec7a30,ui,ui_title_draw_main_menu_item,M,list callback: title message 0x38+i (0x39+i past 8)
+0x08ec7b8c,ui,ui_title_open_main_submenu_0,M,sub 3: second list 0x08eead04 (2 items, extra when save_copy_partner_field bit 0 clear), callback FUN_08ec7de0
+0x08ec7cac,ui,ui_title_update_main_submenu_0,M,second list result 0-3 -> FUN_08e9e19c(1, 0x1b+i); cancel back to sub 2
+0x08ec7de0,ui,ui_title_draw_main_submenu_0_item,M,list callback: title message 0x29+i
+0x08ec7f18,ui,ui_title_open_deck_submenu,M,sub 5: list of 2-3 items (third when FUN_08ec8060), callback FUN_08ec82ec; items lead to states 0x12 (deck editor), 0x13, 0x14 (recipe viewer)
+0x08ec8060,ui,ui_title_has_any_character_deck,M,scans characters 2-0x8e and their variants (world_count_character_variants) with 0x08855548
+0x08ec8100,ui,ui_title_update_deck_submenu,M,list result 0/1/2 -> states 0x12/0x13/0x14; cancel back to sub 2
+0x08ec82ec,ui,ui_title_draw_deck_submenu_item,M,list callback: title message 0x4b+i (+1 after a disabled entry)
+0x08ec8450,ui,ui_title_open_database_submenu,M,sub 7: list of 9 items, callback FUN_08ec88c8; items lead to states 0x15 (charalist), 0x16 (card album), 0x17-0x1a, 0x28, 0x29, 6
+0x08ec85fc,ui,ui_title_update_database_submenu,M,list result 0-8 -> FUN_08e9e19c(1, 0x15/0x16/0x17/0x18/0x19/0x1a/0x28/0x29/6)
+0x08ec88c8,ui,ui_title_draw_database_submenu_item,M,list callback: title message 0x42+i
+0x08ec98cc,ui,ui_title_update_main_menu_save,M,state 9 sub 10: BGM fade, save_open(5, heap), polls 0x0884123c, then back to sub 10 or saved sub 0x08eea3f8
+0x08ec9a18,ui,ui_title_update_psid_warning,M,state 9 sub 0xf (entered when save_psid_checksum_changed): title message 8 box, then save_store_psid_checksum
+0x08ec9bd0,ui,ui_title_draw_psid_warning,M,draws message box 0x08eea594 (FUN_08e9e534) during sub 0xf steps 1-2
+# family title_mini_result
+0x08ea216c,ui,ui_title_enter_mini_result,M,sets state, ui_title_load_archive(3) (mini_result_j.ehp, ui.md) and sub 1
+0x08ea21c0,ui,ui_title_update_mini_result,M,state 0x30: ui_mini_result_create(heap, 0x08eeda2c, 2, {100, 0x8e94, 1}), update, destroy -> title (5) or main menu (9)
+0x08ea2328,ui,ui_title_draw_mini_result,M,draw for state 0x30: ui_mini_result_draw once sub-state > 2
+# family title_msgbox
+0x08e9e27c,ui,ui_title_reset_message_box,M,calls 0x08834d24 then 0x088338e4 on the message box; called at the end of ui_title_init_message_box and by 9 box openers
+0x08e9e2b0,ui,ui_title_init_message_box,M,memset 0x120 and defaults (rect 0x27,0xe0,0x191,0x2e, font 0xc/6, heap 0x08eea404 at +0xc4)
+0x08e9e500,ui,ui_title_call_draw_message_box,M,forwards (gu list, box) to the BOOT message box drawer 0x08833be4; caller title screen drawer
+0x08e9e534,ui,ui_title_draw_message_box,M,optionally centres the box on 480x272 (+0x58/+0x5a from size +0x6c/+0x6e) then draws it with 0x08833be4; 8 callers
+0x08ea86a0,ui,ui_title_init_tushin_message_box,H,ui_title_init_message_box + rect (0x3c,100,0x168,0x50), text ui_title_get_message(index, 0xc) (tushin_msg); 7 callers
+# family title_name_entry
+0x08ebc974,ui,ui_title_enter_name_entry,M,case 8 of title state switch FUN_08e9abd0; sets state 0x08eea3dc = 8 and inits layouts
+0x08ebc9c4,ui,ui_title_update_name_entry,M,update dispatcher for state 8 (from FUN_08e9b8b4); sub 3 saves then FUN_08e9abd0(9,0)
+0x08ebca74,ui,ui_title_init_name_entry_layouts,M,plays layouts 5,6 (yugi_bg01/03), 0xe (m_menu_bar01), 0x11 (chra_make01) via FUN_08ea0a94
+0x08ebcb00,ui,ui_title_init_name_prompt_box,M,message box 0x08eea594 with ui_title_get_title_message(0x4e)
+0x08ebd04c,ui,ui_title_update_name_entry_confirm,M,sub-states of state 8: layouts 0x11/0xe, confirm via FUN_08ebd470, name check FUN_08ebdb84, messages 0x28/0x50/0x51
+0x08ebd578,ui,ui_title_draw_name_entry,M,draw dispatcher entry for state 8 (FUN_08e9c3a0); layouts 6,5,0x11 and save_get_player_name text
+0x08ebd864,ui,ui_title_open_name_osk,H,title_msg index 0x27 + save_get_player_name passed to OSK starter FUN_08ecaa20 with callback FUN_08ebd98c
+0x08ebd92c,ui,ui_title_update_name_osk_step,M,sub-step 0 of state 8 sub 2 opens the name OSK
+0x08ebd98c,ui,ui_title_on_name_osk_done,M,OSK completion callback passed by ui_title_open_name_osk; sub-step 3 -> 4
+0x08ebd9e4,ui,ui_title_poll_name_osk,M,while state 8 sub 2 polls OSK updater FUN_08ecacd8; on finish returns to sub 1
+0x08ebda74,ui,ui_title_update_name_entry_save,M,save_open(5, heap 0x08eea404) then polls 0x0884123c until done; BGM fade 0x0884192c(600)
+0x08ebdb84,ui,ui_title_is_player_name_set,H,copies save_get_player_name and returns 1 if any of 8 chars is not 0, 0x20 or 0x3000
+# family title_options
+0x08eb9600,ui,ui_title_create_options_work,H,heap alloc 0x3c at 0x08eea3d0; string 'menu_opt01.gim' table; reads settings twice (FUN_08eb97c0); container_ehp_find_member of menu_opt0N.gim
+0x08eb97c0,ui,ui_title_read_option_settings,H,packs save option getters (0x088578c0, save_get_option_flag 0/5/2/4/3, volumes 0x088416f8(0..2)) into an 8-byte block
+0x08eb99bc,ui,ui_title_write_option_settings,H,inverse of read: save_set_option_flag, 0x08841724(volume n), 0x08857860/0x088577b4/0x08857aac/0x08857b18
+0x08eb9b04,ui,ui_title_free_options_work,H,system_heap_free(work+0x1c, work) of 0x08eea3d0
+0x08eb9b40,ui,ui_title_handle_options_input,M,pad 0x088284b8 directions move row work+4 with SE 0x7a04 (0x08841898); skips rows by language; calls ui_title_write_option_settings
+0x08eba5f0,ui,ui_title_copy_short4,H,copies four halfwords; used by the options input handler
+0x08eba64c,ui,ui_title_draw_options_screen,M,called by the state 0x10 draw entry FUN_08eca21c; calls option label/value/frame/help drawers
+0x08ebad9c,ui,ui_title_draw_options_cursor,M,maps selected row (work+4) to a column/row and draws through FUN_08ebb3f8
+0x08ebaff8,ui,ui_title_draw_option_value,M,switch on page/row reading settings bits (work+8, +9) and drawing choice, volume or toggle sprites
+0x08ebb3f8,ui,ui_title_draw_option_toggle,M,FUN_08ebb4cc frame at x+3 or x+0x2d depending on on/off value
+0x08ebb4cc,ui,ui_title_draw_options_frame,M,9 pieces from 4-short table 0x08ee5888 (columns x, x+4, x+w-5); sprite blit 0x088295a4
+0x08ebb788,ui,ui_title_draw_options_sprite,M,draws entry param_6 of 4-short table 0x08ee58d0 at (x,y) with sprite blit 0x088295a4
+0x08ebb8fc,ui,ui_title_draw_volume_bar,M,15 segments 7 px apart, segment style switches once index >= value
+0x08ebb9ac,ui,ui_title_draw_option_choice,M,draws 1-2 choice sprites 0x4c apart, blinking alpha by work+0x2c when the row is selected
+0x08ebbbc0,ui,ui_title_begin_textured_sprite_batch,M,sequence of GU state wrappers then 0x08829fd8(white) and texture bind 0x08823f1c(param_2)
+0x08ebbd1c,ui,ui_title_draw_option_message,H,string 'option_msg_j.bin' table + save_get_language, card_db_get_dictionary_word, optional centring by text width 0x08846168
+0x08ebbecc,ui,ui_title_draw_option_label,M,picks option_msg index per page/row and highlight flag, then FUN_08ebc810
+0x08ebc110,ui,ui_title_draw_option_volume,M,volume bytes work+0xa/+0xc/+0xe (rows 1-3; row 1 only for language 0) drawn with the volume bar
+0x08ebc210,ui,ui_title_draw_option_row_frame,M,frame (FUN_08ebb4cc) behind option rows on pages 0 and 3
+0x08ebc368,ui,ui_title_draw_option_help,M,bottom frame at (9,0xf8,0x1cf,0x16) and option message 0x1b+row
+0x08ebc4b4,ui,ui_title_draw_option_value_text,M,maps settings bits to option_msg indices 0x10-0x19 and draws them with FUN_08ebc810
+0x08ebc810,ui,ui_title_draw_option_text_colored,M,font size 0xd, colour from work +0x30/+0x34/+0x38 by highlight, then option message
+0x08ebc924,ui,ui_title_call_draw_option_message,M,forwards 6 args to ui_title_draw_option_message
+0x08ec9ff0,ui,ui_title_enter_options,H,case 0x10 of FUN_08e9abd0; ui_title_create_options_work(heap, menu archive, 0); layouts 5,6,0xe
+0x08eca0cc,ui,ui_title_update_options,M,state 0x10 update: layout 0xe intro, ui_title_handle_options_input, free work and FUN_08e9abd0(9,9)
+0x08eca21c,ui,ui_title_draw_options,M,draw dispatcher entry for state 0x10 (FUN_08e9c3a0): layouts 6,5,0xe then the options screen
+# family title_osk
+0x08ecaa20,ui,ui_title_start_osk,H,fills the OSK parameter block 0x09aedfcc (language, text copy with '$' escapes) and calls sceUtilityOskInitStart
+0x08ecacd8,ui,ui_title_update_osk,H,sceUtilityOskGetStatus/Update/ShutdownStart; copies the result to the caller buffer and calls the done callback
+# family title_partner
+0x08ea2060,ui,ui_title_update_partner_menu,M,sub 0 ui_partner_menu_create(heap, menu archive), sub 1 ui_partner_menu_update until 2, sub 10 ui_partner_menu_destroy
+0x08ea2120,ui,ui_title_draw_partner_menu,M,draw for state 0x2f: ui_partner_menu_draw when sub-state != 0
+# family title_popup
+0x08ea17e0,ui,ui_title_reset_popup_message,M,clears popup state 0x08eea3ec used by ui_title_update_popup_message; caller card trade resources
+0x08ea1804,ui,ui_title_open_popup_message,M,inits message box, rect by message id (0x73 special), text ui_title_get_message formatted by 0x088589c8 into 0x08eeda60, buttons by param_4
+0x08ea1c94,ui,ui_title_update_popup_message,M,popup state 0x08eea3ec 0-3: opens with ui_title_open_popup_message, polls 0x088345fc, returns result when box state +0xe9 == 6
+0x08ea1ec0,ui,ui_title_draw_popup_message,M,draws the box (optionally centred on 480x272) with 0x08833be4 while popup state 0x08eea3ec is 1-3
+0x08ea1fa8,ui,ui_title_cancel_popup_message,M,popup state 1-2 -> 3 with result 0xfffe, closes the box (0x08834ce0) and updates it
+# family title_resources
+0x08e9ccec,ui,ui_title_load_language_archive,M,optionally frees slot (lang+4) and save_set_language(0x08eeda18); then ui_title_load_archive(4 + save_get_language())
+0x08e9cdf8,ui,ui_title_init_menu_ctx,M,ui_menu_ctx_init(0x08eede64, ui_title_get_menu_archive()) then ui_menu_ctx_bind_image(ctx, 2)
+0x08e9cf14,ui,ui_title_on_archive_loaded,M,load callback (no callers): container_ehp_bind_with_callback(0, buf) when size > 0 and increments sub-state 0x08eea3e0
+0x08e9cf88,ui,ui_title_free_archive,H,system_heap_free(heap 0x08eea404, archive slot 0x08eeda20 + 4*i) (work +0x364c + 4*slot, ui.md)
+# family title_save_check
+0x08e9b22c,ui,ui_title_update_save_check,M,state 0x29 sub-state switch: 1 load (save_open 2), 2 and 3 title message boxes 0x36/0x37, 4 save_open 6, 5 -> state 0x2a
+0x08e9b2f0,ui,ui_title_update_save_check_prompt,M,sub 2 of state 0x29: SE 0x7a0c, ui_title_open_title_message_box(0x36, 2 buttons), result 1 -> sub 5, cancel -> main menu (9,7)
+0x08e9b4e4,ui,ui_title_update_save_check_load,M,sub 1 of state 0x29: save_open(2, heap 0x08eea404), polls 0x0884123c, then card_db_load_cardinfo/bind_cardinfo; next sub 2 or 3
+0x08e9b5ec,ui,ui_title_update_save_check_write,M,sub 4 of state 0x29: save_open(6, heap 0x08eea404) and polls 0x0884123c until done, then returns 1
+0x08e9b6b0,ui,ui_title_update_save_check_notice,M,sub 3 of state 0x29: SE 0x7a0c, ui_title_open_title_message_box(0x37, 3 buttons), on close -> main menu (9,7)
+0x08e9b7d8,ui,ui_title_draw_save_check,M,draw entry for state 0x29 (from the draw dispatcher): draws message box 0x08eea594 centred during subs 2 and 3
+# family title_scene
+0x08ea009c,ui,ui_title_switch_scene,H,clears frame callback, 0x08835ad0(1), system_wait_frame, system_scene_call(0xd, scene, arg); returns the scene id
+0x08ea172c,ui,ui_title_start_story,M,save_copy_partner_field, save_set_story_cycle(cycle), then ui_title_switch_scene(2, 0)
+0x08ec6a80,system,system_title_register_scene,H,system_scene_register(FUN_08ec6abc, end 0x08ec6e14, 0x09aedfc0); no callers (module entry)
+0x08ec6abc,system,system_title_scene_start,M,start callback given to system_scene_register: work init, system_scene_get_transition, picks the first title state
+0x08ec6e1c,ui,ui_title_init_work,H,memset 0x08eea3d4 0x3bec, system_heap_create(0x08eedfc0, 0xc00000) -> 0x08eea404, inits message boxes and lists
+0x08ec6f64,ui,ui_title_call_draw,M,no callers (callback); calls the title draw dispatcher FUN_08e9c3a0
+0x08ec6f84,ui,ui_title_release_work,M,no callers (callback); frees external lists (FUN_08ebf67c(0)), text line FUN_08ecb1e0 and 0x088428fc(0x08eea4d0)
+# family title_screen
+0x08ea237c,ui,ui_title_enter_title_screen,M,case 5: colours 0x08eea424/428, layouts 0 (main_title01) and 1 (press_start) bound, sub 0xc opens the title menu
+0x08ea24cc,ui,ui_title_update_title_screen,M,state 5: random voice SE 0x79c2 + rand%0x1c (language 0), idle 0x3dd frames -> state 3/0x23, START -> menu with colour fade
+0x08ea27fc,ui,ui_title_draw_title_screen,M,draw for state 5: layouts 0 and 1, title menu list 0x08eeac84 (subs 4/0xc), message box in sub 7
+0x08ea2944,ui,ui_title_init_title_menu,M,list 0x08eeac84 at (0x8c,0xc1,200,0x18); continue enabled by 0x08835a94; item callback ui_title_draw_title_menu_item
+0x08ea29f4,ui,ui_title_handle_title_menu,M,list result 0 -> save_init_new_game + state 8 (name entry), 1 -> step 5, 2 -> step 9, 3 -> state 6; cancel -> press start
+0x08ea2be8,ui,ui_title_draw_title_menu_item,M,list callback: font 0xf, colour ui_title_get_list_item_color, title message 0x1e + i
+0x08ea2d18,ui,ui_title_init_new_game_box,M,message box 0x08eea594 at (0x50,0x60,300,0x60) with text callback ui_title_draw_new_game_box_text
+0x08ea2e5c,ui,ui_title_update_new_game_box,M,fades, opens ui_title_init_new_game_box; result 0 -> state 8 (name entry), -2 -> state 5
+0x08ea2f7c,ui,ui_title_draw_new_game_box_text,M,box callback: font 0xe, white, ui_title_draw_message_text(title_msg 0x1e)
+0x08ea2ff4,ui,ui_title_update_new_game_save_probe,M,save_open(1, heap) then polls 0x0884123c (2 or 3) and enters state 8 (name entry)
+0x08ea3128,ui,ui_title_update_continue_load,M,save_open(4, heap), poll 0x0884123c (3 -> back to title), restores volumes, reloads language archive and cardinfo, then main menu (9,0)
+# family title_sprites
+0x08e9d004,ui,ui_title_get_image_record_name,M,returns the gim name of 0x98-byte image record i (table 0x08ee7510, name at +4, first 'konami_logo.gim')
+0x08e9d040,ui,ui_title_get_sprite_record_gim_name,H,gim name table 0x08ee62f0 + 0x40 * byte +1 of the 0x16-byte sprite record param_2 of table param_1
+0x08e9d090,ui,ui_title_get_gim_name,H,returns entry i of the 0x40-byte gim name table 0x08ee62f0
+0x08e9d12c,ui,ui_title_draw_image,M,forwards 5 args to ui_title_draw_image_offset with zero offsets and no colour; 10 callers
+0x08e9d190,ui,ui_title_draw_image_offset,M,forwards to ui_title_draw_image_full with -1 defaults; only caller ui_title_draw_image
+0x08e9d218,ui,ui_title_draw_image_full,M,copies 0x98-byte record of table 0x08ee7510, finds its gim (ui_title_get_sprite_record_gim_name) in the menu archive, binds and blits it
+0x08e9fef0,ui,ui_title_setup_sprite_render_state,M,chain of GU state wrappers (0x0882b3d4.., blend 0x0882a92c, colour 0xffffffff); mode 2 uses additive alpha 0x60000000; 15 callers
+0x08eb4b74,ui,ui_title_draw_menu_icon,M,binds sprite record 0x4a (table 0x08ee4d70) and draws icon param_2 as cell (i%0xe, i/0xe) of table 0x08ee53cc; 4 callers
+# family title_state
+0x08e9aa00,ui,ui_title_apply_pending_state,M,when fade state 0x08eea400 == 2 commits pending state/sub/step 0x08eea3de/3e2/3e6 (0xfff none, 0xffe increment) and calls the state enter switch
+0x08e9ab80,ui,ui_title_start_with_pending_state,M,called by the scene start; enters state 2 (resource load) and stores param_1/param_2 as pending state 0x08eea3de/sub 0x08eea3e2
+0x08e9abd0,ui,ui_title_enter_state,M,switch on state id calling the per-state enter functions (6 external cards, 8 name entry, 9 main menu, 0xb comm, 0x10 options, ...); 27 callers
+0x08e9b0d4,ui,ui_title_enter_minigame_menu,M,case 0xd of ui_title_enter_state; calls ui_minigame_menu_create(heap 0x08eea404, menu archive)
+0x08e9b154,ui,ui_title_update_minigame_menu,M,state 0xd of the update dispatcher; ui_minigame_menu_update result 3 -> destroy + main menu (9,6), 2 -> destroy + return 0x2e
+0x08e9b1d0,ui,ui_title_enter_state_with_black_fade,M,called by ui_title_enter_state; clears sub/step 0x08eea3e0/3e4/3e8, sets state, black fade 0x08844e0c(1,0xff000000,0x10) + 0x08844f8c
+0x08e9b8b4,ui,ui_title_update_state,M,reads pad, saves state 0x08eea3dc/sub into 0x08eea3fc/3fe, applies pending state and switches to per-state update functions
+0x08e9bb60,ui,ui_title_get_frame_counter,M,returns 0x08eea3d4 (first word of the title work, the frame counter read by the pulsing cursor frame); caller the scrollbar drawer
+0x08e9bb84,ui,ui_title_update_boot_load,M,state 0 update: FUN_08ea11b8(1), save_open(1, heap), poll 0x0884123c, card_db_load_cardinfo/bind_cardinfo -> state 2
+0x08e9bca4,ui,ui_title_enter_resource_load,M,sets state param_1 with pending state 3 and sub param_2; used for case 2 of ui_title_enter_state (resource load before the logos)
+0x08e9bcf0,ui,ui_title_update_resource_load,M,state 2: sub 0 FUN_08ea11b8(0) + ui_title_load_language_archive(0); sub 2 inits the menu ctx and enters the pending state
+0x08e9c3a0,ui,ui_title_draw_state,M,draw callback: GU setup then dispatch on displayed state 0x08eea3fc to per-state draw functions (5, 6, 8, 9, 0xb, 0x10, 0x22, 0x29 ...)
+0x08e9e0e4,ui,ui_title_request_state_with_steps,M,ui_title_request_state(fade, state, sub) and sets pending step 0x08eea3e6 and sub-step 0x08eea3ea
+0x08e9e144,ui,ui_title_request_state_with_step,M,ui_title_request_state then pending step 0x08eea3e6 = param_4, 0x08eea3ea = 0
+0x08e9e19c,ui,ui_title_request_state,M,starts a 0x10-frame fade and sets pending state 0x08eea3de/sub 0x08eea3e2 applied by ui_title_apply_pending_state; 30 callers
+0x08e9e1f4,ui,ui_title_request_state_fade_duration,M,like ui_title_request_state with an explicit fade duration (ui_title_start_screen_fade_black)
+0x08ea202c,ui,ui_title_enter_state_plain,M,called by ui_title_enter_state; sets state 0x08eea3dc = param and sub 0x08eea3e0 = 0
+# family title_tab_select
+0x08ea336c,ui,ui_title_enter_tab_select,M,state 0x21 enter: menu 0x08eea8f4 via ui_title_init_tab_select_menu, layouts 5, 6 (yugi_bg) and 0xe (m_menu_bar01)
+0x08ea3414,ui,ui_title_update_tab_select,M,steps layout 0xe, ui_title_update_menu(0x08eea8f4): cancel -> (9,0xc), pick -> state 0x24 with tab 0x08eeac02 and step = item
+0x08ea3594,ui,ui_title_draw_tab_select,M,draw for state 0x21: layouts 6, 5, 0xe, menu bar label and ui_title_draw_menu(0x08eea8f4)
+0x08ea36dc,ui,ui_title_init_tab_select_menu,M,ui_title_init_menu(0x08eea8f4) with 0x14 rows, tab callbacks ui_title_draw_tab_select_tab and caption ui_title_draw_tab_select_caption
+0x08ea37ac,ui,ui_title_draw_tab_select_tab,M,tab callback: frame 0x51 wide, image 0x42+i, title message i+9 coloured by selected tab 0x08eeac02
+0x08ea398c,ui,ui_title_draw_tab_select_caption,M,caption callback: image 0x3d and title message row + 0x1e/0x3e/9 by tab 0x08eeac02
+# family title_text
+0x08ea1288,ui,ui_title_draw_message_text,H,ui_title_get_message_table_name(k) member, card_db_get_dictionary_word(index), then ui_title_draw_text
+0x08ea132c,ui,ui_title_get_message_centered,M,gets message (table k, index), width 0x08846168 >> 6, returns centred x and width through pointers
+0x08ea141c,ui,ui_title_draw_message_styled,M,font size 0x088460f4, colour 0x08846124, 0x088485d4(1), then ui_title_draw_message_aligned; 13 callers
+0x08ea14a8,ui,ui_title_draw_message_aligned,H,message (table k, index) via card_db_get_dictionary_word passed to ui_title_draw_text_with_align
+0x08ea1564,ui,ui_title_draw_text_with_align,M,align 0/1 centred or plain ui_title_draw_text, 2/3 ui_title_draw_text_fit_width, 4 ui_title_draw_text_box
+0x08ec54f4,ui,ui_title_draw_date_time,M,five numbers (first %100) with separators and ':' (0x3a) via FUN_08ec578c, font size 9x10
+0x08ec578c,ui,ui_title_draw_number_text,M,writes digits right to left as chars 0x30+n with fixed advance, zero padding flag param_7
+0x08ec58c4,ui,ui_title_draw_sprite_number,M,digits from a 5x2 grid of 7x9 cells at (0x40,0x2e) of a menu gim, 6 px apart, right to left
+0x08ed0ffc,ui,ui_title_draw_text_aligned,M,alignment 0-3 using text width 0x08846168 >>6; calls FUN_08ed132c or FUN_08ed1228; 10 callers
+0x08ed1178,ui,ui_title_get_duelmenu_message,H,string 'duelmenu_msg_j.bin' table by save_get_language, container_ehp_find_member(panel archive), card_db_get_dictionary_word
+0x08ed1228,ui,ui_title_draw_text_fit_width,M,begin 0x0884874c, inner draw (x, y, w+2, text), end 0x0884877c; used for aligned modes 2/3
+0x08ed12a0,ui,ui_title_draw_text_box,M,begin 0x0884874c, inner draw (x, y, w+2, h+2, text), end 0x0884877c
+0x08ed132c,ui,ui_title_draw_text,M,begin 0x0884874c, inner draw (x, y, w+2, text), end 0x0884877c; aligned modes 0/1
+# family title_text_line
+0x08ecaff0,ui,ui_title_create_text_line,M,clears block 0x09aee180 (0x180), stores heap and geometry, then FUN_08ecb360; called from ui_title_init_work
+0x08ecb080,ui,ui_title_reset_text_line,M,resets text state, origin floats (x, 300.0, x, 210.0), font size and empty text, then layout
+0x08ecb1a4,ui,ui_title_copy_vec2,H,copies two words
+0x08ecb1e0,ui,ui_title_destroy_text_line,M,0x088428fc(0x09aee188) and memset of block 0x09aee180
+0x08ecb24c,ui,ui_title_set_text_line_font_size,M,writes 0x09aee220 and 0x09aee22c (passed to font size setter 0x088460f4)
+0x08ecb288,ui,ui_title_set_text_line_text,M,stores text pointer 0x09aee264, relayouts and splits lines
+0x08ecb338,ui,ui_title_mark_text_line_ready,M,sets 0x09aee180 = 1
+0x08ecb360,ui,ui_title_init_text_line_window,M,0x088425f8(0x09aee188, heap) and 0x08842654 with a 0x78-byte window config 0x09aee1d4
+0x08ecb490,ui,ui_title_layout_text_lines,M,measures window 0x08842f28 and places line records (0x18 bytes at 0x09aee274) one line height apart
+0x08ecb5fc,ui,ui_title_relayout_text_lines,M,same as ui_title_layout_text_lines from the stored origin 0x09aee2e8
+0x08ecb740,ui,ui_title_begin_text_line_font,M,saves font state 0x08848518 and sets size, colour 0x09aee224 and flags for the text line
+0x08ecb7fc,ui,ui_title_end_text_line_font,M,restores font state 0x0884850c(saved) and 0x08848734(0)
+0x08ecb830,ui,ui_title_split_text_lines,M,splits text 0x09aee264 across line records by fitted length, skipping a following space (0x20)
+# family title_tn_text
+0x08ed13a0,ui,ui_title_bind_tn_text_tables,H,finds TnId.bin, TnIndex.bin, TnText.bin (table 0x08ee94ec) in archive [*0x09aee300+4]; stores them at +0x8c/+0x90/+0x94
+0x08ed1458,ui,ui_title_get_tn_text,M,kind<2 forwards to BOOT 0x08836734(kind+1,id,sub); else searches TnId (+0x8c) for id and indexes TnIndex/TnText (+0x90/+0x94)
+# family title_window
+0x08eb55d4,ui,ui_title_init_list_window,M,0x34-byte list window: rect (0x32,0x32,0x17c,0xaa), 8 cells, cell rect (+5,+4,0x187,0x22), no callbacks
+0x08eb57d0,ui,ui_title_init_menu_tab,M,0x24-byte tab record: rect (0,0,0x40,0xf), position flags +10, colours 0xff808080
+0x08eb589c,ui,ui_title_init_menu,M,menu struct: mode +0x304, rect +0x306..+0x30c, 4 tabs (0x24 each), list window +0x90, message box +0xc4; 6 callers
+0x08eb5bd8,ui,ui_title_init_menu_message_box,M,message box at menu +0xc4 (memset 0x120) sized from the list window, heap param, cursor callback 0x08eb91dc
+0x08eb5e48,ui,ui_title_draw_list_window,M,frame (ui_title_call_draw_nine_slice_frame), cells, text (ui_title_draw_text_with_align), scrollbar and item callback +0x30; 10 callers
+0x08eb6444,ui,ui_title_draw_menu_tab,M,tab sprite style 0xf-0x1b chosen by tab position flags (+10 & 3) and selection; sprite record table 0x08ee4d70
+0x08eb6874,ui,ui_title_draw_menu_list_panel,M,menu mode 2: fixed frame, two header sprites with callback +0x310, rows with style-70 frames, cursor and scrollbar
+0x08eb6d2c,ui,ui_title_update_menu,M,L/R (0x100/0x200) switch tab +0x30e; updates message box +0xc4 (0x088345fc) and syncs list position; returns its result
+0x08eb6ea0,ui,ui_title_draw_menu,M,menu struct +0x304&3 mode: 1 = list window FUN_08eb5e48 + per-item 0x24-byte rows (count +0x30f, cursor +0x30e), 2 = FUN_08eb6874
+0x08eb7058,ui,ui_title_call_draw_nine_slice_frame,M,forwards all 9 args to FUN_08eb73a4; called by the list-window drawer with rect and style +0x18
+0x08eb70c8,ui,ui_title_draw_pulsing_cursor_frame,M,frame style 0x28 (trnsmt01.gim pieces) grown by frame counter 0x08eea3d4; blink mode DAT_08eeda48&3; 16 callers
+0x08eb7284,ui,ui_title_set_cursor_blink_mode,M,writes DAT_08eeda48 bits 0-1 and clears counter 0x08eede62 read by the pulsing cursor frame
+0x08eb72f8,ui,ui_title_draw_nine_slice_frame_style_70,M,FUN_08eb73a4(..., style 0x46, variant = param_2 != 0)
+0x08eb73a4,ui,ui_title_draw_nine_slice_frame,M,copies 0x16-byte records from sprite table 0x08ee4d70 + style*0x16 and draws 9 pieces; gim name via FUN_08e9d040
+0x08eb7b70,ui,ui_title_copy_sprite_record,H,copies the 0x16-byte sprite-table record (2 bytes + 10 halfwords)
+0x08eb7c4c,ui,ui_title_draw_nine_slice_frame_style_30,M,FUN_08eb73a4(..., style 0x1e (mein_menu00.gim pieces), 0, 0)
+0x08eb7cb0,ui,ui_title_draw_fixed_menu_sprite,M,binds gim of sprite record 0x1e (mein_menu00) and draws the record at 0x08ee50ca at (x,y) with sprite blit 0x088295a4
+0x08eb7e5c,ui,ui_title_calc_scrollbar_thumb,M,thumb size/pos from list fields +0x1b..+0x1e (pos, top, count, visible); same callers as the scrollbar drawer
+0x08eb7f9c,ui,ui_title_calc_scrollbar_thumb_ex,M,same formula as ui_title_calc_scrollbar_thumb with count/visible/pos passed as arguments
+0x08eb80bc,ui,ui_title_draw_scrollbar,M,called by list window after thumb calc with (x,y,h,thumb_pos,thumb_len); draws mein_menu00 sprite pieces
+0x08eb865c,ui,ui_title_draw_tushin_message_window,M,fills window struct 0x08eeac08 at rect, draws it, then FUN_08ea141c text with table k=0xc (tushin_msg)
+0x08eb88a4,ui,ui_title_draw_bottom_window,M,window struct 0x08eea984 at y=0xf3/0xf8 (bottom of 272 px), item callback param_2; rect depends on state 0xb/0xf
+0x08eb8b1c,ui,ui_title_draw_top_window,M,window struct 0x08eea984 at (4,0x1c,0x1d9,0x15), pulsing by 0x08eec1c0, item callback param_2
+0x08eb8db0,ui,ui_title_init_bottom_message_box,M,inits message box with FUN_08e9e2b0, rect (4,0xd4,0x1d9,0x21), text = ui_title_get_message(index,k)
+0x08eb8f84,ui,ui_title_draw_bottom_message_window,M,window 0x08eea984 at (4,0xd4,0x1d9,0x21) with text ui_title_get_message(param_2,param_3); font size 0xb
+0x08eb91f4,ui,ui_title_draw_left_panel_window,M,window struct 0x08eea984 at (4,0x62,0x140,0x84) with item callback param_2
+0x08eb93d8,ui,ui_title_draw_window_with_tushin_message,M,window 0x08eea984 at caller rect/style; text ui_title_get_message(param_8, 0xc) (tushin_msg) when param_8 >= 0
+0x08ebcc90,ui,ui_title_open_title_message_box,M,message box 0x08eea594 with title message param_1 formatted by 0x088589c8; button layout param_2 (1-3); 4 callers
+0x08ec4a04,ui,ui_title_draw_table_sprite,M,binds gim of sprite record param_2 (FUN_08e9d040, table 0x08ee4d70) and draws it
+# family title_wireless
+0x08ea3af8,ui,ui_title_clear_wireless_lobby,H,system_memset(0x08eead8c, 0, 0x1250): lobby block (count 0x08eead8c, entries 0x08eead90, players 0x08eeae44)
+0x08ea3b4c,ui,ui_title_fill_wireless_room_list,M,mode 4: 9 rows from 0x6c-byte records at 0x08eeb370 (card_db_get_name of +0x6a); else 9 rows from 0x08836724(0, i+1)
+0x08ea3e24,ui,ui_title_init_wireless_player_entries,M,memset 0x08eeae44 0x4a4; 9 player entries of 0x84 bytes filled from 100-byte records (name ptrs +0x14/+0x46, status nibbles)
+0x08ea3f9c,ui,ui_title_enter_wireless,M,case 0xf of ui_title_enter_state: ui_title_init_menu(0x08eea8f4), window 0x08eea984 rects, ui_title_create_duel_setup_panel, 0x088359a0
+0x08ea4230,ui,ui_title_update_wireless,M,state 0xf sub-state switch (4 menu, 5 rules, 6/7 lobby, 8 single, 9 tag, 0xe card trade, 0x10-0x13 card gift) after polling the session
+0x08ea458c,ui,ui_title_poll_wireless_session,M,session status 0x0885070c (7, 8, 9, 0x1f) drives handshake ui_title_update_wireless_handshake and error popups; 7 callers
+0x08ea504c,ui,ui_title_get_deck_source_name,M,type 0: player deck 0x0885681c or save_get_stored_deck name; 1: deck_get_recipe_name (< 0x1ce) or title msg 0x5e; 2: name buffers
+0x08ea51fc,ui,ui_title_pack_wireless_entry,M,copies entry fields +0x7a..+0x83 into packet +0x30..+0x39 and wcsncpy the deck name (ui_title_get_deck_source_name) 0x18
+0x08ea540c,ui,ui_title_send_wireless_deck,M,packet type 3 at 0x08eebacc with 0xc0-byte deck built by ui_title_build_wireless_duel_setup, sent with 0x08850a18(buf, 0xc4)
+0x08ea5534,ui,ui_title_receive_wireless_decks,M,reads peer packets 0x088509e8(i) of type 3 and copies their 0xc0-byte decks to 0x08eebcd4/0x08eebf14; 1 when all arrived
+0x08ea57cc,ui,ui_title_send_wireless_entry,M,packet type 2 (0x7e bytes) with own and partner entries packed by ui_title_pack_wireless_entry; 0x08850a18 send; 11 callers
+0x08ea5998,ui,ui_title_unpack_wireless_entry,M,inverse of ui_title_pack_wireless_entry: packet +0x30..+0x39 -> entry +0x7a..+0x83 and deck name at +0x3a
+0x08ea5b78,ui,ui_title_receive_wireless_entries,M,type 2 peer packets 0x088509e8(i): slot claim check, ui_title_unpack_wireless_entry, team via ui_title_get_wireless_peer_team
+0x08ea60dc,ui,ui_title_check_wireless_slot_claim,M,validates a peer claim against the slot table 0x08eebac8 (nibbles state/owner); host (0x08850af4 == 0) records claims
+0x08ea64b8,ui,ui_title_get_wireless_claim_state,M,with 3+ peers: own entry claim in 0x08eebac8 -> 1 free, 2 owned by self, 0 taken; else 2
+0x08ea65f4,ui,ui_title_update_wireless_handshake,M,step 0x08eead89: sends name packet type 1 (save_get_player_name), collects names, sends rules-dependent packets, syncs entries and decks
+0x08ea6e18,ui,ui_title_send_wireless_packet,H,optional memset 0x200, header bytes type/+2/+3, 0x08850a18(buf, size + 4), 0x08850b68 on success
+0x08ea6f00,ui,ui_title_update_wireless_entry_sync,M,receives entries then steps 0xf/0x11/0x13/0x16/0x17 of the slot claim protocol (SE 0x7a07 on refusal)
+0x08ea726c,ui,ui_title_build_wireless_duel_setup,M,duel set-up 0x0883634c from rules 0x08eebfdc-de and a received entry (+0x7a.. ids, recipe < 0x1ce or codes 0x1cf-0x1d2), duel_setup_load_decks
+0x08ea7680,ui,ui_title_start_wireless_duel,M,duel set-up from the 2 or 4 lobby entries (0x08eeae44) and rules, seed 0x7b, deck_get_recipe_name, then ui_title_switch_scene
+0x08ea7d48,ui,ui_title_collect_wireless_peer_names,M,memset entries 0x08eeae44; wcsncpy 0x10 chars of each peer packet name (0x088509e8(i) + 4) into entry +8
+0x08ea7e18,ui,ui_title_check_wireless_teams_ready,M,counts entries with state 2; 3-peer tag case derives the free team slot; returns 0 waiting, 1 or 2 ready
+0x08ea8090,ui,ui_title_get_wireless_peer_team,M,team/slot index of peer i from entry +0x83 depending on sub-state 8 and peer count (0x08850ad0)
+0x08ea8234,ui,ui_title_draw_wireless_substate,M,draw switch on sub-state of state 0xf (0 intro, 4 menu, 5 rules, 6/7 lobby, 8 single, 9 tag, 0xe card trade, 0x10-0x13 gift)
+0x08ea8370,ui,ui_title_init_wireless_menu,M,clears rules 0x08eebfdc (0x14), ui_title_init_wireless_list, tushin box 4, layouts 7, 10, 0xf
+0x08ea8504,ui,ui_title_init_wireless_list,M,ui_title_init_menu then rects (2,0x38,0x1c9,0x28), 9 rows, cursor callback ui_title_draw_wireless_cursor_frame
+0x08ea88c8,ui,ui_title_update_wireless_menu,M,sub 4 of state 0xf: input via ui_title_handle_wireless_menu_input, timers 0x08eec1c0, tushin boxes, layout steps
+0x08ea8fb4,ui,ui_title_draw_wireless_menu,M,sub 4 draw: layouts 0x08eec1c8/0xf, top window with ui_title_draw_wireless_top_caption, list window and tushin box 0x08eea6b4
+0x08ea918c,ui,ui_title_init_wireless_rules,M,message box 0x08eea594 with choice callback ui_title_draw_wireless_rule_choice; rules defaults, player name and deck_get_limit_list_name
+0x08ea93e0,ui,ui_title_update_wireless_rules,M,sub 5 of state 0xf: layout 0xf steps, ui_title_handle_wireless_rules_input per rule row 0x08eea3e8, exits 0x1c/0x1e
+0x08ea96c4,ui,ui_title_handle_wireless_rules_input,M,message box result per row 0x08eea3e8 writes rule bitfields 0x08eebfdc (mode, tag, bit 7), 0x08eebfdd, 0x08eebfde
+0x08ea9db0,ui,ui_title_draw_wireless_rules,M,sub 5 draw: layouts 8/0xf, top and bottom windows, help text, rules box 0x08eea594 and cursor
+0x08ea9fcc,ui,ui_title_draw_wireless_rules_help,M,tushin message 0x55/0x55+row/0x9c by rule row 0x08eea3e8 in window (8,0x5f,0x1d0,0xf)
+0x08eaa08c,ui,ui_title_draw_wireless_rule_choice,M,box callback: tushin message for choice i of row 0x08eea3e8 (0x5b+, 0x5f+, 99+, 0x65+, 0x67+, 0x97+)
+0x08eaa2e4,ui,ui_title_draw_wireless_rules_summary,M,tushin message for the current mode/rule values (0x29, 0x48, 0x4b+, 0x50+, 0x5a+, 0x5f+) from 0x08eebfdc-de
+0x08eaa4b0,ui,ui_title_init_wireless_lobby,M,list window 0x08eeac3c (8 cells, callback ui_title_draw_wireless_lobby_entry), bottom message, tushin box 4; host flag 0x08eead85
+0x08eaa724,ui,ui_title_update_wireless_lobby,M,subs 6/7 of state 0xf: init + clear lobby, layout 0xf steps, input via ui_title_handle_wireless_lobby_input
+0x08eaa994,ui,ui_title_handle_wireless_lobby_input,M,cursor result 0-7 select entry, 9 start (single 8/tag 9 or trade 0xe via ui_card_trade_clear_offer_list), -2 -> exit 0x1c
+0x08eaaaec,ui,ui_title_select_wireless_lobby_entry,M,entry < 9: join if fewer than 1/3 picked (SE 0x7a05, session cmd 6); 9: start with count (cmd 7); else SE 0x7a07
+0x08eaad04,ui,ui_title_poll_wireless_lobby_cursor,M,pad +4/+0xc directions move grid cursor 0x08eeac57 of the lobby window (SE 0x7a04), confirm/cancel results
+0x08eab27c,ui,ui_title_draw_wireless_lobby,M,subs 6/7 draw: layout 7 or 8, top window, box 0x08eea594, lobby list window 0x08eeac3c, caption, cursor and tushin box
+0x08eab500,ui,ui_title_draw_wireless_lobby_cursor,M,pulsing cursor frame on cell 0x08eeac58 of the lobby grid (rows/cols from window 0x08eeac3c)
+0x08eab6a0,ui,ui_title_draw_wireless_lobby_caption,M,tushin message 0x94/0x95 (single/tag) or 0x96 (mode 2) at (8,0x5e,0x1d0,0xf)
+0x08eab76c,ui,ui_title_draw_wireless_lobby_entry,M,cell callback: entry frame, icons 0/0xb/0xe, tushin message 0x17+i and the two name strings of entry i (0x08eeae44)
+0x08eabaa8,ui,ui_title_draw_wireless_entry_frame,M,sprite record 0x4a of table 0x08ee4d70 bound from the menu archive, drawn dimmed (0xa0ffffff) when not available
+0x08eabc88,ui,ui_title_init_wireless_single_duel,M,resets cursors and 0x08eead88 bit 5; binds layouts 0xb (d_menu_bg01), 0xd (d_menu_vs01), 0xf
+0x08eabe64,ui,ui_title_update_wireless_single_duel,M,sub 8 of state 0xf: vs layout steps, duel setup panel timer, deck select (0x23-0x25), exits 0x1c/0x1e
+0x08eac390,ui,ui_title_set_wireless_own_slot,M,fills own entry (0x08eead85) status nibbles, ui_title_set_duel_setup_slot_full with its name; marks the other slot
+0x08eac558,ui,ui_title_call_handle_comm_single_duel_input,M,ui_title_handle_comm_single_duel_input(0); caller ui_title_update_wireless_single_duel
+0x08eac57c,ui,ui_title_draw_wireless_single_duel,M,sub 8 draw: layouts 0xb/0xf/0xd with SE 0x7a81/0x7a82 on vs frames, duel setup panel, cursor table 0x08ee4bbc
+0x08eac9f8,ui,ui_title_init_wireless_tag_duel,M,cursor from peer count 0x08eead8c, team bits 0x08eead88, layouts 0xf, 0xd, 0xb, 0xc (d_menu_partner)
+0x08eacc04,ui,ui_title_get_charalist_choice,M,charalist selected character/variant (0x08ede818/820) or default 2, deck id 0x08ec3830, usable flag from 0x0885bcb8/0x0885bcc4
+0x08eacd94,ui,ui_title_init_wireless_tag_slots,M,own entry gets the player deck (0x0885681c name), partner slot (+2) a charalist pick via ui_title_get_charalist_choice
+0x08ead120,ui,ui_title_assign_wireless_cpu_partner,M,fills the partner entry 0x08eead88&0xf from ui_title_get_charalist_choice and sets cursor 0x08eeac74/78 to 1 or 4
+0x08ead3d8,ui,ui_title_update_wireless_tag_duel,M,sub 9 of state 0xf: layouts, slots (ui_title_update_wireless_tag_slots), deck/partner pick 0x23-0x26, exits
+0x08ead960,ui,ui_title_load_wireless_external_decks,M,for slot types 1/0x2e reads 0x1c0-byte records via 0x0884c978/0x0884ca30(1)/0x0884cbbc (max 0x100), then deck select 0x24
+0x08eadc28,ui,ui_title_update_wireless_tag_slots,M,slot input by peer count (2: ui_title_handle_wireless_tag_input_2p, step 4/5 others); 0x3c-frame commit of a CPU partner
+0x08eaded0,ui,ui_title_handle_wireless_tag_input_2p,M,two-peer tag: pad moves cursor 0x08eeac74 by 2, confirm claims a slot (ui_title_claim_wireless_tag_slot) and sends the entry
+0x08eae808,ui,ui_title_claim_wireless_tag_slot,M,writes own and partner entries with ui_title_set_wireless_entry_fields for the chosen cursor slot; fails if the slot is taken (0x08eebac8)
+0x08eaec48,ui,ui_title_mark_wireless_entry_ready,M,sets own entry status nibble (+0x82 of 0x84 record) to 2, and the partner's in 2-peer tag or step 6 with 3 peers
+0x08eaed9c,ui,ui_title_set_wireless_entry_fields,H,setter of entry +0x7a/+0x7c/+0x7e halfwords and nibbles +0x80..+0x83 from 11 arguments
+0x08eaeef8,ui,ui_title_open_wireless_slot_action,M,action 1/2/3/4 stores cursor in 0x08eec38e and requests step 0x23 (deck), 0x25 (character) or 0x26 (partner) with SE 0x7a05
+0x08eaf130,ui,ui_title_handle_wireless_tag_input_team,M,tag step 4: up/down and left/right move cursor 0x08eeac74 in a 2x2 grid, confirm claims a slot and sends the entry
+0x08eaf808,ui,ui_title_handle_wireless_tag_input,M,tag default step: pad 0x8000 on cursor 1/4 starts a CPU partner pick (0x08eede60), up/down/confirm open slot actions
+0x08eafcc0,ui,ui_title_clamp_tag_slot_index,M,returns param for 0-3, else 0; caller ui_title_handle_wireless_tag_input_team
+0x08eafd40,ui,ui_title_clamp_tag_cursor_index,M,switch returning 0-3 unchanged, else 0; caller ui_title_claim_wireless_tag_slot
+0x08eafdb4,ui,ui_title_enter_wireless_deck_select,M,ui_title_clear_deck_lists, slot of entry 0x08eead84 (type 1/0x2e chooses tabs), layout 4 frame, ui_title_build_deck_list
+0x08eaff84,ui,ui_title_update_wireless_deck_select,M,step 0x24: fades, input ui_title_handle_wireless_deck_select_input, sends the entry, returns to step 8
+0x08eb01c0,ui,ui_title_handle_wireless_deck_select_input,M,ui_title_handle_deck_select_input(list, &tab, &index): -2 cancel (3), pick -> ui_title_apply_wireless_selected_deck (4)
+0x08eb0298,ui,ui_title_apply_wireless_selected_deck,M,tab 2: copies 0x40-byte name and deck (ui_title_copy_deck_cards) of a 0x1c0 record; ui_title_set_wireless_entry_fields on 0x08eeb2e8
+0x08eb0420,ui,ui_title_draw_wireless_tag_duel,M,sub 9 draw: layouts 0xb/0xf/0xd/0xc with SE 0x7a81/0x7a82, panels, cursor, slot marks; 0x23-0x25 deck/character pickers
+0x08eb0838,ui,ui_title_draw_wireless_tag_cursor,M,pulsing cursor frame at positions from tables 0x08ee4c24/64/a4 by step 0x08eea3e8 and cursor 0x08eeac74
+0x08eb0bac,ui,ui_title_draw_wireless_tag_slot_marks,M,per ready entry (status 2) draws image marks at slot positions from tables 0x08ee4cf4/d14/d34
+0x08eb2290,ui,ui_title_stub_noop_wireless_sub_0a,M,empty; case 10 of ui_title_update_wireless
+0x08eb2298,ui,ui_title_stub_noop_wireless_sub_0b,M,empty; case 0xb of ui_title_update_wireless
+0x08eb22a0,ui,ui_title_stub_noop_wireless_sub_0c,M,empty; case 0xc of ui_title_update_wireless
+0x08eb22a8,ui,ui_title_stub_noop_wireless_sub_0d,M,empty; case 0xd of ui_title_update_wireless
+0x08eb2c18,ui,ui_title_handle_wireless_menu_input,M,updates box 0x08eea9b8; confirm row 0 -> 9, rows with entry id 0x1d/0x1e (0x08eead94) -> row, cancel -2 (SE 0x7a06)
+0x08eb2e04,ui,ui_title_draw_wireless,M,draw entry for state 0xf (draw dispatcher): ui_title_draw_wireless_substate and frame counter 0x08eea3d8 + 1
+0x08eb2e74,ui,ui_title_draw_wireless_list_window,M,window 0x08eea984 at (4, 0x32/0x3a, 0x1c9, 0x28) with row count/visible param, item callback ui_title_draw_wireless_list_item
+0x08eb30a0,ui,ui_title_draw_wireless_scroll_list,M,window 0x08eea984 at (0x1ce,0x3a,0xf,0xcc) plus scrollbar (ui_title_calc_scrollbar_thumb, ui_title_draw_scrollbar)
+0x08eb3340,ui,ui_title_draw_wireless_top_caption,M,window callback: tushin message 0x34-0x43 chosen by sub-state and step of state 0xf
+0x08eb36c4,ui,ui_title_draw_wireless_list_item,M,row callback of the wireless list windows (state 0xf subs 4/5): icons, texts and number fields per row
+0x08eb465c,ui,ui_title_get_wireless_help_index,M,tushin help index by sub-state: rules row 0x82+/0x87+/0x89+/0x8b-0x8d, 0x90, 0x8f/0x92, 0x37-0x39
+0x08eb47f8,ui,ui_title_draw_wireless_bottom_caption,M,window callback: tushin message 0x2b-0x33 by sub-state, greyed 0xff808080 when not enough entries
+0x08eb4ad0,ui,ui_title_draw_wireless_cursor_frame,M,pulsing cursor frame at the row (x-4, y-5) or at (0x62,0xf8,0x11b,0x15) when 0x08eeac70 is set
+0x08eb4e84,ui,ui_title_load_wireless_charalist,M,system_module_load(0xd) (rel_charalist), 0x08eeda4c = 0xd, waits system_module_all_loaded then sets library flag bit 4
+0x08eb4f84,ui,ui_title_update_wireless_partner_pick,M,charalist open(2, heap) (0x08ede7e0), polls 0x08ede7f0; 1 -> ui_title_apply_wireless_partner_pick and send entry
+0x08eb5220,ui,ui_title_apply_wireless_partner_pick,M,charalist character/variant (0x08ede818/820) and deck id 0x08ec3830 into entry 0x08eead84 via ui_title_set_wireless_entry_fields
+0x08eb5330,ui,ui_title_update_wireless_intro,M,sub 0 of state 0xf: black fade, tushin message box 0x15 (0x08eea6b4), after close fades back to sub 1
+0x08eb54c8,ui,ui_title_draw_wireless_intro,M,sub 0 draw: tushin box 0x08eea6b4 centred while step 0x14
+0x08eb5578,ui,ui_title_close_wireless_charalist,M,if library flag and module 0xd: charalist close 0x08ede830 then ui_title_unload_library_module
+# family title_wireless_gift
+0x08eb22b0,ui,ui_title_init_wireless_card_gift,M,resets cursors and colours, binds layouts 8 and 0xf; caller ui_title_update_wireless_card_gift
+0x08eb2360,ui,ui_title_update_wireless_card_gift,M,subs 0x10-0x13: sub 0x13 grants card 0x08eec1c4 three times (save_change_card_count) with tushin box 1, else box 3
+0x08eb27d4,ui,ui_title_draw_wireless_card_gift,M,draw for subs 0x10-0x13: layouts 8/0xf, windows, help message and tushin box 0x08eea6b4
+0x08eb2a08,ui,ui_title_draw_wireless_card_gift_help,M,tushin message 0x55 for subs 0x10-0x13 in window (9,0x67,0x135,0x10)
+0x08eb2ad0,ui,ui_title_draw_wireless_card_gift_caption,M,window callback: tushin message 0x34 at y+0x10, colour 0xff404040

@@ -2,3 +2,381 @@
 # Evidence in docs/subsystems/ui.md (scene map).
 address,group,name
 0x08eaa6a8,ui,ui_deck_get_resource
+# Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
+# Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
+# family card_images
+0x08ead6a4,ui,ui_find_card_image_index,M,binary search of the fileTbl.dat layout (u16 count, ascending u16 ids; resource 0x8031) for a card id; returns the slot or 0
+0x08ead718,ui,ui_count_card_artworks,M,counts pairs with this card id in the sameCardTbl layout (u32 count, (u16 id, u16 n) pairs; resource 0x8032)
+0x08ead768,ui,ui_find_card_artwork_slot,M,index of the pair (id, n) in the sameCardTbl layout, or -1
+0x08eae584,ui,ui_get_card_thumbnail_cell,M,image index -> page /0x187, cell (i%0x17)*0x16, (i/0x17)*0x1e; marked cards use the selected artwork (BOOT 0x088565dc, sameCardTbl)
+0x08eae6b4,ui,ui_draw_card_thumbnail,M,22x30 thumbnail from the cell of 0x08eae584 with optional shadow; 6 callers including card move and command menu
+0x08eae82c,ui,ui_draw_card_entry_badges,M,over a list entry: recipe flag 0x40 frame, copy count (<=99), blinking marker, limit icon from deck_get_card_limit
+0x08eaeb58,ui,ui_draw_card_frame_plate,M,plate sprite by frame category (0x08ead7b4) in three widths (<0x96, <0xfa, wider)
+# family card_move
+0x08e9d310,deck,deck_start_card_move,M,allocates the 0x250-byte move record 0x08ebe3b0 for the cursor card, checks limits and copies; returns an error code (9 on alloc failure)
+0x08e9e23c,deck,deck_start_undo_move,M,pops a 10-byte record with 0x08ea9014 and starts a 0x250-byte move record that reverses it (state 7)
+0x08e9e720,deck,deck_start_card_transfer,M,allocates the 0x250-byte move record for the cursor card with a destination per list and pushes an undo record (0x08ea8f48)
+0x08e9ee94,deck,deck_update_card_move,M,state machine on move record byte 0 (states 0-8): flight, wait for sprite (BOOT 0x08842d3c), drop via deck_add_list_entry, free
+0x08e9f27c,deck,deck_handle_card_move_input,M,during a move: left/right cycle the destination (+7 bits 2-4), up/down scroll the target pane; buttons from BOOT 0x08836a98; sound 0x7a04
+0x08e9f608,deck,deck_animate_card_move_flight,M,quadratic Bezier from +0x230 via +0x238 to +0x240 over 10 frames into screen position +0x248/+0x24a
+0x08e9fa64,deck,deck_finish_card_move,M,drop phase: 0x08ea049c, deck_count_cards_by_frame, re-centres both pane cursors with 0x08ea8c24
+0x08e9ffe8,deck,deck_free_card_move,H,releases sprite +0x24c (BOOT 0x08842c58), heap_free of it and of move record 0x08ebe3b0, clears the pointer
+0x08ea0064,ui,ui_draw_card_move,M,draws the moving card thumbnail (0x08eae6b4) at move +0x248/+0x24a with resources 0x8001/0x8002/0x8032
+0x08ea0170,ui,ui_draw_card_move_target,M,draws the destination marker (0x08eb3e50) and the card at +0x1c/+0x20 depending on the move state
+0x08ea030c,ui,ui_place_card_move_label,M,label position +0x1c/+0x20/+0x24 from the destination list box (0x08ea53ac), written into label sprite +0x24c
+0x08ea0470,deck,deck_remove_card_move_source,H,deck_remove_list_entry(list from move +6 bits 2-4, index move +2)
+0x08ea049c,deck,deck_drop_card_move,M,copies the moved entry (move +0x28) with count 1 and adds it to the destination list via deck_add_list_entry
+0x08ea0534,ui,ui_get_card_move_sprite_state,M,finds among the 16 sprite slots at 0x08ebf13c the one whose +8 equals move +0x24c and returns its +0xa0
+0x08ea0584,ui,ui_get_list_slot_position,M,screen position (floats) of an index in a pane list from pane 0x08ebf1e0+0x2c*p and the list box; scrolls the pane when needed
+0x08ea090c,ui,ui_set_card_move_label,M,writes the destination label into move +0x2e: strTbl 0x16 formatted with the list name (0x08ea8bc0), or strTbl 0x55
+# family card_text
+0x08ea1a78,ui,ui_scroll_card_text,M,scrolls the description offset 0x08ebf1a8 by the analog value at pad +0x10 or automatically, wrapping at 0x08ebf1a4+0x76c0
+0x08ea8578,ui,ui_init_card_detail_panel,M,passes resources 0x8007/0x8009/0x8024/0x8011/0x8010 and 0x08ebf18c to BOOT 0x08837464, then ui_load_cursor_card_text
+0x08ea86e8,ui,ui_load_cursor_card_text,M,caches the cursor card id/image index, lays out card_db_get_description into 0x08ebf238 (0x08eb0964), resets text scroll 0x08ebf1a8
+0x08eafa78,ui,ui_scroll_text_offset,M,adds a delta to offset +8 of a text view, clamped to 0..limit +0xc
+0x08eafac4,ui,ui_scroll_text_by_analog,M,analog value pad +0x14 above 0xc0 or below 0x40 scrolls the text view (0x08eafa78) by 6 per unit
+0x08eb0964,ui,ui_copy_text_flatten_newlines,H,copies a UTF-16 string up to n units, replacing 0x000a by a space; used for the cursor card description
+# family command_menu
+0x08ea5f8c,ui,ui_open_card_command_menu,M,0x18-byte state 0x09e0087c and a 0x120-byte window titled strTbl 0x50 for a card entry; disabled items in +0xdc; item callback 0x08ea7c5c
+0x08ea6334,ui,ui_reopen_card_command_menu,M,closes and reopens the command menu for a new entry keeping the cursor (+0xd2), adjusting for the 3-item variant
+0x08ea645c,ui,ui_update_card_command_menu,M,dispatch on menu state +2 (0 main, 1 tools, 2 deck, 3 layout, 4/5 trunk option, 10 closing); START sets help topic 0x08ebee07
+0x08ea65cc,ui,ui_draw_card_command_menu,M,draws windows +0x10 and +0x14 of 0x09e0087c with BOOT 0x08833be4
+0x08ea6618,ui,ui_close_card_command_menu,H,closes and frees windows +0x14 and +0x10 and the 0x09e0087c state
+0x08ea66c4,ui,ui_handle_card_command_choice,M,main menu choice: detail view, toggle card flag (BOOT 0x0885640c), toggle key-card flag (0x08ea9408), open tools/deck/layout sub-menus
+0x08ea69b0,ui,ui_finish_card_command_menu,M,after closing: choice 7 deck_start_undo_move, choice 6 deck_reset_list_view and re-sort of the pane list
+0x08ea6acc,ui,ui_open_command_submenu,M,builds the 0x120-byte sub-window +0x14 with strTbl title/prompt ids, item count and draw callback
+0x08ea6c9c,ui,ui_open_list_tools_submenu,M,ui_open_command_submenu(strTbl 0x4d, 4 items); choices handled by 0x08ea6d04 (sort, filter, search, trunk option)
+0x08ea6d04,ui,ui_handle_list_tools_submenu,M,choice 0 ui_open_sort_menu, 1 ui_open_filter_menu, 2 ui_open_text_search_menu, 3 trunk option sub-menu; -2 back
+0x08ea6ee8,ui,ui_open_deck_options_submenu,M,ui_open_command_submenu(strTbl 0x4c, 6 items); disables items when lists exceed 60/15/15 or when editing another owner's deck
+0x08ea6fac,ui,ui_handle_deck_options_submenu,M,choices 0-2 set 0x08ebee08 for the recipe viewer, 3 deck_reload_editor_lists, 4 deck_return_deck_cards_to_trunk, 5 rename (strTbl 0xd)
+0x08ea71bc,ui,ui_open_layout_submenu,M,ui_open_command_submenu(strTbl 0x45) with the current layout from ui_select_layout_index as cursor
+0x08ea7348,ui,ui_handle_layout_submenu,M,d-pad previews a layout (0x08ea8398), confirm/cancel close; resets the list view when the layout changes
+0x08ea76ec,ui,ui_open_trunk_option_submenu,M,ui_open_command_submenu(strTbl 0xb4, 0xb5, 3 items); checked item = BOOT 0x088576bc()
+0x08ea7758,ui,ui_handle_trunk_option_submenu,M,stores the chosen value (+0xe) and opens the confirmation window 0x08ea77fc; -2 back to the tools sub-menu
+0x08ea77fc,ui,ui_open_trunk_option_confirm,M,centred 0x120-byte yes/no window with strTbl 0x34
+0x08ea798c,ui,ui_handle_trunk_option_confirm,M,yes: BOOT 0x088576e4(value), deck_reset_list_view(trunk) and pane cursor reset; no: back to the main menu
+0x08ea7b6c,ui,ui_draw_menu_highlight_bar,M,fills two 4-vertex colour strips (0xff479fc1/0xffa9d7e9) with BOOT 0x088290a4
+0x08ea7c5c,ui,ui_draw_card_command_items,M,window callback: card thumbnail, card flag icon, key-card icon, then the item rows with highlight
+0x08ea7f4c,ui,ui_draw_command_item_label,M,item label 0x08ebd4f8[item] via 0x08eb3d88, grey 0xff808080 when the item bit in window +0xdc is set
+0x08eb3d88,ui,ui_draw_command_item_button,M,builds a {resource, uv, 17x17, strTbl label} record from a 6-byte item and draws it with ui_draw_labelled_button
+# family deck_message
+0x08ea1f54,ui,ui_open_deck_message,M,clears 0x08ebe3b8/0x08ebe4d8 and builds a message by type from strTbl (0x8033) entries, card names and limit status
+0x08ea24b4,ui,ui_update_deck_message,M,updates message window 0x08ebe3b8 (BOOT 0x088345fc); START sets the help topic; closes it and acts on the answer
+0x08ea2620,ui,ui_draw_deck_message,M,draws window 0x08ebe3b8 with BOOT 0x08833be4
+# family deck_rules
+0x08e9b860,deck,deck_count_forbidden_cards,H,counts entries of lists 0, 2 and 1 for which deck_get_card_limit returns 0
+0x08ea1d38,deck,deck_check_deck_legality,H,main total <40 returns 1, >60 main or >15 side/extra other codes; forbidden or over-limit cards (copies in lists 0-2) return 5 with the id
+# family editor_draw
+0x08eb1028,ui,ui_draw_deck_editor_screen,M,clears, then background layers, cursor card info 0x08eb3730, panes 0x08eb28a0, overlays 0x08eb120c; OSK backdrop while name input runs
+0x08eb120c,ui,ui_draw_editor_overlays,M,cursor frame (resource 0x8006), card move, filter/sort/search/message/command menu windows, button guide by state 0x08ebee00
+0x08eb14f4,ui,ui_draw_editor_background,M,chains background layout, list tabs layout, row stripes, header, pane status, frame counts and frame bar drawers
+0x08eb154c,ui,ui_draw_background_layout,M,plays layout resource 0x8025 or 0x8021 (by 0x08ebf1a1 bit 7) with the frame counter via BOOT 0x0881ec8c
+0x08eb162c,ui,ui_draw_list_tabs_layout,M,plays layout resource 0x8022 (player deck) or 0x8023 (other owner's deck) via BOOT 0x0881ec8c
+0x08eb16c0,ui,ui_draw_editor_header,M,deck name 0x08ebedc0, strTbl 0x59 and 0x8e labels, number 0x08ebee0e (card kinds counted by the trunk builder)
+0x08eb17dc,ui,ui_draw_list_row_stripes,M,7 or 6 translucent row stripes per pane depending on the layout, 4 vertices each (0x08eb1980), BOOT 0x088290a4
+0x08eb1980,ui,ui_fill_row_stripe_vertices,M,writes 4 vertices (x, y, x+w, y+1) with colours 0x33000000/0x19000000
+0x08eb19e0,ui,ui_draw_pane_status,M,sort key/direction icons (0x08eab354/0x08eab444), filter icon and view count, trunk option icon, scrollbar, list tabs
+0x08eb1fb0,ui,ui_draw_list_tabs,M,for each available list (6, card list pool only when the save card list is non-empty) draws tab count and label at 0x08ea5448 rects
+0x08eb22ac,ui,ui_draw_list_tab_count,M,clip rect (BOOT 0x0882ae8c) and list total (+0xc) as a number with 0x08ead9ec
+0x08eb2374,ui,ui_draw_list_tab_label,M,strTbl label 0x08ebdb9c[list] in the tab rect, white for the current list else grey 0xffbfbfbf
+0x08eb24d0,ui,ui_draw_frame_category_counts,H,draws the 7 counters at 0x08ebee10 (cards per frame category) as sprite numbers (resource 0x8009)
+0x08eb25c8,ui,ui_draw_frame_category_bar,M,proportional bar: segment lengths from the 7 counters at 0x08ebee10 over their sum, horizontal or vertical by layout
+0x08eb2768,ui,ui_draw_frame_category_segment,M,one stretched 3x1 sprite of resource 0x800a whose v row is the frame category
+0x08eb28a0,ui,ui_draw_editor_panes,M,draws pane 0 and, in two-pane layouts, pane 1 as grid (0x08eb2aa4) or list rows (0x08eb2940/0x08eb3250) by pane list-mode bit
+0x08eb2940,ui,ui_draw_list_rows_detailed,M,list-mode pane: one 0x08eb2ce8 row per visible view entry from the scroll position
+0x08eb2aa4,ui,ui_draw_card_grid,M,grid pane: thumbnail (0x08eae6b4) and badges (0x08eae82c) per visible cell, columns +0x22 x rows +0x26
+0x08eb2ce8,ui,ui_draw_card_row_detailed,M,row: frame plate, thumbnail, card_db_get_name, attribute/race/icon icons, level, ATK/DEF, badges
+0x08eb3250,ui,ui_draw_list_rows_compact,M,list-mode pane in two-pane layouts: one 0x08eb33b4 row per visible view entry
+0x08eb33b4,ui,ui_draw_card_row_compact,M,compact row: frame plate, thumbnail, badges, name, ATK/DEF or level (card_db getters)
+0x08eb3730,ui,ui_draw_cursor_card_info,M,cursor card: BOOT 0x08837f14 panel in small layouts, else attribute, race/icon, level, ATK/DEF, card flag icon and name
+0x08eb3e50,ui,ui_draw_pane_shade,M,translucent 0x80000000 rectangle over a pane and optionally over its tab (0x08ea53ac); used under popups for the other pane
+0x08eb3f9c,ui,ui_draw_sort_group_header,M,label for the cursor entry's sort group (0x08eab9d0): top letter, frame, icon, attribute, level, ATK/DEF or count by sort key
+# family editor_lists
+0x08e9aa00,deck,deck_alloc_editor_list_buffers,M,heap_alloc of capacity*6 entries (+4) and capacity*2 view indices (+0x10) from u16 capacity table 0x08ebd234 indexed by list id
+0x08e9aa90,deck,deck_init_editor_lists,M,for lists 0-5 at 0x08ebed00 (0x20 bytes each) calls builder table 0x08ebd21c, sums counts, sorts; copies list 2 into list 4; caller 0x08ea842c
+0x08e9abc4,deck,deck_build_trunk_list,H,loops card ids 0xe88-0x1f39, card_db_is_valid, free copies via BOOT 0x08836104 (or partner deck counts), stores {id, image index, count} entries
+0x08e9ad8c,deck,deck_build_main_deck_list,M,reads deck slot section 1 via BOOT 0x088569b0/0x08856ad0 into 6-byte entries, flags save card list state 1; list 0 = main (stored deck +0xc)
+0x08e9aff0,deck,deck_build_side_deck_list,M,same as the main builder for deck slot section 2 and card list state 2; list 2 is written to stored deck +0x84 (side) by 0x08e9c5b0
+0x08e9b254,deck,deck_build_extra_deck_list,M,same builder for deck slot section 3 and card list state 3; list 1 is the extra deck (fusion/synchro go to list 1 in 0x08e9d080)
+0x08e9b448,deck,deck_build_card_list_pool,M,collects save card list entries whose state is not 1-3 (written back with state 4 by 0x08e9cbd0) into list 5, flagged 0x80
+0x08e9b5c0,deck,deck_copy_editor_list,M,copies entries pointer (+4), count (+8) and view indices (+0x10, count +0x14) of a list; optionally reallocates a 0x28-byte view buffer
+0x08e9b648,deck,deck_free_editor_lists,H,heap_free of view (+0x10) and entry (+4) buffers of the six lists at 0x08ebed00, skipping entries of list 4 (shared copy)
+0x08e9b6d4,deck,deck_find_list_card,H,linear search of list entries (+4, 6 bytes, count +8) for a card id; returns index or -1
+0x08e9b720,deck,deck_count_list_copies,H,sums entry counts (byte 4 & 0x7f) of a card id in a list; with the flag also counts entries passing card_db_is_same_name
+0x08e9b7ec,deck,deck_get_list_card_count,H,sums copies of a card id in a list into *out; returns 1 when a matching entry has flag 0x80
+0x08e9b998,deck,deck_remove_list_entry,M,removes entry index from a list (compacts 6-byte entries and the view index array), mirrors the change in the list 2/list 4 pair; bounds checked
+0x08e9bbd4,deck,deck_add_list_entry,M,adds a 6-byte entry: merges counts into an existing trunk (list 3) entry or appends, inserts into the view, mirrors list 2/4
+0x08e9be00,deck,deck_insert_view_index,M,rebuilds the view index array (+0x10/+0x14) with an entry index inserted at a position (heap temp buffer)
+0x08e9bf7c,deck,deck_count_cards_by_frame,M,clears 7 u16 counters at 0x08ebee10 and counts lists 0 and 1 per category 0x08ead7b4(card_db_get_frame)
+0x08e9c084,deck,deck_reload_editor_lists,M,rebuilds all lists from the builders, resets list cursors (+0x18..+0x1d) and pane scroll, rereads slot 1 name; deck menu choice 3
+0x08e9c258,deck,deck_return_deck_cards_to_trunk,M,moves every entry of lists 0-2 into the trunk list 3 (or list 5 when flagged 0x80) and empties the deck lists; deck menu choice 4
+0x08e9c564,deck,deck_update_list_total,H,stores the sum of entry counts (byte 4 & 0x7f) of a list at list +0xc
+0x08e9c5b0,deck,deck_save_to_stored_deck,H,n<50: save_get_stored_deck, lists 0/2/1 to deck +0xc/+0x84/+0xa2, flag-0x20 cards to card list +0x114, name 0x08ebedc0, flag 1
+0x08e9c760,deck,deck_load_deck_into_editor,M,empties deck lists, then for each id of a 0xc0-byte deck takes a copy from the trunk/list 5 into lists 0-2; optional name copy to 0x08ebedc0
+0x08e9cbd0,deck,deck_commit_editor_to_slot,M,writes lists 0/2/1 to deck slot sections 1/2/3 (BOOT 0x08856bd4/0x08856a3c), flagged cards to the save card list (states 1-4)
+0x08ea0884,deck,deck_get_list_view_position,M,trunk (list 3): view position of the card id; other lists: the view count +0x14
+0x08ea93d0,deck,deck_is_main_or_side_list,H,returns 1 for list ids 0, 2 and 4, else 0
+0x08ead7b4,deck,deck_get_frame_category,M,maps card_db_get_frame values 0-3, 10, 7, 8 to categories 0-3, 4, 5, 6; -1 otherwise
+# family editor_main
+0x08ea09c0,deck,deck_editor_update,M,per-frame input dispatch on state 0x08ebee00 (browse, move, command menu, sort, filter, search) unless a sub-screen is open
+0x08ea0b60,deck,deck_editor_handle_browse_input,M,browse state: confirm starts deck_start_card_move (errors to ui_open_deck_message), triangle command menu, square/select list switch
+0x08ea0f5c,deck,deck_editor_handle_tool_input,M,confirm/cancel (BOOT 0x08836a98) start a transfer or toggle the card flag (BOOT 0x0885640c/0x08856478); square sort, triangle filter, select undo
+0x08ea5a94,deck,deck_editor_register_scene,H,system_scene_register(0x08ea5d04 main, 0x08ea5e1c exit, 0x09e00870)
+0x08ea5ac8,deck,deck_editor_scene_enter,M,clears work areas, decodes the transition word into 0x08ebee0c (owner kind, slot), system_heap_create 0xf41000, loads archive, init state
+0x08ea5d04,deck,deck_editor_scene_main,M,scene loop: frame callback 0x08ea5edc, deck_editor_update until done, fade, deck_commit_editor_to_slot, system_scene_return(4)
+0x08ea5e1c,deck,deck_editor_scene_exit,M,deck_free_editor_lists, frees sprites 0x08ebf13c, stops/unloads helper module 0x08ebf194, destroys the heap
+0x08ea5edc,ui,ui_draw_deck_editor_frame,M,frame callback: draws by sub-screen bits of 0x08ebf1dc (help, detail view, tutorial, recipe viewer) or the editor (0x08eb1028)
+0x08ea842c,deck,deck_editor_init_state,M,deck_init_editor_lists, save_read_edit_block(0x08ebeee0), panes = lists 0 and 3, layout from BOOT 0x08857728, fonts, deck name (slot 1 or strTbl 0x9c)
+0x08ea9074,ui,ui_check_editor_tutorial_hints,M,entry mode 1: raises save progress bytes 0-3 (first visit, a fusion owned, >149 cards) and opens message type 7 with the hint index
+0x08ea97bc,deck,deck_editor_update_subscreens,M,per frame: tutorial, detail view, help page or recipe viewer sub-screen by 0x08ebee06/0x08ebee07; else idle timer and card text refresh
+# family editor_overlay
+0x08eafdf0,ui,ui_draw_button_guide,M,panel (0x08eafb40) with strTbl labels from tables 0x08ebdb68/0x08ebdb74 chosen by button bits (0x1000, 0x4000, ...) and confirm button 0x08836a98
+# family editor_state
+0x08ea966c,deck,deck_get_editor_entry_mode,M,returns bits 0-1 of 0x08ebee0c (from the scene transition word)
+0x08ea967c,deck,deck_get_editor_owner_kind,M,returns bits 2-3 of 0x08ebee0c: 0 player, 1 partner (save_get_partner), 2 slot from the transition word
+0x08ea9690,deck,deck_get_editor_slot,H,returns bits 4-11 of 0x08ebee0c, the deck slot (owner) being edited
+0x08ea96a4,deck,deck_is_editing_other_deck,M,deck_get_editor_owner_kind() != 0
+# family filter_menu
+0x08ea264c,ui,ui_open_filter_menu,M,0x18-byte state 0x08ebecdc and a 0x120-byte window titled strTbl 0xa7; notes whether any card is card_db_is_card_marked
+0x08ea28e8,ui,ui_update_filter_menu,M,state machine of 0x08ebecdc: a category choice opens the value window (0x08ea3278), -2 closes
+0x08ea2a5c,ui,ui_handle_filter_value_window,M,value window input; on confirm deck_filter_list_view with the chosen bits, re-centres the cursor, message type 6
+0x08ea3118,ui,ui_close_filter_menu,H,closes and frees the two windows (+0x10, +0x14) and the 0x08ebecdc state
+0x08ea31a4,ui,ui_draw_filter_menu,M,draws the other pane marker (0x08eb3e50) then windows +0x10 and +0x14 of 0x08ebecdc
+0x08ea3278,ui,ui_open_filter_value_window,M,0x120-byte window sized from range table 0x08ebd2ac[category] (first, last), item callback 0x08ea3504
+0x08ea3504,ui,ui_draw_filter_value_items,M,window callback: draws the value items with labels from 0x08ea3f74 and check marks (resource 0x8006)
+0x08ea3f74,ui,ui_get_filter_value_label,H,label by category: strTbl tables 0x08ebd2fc/0x08ebd30c/0x08ebd314, card_db_get_race_name, _attribute_name, _genre_name
+# family filter_predicates
+0x08ea469c,deck,deck_filter_by_frame,H,mask bit 0x08ead7b4(card_db_get_frame(id))
+0x08ea46dc,deck,deck_filter_by_race,H,card_db_is_monster and mask bit card_db_get_race(id)
+0x08ea4740,deck,deck_filter_by_attribute,H,card_db_is_monster and mask bit card_db_get_attribute(id)
+0x08ea47a4,deck,deck_filter_by_level_range,H,monster whose card_db_get_level bit is in the union of level masks 0x08ebd354/56/58 selected by mask bits 0-2
+0x08ea4880,deck,deck_filter_by_spell_trap_icon,H,frame 7 (spell) or 8 (trap) and card_db_get_icon mapped to mask bits 0x02-0x200
+0x08ea49e0,deck,deck_filter_by_limit,H,mask bit deck_get_card_limit(id)
+0x08ea4a2c,deck,deck_filter_by_genre,M,card_db_get_genres words against the mask; options: new cards (save_get_card_state 1), cards with alternative artwork (sameCardTbl)
+# family help_viewer
+0x08eb4580,ui,ui_draw_filled_rect,M,colour (BOOT 0x08829fd8) on a 1x1 sprite scaled to w x h
+0x08eb4620,ui,ui_call_draw_sprite_part,M,forwards to 0x08eb4640; 8 callers in the help viewer
+0x08eb4640,ui,ui_draw_sprite_part,H,BOOT 0x0882979c(size, uv size) then 0x088295a4(x, y, u, v)
+0x08eb46bc,ui,ui_draw_nine_slice,M,four corners, four edges and centre of a frame texture with given corner sizes (0x08eb4620/0x08eb4640)
+0x08eb48ec,ui,ui_help_init_text_view,M,clears state 0x09e00a40 (0xec bytes), stores heap/texture, sprite list 0x09e00a50 at (200,0x20) size 0x113x0xcd, sets text
+0x08eb49d8,ui,ui_help_set_text,M,resets scroll 0x09e00b18, stores the text pointer, sets the font, computes the text height and view height
+0x08eb4a64,ui,ui_help_draw_text_view,M,scrollbar (0x08eb4f7c), separator, clipped text at the scroll offset, optional picture below it
+0x08eb4c10,ui,ui_help_free_text_view,H,BOOT 0x088428fc on sprite list 0x09e00a50 and memset of the 0xec-byte state 0x09e00a40
+0x08eb4c44,ui,ui_help_scroll_text_by_analog,M,analog value pad +0x14 >0xc0 / <0x40 scrolls 0x09e00b18, clamped to the view height 0xc3
+0x08eb4d40,ui,ui_help_set_picture,M,stores a picture texture 0x09e00a4c and its size (BOOT 0x088246c4(tex, 4) +8/+0xa), updates the content height
+0x08eb4d9c,ui,ui_help_update_content_height,H,0x09e00b28 = text height 0x09e00b1c + picture height 0x09e00b24 + 10
+0x08eb4dc0,ui,ui_help_set_text_font,M,font options (BOOT 0x0884862c/0x088486dc/0x088485d4/0x0884857c), size 14, black
+0x08eb4e08,ui,ui_help_draw_cursor_frame,M,nine-slice frame from uv (0,0x70) 11x11 corners, colour argument or 0xff389dff default
+0x08eb4ef0,ui,ui_help_draw_cursor_frame_blink,M,wrapper of 0x08eb4e08 called with the frame counter when the list is active
+0x08eb4f48,ui,ui_help_draw_cursor_frame_flash,M,wrapper of 0x08eb4e08 called with the frame counter in the confirm (state 4) phase
+0x08eb4f7c,ui,ui_help_draw_scrollbar,M,track, end caps, thumb sized visible/total and positioned by offset, pulsing up/down arrows when scrollable
+0x08eb5244,ui,ui_draw_three_part_column,M,draws a top, stretched middle and bottom sprite stacked vertically
+0x08eb5358,ui,ui_help_draw_scrollbar_track,M,forwards to 0x08eb5244; called with (x, y+6, h-12) by ui_help_draw_scrollbar
+0x08eb53b4,ui,ui_help_draw_scrollbar_thumb,M,forwards to 0x08eb5244; called with the thumb position and size by ui_help_draw_scrollbar
+0x08eb5420,ui,ui_help_draw_scrollbar_caps,M,two 7x6 sprites at the top and bottom of the track (0x08eb4620)
+0x08eb5480,ui,ui_help_draw_scroll_up_arrow,M,forwards to 0x08eb4620; drawn when the content can scroll up
+0x08eb5494,ui,ui_help_draw_scroll_down_arrow,M,forwards to 0x08eb4620; drawn when the content can scroll down
+0x08eb54a8,ui,ui_help_open,M,clears state 0x09e00b2c (300 bytes), finds window01.gim, picks chapter tables by topic group, sets up lists, text, footer, fade
+0x08eb5738,ui,ui_help_open_topic,M,chapter = 0x08eb60d4(topic), page = 0x08eb6164(topic); ui_help_open then sets the chapter list cursor
+0x08eb57c4,ui,ui_help_update,M,per frame: topic/chapter lists, input (0x08eb5c6c), page change reloads text, close fades out; returns 1 when closed
+0x08eb5b2c,ui,ui_help_draw,M,title bar, text view, chapter list, dim when inactive, footer and topic list
+0x08eb5bd0,ui,ui_help_close,M,frees topic list, chapter list, text view, footer, sprite list 0x09e00b94 and the buffer 0x09e00b58; clears state
+0x08eb5c6c,ui,ui_help_read_input,M,START or cancel (0x08836a98) returns 3, triangle returns 1 while the chapter list is active, else 0
+0x08eb5d0c,ui,ui_help_load_chapter,M,chapter range from table 0x09e00b8c[chapter] (first, last) into the chapter list (init 0x08eb7914 or 0x08eb7ae8)
+0x08eb5d8c,ui,ui_help_load_page_text,M,strTbl index = table entry + base 0x09e00b88 + page; card_db_get_dictionary_word, init or set the text view
+0x08eb5e30,ui,ui_help_update_page_index,M,0x09e00b60 = page + chapter first entry - (base 0x09e00b78 + 1)
+0x08eb5e88,ui,ui_help_draw_title_bar,M,two filled bars (0xffa0cedf, 0xff48a3be), icon sprite and strTbl entry 8 as title
+0x08eb5fa0,ui,ui_help_set_title_font,M,font options, size 15, black
+0x08eb6074,ui,ui_help_get_topic_group,H,returns 1 for topics 0xd-0x18, 0 otherwise; selects the chapter tables in ui_help_open
+0x08eb60b4,ui,ui_help_index_to_chapter,H,returns index + 0x09e00b84
+0x08eb60c4,ui,ui_help_chapter_to_index,H,returns chapter - 0x09e00b84
+0x08eb60d4,ui,ui_help_get_topic_chapter,M,switch mapping a help topic (0x08ebee07) to a chapter 0xd-0x13 and above
+0x08eb6164,ui,ui_help_get_topic_page,M,switch mapping a help topic to its page number inside the chapter
+0x08eb6414,ui,ui_help_init_footer,M,clears state 0x09e00c58 (0xd0 bytes), sprite list 0x09e00c64 at (5,0xee) size 0x1d6x0x1e
+0x08eb64e4,ui,ui_help_draw_footer,M,button hints with language-dependent offsets (save_get_language switch) and strTbl labels
+0x08eb67bc,ui,ui_help_free_footer,H,BOOT 0x088428fc on sprite list 0x09e00c64 and memset of the 0xd0-byte state 0x09e00c58
+0x08eb67f0,ui,ui_help_set_footer_font,M,font options, size 14, black
+0x08eb69e4,ui,ui_help_init_topic_list,M,clears 0x09e00d28, list widget 0x09e00d40 at (0x4b,0x1e) 0x191x0xd0 with callbacks 0x08eb6f90/0x08eb6fe8/0x08eb71bc/0x08eb7400
+0x08eb6b44,ui,ui_help_set_topic_list_range,M,count = last - first + 1, cursor, rebuilds sprite list 0x09e00d74 for the window
+0x08eb6c40,ui,ui_help_update_topic_list,M,list input then open/close animation states 0-7 of 0x09e00d28 (BOOT 0x08842ca8/0x08842d3c/0x08842cf0)
+0x08eb6de4,ui,ui_help_draw_topic_list,M,list widget draw (0x08eb769c), frame (0x08eb46bc) and the strTbl title of the selected topic
+0x08eb6ed4,ui,ui_help_free_topic_list,M,releases list widget 0x09e00d40 and sprite list 0x09e00d74, clears 0x09e00d28
+0x08eb6f14,ui,ui_help_set_topic_list_active,H,sets bit 0 of 0x09e00d44
+0x08eb6f38,ui,ui_help_show_topic_list,H,sets state 0x09e00d28 = 1 (start opening)
+0x08eb6f48,ui,ui_help_get_topic_cursor,H,ui_list_widget_get_cursor(0x09e00d40)
+0x08eb6f54,ui,ui_help_get_topic_list_result,M,state 7 (closed): 2 when cancelled (result 2), else 1; 0 while open
+0x08eb6f90,ui,ui_help_topic_list_scrollbar_cb,M,list callback: ui_help_draw_topic_scrollbar(0x1d1, 0x1e, 0xd0, offset, height)
+0x08eb6fe8,ui,ui_help_draw_topic_item,M,list item callback: bullet sprite and strTbl entry first + index
+0x08eb71bc,ui,ui_help_draw_topic_cursor,M,list cursor callback: blinking, flashing or plain frame (0x08eb4ef0/0x08eb4f48/0x08eb4e08) by state
+0x08eb7314,ui,ui_help_draw_topic_scrollbar,M,filled separator and ui_help_draw_scrollbar for the topic list
+0x08eb7400,ui,ui_help_measure_topic_item,M,list height callback: wrapped height of the strTbl topic text at the item width
+0x08eb7498,ui,ui_help_set_list_font_flags,M,font options (BOOT 0x0884862c/0x088486dc/0x088485d4/0x0884857c) without size or colour
+0x08eb74cc,ui,ui_help_set_list_font_white,M,ui_help_set_list_font_flags, size 14, white
+0x08eb74fc,ui,ui_help_set_list_font_black,M,ui_help_set_list_font_flags, size 14, black
+0x08eb7914,ui,ui_help_init_chapter_list,M,clears 0x09e00e48 (0x118 bytes), list widget 0x09e00e60 at (7,0x1f) 0xbf x 0xcd with callbacks, sets the range
+0x08eb7ae8,ui,ui_help_set_chapter_range,H,first/last at 0x09e00f58/0x09e00f5c, count = last - first + 1, cursor 0
+0x08eb7b1c,ui,ui_help_update_chapter_list,H,ui_list_widget_update(0x09e00e60)
+0x08eb7b28,ui,ui_help_draw_chapter_list,H,ui_list_widget_draw(0x09e00e60)
+0x08eb7b34,ui,ui_help_free_chapter_list,M,releases list widget 0x09e00e60 and sprite list 0x09e00e94, clears 0x09e00e48
+0x08eb7b74,ui,ui_help_set_chapter_list_active,H,ui_list_widget_set_enabled(0x09e00e60, on)
+0x08eb7b84,ui,ui_help_get_chapter_cursor,H,ui_list_widget_get_cursor(0x09e00e60)
+0x08eb7b90,ui,ui_help_set_chapter_cursor,H,ui_list_widget_set_cursor(0x09e00e60, n)
+0x08eb7ed4,ui,ui_help_draw_chapter_cursor,M,list cursor callback: plain or blinking frame (0x08eb4e08/0x08eb4ef0) by the active bit 0x09e00e64
+0x08eb7f94,ui,ui_help_draw_chapter_scrollbar,M,list callback: places sprite list 0x09e00e94 and draws ui_help_draw_scrollbar for the chapter list
+0x08eb8054,ui,ui_help_measure_chapter_item,M,list height callback: wrapped height of the strTbl chapter text, indented when 0x08eb8178 matches
+0x08eb8130,ui,ui_help_set_chapter_font,M,font options, size 14, black
+0x08eb8178,ui,ui_help_is_sub_item,M,true when the first character of a text equals that of strTbl entry 6 of the second table (indent marker)
+# family icon_draw
+0x08ea3ae8,ui,ui_draw_icon_grid_7col,M,resource 0x800b: 17x17 sprite at column index%7, row index/7 (+0x33)
+0x08ea3bec,ui,ui_draw_icon_16px,M,16x16 sprite from resource 0x800c by index (8 per row); indices 11-12 from resource 0x800a via table 0x08ebd2f4
+0x08ea3dc0,ui,ui_draw_table_icon_a,M,17x17 sprite whose resource id and uv come from 6-byte table 0x08ebd274[index]; caller 0x08eb19e0
+0x08ea3eb0,ui,ui_draw_filter_check_mark,M,26x26 sprite at uv (0x9a,0xc0) of resource 0x8006; drawn by the filter value item callback
+0x08eab354,ui,ui_draw_table_icon_b,M,17x17 sprite whose resource id and uv come from 6-byte table 0x08ebda60[index]; caller 0x08eb19e0
+0x08eab444,ui,ui_draw_table_icon_c,M,17x17 sprite whose resource id and uv come from 6-byte table 0x08ebdaa4[index]; caller 0x08eb19e0
+0x08eadaec,ui,ui_draw_frame_box,M,nine-part frame from 6x6 corner sprites at uv (0xd5,0x7a)-(0xfa,0x9f) plus stretched edges
+0x08eadd68,ui,ui_draw_sprite_rect,H,binds the texture, sets size rect[2..3], draws at rect[0..1] with uv rect[4..5] (BOOT 0x088295a4)
+0x08eade00,ui,ui_draw_race_icon_sprite,M,17x17 cell ((race-1)%7, (race-1)/7), special cell for 0x15; only caller ui_draw_race_icon (card_db_get_race)
+0x08eadeb0,ui,ui_draw_spell_trap_icon_sprite,M,17x17 cell (icon-1)*0x11 at v 0x33; only caller ui_draw_spell_trap_icon (card_db_get_icon)
+0x08eadf2c,ui,ui_draw_attribute_icon_sprite,M,17x17 cell by attribute (7->0xe, 9->0xd, 8->7 remapped) at v +0x44; only caller ui_draw_attribute_icon
+0x08eadfec,ui,ui_draw_group_header_sprite_a,M,17x17 cell index*0x11 (index 4: uv (0,0x80)); only caller ui_draw_group_header_icon_a
+0x08eae080,ui,ui_draw_group_header_sprite_b,M,17x17 cell index*0x11 with row from 0x08ebdafe; only caller ui_draw_group_header_icon_b
+0x08eae0d4,ui,ui_draw_group_header_sprite_c,M,17x17 cell index*0x11+0x33 with row from 0x08ebdb0a; only caller ui_draw_group_header_icon_c
+0x08eae12c,ui,ui_draw_level_badge,M,9x9 star sprite then a 19x11 number cell ((n-1)%6, (n-1)/6); callers pass card_db_get_level (0x08eb3730)
+0x08eae284,ui,ui_draw_stat_value,M,label sprite by kind (2, 3 or text 0/1) and the value digits; 0x08eb3730 passes ATK<<16|2 and DEF<<16|3
+0x08eaeddc,ui,ui_draw_toggle_icon,M,17x17 sprite at u 0/0x11/0x22, v 0x22 for state 0/1; used for the card flag in the command menu
+0x08eaf358,ui,ui_draw_labelled_button,M,draws a sprite rect from a record and its text label (12-px font, colour by record +0xc)
+0x08eafb40,ui,ui_draw_panel_frame,M,nine-part panel from 4/5-px corner and edge sprites at uv (0..5, 0x36..0x3b), stretched to w x h
+0x08eb3b00,ui,ui_draw_race_icon,M,resource 0x8007 + 0x08eade00; callers pass card_db_get_race
+0x08eb3b6c,ui,ui_draw_spell_trap_icon,M,resource 0x8007 + 0x08eadeb0; callers pass card_db_get_icon
+0x08eb3bd8,ui,ui_draw_attribute_icon,M,resource 0x8007 + 0x08eadf2c; callers pass card_db_get_attribute
+0x08eb3c44,ui,ui_draw_group_header_icon_a,M,resource 0x800a + 0x08eadfec; only caller the sort group header 0x08eb3f9c
+0x08eb3cb0,ui,ui_draw_group_header_icon_b,M,resource 0x8009 + 0x08eae080; only caller the sort group header 0x08eb3f9c
+0x08eb3d1c,ui,ui_draw_group_header_icon_c,M,resource 0x800a + 0x08eae0d4; only caller the sort group header 0x08eb3f9c
+# family key_cards
+0x08ea9408,deck,deck_set_key_card_flag,M,sets or clears entry flag 0x20 on all copies of a card id in the three lists of table 0x08ebd588
+0x08ea94c0,deck,deck_has_key_card,M,returns 1 when an entry of the lists in table 0x08ebd594 has flag 0x20
+0x08ea9570,deck,deck_count_key_cards,M,counts distinct card ids with flag 0x20 in the three lists of table 0x08ebd5a0
+0x08eaeecc,ui,ui_draw_key_card_icon,M,12x12 sprite at uv (0x24,0x4c); drawn when entry flag 0x20 is set (0x08ea7c5c)
+0x08eb0478,deck,deck_slot_key_list_contains,M,returns 1 when the card id is in the deck slot list read with BOOT 0x08856f8c (count) / 0x08856fe8 (entry)
+0x08eb04f0,deck,deck_card_list_contains,M,returns 1 when the card id is in a card list read with BOOT 0x08856fb0 (count) / 0x08857018 (entry); null list -> 0
+# family layout
+0x08ea4e54,ui,ui_set_editor_layout,M,layout table 0x08ebd3f4 (8 bytes each): list-mode bits and 0x1e-byte pane geometry from 0x08ebd35c for both panes; restores cursors
+0x08ea52d4,ui,ui_select_layout_index,M,maps (pane count, mode, list-mode flags of both panes) to a layout index 0-7 or -1
+0x08ea53ac,ui,ui_get_list_box_extent,M,returns x | width<<16 (9-bit fields) of a list from 10-byte tables 0x08ebd440/0x08ebd47c/0x08ebd4b8 by layout mode
+0x08ea5448,ui,ui_calc_list_tab_rect,M,tab rectangle of a list header from the layout tables, narrowed against neighbouring tabs (0x08ea53ac)
+0x08ea56b4,ui,ui_calc_list_tab_rect_narrow,M,same as 0x08ea5448 with a fixed 0x22-pixel tab width
+0x08ea58e4,ui,ui_get_list_tab_frame,M,layout frame index from layout mode, list ids of both panes and whether the save card list is non-empty
+0x08ea59c4,ui,ui_play_list_tab_frames,M,BOOT 0x0881e914(layout 0x8022, or 0x8023 for another owner's deck, frame, frame+1) with the frame from 0x08ea58e4
+0x08ea5a2c,ui,ui_patch_layout_for_other_deck,M,when editing another owner's deck copies two 9-bit fields of layout table 0x08ebd454/0x08ebd458 into 0x08ebd45e/0x08ebd462
+0x08ea8398,ui,ui_apply_layout_choice,M,ui_set_editor_layout(choice) and, when going from one to two panes, re-selects the list of pane 0
+# family list_view
+0x08ea40b0,deck,deck_reset_list_view,M,view = all entries (trunk honours BOOT option 0x088576bc and card flag 0x08856478), clears filter bits, deck_sort_list_view(1, 0)
+0x08ea4524,deck,deck_filter_list_view,M,keeps view entries accepted by predicate table 0x08ebd330[category] (or 0x08ea4a2c for 7); category stored in view bits 6-9
+0x08eab528,deck,deck_sort_list_view,H,builds (view index, position, key from 0x08eab7cc) records, system_qsort ascending/descending, stores key (+0x16 bits 0-3) and direction (bits 4-5)
+0x08eab7cc,deck,deck_get_card_sort_key,H,key by sort id: copies, limit, frame, sort position, icon tables, attribute, race, 0xffff-DEF/ATK/level (card_db getters)
+0x08eab9d0,deck,deck_get_card_group_key,M,group key per sort id (top group, frame, icon, attribute, race, ATK, DEF, level, copies); used by group jumps and headers
+# family list_widget
+0x08eb6838,ui,ui_list_widget_clear_result,H,clears the result word +8 of a list widget
+0x08eb6840,ui,ui_list_widget_handle_input,M,confirm sets result 1 (sound 0x7a05), cancel result 2 (0x7a06), up/down move the cursor +2 with wrap (0x7a04) when enabled
+0x08eb69b8,ui,ui_list_widget_set_enabled,H,sets bit 0 of byte +4 of a list widget
+0x08eb69d4,ui,ui_list_widget_get_cursor,H,returns u16 +2 of a list widget
+0x08eb752c,ui,ui_list_widget_reset,H,ui_list_widget_clear_result and clears scroll fields +0x30/+0x32
+0x08eb7558,ui,ui_list_widget_update,M,input, then keeps the cursor item visible by summing item heights from callback +0x2c and adjusting scroll +0x30
+0x08eb769c,ui,ui_list_widget_draw,M,background callback, clip rect (BOOT 0x0882ae8c), then visible items with item/cursor callbacks at the scroll offset
+0x08eb790c,ui,ui_list_widget_set_cursor,H,stores u16 cursor at +2 of a list widget
+# family module_imports
+0x08eb81c0,deck,deck_call_tutorial_draw,M,8-byte import stub outside the libehsys_rel block; called from the frame callback while 0x08ebf1dc bit 2 (deck tutorial running) is set
+0x08eb81c8,deck,deck_call_tutorial_start,M,import stub; deck_run_deck_tutorial passes the tutorial index (0x08ebee06 & 0xf) and {heap, archive} after starting module id 0x12
+0x08eb81d0,deck,deck_call_tutorial_update,M,import stub; deck_run_deck_tutorial polls it until non-zero, then stops and unloads module id 0x12
+0x08ebb278,deck,deck_call_recipe_viewer_start,M,import stub after the libehsys_rel block; deck_run_recipe_viewer passes mode 0x08ebee08, {heap, archive, callbacks} and the slot
+0x08ebb280,deck,deck_call_recipe_viewer_update,M,import stub; deck_run_recipe_viewer polls it while it returns -1
+0x08ebb288,deck,deck_call_recipe_viewer_draw,M,import stub; called from the frame callback while 0x08ebf1dc bit 1 (recipe viewer running) is set
+# family name_input
+0x08ea96c4,ui,ui_start_deck_name_input,M,0x08eb0b64(buffer, prompt, 16, arg); on success sets 0x08ebf1a0 bit 6 and clears 0x08ebf1dc bit 5
+0x08ea9730,ui,ui_update_deck_name_input,M,while 0x08ebf1dc bit 5 polls 0x08eb0d98(4) and clears 0x08ebf1a0 bit 6 when done, otherwise starts 0x08eb09b0
+0x08eb09b0,ui,ui_capture_screen_backdrop,M,copies the displayed frame buffer (sceGeEdramGetAddr, double-buffer offset 0x88000) to VRAM +0x174000 before the OSK
+0x08eb0a78,ui,ui_draw_captured_backdrop,M,draws the 480x272 copy at VRAM +0x174000 as a full-screen texture
+0x08eb0b64,ui,ui_start_osk_input,H,fills the OSK parameters at 0x09e00890 (language table 0x08ebdb84, confirm button, '$' escaping of the current text), sceUtilityOskInitStart
+0x08eb0d98,ui,ui_update_osk_input,H,sceUtilityOskGetStatus/Update/ShutdownStart; copies the result back with '$' doubled, calls the completion callback; returns 1 when done
+# family number_draw
+0x08ead84c,ui,ui_draw_sprite_number,M,draws a decimal number digit by digit from a glyph strip (7 px wide), optional zero padding
+0x08ead9ec,ui,ui_draw_text_number,M,draws a decimal number as font characters ('0'+digit) right to left with 0x08eadacc
+# family other_deck
+0x08eb05d0,deck,deck_get_other_deck_card_allowance,M,returns 3 when the card was seen (save_get_card_state != 0), is in the given recipe deck or in slot sections 1-3, else 0; tokens 0
+0x08eb07e8,deck,deck_get_other_deck_free_copies,M,deck_get_other_deck_card_allowance minus copies of the id in the slot sections (fusion/synchro: sections 3 and 2); trunk builder count
+# family pane_cursor
+0x08ea0e3c,ui,ui_handle_pane_scroll_input,M,pad +0xc bits: page up/down (0x08ea1584), jump to next/previous group (0x08ea1660), confirm re-sorts the view
+0x08ea108c,ui,ui_move_pane_grid_cursor,M,grid pane: moves column +8, row +0xa and scroll +6 by the d-pad bits of pad +0xc, wraps to the other pane via 0x08ea1478
+0x08ea12b4,ui,ui_move_pane_list_cursor,M,list-mode pane (+4 bit 0): moves row +0xa and scroll +6 by the d-pad, wraps to the other pane via 0x08ea1478
+0x08ea1478,ui,ui_switch_active_pane,M,sets active pane bits 4-5 of 0x08ebf1a0 and maps the cursor row into the new pane's row count
+0x08ea1584,ui,ui_scroll_pane_page,M,scrolls the active pane (+6) by one page of rows forwards or backwards, clamped to the view count
+0x08ea1660,ui,ui_jump_pane_to_group,M,moves the active pane cursor to the index returned by 0x08ea1794 (next/previous sort group)
+0x08ea1794,ui,ui_find_sort_group_index,M,scans the view from the cursor for the first entry whose 0x08eab9d0 group key differs (ATK/DEF keys /100); index or -1
+0x08ea1bcc,ui,ui_update_pane_cursor_rect,M,computes the cursor rectangle 0x08ebf132-0x08ebf138 from the active pane origin, cell pitch and cursor row/column
+0x08ea85f4,ui,ui_get_pane_cursor_index,H,scroll +6 + column +8 + row +0xa * columns (+0x22), or scroll + row in list mode
+0x08ea8660,ui,ui_get_pane_cursor_entry,H,entry (+4 + view[index]*6) of the pane list at ui_get_pane_cursor_index, or 0 past the view count
+0x08ea8818,ui,ui_cycle_pane_list,M,selects the next/previous/given list of a pane (6 lists, 3 in two-pane layouts), skipping unavailable ones; updates tabs (0x08ea59c4)
+0x08ea8bc0,ui,ui_get_list_name,H,strTbl (0x8033) entry from u16 table 0x08ebd578 for list ids < 6, else the empty string 0x08ebd584
+0x08ea8c24,ui,ui_place_pane_cursor,M,from an index, the view count and packed columns/rows computes scroll, column and row keeping the index visible
+0x08ea8dd8,ui,ui_store_pane_cursors,M,saves scroll/column/row of pane 0 and/or 1 into their list (+0x18, +0x1a, +0x1c, +0x1d)
+# family recipe_cards
+0x08e9cfdc,deck,deck_flag_owner_recipe_cards,M,skips slots 0, 1, 0x2e; by world_get_character_category (or slot 0x1b) calls 0x08e9d208 or 0x08e9d080
+0x08e9d080,deck,deck_flag_listed_recipe_cards,M,sets entry flag 0x40 on cards of the owner recipe (deck_load_slot_recipe) that are in the BOOT 0x0885b87c list for the owner stage (+0x48cc)
+0x08e9d208,deck,deck_flag_all_recipe_cards,M,sets entry flag 0x40 on each card of lists 0/1 that is in the owner recipe (deck_load_slot_recipe 0x08eb0578)
+0x08eb0578,deck,deck_load_slot_recipe,H,recipe = deck slot record +0x48d0 (save_get_state + 0x16c*slot); deck_load_recipe(recipe, out) when >= 0; returns found
+# family resources
+0x08eaa360,ui,ui_deck_find_resource,H,binary search of 12-byte records by u16 id; caller ui_deck_get_resource
+0x08eaa3c8,ui,ui_deck_init_resources,H,sets the archive-load flag 0x09e00880 and qsorts the 41 x 12-byte resource table 0x08ebd84c
+0x08eaa42c,ui,ui_deck_poll_archive_load,M,state machine of 0x09e00880: loads the archive, allocates 0xbc1000 bytes for BOOT 0x0883cafc, waits on 0x0883cd9c; returns 1 when ready
+0x08eaa5d0,ui,ui_deck_get_archive,H,sprintf 'deck/all_%c.ehp' with 'jegfis'[save_get_language()], container_get_file_size, heap_alloc, container_load_file
+0x08eaa82c,ui,ui_deck_on_archive_loaded,H,load callback: container_ehp_bind_with_callback(0, buffer) on success, advances 0x09e00880
+# family scrollbar
+0x08eaf464,ui,ui_draw_scroll_arrow,M,8x8 arrow sprite at uv (0x77,0x6c/0x74) plus a copy whose alpha pulses with the frame counter (uv v 0x3c)
+0x08eaf6fc,ui,ui_draw_pane_scrollbar,M,track of 8x5 caps and stretched middle, thumb size/position from visible rows vs total rows, arrows via 0x08eaf464
+0x08eafa58,ui,ui_get_frame_counter,M,returns word +4 of system_get_frame_timing()
+# family sort_menu
+0x08eaa8bc,ui,ui_open_sort_menu,M,0x18-byte state 0x09e00884, key window titled strTbl 0xa8 (10 items) and a direction window
+0x08eaad5c,ui,ui_update_sort_menu,M,left/right switch window, L/R toggle direction; on change re-sorts the view with deck_sort_list_view(key+1, dir)
+0x08eab17c,ui,ui_close_sort_menu,H,closes/frees windows +0x14 and +0x10 and the 0x09e00884 state
+0x08eab1fc,ui,ui_draw_sort_menu,M,draws the other pane marker then windows +0x10 and +0x14 of 0x09e00884
+0x08eab300,ui,ui_place_sort_direction_window,M,sets the direction window y (+0x5a) next to the selected key row
+# family subscreens
+0x08ea9908,ui,ui_run_card_detail_view,M,fade, BOOT 0x0884db08(cursor card id, res 0x800c, 0x8012), 0x0884ebb4(0x8015), waits on 0x0884dbb0, fades back
+0x08ea9ab0,ui,ui_run_help_page,M,sound 0x7a09, fade, opens help page 0x08ebee07 (or 0xd) with resources 0x8014/0x8034/0x8035 (0x08eb5738/0x08eb54a8), waits, fades back
+0x08ea9cc4,deck,deck_run_recipe_viewer,H,queues module id 0x1b (system_module_get_filename), sceKernelStartModule, passes heap and callbacks deck_save_to_stored_deck/deck_load_deck_into_editor
+0x08ea9fc8,deck,deck_run_deck_tutorial,H,queues module id 0x12 (decktutorial), starts it with tutorial index 0x08ebee06 & 0xf, waits, stops/unloads it, reloads the archive
+# family text_draw
+0x08ea39dc,ui,ui_draw_filter_value_text,M,BOOT 0x08846b34(x<<6, y<<6, (480-x)<<6, text): text up to the right screen edge
+0x08ead35c,ui,ui_draw_search_box_text,M,BOOT 0x08846b34(x<<6, y<<6, (480-x)<<6, text)
+0x08ead37c,ui,ui_draw_text_with_width,M,BOOT 0x08846b34(x<<6, y<<6, width<<6, text)
+0x08eadacc,ui,ui_draw_text_to_screen_edge,M,BOOT 0x08846b34(x<<6, y<<6, (480-x)<<6, text); 3 callers
+0x08eb3240,ui,ui_draw_card_name_text,M,BOOT 0x08846b34(x<<6, y<<6, width<<6, text); used for card names in list rows
+0x08eb7d68,ui,ui_help_draw_item_text,M,BOOT 0x08846b34(x<<6, y<<6, (480-x)<<6, text); no direct caller (callback area of the help lists)
+# family text_search
+0x08ea41c4,deck,deck_begin_text_search,M,clears 0x08ebece0, allocates result indices and a 0x10000-byte shift table filled with 0xff, stores the query pointer
+0x08ea4268,deck,deck_step_text_search,M,tests up to 0x30 view entries per call with deck_card_matches_search_text; returns progress 0-1000
+0x08ea43a8,deck,deck_finish_text_search,M,installs the results as the view (filter bits = 8), frees buffers, pushes the query on the 8 x 0x40 history at 0x08ebeee0
+0x08ea4b18,deck,deck_card_matches_search_text,H,normalises the query, then searches card_db_get_name and card_db_get_description in two forms (BOOT 0x08849d64/0x08849e1c)
+0x08ea4c58,deck,deck_search_text_horspool,H,Boyer-Moore-Horspool search on UTF-16 with byte shift table 0x08ebecf0; returns match pointer or 0
+0x08ea4d70,deck,deck_clear_search_shift_table,H,resets the shift entries of the pattern characters to 0xff
+0x08ea4da8,deck,deck_normalize_search_text,H,full-width 0xff01-0xff5d +0x120, katakana 0x30a1-0x30f4 to hiragana (-0x60), other characters through BOOT 0x088594f8
+0x08eabba8,ui,ui_open_text_search_menu,M,0x60-byte state 0x09e00888 and a window titled strTbl 0xa5/0x81 with callback 0x08ead010, history window; state 5
+0x08eabdd4,ui,ui_update_text_search_menu,M,text search state machine: name input (0x08ea96c4), history choice, run the search, close
+0x08eac2a4,ui,ui_run_text_search,M,steps deck_begin/step/finish_text_search with a progress window, re-centres the cursor, message when nothing is found
+0x08eac568,ui,ui_close_text_search_menu,H,closes/frees windows +0x54, +0x50, the two info windows, +0x4c and the 0x09e00888 state
+0x08eac644,ui,ui_open_search_history_window,M,counts the 8 history strings at 0x08ebeee0 and opens a list window with that many rows (callback 0x08ead38c)
+0x08eac844,ui,ui_open_search_progress_window,M,0x120-byte window with strTbl 0xa6 and progress bar callback 0x08ead460
+0x08eac98c,ui,ui_open_search_filter_windows,M,two 0x120-byte info windows (+0x58, +0x5c) shown when a filter is active (callback 0x08eacd70)
+0x08eacbbc,ui,ui_update_search_filter_windows,H,BOOT 0x088345fc on each non-null window +0x58/+0x5c of 0x09e00888
+0x08eacc10,ui,ui_draw_search_filter_windows,H,BOOT 0x08833be4 on each non-null window +0x58/+0x5c of 0x09e00888
+0x08eacc70,ui,ui_close_search_filter_windows,H,BOOT 0x08834ce0 on each non-null window +0x58/+0x5c of 0x09e00888
+0x08eaccc4,ui,ui_release_search_filter_windows,H,BOOT 0x08834d24 on each non-null window +0x58/+0x5c of 0x09e00888
+0x08eacd18,ui,ui_free_search_filter_windows,H,heap_free of each non-null window +0x58/+0x5c of 0x09e00888
+0x08eacd70,ui,ui_draw_search_filter_label,M,window callback: strTbl 0x84 in the 12-px font, white
+0x08eaced4,ui,ui_toggle_search_scope,M,with a filter active, triangle toggles 0x08ebee0a (search the filtered view or reset the view first)
+0x08eacf58,ui,ui_draw_text_search_menu,M,draws the other pane marker, windows +0x4c and +0x54 of 0x09e00888 and the filter windows
+0x08ead010,ui,ui_draw_search_input_box,M,window callback: input frame from resource 0x8006, query text, blinking caret, strTbl 0x20 label
+0x08ead460,ui,ui_draw_search_progress_bar,M,bar from resource 0x8006 whose fill is progress (+0x46)/1000 * 0x9a pixels
+# family undo
+0x08ea8f48,deck,deck_push_undo_move,M,pushes a 10-byte record on the 8-entry stack 0x08ebf0e2 (count 0x08ebf0e0), dropping the oldest when full
+0x08ea9014,deck,deck_pop_undo_move,M,pops the last 10-byte record of the stack 0x08ebf0e2; returns 0 when empty

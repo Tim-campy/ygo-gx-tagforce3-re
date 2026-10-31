@@ -178,6 +178,18 @@ Posed skinned vertex = Σ weight × node_world × bone_offset_matrix × position
 
 Export for the port: `tgm.py gltf` (glTF 2.0 + side JSON, `tools/tgm_gltf.py`), described in `tgm.md` "glTF export".
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 775 new `field_3d` names.
+
+| Module | Families (count) | Evidence |
+| --- | --- | --- |
+| `BOOT.BIN` (46) | `camera_lights` 18, `gim_texture` 12, `model_instance` 9, `model_draw` 7 | Lighting switch `0x08924c24` (`tgm.md`). `0x088241e0` `field_3d_gim_emit_texture_level` picks the GIM plane as level + level count × frame (caller `0x088384f4`); GIM `+0x08`/`+0x0c` are the VRAM copy pointer and frame set by `0x08824838`, and the texture is used from RAM while `+0x08` still reads "PSP". |
+| `rel_duel_draw` (512) | `cutin_chara_blocks` 202, `cutin_core` 58, `cutin_fx_tasks` 49, `duel_board` 32, `fx_matrices` 27, `cutin_fx` 22, `backdrop_extras` 17, `fx_render_state` 16, `pose_tables` 15, `cutin_fx_timing` 13, `cutin_loading` 13, `fx_random` 9 | Cut-ins: 4 slots of 400 bytes at `0x098d4d60`, current slot `0x098d4d48`, `0x38`-byte callback descriptors, loading slots `0x09bdcf54`. 40 per-character blocks (motion start/end and frame-hook wrappers, offset lookup, `bsearch`, `qsort`); the character comes from the labels of `field_3d_cutin_get_chara_setup` (`0x09841264`), each `0x4c` bytes before its block, so 15 blocks are tagged `chr<id>` and 25 by their table address (all M). Cut-in effects are chosen by (character, variant, animation id) into channels `+0xb8`/`+0xbc`/`+0xc0` (slots `0x098e937c`). 3D card objects: per-duelist lists of 16 zones at `0x098e3a60`, free list `0x098e39b0`. Task manager `0x098e7684`: 254 entries of `0x1c` bytes (state, flags, handle, callback, destructor, argument, data); state 1 start, 2 run, 3 stop requested, 4 free; the handle carries the index in bits 24–31. |
+| `rel_field` (8) | `field_render`, `field_shadow` | Stencil shadows (M). |
+
+Field-spell extras: the switch of `field_3d_backdrop_start_extra` (`0x0985c324`) ties each creator to a card: `0x0987aee0` Chorus of Sanctuary, `0x0987b450` Umiiruka, `0x0987c598` Molten Destruction, `0x0987d014` Mystic Plasma Zone, `0x0987df00` Pandemonium, `0x0987eb08` Mausoleum of the Emperor, `0x0987f004` Jurassic World, `0x0987f5e0` Venom Swamp; `0x0987ad08` is the Final Countdown transition. The texture-name table `0x098cfe8c` has 36 `.gim` entries; 0x19–0x22 are the per-card field textures. Draw event 7 (`field_3d_cmd_set_backdrop`) is posted only by the engine command handler `0x09dbc94c` (partly answers an open question below).
+
 ## Open questions
 
 - Answered 2026-10-31 (static, high): `field_3d_update_model` advances 1.0 frame per game frame for backdrops and cut-ins, at a game rate capped at 29.97 per second ("Frame timing and playback rate"); the backdrop loops (flags 2), the cut-in plays once (flags 0). Still to confirm in PPSSPP (F10): the effective rate during a duel, which may drop under load.

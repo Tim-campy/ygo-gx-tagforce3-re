@@ -50,3 +50,508 @@ address,group,name
 0x090d616c,world,world_show_location_name
 0x090e057c,ui,ui_field_get_resource
 0x090e05a4,ui,ui_field_find_resource
+# Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
+# Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
+# family camera_shake
+0x090d46fc,world,world_clear_camera_shake,H,memset 0x09106710 0x80
+0x090d4720,world,world_update_camera_shake_frame,M,reads pad then world_update_camera_shake; called from world_field_update
+0x090d4d2c,world,world_update_camera_shake,M,random 0..9 x step (by strength) offsets for x/y/z until the duration ends
+# family day_banner
+0x090d3378,ui,ui_field_clear_day_banner,H,memset 0x09105aa0 0x14
+0x090d338c,ui,ui_field_reset_day_banner,M,shutdown stub then ui_field_clear_day_banner
+0x090d33b8,ui,ui_field_update_day_banner,M,holds 30 frames then fades the banner colours over 30 frames
+0x090d34c0,ui,ui_field_draw_day_banner,M,weekday word (field_strtbl 0x66,0x59,... by scene params[1]) and day number (word 0x25) in outlined text
+0x090d3750,ui,ui_field_start_day_banner,M,state 1 with opaque colours; called by world_field_req_start_field when param 0 set
+0x090d3788,ui,ui_field_day_banner_done,H,returns state 0x09105aa0 == 0
+# family directions
+0x090d1b58,world,world_get_direction_vector,M,8-entry direction table 0x090f38b4 rotated by camera yaw 0x090f3928, normalised
+0x090d1bf8,world,world_vector_to_direction,M,rotates vector by 0x090f3924 and picks the nearest of 8 directions (even ones skipped when mode 1)
+0x090d1d30,world,world_find_nearest_direction,M,nearest of the 8 world_get_direction_vector entries to a normalised vector
+# family dp_display
+0x090e57f8,ui,ui_field_init_dp_display,M,memset 0x09899c0c 0x5c, two positions, shown and target value = save_get_player_value(0) (DP, world.md); called (500, 0x67, 0x16c, 0x67)
+0x090e58b0,ui,ui_field_release_dp_display,M,calls the two DP-display release stubs; callers module shutdown 0x090d85f0 and unload 0x090d82c4
+0x090e58d4,ui,ui_field_update_dp_display,M,per frame: ui_field_animate_dp_counter and ui_field_animate_dp_delta; caller field update 0x090d8098
+0x090e58f8,ui,ui_field_draw_dp_display,M,when the texture 0x09899c48 is set: GE sprite state, draws the DP value and the delta popup
+0x090e59d4,ui,ui_field_set_dp_display_texture,M,stores 0x09899c48; caller 0x090dee74 passes ui_field_get_resource(1)
+0x090e59e0,ui,ui_field_start_dp_change,H,save_add_dp(delta), target = DP + delta (>= 0), step delta/10, state 3, sound 0x7a0f; field request 24 handler 0x090d8760 calls it
+0x090e5afc,ui,ui_field_is_dp_display_done,M,returns state 0x09899c10 == 2; caller 0x090d8abc clears the request-busy flag
+0x090e5b10,ui,ui_field_show_dp_display,M,sets state 0x09899c10 = 1 (slide in); caller 0x090d8540
+0x090e5b20,ui,ui_field_set_dp_display_blink,M,arms blink 0x09899c3c (period, threshold) used by the DP draw; called by world_field_req_hud_marker for marker B (story.md 50118)
+0x090e5b58,ui,ui_field_animate_dp_counter,M,state 5 steps shown DP 0x09899c14 to target 0x09899c18 with sound 0x7a10 every 3 frames; state 1 eases the panel in
+0x090e5cb4,ui,ui_field_draw_dp_value,M,panel sprite and sprintf of DP (rolling random low digits in state 5, else save_get_player_value(0)), drawn by ui_field_draw_sprite_number
+0x090e5f38,ui,ui_stub_noop_dp_display_release_a,M,empty; only caller ui_field_release_dp_display
+0x090e5f40,ui,ui_field_animate_dp_delta,M,states 3/4: holds then eases the delta popup 0x09899c58 with shrinking scale 0x09899c64, then state 5
+0x090e6044,ui,ui_field_draw_dp_delta,M,states 3/4: red sprite number of the delta 0x09899c1c with a minus sign for negatives
+0x090e61d4,ui,ui_stub_noop_dp_display_release_b,M,empty; only caller ui_field_release_dp_display
+0x090e61dc,ui,ui_field_draw_scaled_sprite,M,sets texture filter, sprite size scaled by factor param_1, draws one sprite (BOOT 0x0882979c / 0x088295a4)
+0x090e62b8,ui,ui_field_draw_sprite_number,M,draws the digits of a string right to left with UVs per digit (table 0x090f88a8 or a strip), via ui_field_draw_scaled_sprite
+0x090e6448,ui,ui_field_count_digits,M,counts multiplications by 0.1 (DAT_090f88f8) until 0; used to round the rolling DP value
+# family field_action_menu
+0x090e2df0,ui,ui_field_reset_action_menu,M,memset 0x09899804 0x148 (state word + BOOT menu at 0x09899808); caller field init 0x090ddac4
+0x090e2e04,ui,ui_field_clear_action_menu,M,same memset of 0x09899804; caller release path 0x090ddb38
+0x090e2e18,ui,ui_field_step_action_menu,M,state machine 0x09899804 on BOOT menu update 0x088345fc; item 0 -> action 2 talk or 9/10 lab cells, item 1 -> 3 duel (world.md field actions)
+0x090e30ac,ui,ui_field_draw_action_menu,M,selects GE layer 3 and runs BOOT menu draw 0x08833be4 on 0x09899808 (plus 0x090d16f8 in state 4)
+0x090e3114,ui,ui_field_open_action_menu,M,builds item list 0x09899938 (item 3 hidden when field context +0x14 is set), labels field_strtbl 0x78/0x71/0x76/0x73, inits menu 0x09899808
+0x090e33ec,ui,ui_field_draw_action_menu_item,M,menu item callback: font scale 0xf, black, draws label 0x09899928[item] at per-language offset 0x090f8584
+0x090e34cc,ui,ui_field_draw_action_menu_text,M,called (x, y, w, label) inside the font external list by the action-menu item callback; body decompiles empty
+0x090e34e0,ui,ui_field_get_talk_label,M,player cell (0x090df3e4 +0x10/+0x18 / 0.5) -> world_get_lab_special_cell; label 0x6e / 0x75 / 0x78 by kind, stores the kind
+0x090e35c8,ui,ui_field_close_action_menu,M,calls BOOT 0x08834d24 (next to the menu close 0x08834ce0) on menu 0x09899808; caller ui_field_step_action_menu
+# family field_audio
+0x090d139c,audio,audio_field_play_se,M,gated by 0x091057fc; mode 2 stops first, mode 1 only when no se/voice plays; plays id via 0x08841898
+0x090dc0b4,audio,audio_field_is_se_idle,M,audio_count_se_and_voice_sounds() == 0
+# family field_character_sprite
+0x090eb5bc,world,world_draw_character_sprite,M,draw callback of 0x090d2298: texture chosen by facing 0-7, RotY billboard, two quads (vtype 0x19f) built by 0x090ebad8
+0x090eb87c,world,world_draw_character_sprite_parts,M,draw callback of 0x090d22e8 (world_get_character_key): two textured quads per character built by 0x090ebd04
+0x090ebad8,world,world_build_character_quad,M,writes 4 vertices with UVs from per-facing tables 0x090f8984/0x090f898c (0x38 per facing group), /512 and /256
+0x090ebd04,world,world_build_character_part_quad,M,projects the part origin through projection x view x model, writes a quad with UVs from 0x090ec1b8
+0x090ec1b8,world,world_get_character_sprite_cell,M,facing 0-7 -> sheet column and mirror flag, frame % 10 -> row; offsets from tables 0x090f8a64/0x090f8b80
+0x090ec394,world,world_push_screen_matrices,M,pushes projection (system_gum_ortho +-240 x +-136), view and model identity
+0x090ec42c,world,world_pop_screen_matrices,M,pops model, view and projection matrices pushed by world_push_screen_matrices
+0x090ec478,ui,ui_field_call_draw_character_icon,M,forwards to 0x090ec4a0; callers PDA status screen and the talk portrait 0x090d75e4
+0x090ec4a0,ui,ui_field_draw_character_icon,M,BOOT character-table accessor 0x0885ae0c(char), per-character sheet cell (ids 0x79-0x8d, 0x33-px grid)
+# family field_characters
+0x090d178c,world,world_init_character_object,M,stores row, mode, cell (world_cell_to_position), loads body parts by world_character_has_field_model
+0x090d1910,world,world_release_character_parts,M,clears the two model-part words +4/+8 of a character object
+0x090d1938,world,world_update_character_walk_frame,M,walk frame +0x24 mod 6 every 3 (2 when running +0x88) frames while state +0x1c is 1; updates icon
+0x090d19ec,world,world_draw_character,M,picks model, generic or billboard draw callback by world_character_has_field_model and passes it to 0x090e2650
+0x090d1b20,world,world_get_object_position,M,copies object +0x10..+0x18 (position) to out
+0x090d2160,world,world_get_cell_corners,M,four corner points of a square around a position (half size 0.5-r)
+0x090d2298,world,world_draw_character_generic_cb,M,draw callback for rows without a field model: 0x090eb5bc(pos,dir,frame), then overhead icon
+0x090d22e8,world,world_draw_character_model_cb,M,draw callback with world_get_character_model_ids parts to 0x090eb87c, then overhead icon
+0x090d2388,world,world_draw_character_billboard_cb,M,textured quad from resource (row field +0x18)+0x19 with UV table 0x090f3914 (world_get_row_fields_18)
+0x090d24a8,world,world_build_billboard_quad,M,fills 4 vertices (uv+xyz) of a billboard from texture size and sprite rect
+# family field_command
+0x090ddac4,world,world_init_command_state,M,memset 0x0910c5f0 0x8c and init of HUD, reward display, player, partner, 0x090e2df0
+0x090ddb14,world,world_reset_command_state,M,free then init of the command state
+0x090ddb38,world,world_free_command_state,M,frees HUD, reward display, player, partner and 0x090e2e04
+0x090de1bc,world,world_draw_field_ui,M,player, partner, HUD, reward, menus by command state 0x0910c648, sandwich roulette, command bar
+0x090de384,world,world_open_event_command_bar,M,opens the command bar (0x090e9ec4) in mode 1/2 from state 0x0910c630; caller world_field_req_set_event_mode
+0x090de4a0,world,world_copy_scene_params,M,copies 9 words; caller world_field_req_scene_setup
+0x090deccc,world,world_update_walk_state,M,player, partner, target info panel (save_get_duel_count_vs 0/1/2, finished-story flag), HUD
+# family field_command_bar
+0x090e286c,ui,ui_field_read_command_buttons_page0,M,maps pressed face buttons (pad +4 bits 0x4000/0x1000/0x8000/0x2000) to commands 0-3 if enabled in the mask; sets page 0x09899800 = 0
+0x090e28fc,ui,ui_field_read_command_buttons_page1,M,same for commands 4-7 (mask bits 0x10-0x80), sets page 0x09899800 = 1; caller world_field_read_command_input
+0x090e2990,ui,ui_field_draw_command_bar,M,bar sprites from field resource 0, labels from field_strtbl (resource 4: 0x78, 0x71, 0x4d, 0x77, 0x57, 0x52) per page 0x09899800, layout 0x090f84c4
+0x090e2da0,ui,ui_field_draw_command_text_at,M,tail wrapper converting x to 26.6 font units (x << 6); only caller ui_field_draw_command_bar
+0x090e2dc0,ui,ui_field_draw_command_label_box,M,called (x, y, 0x55, 0x1e, label) between system_font_begin/end_external_list in the command bar; body decompiles empty (unresolved tail call)
+0x090e2ddc,ui,ui_field_draw_command_label,M,called (x, y, 0x98, label) inside the command bar font list; body decompiles empty (unresolved tail call)
+# family field_context
+0x090d0c60,world,world_clear_field_context,H,memset 0x091057f0 (world_get_field_context block) 0x1c bytes
+# family field_debug
+0x090ced38,world,world_field_debug_main,M,text menu of map names (string 'bg_01_01 (R_HOSTEL_OUTSIDE)...'), runs request script, scene_return(5) on button
+0x090cee38,world,world_field_debug_shutdown,M,frees window list 0x9104af0 and waits on the field shutdown step 0x090d82c4
+0x090cee74,world,world_field_debug_init,M,memset 0x090feab0, save_add_dp(99999), field module init, SJIS->UTF16 of 12 debug strings
+0x090cef24,world,world_field_debug_run_requests,M,steps 9 {request,args} pairs of table 0x090f3620 through world_field_request / world_field_poll
+# family field_draw_list
+0x090e2178,world,world_clear_draw_list,M,memset 0x098971c0 0x2640: 122 draw entries of 0x50, count 0x098997e0 and occupancy-grid fields 0x098997f0..f8
+0x090e218c,world,world_release_draw_list,M,world_free_occupancy_grid then world_clear_draw_list; caller module shutdown 0x090d89e4
+0x090e21b0,world,world_free_occupancy_grid,H,frees *(0x098997f0) (cell occupancy grid, field-maps.md) with the field heap and zeroes the pointer
+0x090e21ec,world,world_place_object_on_floor,M,lazily allocates the occupancy grid from the walk grid (+6 cells x4, +8/+10 dims), world_sample_floor_height, builds RotY + translation matrix
+0x090e2304,world,world_draw_object_list,M,sets GE state, per entry 0x090d3a1c, qsort of the 0x50-byte entries at 0x098971c0 by 0x090e2740, then each entry's callback +0x48
+0x090e2650,world,world_add_draw_list_entry,M,appends (max 0x7a) a 0x50-byte entry: 0x40-byte matrix copy, +0x40 flag, +0x44 scale, +0x48 callback, +0x4c owner; optional cell test 0x090d91d0
+0x090e2740,world,world_compare_draw_entry_depth,M,qsort comparator: transforms both entries' position (+0x30) by the view matrix and orders by z
+0x090e2808,world,world_is_cell_unoccupied,H,returns world_get_cell_occupant() == 0; callers world_find_follower_cell and NPC movement 0x090dc2a4
+# family field_hud
+0x090d5ad8,ui,ui_field_hud_init,H,memset 0x09106930 0x260, sets 0x09106b18
+0x090d5b0c,ui,ui_field_hud_free,M,element shutdown stubs and ui_window_list_free_all(0x09106954)
+0x090d5b5c,ui,ui_field_hud_update,M,updates the HUD elements and the marker blink (frame % period < on-time)
+0x090d5bf8,ui,ui_field_hud_draw,M,window list, date panel, target info, time icon, partner panel, points meter; blinking marker hides one
+0x090d5e18,ui,ui_field_hud_bind_partner_anim,M,binds layout resource 0x1b with resource 0x1c (ui_ehf_apply_tmf_flags); frames set by 0x090d60b8
+0x090d5e54,ui,ui_field_hud_open,M,window list init, resources 0 and 0x11, starts elements; mode 0 also world_show_location_name
+0x090d5f34,ui,ui_field_hud_show_target_info,M,stores name, keys and three duel counts of the targeted character, slides the panel in
+0x090d5f80,ui,ui_field_hud_hide_target_info,M,panel state 3 (slide out)
+0x090d5fa4,ui,ui_field_hud_set_marker_blink,H,called by world_field_req_hud_marker with (10,5,v): element, period, on-time; <0 disables
+0x090d5fec,ui,ui_field_hud_load_partner_icon,M,save_get_partner row; generic characters use resources 7/8, others load mini bup (world_get_character_mini_bup_name)
+0x090d6378,ui,ui_field_hud_start_date_panel,M,sets 0x09106a28 = 1 (slide in)
+0x090d6388,ui,ui_field_hud_update_date_panel,M,eases position 0x09106a2c to its target
+0x090d6460,ui,ui_field_hud_draw_date_panel,M,switch on save_get_language to the six per-language variants
+0x090d6528,ui,ui_field_hud_draw_date_panel_lang0,M,language 0 layout: date panel body with offsets 0x14/0x26
+0x090d657c,ui,ui_field_hud_draw_date_panel_lang1,M,language 1 (default) layout, offsets 0xb/0x10
+0x090d65d0,ui,ui_field_hud_draw_date_panel_lang2,M,language 2 layout, offsets 0xb/0x10
+0x090d6624,ui,ui_field_hud_draw_date_panel_lang3,M,language 3 layout, offsets 0xb/0x10
+0x090d6678,ui,ui_field_hud_draw_date_panel_lang4,M,language 4 layout, offsets 0xb/0x10
+0x090d66cc,ui,ui_field_hud_draw_date_panel_lang5,M,language 5 layout, offsets 0xb/0x10
+0x090d6720,ui,ui_field_hud_draw_date_panel_body,M,panel sprite 0x6e x 0x12 and weekday icon from scene params +4
+0x090d6860,ui,ui_field_hud_draw_weekday_icon,M,weekday 0..6 to a 0x40x0x10 cell of the HUD texture (rows of 4)
+0x090d68e0,ui,ui_field_hud_create_target_window,M,window at (0x27,0xf2) 400x0x1b added to list 0x09106954
+0x090d69cc,ui,ui_field_hud_update_target_info,M,slides the target panel in (state 1) and out (state 3)
+0x090d6b2c,ui,ui_field_hud_draw_target_info,M,name text and three 3-digit counters (0..999) of the target panel
+0x090d72fc,ui,ui_field_hud_start_time_icon,M,sets 0x09106ac0 = 1 (slide in)
+0x090d7314,ui,ui_field_hud_update_time_icon,M,slide in, then frame counter 0x09106ad0
+0x090d73fc,ui,ui_field_hud_draw_time_icon,M,32x32 icon column light period (scene params +8, field-maps.md) x 3 animation frames
+0x090d749c,ui,ui_field_hud_start_partner_panel,M,sets 0x09106ad4 = 1
+0x090d74ac,ui,ui_field_hud_update_partner_panel,M,slide in, then partner icon animation frames (0x0881e9d8) and mood timer 0x4f
+0x090d75e4,ui,ui_field_hud_draw_partner_panel,M,nine-slice frame and partner icon (mini bup pool or resources 7/8) with a bounce
+0x090d7ab0,ui,ui_field_hud_start_points_meter,M,sets 0x09106ae4 = 1
+0x090d7ac0,ui,ui_field_hud_update_points_meter,M,slides the meter position 0x09106ae8 in
+0x090d7b98,ui,ui_field_hud_draw_points_meter,H,save_get_char_points(partner) * 88 / 8000 as 8 hearts of 11 steps, 14x14 sprites
+# family field_map
+0x090d8b18,world,world_clear_map_state,H,memset 0x09106be0 0x430
+0x090d8b44,world,world_reset_map,M,world_free_map_models then world_clear_map_state
+0x090d8b68,world,world_free_map_models,M,destroys map mesh and mask model instances 0x09106bf0/0x09106c00 and door models
+0x090d8c4c,world,world_update_map,M,updates map models, section switch by player cell with 30-frame crossfade, world_update_doors
+0x090d8d4c,world,world_draw_map,M,stencil setup, map meshes, doors, masks, sky gradient, crossfade overlay
+0x090d91d0,world,world_is_in_visible_map_section,M,1 when no sections or the section of the position equals the current one
+0x090d9bfc,world,world_cell_to_position,H,x*0.5+0.25, z*0.5+0.25, y from world_sample_floor_height
+0x090d9c40,world,world_position_to_cell,H,cell = (int)(coord / 0.5) for x and z
+0x090da518,world,world_get_map_section,M,map 3 only: x < 15 -> 1 else 0; other maps -1
+0x090dad34,world,world_draw_map_meshes,M,draws map mesh models (all, or the current section)
+0x090daddc,world,world_draw_door_models,M,0x60-byte door records at 0x09106c10: matrix +0x10, model +4, section filter
+0x090daed0,world,world_draw_map_masks,M,stencil state then draws the mask models 0x09106c00
+0x090db190,world,world_render_section_to_texture,M,draws the previous section model into a 256x256 EDRAM target 0x164000
+0x090db3dc,world,world_draw_section_crossfade,M,full-screen strips of that texture with alpha 255 - t*8.5
+0x090db820,world,world_play_door_sound,M,se 0x7a50..0x7a55 by open/close, door kind and map (dorm outside 12/37, maps 2/3)
+0x090dbea8,world,world_play_map_ambient_sounds,M,per-map ambient se 0x7a48..0x7a4d on entry, period 4 (midnight) variants
+# family field_message_window
+0x090e6480,ui,ui_field_init_message_window,M,memset 0x09899c68 0x180, stores heap, x, y, size and flags, then ui_field_create_message_window; called (heap, 0x27, 400, 0xe, 1, 3)
+0x090e6524,ui,ui_field_reset_message_window,M,speed from BOOT option getter 0x0885778c, 3 lines, position (x, 300) eased to (x, 210), font size, empty text, re-layout
+0x090e6664,ui,ui_field_release_message_window,M,clears texture 0x09899dc4, ui_window_list_free_all(0x09899c70), memset 0x09899c68 0x180
+0x090e66a0,ui,ui_field_update_message_window,M,open/close easing (state 1/3), typewriter steps by text speed, button wait via system_pad_get_state
+0x090e69d4,ui,ui_field_draw_message_window,M,ui_draw_window_list(0x09899c70), per-line scissored reveal (GE enable 2), text in the font external list, cursor sprite
+0x090e6c80,ui,ui_field_draw_message_line_text,M,called (x, y, w, h, text) in the font list; its result is used as characters per line by ui_field_split_message_lines
+0x090e6ca8,ui,ui_field_set_message_window_texture,M,stores 0x09899dc4 (cursor sprite texture, tested in the draw); caller 0x090dee74 passes ui_field_get_resource(0)
+0x090e6cb4,ui,ui_field_get_message_window_desc,M,returns the window desc 0x09899cbc passed to ui_window_list_add / ui_window_get_inner_rect
+0x090e6cc0,ui,ui_field_get_message_window_pos,M,returns 0x09899dd0, the eased window position copied into the desc
+0x090e6cd8,ui,ui_field_set_message_font_size,M,writes bytes 0x09899d08/0x09899d14, the value given to system_font_set_scale by the font push
+0x090e6cec,ui,ui_field_set_message_wait_input,M,sets flag 0x09899d54 that makes the update wait for a button
+0x090e6cf8,ui,ui_field_set_message_text,M,stores text 0x09899d4c, clears typewriter counters, lays out and splits lines, opens the window if closed
+0x090e6d80,ui,ui_field_open_message_window,M,state 0x09899c68 = 1 (opening)
+0x090e6d90,ui,ui_field_close_message_window,M,state 0x09899c68 = 3 (closing)
+0x090e6da0,ui,ui_field_is_message_window_shown,M,returns state 0x09899c68 != 0
+0x090e6db0,ui,ui_field_is_message_printing,M,true while text is set, not finished (0x09899db0, 0x09899db8 clear) and the window is open (state 2)
+0x090e6e00,ui,ui_field_is_message_window_animating,M,returns 1 for state 1 (opening) or 3 (closing)
+0x090e6e34,ui,ui_field_create_message_window,M,ui_window_list_init(0x09899c70), fills desc 0x09899cbc (size, colours), ui_window_list_add, then reset
+0x090e6f48,ui,ui_field_tick_message_idle_counter,M,increments 0x09899dc8 while ui_field_is_message_printing is false
+0x090e6f84,ui,ui_field_advance_message_typewriter,M,grows the current line's revealed width by table 0x090f88fc[option 0x0885778c], next line, done at wcslen
+0x090e70fc,ui,ui_field_layout_message_lines,M,ui_window_get_inner_rect and system_font_get_line_height >> 6 (+3) per line into the 0x18-byte line records 0x09899d5c
+0x090e71dc,ui,ui_field_update_message_line_positions,M,recomputes the line origins from the eased window position 0x09899dd0
+0x090e72c8,ui,ui_field_draw_message_sprite,M,sets sprite size and draws one sprite with a frame offset; caller ui_field_draw_message_window
+0x090e7380,ui,ui_field_push_message_font_state,M,saves system_font_get_flags, sets trim, ruby off, colour codes, shadow, scale 0x09899d08, colour 0x09899d0c, end-y 0xc0
+0x090e73f4,ui,ui_field_pop_message_font_state,M,system_font_set_flags(saved) and system_font_set_end_y_offset(0)
+0x090e7418,ui,ui_field_split_message_lines,M,measures how many characters fit per line (0x090e6c80), skips a following space, stores line start offsets
+# family field_module
+0x090d7fc0,world,world_field_init_module,M,memset 0x09106b90, GE init, allocator callbacks, field heap, component inits, windows
+0x090d8098,world,world_field_update,M,per-frame update of all field components, then field context frame counter +1
+0x090d8188,world,world_field_draw,M,fade list, then scene, island map, map, characters, UI, pictures, portraits, talk, banner
+0x090d82c4,world,world_field_shutdown_step,M,runs component shutdowns and resource release over frames; returns 1 when done
+0x090d88ec,world,world_field_init_components,M,calls every component init (camera shake, portraits, talk, picture, NPCs, ...)
+0x090d8968,world,world_field_shutdown_components,M,calls every component shutdown/free
+0x090d89e4,world,world_field_reset_components,M,component resets plus release of resource kinds 1..10 except 7/8 and the pools
+0x090d8abc,world,world_field_update_busy_flags,M,clears the banner, island map and 0x09106ba4 busy flags when they report done
+# family field_npcs
+0x090dc184,world,world_clear_npcs,H,memset 0x09107010 0x5520, 0x0910c528 = -1
+0x090dc1b8,world,world_reset_npcs,M,world_free_npcs then world_clear_npcs
+0x090dc1dc,world,world_free_npcs,M,frees 32 NPC records (0xf0) extra-cell lists and 80 extra objects
+0x090dc2a4,world,world_update_npcs,M,random wander (timer 90..209) to walkable non-exit cells, cell occupancy, walk frames
+0x090dc70c,world,world_draw_npcs,M,world_draw_character for loaded NPCs and extra objects
+0x090dc818,world,world_find_npcs_in_radius,M,lists NPC objects within radius of an object
+0x090dc910,world,world_list_placed_npcs,M,lists NPC records with +0xa0 set; used by world_field_poll_action
+0x090dcdec,world,world_find_talk_target,M,best NPC (or its extra cell) in front of the player within 0.75; returns its row
+0x090dcf1c,world,world_find_placed_npc,M,NPC record with +0xa0 set and row == arg
+0x090dcf78,world,world_get_npc_event_key,M,returns record words +0xdc/+0xe0/+0xe4 (zeros when absent)
+0x090dcfe0,world,world_npc_face_player,M,saves direction and state, turns the NPC towards the player (world_vector_to_direction)
+0x090dd068,world,world_npc_restore_facing,M,restores the saved direction and state of the NPC turned by world_npc_face_player
+0x090dd0bc,world,world_alloc_npc_slot,M,first of 32 records with +0xa0 and +0x90 clear
+0x090dd118,world,world_alloc_extra_object_slot,M,first of 80 0xb0-byte records at 0x09108e20 that is free
+0x090dd17c,world,world_find_npc,M,NPC record (placed or pending) whose row equals arg
+0x090dd1e4,world,world_test_talk_candidate,M,within 0.75 and best dot product with the facing direction so far
+0x090dd2fc,world,world_check_npc_loaded,M,when both parts loaded marks placed, counts down 0x0910c520, then ends the load phase
+# family field_options
+0x090ec920,ui,ui_options_open,M,heap alloc 0x3c at 0x09899e14, reads settings twice (current and backup), colours per style, finds menu_opt01.gim
+0x090eca78,ui,ui_options_read_settings,H,packs save_get_option_flag(0, 5, 2, 4, 3), audio_get_volume_setting(2, 0, 1) and three BOOT option getters into a byte set
+0x090ecbe8,ui,ui_options_apply_settings,H,writes the same fields back: save_set_option_flag, audio_set_volume_setting and the BOOT option setters
+0x090eccc8,ui,ui_options_free,M,system_heap_free of the options state 0x09899e14 (heap at +0x1c)
+0x090eccd8,ui,ui_options_step,M,pad input: confirm applies (sound 0x7a05), cancel restores backup and applies (0x7a06), up/down/left/right edit items
+0x090ed55c,ui,ui_options_copy_settings,M,copies the 8-byte setting set; caller ui_options_step on cancel
+0x090ed584,ui,ui_options_draw,M,draws the options page: frames, item labels, values, volume bars, cursor and help bar
+0x090eda24,ui,ui_options_draw_cursor_frame,M,computes the cursor row y from the item index and section gaps, draws the highlight frame
+0x090edb78,ui,ui_options_draw_setting_value,M,per item: choice icons from the setting bits or a volume row
+0x090ede24,ui,ui_options_draw_highlight_frame,M,frame box of width 0xfa or 0x28 at the item row via ui_options_draw_frame_box
+0x090ede5c,ui,ui_options_draw_frame_box,M,nine-slice frame from the 9-entry UV table 0x090fe8ac
+0x090ee068,ui,ui_options_draw_icon,M,one sprite from the icon UV table 0x090fe8f4 by index
+0x090ee12c,ui,ui_options_draw_volume_bar,M,15 segments 7 px apart, filled up to the volume value
+0x090ee1bc,ui,ui_options_draw_choice_icons,M,two choice icons 0x4c px apart, the selected one highlighted, blinking alpha when the row is active
+0x090ee314,ui,ui_options_begin_sprite_batch,M,GE sprite state (blend, alpha test, texture function) and binds the options texture
+0x090ee3f8,ui,ui_options_draw_string,M,option_msg_<l>.bin entry via card_db_get_dictionary_word, optionally centred by system_font_measure_string, in the font list
+0x090ee524,ui,ui_options_draw_text,M,called (x, y, w, text) inside the font list by ui_options_draw_string; body decompiles empty
+0x090ee538,ui,ui_options_draw_item_label,M,label string index per section/item, colour by selection, via ui_options_draw_colored_string
+0x090ee684,ui,ui_options_draw_volume_row,M,volume bar for item 1/2/3 from bytes +0xa/+0xc/+0xe of the setting set
+0x090ee740,ui,ui_options_draw_section_frame,M,frame box around a section of the options page
+0x090ee83c,ui,ui_options_draw_help_bar,M,bottom bar frame, icon and help string 0x1b + item index
+0x090ee8f8,ui,ui_options_draw_item_value_text,M,value string index from the setting bits (0x10 + value, 0x14, 0x16-0x19) per item
+0x090eeb24,ui,ui_options_draw_colored_string,M,font scale 0xd, colour from state +0x30/+0x34/+0x38 by kind 0-2, then ui_options_draw_string
+# family field_partner
+0x090dd394,world,world_clear_partner,H,memset 0x0910c530 0xc0
+0x090dd3a8,world,world_free_partner,M,world_release_character_parts(0x0910c540)
+0x090dd3b4,world,world_update_partner_follow,M,moves the partner towards its target (double speed when running), collision and NPC push
+0x090dd778,world,world_draw_partner,M,world_draw_character(0x0910c540) when both parts are loaded
+0x090dd7d8,world,world_spawn_partner,M,world_init_character_object for the partner row, world_find_follower_cell, floor height
+0x090dd864,world,world_partner_is_loaded,M,1 when both model parts +4/+8 of the partner are set
+0x090dd898,world,world_despawn_partner,M,clears active flag 0x0910c538
+0x090dda80,world,world_update_partner_facing,M,direction from partner to player (world_find_nearest_direction)
+# family field_pickups
+0x090e1b58,world,world_reset_pickups,M,memset 0x09896eb0 0x310 = header + 8 pick-up slots of 0x60 at 0x09896ec0 (field-maps.md); called from module init 0x090d88ec
+0x090e1b6c,world,world_release_pickups,M,calls world_clear_pickups then world_reset_pickups; caller module shutdown 0x090d89e4
+0x090e1b90,world,world_clear_pickups,M,same memset of the pick-up block 0x09896eb0; called from the map-unload list 0x090d8968
+0x090e1ba4,world,world_update_pickups,M,per active slot of 8 at 0x09896ec0: place on floor (0x090e21ec) and world_set_cell_occupant(x/0.5, z/0.5, 4)
+0x090e1c54,world,world_queue_pickup_draws,M,when the pick-up archive 0x09896eb4 is loaded, adds each active slot to the draw list (0x090e2650) with draw callback 0x090e1ec8
+0x090e1dd8,world,world_spawn_pickups,M,fills free slots from a {id, x, y} 12-byte list (active=1, id, cell centred by 0x090d9bfc), then requests the resource with callback 0x090e212c
+0x090e1ec8,world,world_draw_pickup_sprite,M,draw-list callback: field_3d_gim_emit_texture of 0x09896eb8, system_ge_reserve_inline_data 0x60, fills quad 0x090e2010, draws 0x090e1f38
+0x090e1f38,world,world_draw_pickup_quad,M,gum push + identity, translation x entry matrix (+0x20), system_gum_draw_array(prim 4, vtype 0x19f, 4 vertices), pop
+0x090e2010,world,world_build_pickup_quad_vertices,M,writes 4 vertices: UV from table 0x090f8274 (8 bytes per index, /256, 0x18-px cell), positions +-0.1875
+0x090e20e4,world,world_find_free_pickup_slot,H,returns the first of 8 slots (stride 0x60 at 0x09896ec0) whose word 0 is 0, else -1
+0x090e212c,world,world_on_pickup_resource_loaded,M,load callback: stores the archive in 0x09896eb4 and ui_field_get_resource(2) in 0x09896eb8
+# family field_player
+0x090deee4,world,world_clear_player,H,memset 0x0910c680 0xd0
+0x090deef8,world,world_free_player,M,world_release_character_parts(0x0910c690)
+0x090def04,world,world_update_player,M,input or auto-walk, motion, cell occupancy, laboratory special cells -> overhead icons 0xd/0xe
+0x090df268,world,world_draw_player,M,world_draw_character(0x0910c690) when both parts are loaded
+0x090df2c8,world,world_enable_player_input,H,sets 0x0910c734 = 1
+0x090df2d8,world,world_stop_player_auto_walk,H,clears 0x0910c6b4 and 0x0910c6ac
+0x090df3b0,world,world_player_is_loaded,M,1 when both model parts of the player are set
+0x090df3e4,world,world_get_player_object,H,returns 0x0910c690 when the player exists, else 0
+0x090df40c,world,world_get_player_position,H,world_get_object_position(0x0910c690) when the player exists
+0x090df43c,world,world_set_player_overhead_icon,M,(0,0) clears, else world_set_overhead_icon(player, kind)
+0x090df490,world,world_set_player_input_enabled,H,stores arg in 0x0910c734
+0x090df49c,world,world_player_auto_walk_done,H,returns 0x0910c738 == 0
+0x090df4b4,world,world_set_player_direction,M,stores direction 0x0910c6b0
+0x090df4ec,world,world_mark_player_cells,M,sets occupancy of the cells under the 4 corners (skips value 3)
+0x090df5e4,world,world_read_player_move_input,M,d-pad combinations and analog stick (pad +0x10/+0x14) to a camera-relative velocity
+0x090df904,world,world_move_player,M,world_clip_player_motion, run flag from pad 0x2000, pushes against nearby NPCs
+0x090dfc68,world,world_update_player_auto_walk,M,steps towards target cell 0x0910c73c/0x0910c740 centre, clears when reached
+# family field_render
+0x090d4744,field_3d,field_3d_begin_field_scene,M,display list 0: render state, camera, world_apply_light_colour
+0x090d4794,field_3d,field_3d_apply_field_scene_state,M,render state, camera and light colour into an open list
+0x090d4908,field_3d,field_3d_setup_field_render_state,M,viewport/offset 0x800, scissor 480x272, fog 50..100 colour 0x404040, ortho matrix, depth test
+0x090d4b24,field_3d,field_3d_set_field_camera,M,look-at from the player position plus offsets 0x090f3e30.., plus shake 0x09106730 when active
+# family field_requests
+0x090cf6d4,dialogue,dialogue_field_req_release_portraits,M,no direct caller (request table); sets busy flag, releases portrait pool 0x090e10a0 and slots
+0x090cf720,dialogue,dialogue_field_req_show_portraits,M,request handler: per {row,slot,expr} entry inits slot and loads portrait with world_field_portrait_loaded callback
+0x090cf8d4,dialogue,dialogue_field_req_set_portrait_expressions,M,request handler: per {slot,expr} pair calls dialogue_set_portrait_expression on active slots
+0x090d2254,world,world_field_req_release_character_models,M,no direct caller; flag 0x09105930 around releasing character pools 0x090e0dfc
+0x090d27dc,dialogue,dialogue_field_req_talk_line,M,request handler: text, flag and speaker; puts text in the talk window, speaker into field context +8
+0x090d28fc,dialogue,dialogue_field_req_choice_menu,M,request handler: copies option strings to 0x09105a70, builds list window 0x09105950 sized to the widest
+0x090d31d0,ui,ui_field_req_picture,M,request handler: -1 hides, -2/-3 colour screens, else loads picture id (story opcode 50111, request 19)
+0x090d485c,world,world_field_req_camera_shake,M,request handler: {duration (0 = endless), strength 0..3} into 0x09106720
+0x090d60b8,ui,ui_field_req_set_partner_icon_anim,M,no direct caller; mood 0/1(/2) via world_test_row_flag_3c, frame range 0..0x4f or 0x5a..0xa9
+0x090d84f8,world,world_field_req_island_map,H,request handler: busy flag 0x09106b94, world_island_map_open(params), island mode 0x09106bbc
+0x090d8540,world,world_field_req_start_field,M,request handler: optional day banner, HUD open, context +0xc/+0x10 = 1, map ambient sounds
+0x090d85f0,world,world_field_req_end_field,M,request handler: resets windows and all components, clears context +0xc/+0x10
+0x090d86a0,world,world_field_req_fade,M,request handler: fade in/out (0x08844ec0/0x08844e0c) with frames and colour table 0x090f4010 (request 22)
+0x090d9308,world,world_field_req_release_map,M,no direct caller; flag 0x09106be4 around releasing the map pool 0x090e100c
+0x090dc974,world,world_field_req_npc_list,M,request handler: 0x40-byte entries {row, cells, dir, keys...} into NPC slots (request 7, world_send_npc_list)
+0x090dcc84,world,world_field_req_update_npc,M,request handler: moves one NPC to a cell and overrides direction/fields when not -1 (request 8)
+0x090de53c,world,world_field_req_set_partner,M,request handler: row -1 removes, else context +0x18, world_spawn_partner, portrait load
+0x090de600,world,world_field_req_begin_walk,M,request handler: enables talk scan 0x0910c5fc, command state 0 or 0xc, or opens command bar mode 6
+0x090dee74,world,world_field_req_bind_ui,M,request handler: stores UI archive 0x0910c620, binds resources 0/1, card display and HUD layouts
+0x090df2ec,world,world_field_req_place_player,M,request handler (x, z, dir): player object for row of (1,0), floor height (request 9)
+# family field_resource_loader
+0x090e1690,ui,ui_field_queue_resource_load,M,allocs a 0x1c-byte node on the field heap (0x090e025c) and links it into the load queue 0x0910cc8c/0x0910cc90 (optional insert after head)
+0x090e1774,ui,ui_field_pop_resource_load,M,unlinks the head of load queue 0x0910cc8c (next at +0x14) and frees it with the field heap free 0x090e026c
+0x090e17bc,ui,ui_field_append_load_callback,M,allocs a 0xc node {fn, arg, next} and appends it to the head/tail list passed in param_1
+0x090e1838,ui,ui_field_pop_load_callback,M,removes the head {fn, arg} of a callback list, returns both, frees the node
+0x090e1898,ui,ui_field_run_load_callbacks,M,pops every node of the callback list and calls fn(p2, p3, arg) until empty
+0x090e1900,ui,ui_field_is_resource_loader_idle,M,returns busy flag 0x0910cc94 == 0 and load queue 0x0910cc8c empty
+0x090e1930,ui,ui_field_start_resource_load,H,sprintf '%s/%s', container_get_file_size(3), field-heap alloc, container_load_file with callback 0x090e1628, sets busy 0x0910cc94
+0x090e1a10,ui,ui_field_start_localized_resource_load,M,as ui_field_start_resource_load but '%s/%s%s' with a suffix from 0x090fe4a4 indexed by save_get_language (0-5)
+# family field_resources
+0x090dfda4,world,world_field_init_resources,M,system_heap_create(0x0910cca0, 0x780000), card work, resource tables
+0x090dfdf0,world,world_field_update_load_queue,M,async load queue state machine (request kinds, callbacks, ehp binding)
+0x090e0150,world,world_field_free_resources,M,waits until the queue drains, frees the heap and card work; returns 1 when done
+0x090e0208,world,world_field_release_all_resources,M,releases fixed resources and every pool
+0x090e025c,world,world_field_heap_alloc,H,system_heap_alloc(0x0910cc84 field heap, size)
+0x090e026c,world,world_field_heap_free,H,system_heap_free(0x0910cc84 field heap, ptr)
+0x090e027c,world,world_field_get_heap,H,returns the field heap 0x0910cc84
+0x090e0288,world,world_field_init_card_work,M,BOOT 0x0883cafc(0x0988cca0, 0xa200, 0) once into 0x0910cc88; used by the card display
+0x090e02d0,world,world_field_get_card_work,M,returns 0x0910cc88; passed with the card id to 0x0883ceb0 in ui_field_update_card_get
+0x090e02dc,world,world_field_load_fixed_resource,M,11-entry table 0x090fdb3c (stride 0x2c): callback when loaded, else queues the load
+0x090e03b0,world,world_field_get_loaded_fixed_resource,M,pointer of a fixed resource when loaded and not pending, else 0
+0x090e0434,world,world_field_release_fixed_resource,M,frees one fixed resource (or marks it for release while loading)
+0x090e04e8,world,world_field_release_fixed_resources,M,frees all 11 fixed resources
+0x090e061c,world,world_find_story_sys_texture,M,29 names from 'story_sys02.gim' table 0x090fe24c, cached container_ehp_find_member in fixed resource 0
+0x090e06c8,world,world_field_load_pooled_resource,M,pools 0..8 (table 0x090fe3cc): find or allocate entry by key, queue load (map pool uses world_map_id_to_index)
+0x090e08c8,world,world_field_release_pooled_resource,M,removes key from pool and pending queue, frees data
+0x090e0a04,world,world_field_get_resource_file_size,M,builds '%s%s' from pool directory ('field/sdchr'...) and file name, container_get_file_size(3, path)
+0x090e0b90,world,world_field_resource_pool_full,H,pool count >= capacity (table 0x090fe3cc)
+0x090e0bc0,world,world_field_load_character_resource,M,character part by mode: pools 0/1 or 2/3, fixed 9/10 for generic duellists, or resources 0x12/0x13
+0x090e0d08,world,world_field_load_map_resource,M,pool 4 (map archive); caller world_field_load_map
+0x090e0d24,world,world_field_load_portrait,M,pool 5 or 6 by flag; callers the portrait requests and the partner request
+0x090e0d44,world,world_field_load_picture,M,pool 7; caller ui_field_req_picture
+0x090e0d60,world,world_field_load_partner_icon,M,pool 8 (mini bup name plus suffix); caller ui_field_hud_load_partner_icon
+0x090e0d7c,world,world_field_get_loaded_partner_icon,M,pool 8 entry 0x0910cc60 data when loaded, else 0
+0x090e0dfc,world,world_field_release_character_pools,M,frees the two 10-entry pools 0x0910c750 and 0x0910c8bc
+0x090e0f08,world,world_field_release_alt_character_pools,M,frees the one-entry pools 0x0910ca28 and 0x0910ca50
+0x090e100c,world,world_field_release_map_pool,M,frees pool 0x0910ca78 (map archive)
+0x090e10a0,world,world_field_release_portrait_pool,M,frees the 10-entry pool 0x0910caa0; called by dialogue_field_req_release_portraits
+0x090e1138,world,world_field_release_portrait_alt_pool,M,frees pool 0x0910cc0c
+0x090e11cc,world,world_field_release_picture_pool,M,frees pool 0x0910cc34; called at the end of the picture fade-out
+0x090e1260,world,world_field_release_partner_icon_pool,M,frees pool 0x0910cc5c (partner icon)
+0x090e135c,world,world_field_reset_resource_tables,H,clears tables, selects always_bri_<lang>.ehp by save_get_language (field-tables.md +0x2f2bc)
+0x090e14e4,world,world_field_drain_load_queue,M,updates the queue until idle, then releases all resources; returns 1 when idle
+0x090e1524,world,world_field_find_entry_by_key,H,index of first entry with word 0 == key in (base, count, stride), -1 if none
+0x090e1560,world,world_field_alloc_pool_entry,M,free entry or recycles an unused loaded one (frees data)
+0x090e1628,world,world_field_on_archive_read,M,read callback: container_ehp_bind_with_callback, increments the request counter, clears busy
+# family field_save
+0x090eb41c,save,save_field_reset_save_dialog,M,memset 0x09899e0c 8 (mode 0x09899e10 used by the field save step); caller module init 0x090d88ec
+0x090eb430,save,save_field_release_save_dialog,M,calls the unload stub then save_field_reset_save_dialog; caller module shutdown 0x090d89e4
+0x090eb454,save,save_stub_noop_field_save_unload,M,empty; called from save_field_release_save_dialog and the map-unload list 0x090d8968
+0x090eb45c,save,save_field_step_save_dialog,M,mode 1: save_open(5, field heap) and system_start_fade_out; mode 2: waits save_update_task 2/3, system_start_fade_in
+0x090eb528,save,save_field_draw_save_dialog,M,while mode 0x09899e10 != 0: layer 4 system_draw_fade, then save_update_utility_dialogs
+# family field_shadow
+0x090d388c,field_3d,field_3d_set_shadow_basis,M,normalised light vector and cross products stored at 0x09105ac0..0x09105af0; caller 0x090e2304
+0x090d39a0,field_3d,field_3d_begin_shadow_stencil,M,GE state: stencil func/op (0x0882b020/0x0882b078 family), depth, colour mask for a stencil pass
+0x090d3a1c,field_3d,field_3d_draw_shadow_volume,M,draws vertex sets 0x090fc200/0x090fc5c0 twice with opposite front face and stencil ops
+0x090d3c58,field_3d,field_3d_resolve_shadow_stencil,M,stencil-tested full-screen 480x272 sprite in 0x80000000 (darken), then restores state
+# family field_strings
+0x090e12f4,ui,ui_field_get_map_name,H,card_db_get_dictionary_word(resource 7 field_strtbl_mapname, index)
+0x090e1328,ui,ui_field_get_item_name,H,card_db_get_dictionary_word(resource 5 field_strtbl_item, item + 50) (field-tables.md)
+# family island_map
+0x090e35d4,world,world_island_reset_state,M,memset 0x0989994c 0x2c0 (island-map state incl. disabled mask 0x09899bd8, field-maps.md); caller module init 0x090d88ec
+0x090e35e8,world,world_island_release,M,calls the unload stub then world_island_reset_state; caller module shutdown 0x090d89e4
+0x090e360c,world,world_stub_noop_island_unload,M,empty; called from world_island_release and the map-unload list 0x090d8968
+0x090e36e8,world,world_island_draw,M,layers 3/4: background, world_island_draw_areas, preview, cursor, marker, window list 0x09899990, building menu 0x09899a70 in mode 3
+0x090e3ad8,world,world_island_is_loaded,M,returns the big_map archive pointer 0x09899958 != 0 (set by world_island_bind_archive); 0x090d8abc then clears its busy flag
+0x090e3ae8,world,world_island_begin_session,M,active 0x0989994c = 1, result 0x09899950 cleared, mode 1, ui_window_list_init + ui_window_list_add of the name window
+0x090e3be4,world,world_island_poll_result,M,when inactive: ui_window_list_free_all and returns {cancelled, M} from 0x09899950 (field request 29, world.md)
+0x090e4300,world,world_island_copy_point,M,copies two words (a screen point); caller world_island_map_navigate
+0x090e4318,world,world_island_step_to_neighbour_area,M,neighbour area from bitfields of table 0x090f8610 by direction; if != 0x3f sound 0x7a04, mode 2, previous/current area 0x09899a64/0x09899a60
+0x090e441c,world,world_island_animate_cursor_move,M,eases move progress 0x09899a5c to 1.0, then mode 1 and previous area = current
+0x090e4498,world,world_island_step_building_menu,M,BOOT menu update 0x088345fc on 0x09899a70; cancel -> mode 1 and fade, choice -> mode 4 with selection = sub-point + 0xc
+0x090e454c,world,world_island_update_name_window,M,eases the window position 0x098999e8 in/out and sets its text to the mapname entry (resource 7) of the current area
+0x090e4930,world,world_island_get_area_name_index,H,switch (area, sub-point) -> field_strtbl_mapname index (area 4 sub-points 0-4 -> 5, 2, 1, 3, 7; -1 -> 6)
+0x090e4a10,world,world_island_bind_archive,H,container_ehp_find_member of bm_island.gim, bm_parts.gim, bm_efct_whole.ehf, bm_arrow11-13.ehf and their .tmf
+0x090e4d50,world,world_island_measure_building_menu_width,H,max system_font_measure_string >> 6 over the five area-4 sub-point names (resource 7)
+0x090e4dec,world,world_island_draw_building_menu_item,M,menu item callback: sub-point name, grey when disabled (mask 0x09899b4c), blinking marker when it is the highlighted map 0x09899bfc
+0x090e5038,world,world_island_draw_menu_text,M,tail wrapper (x << 6 font units) called with (x, y, name) by the building-menu item callback
+0x090e5058,world,world_island_draw_background,M,draws bm_island.gim (0x0989995c) in 64-px strips, then ui_ehf_draw of bm_efct_whole.ehf with the frame timing
+0x090e51e4,world,world_island_draw_area_preview,M,bm_parts.gim frame and the area / sub-point picture rect from table 0x090f86d0 at (0x173, 0xb6)
+0x090e53f8,world,world_island_draw_cursor,M,ui_ehf_draw of bm_arrow12.ehf at the lerp of area positions 0x090f85b0 between previous and current area
+0x090e5500,world,world_island_draw_highlight_marker,M,marker sprite from resource 3 at 0x09899c00/04 with 10-frame blink while the highlighted map 0x09899bfc != -1
+0x090e5628,world,world_island_start_fade,M,sets fade active 0x09899be0, direction, colour, length and layer; callers navigate and building menu cancel
+0x090e5668,world,world_island_update_fade,M,alpha byte of colour 0x09899be8 from elapsed / length (inverted for direction 1), stops after length
+# family message_box
+0x090d1440,ui,ui_field_open_message_box,M,builds window 0x0910580c centred at 240,136 sized to the text (font measure), se 0x7a0c
+0x090d16a0,ui,ui_field_poll_message_box,M,0x088345fc(window) != -1 closes the window and returns the result
+0x090d16f8,ui,ui_field_draw_message_box,M,draws window 0x0910580c when open (0x08833be4); called from the field UI draw
+# family overhead_icons
+0x090d1738,world,world_init_overhead_icons,M,memset flag 0x09105930 and the icon pool 0x09105b10
+0x090d1768,world,world_reset_overhead_icons,M,free icon pool then world_init_overhead_icons; from the reset list 0x090d89e4
+0x090d3da4,world,world_clear_overhead_icon_pool,H,memset 0x09105b10 0xc00 (32 icons x 0x60)
+0x090d3db8,world,world_free_overhead_icons,M,same memset of 0x09105b10, called through a thunk from the shutdown and reset lists
+0x090d3dcc,world,world_update_overhead_icon,M,follows owner position +1.25 up, advances frame table 0x090f3a60 (-2 = loop)
+0x090d3f54,world,world_draw_overhead_icon,M,icon quad from resource 3 above the owner unless world_is_marker_hidden_cell
+0x090d4380,world,world_set_overhead_icon,M,kind 0..14 on an object (+0x84 slot or a free one): active, owner, kind +0x58, flag +0x5c
+0x090d4418,world,world_clear_overhead_icon,H,memset of one 0x60-byte icon
+0x090d4424,world,world_get_overhead_icon_kind,H,returns icon +0x58
+0x090d442c,world,world_draw_overhead_icon_quad,M,pushes model matrix and draws the 4-vertex quad (prim 0x19f)
+0x090d4504,world,world_build_overhead_icon_quad,M,fills 4 vertices of the icon from its sprite rect and size
+0x090d46b4,world,world_alloc_overhead_icon,H,first free of 32 entries of 0x60 at 0x09105b10
+# family pda_menu
+0x090e7530,ui,ui_pda_setup_3d_view,M,GE state, system_gum_ortho +-240 x +-136, view/model identity and lights (BOOT 0x08831bcc) for the PDA cover model
+0x090e780c,ui,ui_pda_draw_cover_model,M,field_3d_update_model / field_3d_draw_model of the gx_pda_cover01 instance translated by the slide offset
+0x090e78f0,ui,ui_pda_set_cover_anim_end,M,sets the cover instance frame (+0x20) to field_3d_get_loop_length
+0x090e7934,ui,ui_pda_draw_screen_frame,M,draws the PDA border pieces from the pack texture when +0xb0 is set
+0x090e7b10,ui,ui_pda_draw_screen,M,dispatch on PDA kind *0x09899de8: 0xd options, 0xa/0xb, 8/9, 4 status, 2/3/0xe/0xf main menu; title strings 0x52/0x4a/0x4c/0x57/0x68
+0x090e7d9c,ui,ui_pda_draw_screen_background,M,draws the striped PDA screen background rows (10-px strip repeated)
+0x090e7e60,ui,ui_pda_draw_title_bar,M,title bar sprite and the title string (scale 0xd, colour 0xffedeed4)
+0x090e7f5c,ui,ui_pda_draw_title_text,M,called (x, y, 0x100, title) inside the font list by the title bar; body decompiles empty
+0x090e7f6c,ui,ui_pda_draw_help_box,M,frame box at the bottom of the PDA screen and the help string (scale 0xe)
+0x090e8080,ui,ui_pda_draw_help_text,M,called (x, y, 0xf7, 0x32, help) inside the font list by the help box; body decompiles empty
+0x090e809c,ui,ui_pda_draw_main_menu,M,up to 7 entries (labels 0x090fe660, icons 0x090fe650), cursor = low nibble of +0x0a, help string table 0x090fe670; entries 5-6 dimmed by +0x298
+0x090e83d8,ui,ui_pda_draw_status_screen,M,save_get_player_name, save_get_team_name, save_get_partner, save_get_duel_record and DP; frame boxes and partner icon
+0x090e91e0,ui,ui_pda_draw_char_at,M,tail wrapper (x << 6 font units) called with a one-character string by ui_pda_draw_number
+0x090e9200,ui,ui_pda_draw_entry_text,M,called (x, y, 0xd8, label) inside the font list by ui_pda_draw_menu_entry; body decompiles empty
+0x090e9214,ui,ui_pda_draw_three_entry_menu,M,PDA list of 3 entries (labels 0x090fe690, help 0x090fe6a0), entry 1 skipped when +0x29c is 0
+0x090e9520,ui,ui_pda_draw_five_entry_menu,M,PDA list of 5 entries (labels 0x090fe6b0, help 0x090fe6c0, icon UVs 0x090fe6d0) with fade-in of the last rows
+0x090e9804,ui,ui_pda_draw_menu_entry,M,entry bar (3 sprites), optional animated icon, label text and highlight frame when selected
+0x090e9ad4,ui,ui_pda_draw_entry_highlight,M,frame box with UV 0x3400f6 around the selected entry
+0x090e9b74,ui,ui_pda_draw_frame_box,M,nine-slice box: four 5x5 corners, stretched edges and centre from the UV packed in param_6
+0x090e9db8,ui,ui_pda_draw_number,M,decimal digits right to left with a fixed advance, at least one digit, via ui_pda_draw_char_at
+0x090e9ec4,ui,ui_pda_open,M,heap alloc 0x2a0 at 0x09899de8, pda_pack01.gim, cover model, event_name.bin, option_msg; kind from param_3; sound 0x7a58
+0x090ea228,ui,ui_pda_step,M,per frame: prompt results (+0x166: 4 -> 0xd, 5 -> 0xb), slide in/out, menu steps, options; returns the PDA result code
+0x090ea600,ui,ui_pda_draw,M,font flags per language, layer 3 screen + frame, 3D cover model, layer 4 fade and the prompt box +0x168
+0x090ea79c,ui,ui_pda_close,M,ui_pda_destroy_cover_model and system_heap_free of the PDA state 0x09899de8
+0x090ea7e0,ui,ui_pda_step_main_menu,M,cursor in +0x0a over 7 (or 5) entries with pad up/down, sounds 0x7a04/0x7a05/0x7a58; entries 4 and 5 open prompts
+0x090eaa74,ui,ui_pda_step_three_entry_menu,M,cursor +0x0c over 3 entries (entry 1 skipped when +0x29c is 0), confirm/cancel sounds, returns a code per entry (2 -> 5)
+0x090eacd4,ui,ui_pda_step_five_entry_menu,M,cursor +0x0c over 5 entries, confirm returns a code per entry (2 -> 8, 3 -> 9, 4 -> 10), cancel back to the main menu
+0x090eaeec,ui,ui_pda_open_prompt_entry5,M,fills the message box +0x168 (BOOT 0x088338e4) with field_strtbl 0x7e, centred, prompt id 5 at +0x166
+0x090eb060,ui,ui_pda_open_prompt_entry4,M,fills the message box +0x168 (BOOT 0x088338e4) with field_strtbl 0x26, centred, prompt id 4 at +0x166
+0x090eb1ec,ui,ui_pda_find_pack_texture,H,container_ehp_find_member(archive, 'pda_pack01.gim')
+0x090eb21c,ui,ui_pda_get_cover_model,H,cached field_3d_create_model_instance of 'gx_pda_cover01.tms' with 'gx_pda_cover01.tmt' (TMGT check)
+0x090eb2f8,ui,ui_pda_find_event_name_table,H,cached container_ehp_find_member(archive, 'event_name.bin')
+0x090eb344,ui,ui_pda_find_option_strings,H,cached container_ehp_find_member of 'option_msg_%c.bin' with the language letter
+0x090eb3e8,ui,ui_pda_destroy_cover_model,H,field_3d_destroy_model_instance of 0x09899e00 and clears it
+# family picture
+0x090d2edc,ui,ui_field_clear_picture,H,memset 0x09105a88 0x18 (picture state)
+0x090d2ef0,ui,ui_field_reset_picture,M,shutdown stub then ui_field_clear_picture; from the reset list
+0x090d2f1c,ui,ui_field_update_picture,M,15-frame fade in/out of the picture; at the end of fade-out releases picture pool 0x090e11cc
+0x090d3010,ui,ui_field_draw_picture,M,-3/-2 draw a full-screen colour, else the 480x272 picture texture in 64-wide strips
+0x090d32bc,ui,ui_field_set_picture_fade,M,alpha from counter /15 (in or out) via system_lerp_colour_rgba
+# family player_input
+0x090d0d48,world,world_analog_axis_to_float,M,byte 0..255 with dead zone 64..192 to -1..1 (/63); fed pad bytes +0x10/+0x14 in player input
+# family portraits
+0x090cf1d4,dialogue,dialogue_init_portraits,M,memset of the 3x0x100 portrait slots at 0x09105340, then frees each slot
+0x090cf204,dialogue,dialogue_reset_portraits,M,release slots then dialogue_init_portraits; called from the field reset list 0x090d89e4
+0x090cf230,dialogue,dialogue_update_portraits,M,per slot state 1 fade in (+0x1f alpha), 2 highlight speaker from field context +8, 3 fade out and free
+0x090cf4b0,dialogue,dialogue_draw_portraits,M,draws body/mouth layouts of 3 slots (+0x37c, +0x3ec), current speaker 0x09105678 last
+0x090cfa08,dialogue,dialogue_set_portrait_expression,M,stores expression +0xe0, random blink timer 90..299, sets body/mouth frames from expression entry
+0x090cfab0,dialogue,dialogue_set_portrait_speaking,M,slot (3 = all) flag +0x150 and mouth frame; remembers speaking slot in 0x09105678
+0x090cfbd0,dialogue,dialogue_free_portrait_slots,M,calls dialogue_free_portrait_slot for the 3 slots at 0x09105370 (stride 0x100)
+0x090cfc20,dialogue,dialogue_free_portrait_slot,M,clears bound pointer, frees +4 with world_field_heap_free, memset 0x100
+0x090cfc78,dialogue,dialogue_get_portrait_expression_frame,M,world_get_character_key(row) then BOOT 0x0885b7b4(char,var,expr) entry +0x0c
+# family reward_display
+0x090d4ee0,ui,ui_field_clear_reward_display,H,memset 0x09106790 0x1a0
+0x090d4ef4,ui,ui_field_free_reward_display,M,destroys card model 0x091068a0, 0x08837564, memset
+0x090d4f30,ui,ui_field_update_reward_display,M,state 1 item message, state 2 card display
+0x090d4f84,ui,ui_field_draw_reward_display,M,state 1 item icon, state 2 card model
+0x090d4fd8,ui,ui_field_load_card_display,M,creates card model from resource 8 and binds resources 9,10,14,15,16
+0x090d5074,ui,ui_field_show_event_item_get,M,field_strtbl word 6 with item name (resource 5 word id+0x96) in a window; state 1
+0x090d514c,ui,ui_field_poll_event_item_get,M,clears state and caller flag once the message closed
+0x090d51a0,ui,ui_field_show_card_get,M,field_strtbl word 5 with card_db_get_name(card), state 2, se 0x7a0c (story give_card, request 23)
+0x090d52c0,ui,ui_field_poll_card_get,M,clears state and caller flag once the card display closed
+0x090d5314,ui,ui_field_reward_display_idle,M,1 unless the card display (state 2) is still open
+0x090d5350,ui,ui_field_update_event_item_get,M,closes the message window when the text is done
+0x090d5390,ui,ui_field_draw_event_item_icon,M,frame sprite and 24x24 item icon (table 0x090f3e50) at the window origin
+0x090d54d4,ui,ui_field_update_card_get,M,states: build card texture, 15-frame spin (RotY), wait button 0x1000, card viewer open/update
+0x090d57b0,ui,ui_field_draw_card_get,M,draws the card model with render callback, fade, or the card viewer (ui_card_viewer_draw)
+# family sandwich_roulette
+0x090cfe84,world,world_sandwich_roulette_init,M,memset 0x09105680 0x170, stores flag and seller (0x1b/0x8c tested later); caller world_field_command_step
+0x090cfed4,world,world_sandwich_roulette_step,M,state machine 0..6 of the sandwich pick; returns item 0x091056a4 at the end (request 25, world.md)
+0x090cffc4,world,world_sandwich_roulette_draw,M,in states 3..5 draws the item icon and the golden-egg model when item 50 was hit
+0x090d0034,world,world_sandwich_roulette_start,M,builds item list, random start index, opens window, loads goldegg model callback, seller voice 0x7a00/0x79ed
+0x090d01b0,world,world_sandwich_roulette_fade_in,M,30-frame colour lerp, then picks resource 2 and enters state 2
+0x090d0268,world,world_sandwich_roulette_spin,M,cycles item every 3 frames with se 0x7a62, button stops it (se 0x7a05), item 0x32 sets golden-egg flag
+0x090d0368,world,world_sandwich_roulette_show_result,M,formats field_strtbl word 1 with item name (resource 5 word item+0x32) into the talk window
+0x090d0434,world,world_sandwich_roulette_wait_close,M,waits for the text window (or golden-egg anim state 4), closes it, state 5
+0x090d04c0,world,world_sandwich_roulette_animate_golden_egg,M,golden-egg model states 0..4: camera copy, update_model, seller voice 0x7a01/0x79ee, button to finish
+0x090d06e4,world,world_sandwich_roulette_draw_golden_egg,M,draws model 0x09105750 (goldegg_pan) with fill rect and lighting in states 1..3
+0x090d08d4,world,world_sandwich_roulette_cleanup,M,frees item list 0x09105730 and destroys golden-egg model 0x09105750
+0x090d0930,world,world_sandwich_roulette_draw_icon,M,draws frame sprite and the current item's 24x24 icon (0x090e1dc4(item)) at the window origin
+0x090d0a60,world,world_sandwich_roulette_build_list,M,10 item ids from table 0x090f3704 row rand%5, 1/10 chance (flag) of an 11th entry 0x32 (golden egg)
+0x090d0bd4,world,world_sandwich_roulette_on_golden_egg_loaded,H,strings 'goldegg_pan.tms'/'goldegg_pan.tmt'; creates model instance and sets animation
+# family talk_window
+0x090d25bc,dialogue,dialogue_clear_talk_state,H,memset 0x09105934 0x154 (talk/choice state)
+0x090d25d0,dialogue,dialogue_reset_talk,M,shutdown stub then dialogue_clear_talk_state; from the reset list 0x090d89e4
+0x090d25fc,dialogue,dialogue_update_talk,M,state 1 waits on the text window and closes it; state 2 polls the choice window 0x09105950 and stores the answer
+0x090d2770,dialogue,dialogue_draw_talk,M,draws the choice window when state 0x0910593c is 2
+0x090d2b80,dialogue,dialogue_draw_choice_menu,M,fill rect then draws window 0x09105950 (0x08833be4)
+0x090d2bbc,dialogue,dialogue_draw_choice_item,M,window item callback: '<n+1>' + separator + option text with font settings
+0x090d2cb8,dialogue,dialogue_measure_choice_width,M,widest of n strings (system_font_measure_string >> 6) with font state saved
+0x090d2d80,dialogue,dialogue_update_talk_window_hide,M,L trigger (pad 0x100) fades the talk window out and back (alpha 0x0910594c)
+# family text_helpers
+0x090d379c,ui,ui_draw_outlined_text,M,draws a string 8 times at offsets 0x090f3938 in outline colour, then once in text colour
+# family ui_sprites
+0x090d0e68,ui,ui_field_call_draw_sprite,M,thin wrapper of ui_field_draw_sprite; 12 callers draw HUD sprites
+0x090d0e88,ui,ui_field_draw_sprite,M,sets source rect (0x0882979c) then draws sprite at x,y size w,h (0x088295a4)
+0x090d0f04,ui,ui_field_draw_nine_slice,M,nine ui_field_draw_sprite calls: four corners, four edges, centre of a frame
+0x090d47c0,ui,ui_draw_screen_fill,M,allocates two 480x272 sprite vertices of one colour and draws them
+0x090d4e40,ui,ui_draw_sprite_vertices,M,blend/texture state then draws a 2-vertex sprite list (0x088290a4 prim 6)
+0x090d7de4,ui,ui_field_draw_sprite_cell,M,scaled sprite with source x offset cell*w
+0x090d7ea4,ui,ui_field_draw_digit_string,M,draws each char-'0' of a string as a sprite cell, right to left
+# family vector_helpers
+0x090d08b4,system,system_copy_vec3,M,copies three words; 11 callers pass position vectors
+0x090d0d90,system,system_vec3_length,M,sceVfpuScalarSqrt(x*x+y*y+z*z)
+0x090d0e08,system,system_lerp_colour_rgba,M,unpacks two RGBA8888 colours, vector4 lerp by t, packs back (0x0881b5c4/0x0881b7ac/0x0881b520)
+0x090d396c,system,system_copy_vec4,M,copies four words
+0x090d3ecc,system,system_copy_matrix4,M,copies 16 words
+0x090d69b4,system,system_copy_vec2,M,copies two words (screen positions)

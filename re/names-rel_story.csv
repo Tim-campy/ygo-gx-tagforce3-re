@@ -129,3 +129,443 @@ address,group,name
 0x08ea563c,world,world_get_partner_talk_pending
 0x08eab40c,world,world_advance_chapter_step
 0x08eab440,world,world_get_chapter_step
+# Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
+# Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
+# family calendar
+0x08eaabf4,world,world_clear_calendar_blocks,H,memset field save block (0xa8) and calendar (0x24) through 0x08ecea64/0x08ecea68 (world.md)
+0x08eab474,world,world_is_tournament_day,M,world.md: tests day index %10 == 9 (weekday != 0) or == 0 (Monday, day > 0); selects (a1, 4, 1) at slot 2
+0x08eab810,world,world_roll_npc139_spot,H,world.md: field save block byte 2 = rand() % 72, the daily random for character 139
+# family card_rewards
+0x08eaa1a0,dialogue,dialogue_give_random_cards,H,story.md 0xf7a0(n): pack a1 or rand() % 48 when >= 60000, then 0x08eaa23c(n, pack, lo, hi)
+0x08eaa23c,dialogue,dialogue_draw_pack_cards,M,maps rarity bounds, for n = 5 gives 4 cards of tiers 0-3 first, then one card in [lo, hi] via dialogue_give_card
+0x08eaa398,dialogue,dialogue_pick_pack_tier_card,M,tries the chosen tier then the others (0x08eaa494) and returns a card id in *out
+0x08eaa494,dialogue,dialogue_pick_unowned_tier_card,M,random start in the pack tier list (table 0x08eba130), returns 1 for a card with save_get_card_count 0, 2 if all owned
+0x08eaa570,dialogue,dialogue_give_card,H,story.md handler 0xfb70: field request 23 (card display) then save_change_card_count(card, show)
+# family char_info
+0x08e9d3c0,world,world_init_char_info_table,M,memset 0x08ec9134, 140 x 0x84 bytes (table filled with sorted char ids by 0x08e9d3e8)
+0x08e9d3d4,world,world_term_char_info_table,M,same memset of 0x08ec9134 from the teardown list
+0x08e9eaa0,world,world_get_char_info_payload,M,returns 0x08e9eb10(char) + 4, sent as the last word of NPC entries (request 7/8)
+0x08e9eb10,world,world_find_char_info_entry,M,binary search of the 140 0x84-byte entries at 0x08ec9134 by char id
+# family duel_setup
+0x08ea4178,world,world_bind_duel_request,H,story init passes story block +0x3528 into 0x08ece428 (story.md *(0x33a28) duel request)
+0x08ea4184,world,world_clear_duel_request,M,memset *0x08ece428 0x48 bytes
+0x08ea4198,world,world_reset_duel_setup,M,memset duel set-up block 0x08ecdbc8 0x858, 0x08ece420 and the duel request
+0x08ea434c,world,world_setup_tag_opponent_a,H,story.md 0x994c (duel_tag_opponent_a): resolves char, deck recipe, writes slot 0x08ecdf18 and request +0/+4, type bit 0
+0x08ea446c,world,world_setup_tag_opponent_b,H,story.md 0x9a6c (duel_tag_opponent_b): second opponent slot 0x08ece270 and request +8/+0xc
+0x08ea4520,world,world_setup_tag_partner,H,story.md 0x9b20 (duel_tag_partner): partner (or given char) into slot 0x08ecdd6c, type bit 2
+0x08ea45d4,world,world_setup_partner_duel_self,M,story.md 0x9bd4 (partner-duel set-up of 50127): partner (system flag 27) into slot 0x08ecdd6c, mode 6
+0x08ea4720,world,world_setup_partner_duel_opponent,M,story.md 0x9d20: opponent slot 0x08ecdf18 and request +0/+4, request byte +0x44 bit 1
+0x08ea4800,world,world_setup_partner_duel_extra,M,story.md 0x9e00: writes 0x08ecdd50/0x08ecdd54 and duel-type bit 2
+0x08ea4838,world,world_set_duel_rules,H,story.md 0x9e38 duel_rules: bytes 0x08ecdd5d, 0x08ecdd5c, 0x08ecdd59 and type bit 3
+0x08ea48a8,world,world_set_duel_then_a,H,story.md 0x9ea8: follow-up key into duel request +0x14/+0x18/+0x1c, type bit 4
+0x08ea48e0,world,world_set_duel_then_b,H,story.md 0x9ee0: follow-up key into duel request +0x20/+0x24/+0x28
+0x08ea4918,world,world_set_duel_then_c,H,story.md 0x9f18: follow-up key into duel request +0x2c/+0x30/+0x34
+0x08ea4950,world,world_set_duel_then_d,H,story.md 0x9f50: follow-up key into duel request +0x38/+0x3c/+0x40
+0x08ea4968,world,world_set_duel_setup_mode,M,writes 0x08ece420, copied into set-up byte 0x08ecdd5b by 0x08ea4cb0
+0x08ea4974,world,world_set_duel_option,H,story.md 0x9f74 duel_option: bytes 0x08ecdd5e/0x08ecdd5f
+0x08ea4988,world,world_get_duel_then_a,H,reads duel request +0x14/+0x18/+0x1c (duel_then_a key)
+0x08ea49ac,world,world_get_duel_then_b,H,reads duel request +0x20/+0x24/+0x28 (duel_then_b key)
+0x08ea49d0,world,world_get_duel_then_c,H,reads duel request +0x2c/+0x30/+0x34 (duel_then_c key)
+0x08ea49f4,world,world_get_duel_then_d_a1,M,returns duel request +0x38 (first word of the duel_then_d key)
+0x08ea4a04,world,world_get_duel_then_d_a2,M,returns duel request +0x3c
+0x08ea4a14,world,world_get_duel_then_d_a3,M,returns duel request +0x40
+0x08ea4a24,world,world_is_duel_setup_complete,M,true when duel-type bits 0-4 at 0x08ece424 are all set
+0x08ea4a98,world,world_prepare_story_duel,M,when the set-up is complete: names/recipes per slot, records seen recipes, save_add_character_entry, loads decks
+0x08ea4cb0,world,world_setup_default_duel,M,clears set-up block 0x08ecdbc8, mode 2, byte from 0x08ece420, duel_setup_load_decks
+0x08ea4d00,world,world_get_duel_opponent_a,M,returns duel request +0 (char) and +4 (variant) written by the opponent-a set-ups
+0x08ea4d1c,world,world_get_duel_opponent_b,M,returns duel request +8 (char) and +0xc (variant) written by world_setup_tag_opponent_b
+0x08ea4d38,world,world_is_duel_request_tag,M,returns request byte +0x44 bit 0 (set by tag opponent-a set-up)
+0x08ea4d4c,world,world_is_duel_request_by_partner,M,returns request byte +0x44 bit 1 (set by the partner-duel set-ups)
+0x08ea4d64,world,world_set_duel_request_pair_flag,M,writes request byte +0x44 bit 2; 0x08ea4a98 then uses world_get_duel_pair_partner
+0x08ea4d8c,world,world_set_duel_target,H,story.md: duel request +0x10 stored by the duel request 0xa38c (= 0x08ea4d8c)
+0x08ea4dac,world,world_record_duel_result,M,system flags 18/19 give the side; adds win/loss/draw to the 4-word tally (0x08ea5a80/0x08ea5a64)
+0x08ea4ef4,world,world_resolve_duel_character,H,story.md 0xa4f4(char, variant): variant<1 -> (char, world_get_variant), else world_get_character_key(variant)
+0x08ea4f5c,world,world_flag_duel_side_partner,M,sets system flag n (0x12/0x13) when char is 0 or the partner, clears it otherwise
+0x08ea4fcc,world,world_get_duel_deck_recipe,H,story.md 0xa5cc: recipe 466 for the partner with system flag 2, else deck_get_owner_recipe(char, deck index)
+# family event_queue
+0x08ea5c64,world,world_bind_event_queue,H,story init passes story block +0x3264 into 0x08ecea48 (world.md event queue)
+0x08ea5c70,world,world_clear_event_queue,H,memset event queue *0x08ecea48 0x68 bytes
+0x08ea63d8,world,world_get_last_menu_answer,H,returns byte event queue +0x64 (last menu answer, world.md)
+# family event_state
+0x08ea5050,dialogue,dialogue_bind_event_state,H,story init passes story block +0x3504 into 0x08ece440 (story.md *(0x33a40) field state)
+0x08ea505c,dialogue,dialogue_clear_event_state,H,memset *0x08ece440 0x20 bytes
+0x08ea51d4,dialogue,dialogue_set_setup_done,M,writes event state +0xc (story.md: set-up pass runs while *(0x33a40)+0xc is clear)
+0x08ea51f4,dialogue,dialogue_set_event_state,H,story.md 0xa7f4(2): writes event state +0x10; end_event and goto handlers pass 2
+0x08ea5204,dialogue,dialogue_get_event_state,H,returns event state +0x10; callers run_event_script, world_driver_next_event
+0x08ea5214,dialogue,dialogue_set_scene_map,H,story.md scene_map: event state +0x14 = map; callers scene_map handler, event reset
+0x08ea5224,dialogue,dialogue_set_scene_map_mode,M,story.md scene_map: event state +0x18 = b (0/2)
+0x08ea5234,dialogue,dialogue_get_scene_map,H,returns event state +0x14; callers world_send_scene_setup, npc_position handler
+0x08ea5244,dialogue,dialogue_get_scene_map_mode,M,returns u16 event state +0x18; value 2 sets system flag 30 in scene_map
+0x08ea5254,dialogue,dialogue_set_scene_bgm,H,story.md 0xa854 (scene_bgm): event state +0x1c = mapped track; -1 on event reset
+0x08ea5264,dialogue,dialogue_get_scene_bgm,M,returns event state +0x1c; read by the location bgm choice 0x08eaa940
+0x08ea5274,dialogue,dialogue_set_next_event_key,H,story.md 0xa874(key): goto stores (a1, a2, a3) in event state +0/+4/+8
+0x08ea528c,dialogue,dialogue_get_event_state_block,M,returns the pointer 0x08ece440; caller world_driver_next_event
+0x08ea5cb0,dialogue,dialogue_reset_event_state,H,story.md 0xb2b0: overrides reset, scene bgm -1, set-up/map/key cleared, queue +0x65 = 0, system flag 30 off
+# family event_vm
+0x08ea5c20,dialogue,dialogue_init_vm,M,memset VM state 0x08ece530 (story.md 0x33b30) 0x518 and world_reset_event_driver
+0x08ea5c50,dialogue,dialogue_term_vm,M,memset VM state 0x08ece530 0x518 from the teardown list
+0x08ea6370,dialogue,dialogue_step_event_script,M,runs dialogue_run_event_script while a record is loaded (0x08ece530) and clears it on return 0
+0x08ea63cc,dialogue,dialogue_set_exit_code,H,writes 0x08ece540 = VM +0x10 exit code (story.md)
+0x08ea63e8,dialogue,dialogue_get_line_shown_flag,H,returns 0x08ece544 = VM +0x14, set to 1 by talk/narrate_named (story.md)
+# family fade
+0x08e9b114,world,world_init_fade_state,M,memset 0x08ec9128 (8 bytes; +4 = current fade state used by world_fade_screen); init list
+0x08e9b128,world,world_term_fade_state,M,same memset of 0x08ec9128 from the teardown list
+0x08e9b470,world,world_fade_screen,H,story.md 0xa70(on, wait, frames): field request 22 {on, frames(15 when 0), flag}, polls when wait; on=1 fade in after location load
+0x08e9b550,world,world_set_fade_state,M,writes 0x08ec912c, the last fade state compared by world_fade_screen
+# family field_requests
+0x08ea1738,world,world_send_partner_follower_row,M,field request 10 with the partner row (field state +0x1c) or -1 when system flag 30 is set
+0x08ea1a34,world,world_post_field_request_31,H,field request 0x1f with scene ctx +8 (then cleared) or 0
+0x08ea1a84,world,world_poll_field_request_31,H,returns world_field_poll(0x1f) != 0
+0x08ea1aa8,world,world_post_field_request_32,H,world_field_request(0x20, buf)
+0x08ea1ac8,world,world_poll_field_request_32,H,returns world_field_poll(0x20) != 0
+0x08ea1aec,world,world_wait_field_sync,M,waits for field request 7 (NPC list) to finish, posts request 32 and waits for it; 8 callers before state changes
+0x08ea3d8c,world,world_send_field_request_27,H,field request 0x1b with flag (1 the first time, 0x08ecd980) and waits
+# family field_state
+0x08ea565c,world,world_bind_field_state,H,story init passes story block +0x32cc (field state W) and +0x35b0 (sandwich-seen set) into 0x08ece52c/0x08ece528
+0x08ea5670,world,world_clear_field_state,H,memset field state *0x08ece52c 0x16c bytes (world.md)
+0x08ea56e0,world,world_set_previous_location,H,writes field state +0x04 (previous location, world.md); caller world_set_location
+0x08ea5748,world,world_increment_counter,H,field state +0x40 + 4*index += 1 while < 100 (story.md counter_step 1)
+0x08ea5778,world,world_decrement_counter,H,field state +0x40 + 4*index -= 1 while >= 0 (counter_step 2)
+0x08ea57a4,world,world_test_counter,H,story.md 0xada4 getter of if_counter: field state +0x40 + 4*index != 0
+0x08ea584c,world,world_set_talk_target,M,writes field state +0x30 (talk target, world.md); -1 resets
+0x08ea585c,world,world_get_talk_target,M,returns field state +0x30; caller world_send_npc_list
+0x08ea586c,world,world_test_field_value_34,H,story.md 0xae6c getter of if_value_34: field state +0x34 == value
+0x08ea5884,world,world_set_field_value_38,M,writes field state +0x38 (item store, world.md); callers world_give_item_to_partner, world_op_buy_sandwich
+0x08ea5894,world,world_get_field_value_38,M,returns field state +0x38; used by opcode 50082 to decrement that item
+0x08ea58a4,world,world_test_field_value_38,H,story.md 0xaea4 getter of if_value_38: field state +0x38 == value
+0x08ea58bc,world,world_set_bought_sandwich,M,world_set_sandwich_seen(item), all-seen -> save_set_all_sandwiches_flag, field state +0x3c = item
+0x08ea5920,world,world_test_field_value_3c,H,story.md 0xaf20 getter of if_value_3c: field state +0x3c == value
+0x08ea5964,world,world_test_item_count,H,story.md 0xaf64 getter of if_counter_b: field state +0x94 + 4*item != 0
+0x08ea5980,world,world_item_counts_reach_10,H,story.md 0xaf80: sum of the 50 counters at field state +0x98.. >= 10
+0x08ea59cc,world,world_set_partner_from_row,M,world_get_character_key(row) -> field state +0x14/+0x18 (partner, variant), +0x1c = row
+0x08ea5a3c,world,world_get_partner_row,M,returns field state +0x1c (row stored by 0x08ea59cc); sent with field request 10
+0x08ea5a4c,world,world_is_partner,H,story.md 0xb04c getter of if_partner: field state +0x14 == char
+0x08ea5a64,world,world_set_duel_tally,M,writes four words field state +0x20..+0x2c; caller world_record_duel_result
+0x08ea5a80,world,world_get_duel_tally,M,reads field state +0x20..+0x2c; callers world_record_duel_result, world_send_scene_setup
+# family flagged_events
+0x08e9c8fc,world,world_try_flagged_event_211,M,table 0x08eb4d50 {n, enable flag, done flag, location}: first enabled entry at this location -> queue (211, n, 1), flag 54
+0x08e9c9ac,world,world_try_flagged_event_211_followup,M,same table: enabled entry at location with done flag clear -> set done, queue (211, n, 2); caller story init
+0x08e9ca60,world,world_get_flagged_event_211_field,M,returns word param of the first enabled entry of table 0x08eb4d50 (-1 if none); callers island map, story init
+# family map_pickups
+0x08e9ad94,world,world_init_map_pickup_table,M,memset 0x08ec90a0 (0x84 = pointer + 8 x 16-byte pickup slots used by 0x08e9add4); init list
+0x08e9ada8,world,world_term_map_pickup_table,M,same memset of 0x08ec90a0 from the teardown list
+0x08e9adbc,world,world_bind_pickup_taken_bits,M,story init passes story block +0x3590; pointer read by the bit get/set 0x08e9b0b4/0x08e9b028
+0x08e9add4,world,world_build_map_pickup_list,M,walks table 0x08eb4130 (5 words) for entries of the location, skips taken ids, fills <=9 {card,x,y} for field request 6
+0x08e9af2c,world,world_find_map_pickup_id,M,searches the 8 pickup slots at 0x08ec90a4 by (card, x, y) and returns the slot's id word
+0x08e9af88,world,world_collect_map_card,M,save_change_card_count(card, ...) then marks the pickup id taken (0x08e9af2c + 0x08e9b028); caller pickup dispatch 0x08ea386c
+0x08e9b028,world,world_set_pickup_taken,M,sets/clears bit id-1 (ids 1-256) in the bit array at *0x08ec9124
+0x08e9b0b4,world,world_is_pickup_taken,M,tests bit id-1 (ids 1-256) of the bit array at *0x08ec9124
+0x08ea17b4,world,world_send_map_pickups,M,builds the pickup list of the location (0x08e9add4) and sends it with field request 6
+0x08ea386c,world,world_on_field_pickup,M,kind 1 -> world_collect_map_card, else world_collect_map_counter_item
+0x08ea5298,world,world_init_counter_pickup_table,M,memset 0x08ece444 0x84 (second 8-slot pickup table searched by 0x08ea52c0); init list
+0x08ea52ac,world,world_term_counter_pickup_table,M,same memset of 0x08ece444 from the teardown list
+0x08ea52c0,world,world_find_counter_pickup_id,M,searches the 8 slots at 0x08ece448 by (item, x, y), returns the slot id; twin of 0x08e9af2c
+0x08ea57c0,world,world_collect_map_counter_item,M,adds n (1-99) to counter 1-20 at field state +0x40 when < 100 and marks the pickup (0x08ea52c0)
+# family npc_record_getters
+0x08e9b15c,world,world_get_npc_location,M,event flag ? record +0x28 (event location) : record +0x00 (location, world.md runtime records)
+0x08e9b1a0,world,world_get_npc_cell_x,M,event flag ? record +0x34 : record +0x0c (cell x, world.md)
+0x08e9b1e4,world,world_get_npc_cell_y,M,event flag ? record +0x38 : record +0x10 (cell y, world.md)
+0x08e9b228,world,world_get_npc_pos_x,M,event flag ? record +0x2c : record +0x04 (pair written with +0x08 by 0x08e9dc64 from the field)
+0x08e9b26c,world,world_get_npc_pos_y,M,event flag ? record +0x30 : record +0x08
+0x08e9b2b0,world,world_get_npc_direction,M,event flag ? record +0x3d (npc_direction) : record +0x15 (direction, world.md)
+0x08e9b2f4,world,world_get_npc_facing,M,event flag ? record +0x3c : record +0x14 (byte written with the position by 0x08e9dc64)
+0x08e9b338,world,world_get_npc_byte16,M,event flag ? record +0x3e : record +0x16 (set to 6 with record flag 8, world.md); sent in field request 8
+# family opcode_handlers
+0x08ea6e30,dialogue,dialogue_op_talk,H,story.md handler 0xc430 (50001/50002): dialogue_show_talk_line(speaker, expression, flag, opcode, text); VM +0x14 = 1
+0x08ea6ee8,dialogue,dialogue_op_portrait,H,story.md handler 0xc4e8 (50003): dialogue_show_portrait(speaker, expression, flag)
+0x08ea6f60,dialogue,dialogue_op_talk_pair,H,story.md handler 0xc560 (50004/50005): pairs this and the next instruction, consumes it
+0x08ea7088,dialogue,dialogue_op_close_talk_of,H,story.md handler 0xc688 (50006): close talk window of a speaker, wait request 15
+0x08ea70cc,dialogue,dialogue_op_close_talk,H,story.md handler 0xc6cc (50007): close the talk windows (request 15) and wait
+0x08ea70f0,dialogue,dialogue_op_narrate,H,story.md handler 0xc6f0 (50008): dialogue_show_narration(text, 0)
+0x08ea7138,dialogue,dialogue_op_narrate_named,H,story.md handler 0xc738 (50009): dialogue_show_narration(text, speaker); VM +0x14 = 1
+0x08ea71ac,dialogue,dialogue_op_close_narration,H,story.md handler 0xc7ac (50010): empty request 17 and wait
+0x08ea71d8,dialogue,dialogue_op_choice,H,story.md handler 0xc7d8 (50011): empty; the menu is shown by the following case 1
+0x08ea71e0,dialogue,dialogue_op_case,H,story.md handler 0xc7e0 (50012): splits previous line into options, field request 18, answer at queue +0x64, skip_to case n
+0x08ea73dc,dialogue,dialogue_op_random_case,H,story.md handler 0xc9dc (50013): rand() % count picks the branch through table 0x08eb3f3c
+0x08ea759c,dialogue,dialogue_op_if_counter,H,50014: tests world_test_counter, else skip_to 0xc37f (endif 50047)
+0x08ea7620,dialogue,dialogue_op_if_counter_b,H,50015: tests world_test_item_count, else skip_to 0xc380
+0x08ea76a4,dialogue,dialogue_op_if_value_34,H,50016: field state +0x34 == a1, else skip_to 0xc381
+0x08ea7728,dialogue,dialogue_op_if_value_38,H,50017: field state +0x38 == a1, else skip_to 0xc382
+0x08ea77ac,dialogue,dialogue_op_if_counter_b_total,H,50018: world_item_counts_reach_10, else skip_to 0xc383
+0x08ea7810,dialogue,dialogue_op_if_value_3c,H,50019: field state +0x3c == a1, else skip_to 0xc384
+0x08ea7894,dialogue,dialogue_op_if_char_points,H,50020: dialogue_compare(world_get_char_points(row of char), a2, a3), else skip_to 0xc385
+0x08ea7940,dialogue,dialogue_op_if_top_character,M,50021: world_is_top_character(a1) (save_find_top_character), else skip_to 0xc386
+0x08ea79c4,dialogue,dialogue_op_if_dp,H,50022: dialogue_compare(save_get_player_value(0), a1, a2), else skip_to 0xc387
+0x08ea7a2c,dialogue,dialogue_op_if_flag,H,50023: world_test_story_flag(a1) tested with a2, else skip_to 0xc388
+0x08ea7ab8,dialogue,dialogue_op_if_record_flag,H,50025: world_test_record_flag(a1, a2) tested with a3, else skip_to 0xc38a
+0x08ea7b40,dialogue,dialogue_op_if_story_stage,H,50026: dialogue_compare(world_get_story_stage(), a2, a3), else skip_to 0xc38b
+0x08ea7ba8,dialogue,dialogue_op_if_card_owned,H,50027: save_get_card_count(a1) != 0 tested with a2, else skip_to 0xc38c
+0x08ea7c34,dialogue,dialogue_op_if_card_marked,H,50028: card_db_is_card_marked(a1) tested with a2, else skip_to 0xc38d
+0x08ea7cb8,dialogue,dialogue_op_if_recipe_unlocked,H,50029: bit 0 of save_get_recipe_entry(a1) tested with a2, else skip_to 0xc38e
+0x08ea7d50,dialogue,dialogue_op_if_player_deck_recipe,M,50030 by position: deck_is_player_deck_recipe(a1) tested with a2; skips to 0xc38e (endif of 50029, not 50030)
+0x08ea7dd4,dialogue,dialogue_op_nop_50031,H,empty handler at the 50031 position (story.md nop)
+0x08ea7ddc,dialogue,dialogue_op_if_npc_location,H,50032: world_get_record_location(a1) == a2 tested with a3, else skip_to 0xc391
+0x08ea7e90,dialogue,dialogue_op_nop_50033,H,empty handler at the 50033 position (story.md nop)
+0x08ea7e98,dialogue,dialogue_op_nop_50034,H,empty handler at the 50034 position (story.md nop)
+0x08ea7ea0,dialogue,dialogue_op_if_time_slot,H,50035: dialogue_compare(world_get_time_slot(), a1, a2), else skip_to 0xc394
+0x08ea7f08,dialogue,dialogue_op_nop_50036,H,empty handler at the 50036 position (story.md nop)
+0x08ea7f10,dialogue,dialogue_op_if_partner,H,50037: world_is_partner(a1) tested with a2, else skip_to 0xc396
+0x08ea7f94,dialogue,dialogue_op_if_value_160,M,50038: dialogue_compare(u16 field state +0x160, a1, a2), else skip_to 0xc397
+0x08ea7ffc,dialogue,dialogue_op_if_value_162,M,50039: dialogue_compare(u16 field state +0x162, a1, a2), else skip_to 0xc398
+0x08ea8064,dialogue,dialogue_op_if_value_164,M,50040: field state +0x164 (0 -> 1) == mapped a1 (1-8, 9-11 -> 11-13) tested with a2, else skip_to 0xc399
+0x08ea8168,dialogue,dialogue_op_nop_50041,H,empty handler at the 50041 position (story.md nop)
+0x08ea81d4,dialogue,dialogue_op_if_duel_count_vs_0,M,50043: dialogue_compare(save_get_duel_count_vs(0, a1), a2, a3), else skip_to 0xc39c
+0x08ea8260,dialogue,dialogue_op_if_duel_count_vs_1,M,50044: dialogue_compare(save_get_duel_count_vs(1, a1), a2, a3), else skip_to 0xc39d
+0x08ea82ec,dialogue,dialogue_op_if_duel_count_vs_2,M,50045: dialogue_compare(save_get_duel_count_vs(2, a1), a2, a3), else skip_to 0xc39e
+0x08ea8378,dialogue,dialogue_op_nop_50046,H,empty handler at the 50046 position (story.md nop)
+0x08ea8380,dialogue,dialogue_op_counter_step,H,story.md handler 0xd980 (50080): a2 1 -> world_increment_counter(a1), 2 -> world_decrement_counter(a1)
+0x08ea8420,dialogue,dialogue_op_counter_b_step,H,story.md 0xda20 (50081): world_decrement_item_count(a1) when a2 = 2
+0x08ea849c,dialogue,dialogue_op_counter_b_step_value_38,H,story.md 50082: decrements the item at field state +0x38 when 1-50
+0x08ea84d8,dialogue,dialogue_op_counter_b_step_current,H,story.md 50083: decrements world_get_current_item() when 1-50
+0x08ea85a8,dialogue,dialogue_op_dp_add,H,story.md handler 0xdba8 (50086): field request 24 with +a1, waits
+0x08ea8624,dialogue,dialogue_op_dp_sub,H,story.md handler 0xdc24 (50087): field request 24 with -a1, waits
+0x08ea86a4,dialogue,dialogue_op_nop_50088,H,empty handler at the 50088 position (story.md nop)
+0x08ea86ac,dialogue,dialogue_op_set_flag,H,story.md handler 0xdcac (50090/50091): world_set_story_flag(a1, a2 == 1)
+0x08ea8718,dialogue,dialogue_op_nop_50092,H,empty handler at the 50092 position (story.md nop)
+0x08ea8720,dialogue,dialogue_op_nop_50093,H,empty handler at the 50093 position (story.md nop)
+0x08ea8730,dialogue,dialogue_op_nop_50095,H,empty handler at the 50095 position (story.md nop)
+0x08ea8738,dialogue,dialogue_op_set_location,M,50096 by position: world_set_location(a1)
+0x08ea8760,dialogue,dialogue_op_give_card,H,50097 give_card: calls 0x08eaa570 (story.md handler 0xfb70) with card a1 and show flag a2
+0x08ea87cc,dialogue,dialogue_op_give_random_card,H,story.md 50098 = 0xf7a0(1): dialogue_give_random_cards(1)
+0x08ea87d4,dialogue,dialogue_op_give_booster,H,story.md 50099 = 0xf7a0(5): dialogue_give_random_cards(5)
+0x08ea8804,dialogue,dialogue_op_unlock_recipe,M,50101 by position: save_add_character_entry(a1, a2) and save_unlock_recipe(a2, a1)
+0x08ea8868,dialogue,dialogue_op_nop_50102,H,empty handler at the 50102 position (story.md nop)
+0x08ea8870,dialogue,dialogue_op_set_pack_state,H,story.md handler 0xde70 (50103): save_set_pack_state(pack, 0/1/2/4) or first pack >= 3 with state < 2 gets 4
+0x08ea89e8,dialogue,dialogue_op_nop_50107,H,empty handler at the 50107 position (story.md nop)
+0x08ea89f0,dialogue,dialogue_op_exit_118,H,story.md 50108: exit code 0x76 (118) into 0x08ece540
+0x08ea8a00,dialogue,dialogue_op_nop_50109,H,empty handler at the 50109 position (story.md nop)
+0x08ea8a08,dialogue,dialogue_op_nop_50110,H,empty handler at the 50110 position (story.md nop)
+0x08ea8a10,dialogue,dialogue_op_picture,H,story.md handler 0xe010 (50111): ids 1/2 -> -2/-3, hide -1, save_set_picture_seen, field request 19
+0x08ea8b08,dialogue,dialogue_op_fade,H,story.md handler 0xe108 (50112/50113): world_fade_screen(50112 ? 1 : 0, wait, frames, flag)
+0x08ea8b7c,dialogue,dialogue_op_npc_appear_leave,H,story.md handler 0xe17c (50114/50115): builds NPC entry or marks record flag 4, field request 8
+0x08ea8d54,dialogue,dialogue_op_screen_effect,H,story.md handler 0xe354 (50116): field request 20 with kind and mapped mode
+0x08ea8e14,dialogue,dialogue_op_screen_effect_end,H,story.md handler 0xe414 (50117): field request 21 and wait
+0x08ea8ee8,dialogue,dialogue_op_duel_single,H,story.md handler 0xe4e8 (50119): world_setup_single_duel(a1, a2), clears duel_then_d
+0x08ea8f38,dialogue,dialogue_op_duel_tag_opponent_a,H,story.md handler 0xe538 (50120): world_setup_tag_opponent_a, clears duel_then_d
+0x08ea8f88,dialogue,dialogue_op_duel_tag_opponent_b,H,story.md handler 0xe588 (50121): world_setup_tag_opponent_b
+0x08ea8fb4,dialogue,dialogue_op_duel_tag_partner,H,story.md handler 0xe5b4 (50122): world_setup_tag_partner
+0x08ea8fe0,dialogue,dialogue_op_duel_partner_self,M,story.md handler 0xe5e0 (50123, unused): world_setup_partner_duel_self, clears duel_then_d
+0x08ea9030,dialogue,dialogue_op_duel_partner_opponent,M,handler 0xe630 (50124, unused): world_setup_partner_duel_opponent, clears duel_then_d
+0x08ea9080,dialogue,dialogue_op_duel_partner_extra,M,story.md handler 0xe680 (50125, unused): world_setup_partner_duel_extra(a1, a2)
+0x08ea9298,dialogue,dialogue_op_duel_rules,H,story.md 50129: world_set_duel_rules(a1, a2, a3)
+0x08ea92c8,dialogue,dialogue_op_duel_option,H,story.md 50130: world_set_duel_option(a1, a2)
+0x08ea92f4,dialogue,dialogue_op_duel_then_a,H,story.md 50131: world_set_duel_then_a(key)
+0x08ea9324,dialogue,dialogue_op_duel_then_b,H,story.md 50132: world_set_duel_then_b(key)
+0x08ea9354,dialogue,dialogue_op_duel_then_c,H,story.md 50133: world_set_duel_then_c(key)
+0x08ea9384,dialogue,dialogue_op_duel_then_d,H,story.md 50134: world_set_duel_then_d(key)
+0x08ea93b4,dialogue,dialogue_op_nop_50135,H,empty handler at the 50135 position (story.md nop)
+0x08ea93bc,dialogue,dialogue_op_nop_50136,H,empty handler at the 50136 position (story.md nop)
+0x08ea93d4,dialogue,dialogue_op_goto,H,story.md handler 0xe9d4 (50138): event state 2 and dialogue_set_next_event_key(a1, a2, a3)
+0x08ea9420,dialogue,dialogue_op_exit_111,H,story.md 50139: location 2 at (7.75, 12.75), exit code 0x6f, or the 50140 path on tournament day
+0x08ea94a0,dialogue,dialogue_op_exit_112,H,story.md 50140: location 2 at (7.75, 12.75), system flag 9, exit code 0x70
+0x08ea94f4,dialogue,dialogue_op_nop_50142,H,empty handler at the 50142 position (story.md nop)
+0x08ea94fc,dialogue,dialogue_op_nop_50143,H,empty handler at the 50143 position (story.md nop)
+0x08ea95ec,dialogue,dialogue_op_nop_50146,H,empty handler at the 50146 position (story.md nop)
+0x08ea95f4,dialogue,dialogue_op_nop_50147,H,empty handler at the 50147 position (story.md nop)
+0x08ea964c,dialogue,dialogue_op_exit_102,H,story.md 50150: exit code 0x66 (102), a1 into VM +8 (0x08ece538)
+0x08ea97b8,dialogue,dialogue_op_exit_103,H,story.md 50152: exit code 0x67 (103)
+0x08ea97c8,dialogue,dialogue_op_sound_effect,H,story.md handler 0xedc8 (50153): dialogue_map_sound_effect_id then BOOT 0x08841898
+0x08ea9850,dialogue,dialogue_op_bgm,H,story.md handler 0xee50 (50155): audio_play_bgm(dialogue_map_bgm_track(a1))
+0x08ea98a4,dialogue,dialogue_op_scene_map,H,story.md 50158: event state +0x14 = map, +0x18 = b; b = 2 sets system flag 30
+0x08ea9928,dialogue,dialogue_op_scene_player,H,story.md 50159: world_set_player_position(x*0.5+0.25, y*0.5+0.25, mapped direction)
+0x08ea99c4,dialogue,dialogue_op_npc_place,H,50160/50161 (value 2): record +0x40 = variant of character-table row a2 (world_get_character_key)
+0x08ea9a68,dialogue,dialogue_op_nop_50163,H,empty handler at the 50163 position (story.md nop)
+0x08ea9a70,dialogue,dialogue_op_npc_value_44,M,story.md op_50164: record +0x44 = a2
+0x08ea9a9c,dialogue,dialogue_op_nop_50165,H,empty handler at the 50165 position (story.md nop)
+0x08ea9aa4,dialogue,dialogue_op_npc_event,H,story.md 50166: world_set_record_duel_key(char, group, number)
+0x08ea9ad4,dialogue,dialogue_op_scene_bgm,H,story.md 50167: dialogue_set_scene_bgm(dialogue_map_bgm_track(a1))
+0x08ea9b18,dialogue,dialogue_op_npc_position,H,story.md 50168: record +0x28/+0x2c/+0x30/+0x34/+0x38 from (x, y) and the scene map
+0x08ea9bb4,dialogue,dialogue_op_npc_direction,H,story.md 50169: record +0x3c/+0x3d/+0x3e (mapped direction, c)
+0x08ea9c64,dialogue,dialogue_op_npc_event_b,H,story.md 50171: world_set_record_talk_key(char, group, number)
+0x08ea9c94,dialogue,dialogue_op_nop_50172,H,empty handler at the 50172 position (story.md nop)
+0x08ea9c9c,dialogue,dialogue_op_nop_50173,H,empty handler at the 50173 position (story.md nop)
+0x08ea9ca4,dialogue,dialogue_op_nop_50174,H,empty handler at the 50174 position (story.md nop)
+0x08ea9cac,dialogue,dialogue_op_end_event,H,story.md handler 0xf2ac (50175): dialogue_set_event_state(2)
+0x08ea9cb4,dialogue,dialogue_op_exit_select,H,story.md 50176: exit code 0x68-0x6e for n 1-7 (n 4 sets system flag 10)
+# family opcode_maps
+0x08e9ee24,dialogue,dialogue_map_talk_expression,H,story.md 0x4424(expression): identity for 0-16, else 0; called by talk/portrait handlers
+0x08e9ef3c,dialogue,dialogue_map_script_direction,H,story.md 0x453c: 8->1, 9->3, 10->5, 11->7, else 0
+0x08e9ef78,dialogue,dialogue_map_sound_effect_id,H,story.md 0x4578: 1->0x7a5a, 2-5 -> 0x7adf-0x7ae2 (31322 / 31455-31458)
+0x08e9efc0,dialogue,dialogue_map_bgm_track,H,story.md 0x45c0: maps bgm id 0-26 through a switch to the track number
+# family overlays
+0x08ea2cdc,world,world_switch_field_overlay,M,for overlay index 0-11: unloads the other loaded overlays (stopping bgm by rule) and loads it from table 0x08eb5128
+0x08ea537c,world,world_init_overlay_state,M,memset 0x08ece4dc 0x38 (current overlay, 12 loaded flags at 0x08ece4e0, frame callback 0x08ece510)
+0x08ea5390,world,world_term_overlay_state,M,same memset of 0x08ece4dc from the teardown list
+0x08ea53a4,world,world_load_field_overlay,M,index 0-11 not loaded: system_module_load_ex(name), waits all loaded, marks it, runs init callback, sets frame callback
+0x08ea54cc,world,world_run_overlay_frame_callback,M,calls *0x08ece510 when set; caller frame callback 0x08ea0564
+0x08ea5500,world,world_clear_overlay_frame_callback,H,0x08ece510 = 0; 13 callers in the state functions
+0x08ea550c,world,world_unload_field_overlay,M,loaded overlay index 0-11: fade, exit callback, system_module_unload, clears loaded flag
+0x08ea55b0,world,world_is_field_overlay_loaded,H,index 0-11 and loaded flag 0x08ece4e0[i] > 0
+# family partner_events
+0x08e9c7e4,world,world_queue_time_menu_reaction,H,queues (partner a1, 5, n) n from slot (-1->4, 7->3, 6->2, else 1) and system flag 28; field action 8 (world.md)
+0x08ea560c,world,world_bind_partner_talk_block,H,story init passes story block +0x357c into 0x08ece524 (chapter-table.md 8-byte block)
+0x08ea5618,world,world_clear_partner_talk_block,H,memset *0x08ece524 8 bytes
+# family portrait_preload
+0x08e9ac58,world,world_init_portrait_preload_flag,M,memset 0x08ec909c (4 bytes), the flag cleared after field request 12 in 0x08e9ad08; init list
+0x08e9ac6c,world,world_term_portrait_preload_flag,M,same memset of 0x08ec909c from the teardown list 0x08e9ab94
+0x08e9ad08,world,world_release_preloaded_portraits,M,waits on field request 11 (preload_portrait, story.md), posts request 12, clears 0x08ec909c and waits
+# family record_getters
+0x08e9d904,world,world_get_record_location,H,returns u16 record +0x00 (current location, world.md)
+0x08e9d924,world,world_get_record_event_location,M,returns u16 record +0x28 (event set-up location written by npc_position)
+0x08e9dd0c,world,world_get_record_pos_x,M,returns record +0x04
+0x08e9dd2c,world,world_get_record_cell_x,H,returns record +0x0c (cell x, world.md)
+0x08e9dd4c,world,world_get_record_event_pos_x,M,returns record +0x2c
+0x08e9dd6c,world,world_get_record_event_cell_x,M,returns record +0x34
+0x08e9dd8c,world,world_get_record_pos_y,M,returns record +0x08
+0x08e9ddac,world,world_get_record_cell_y,H,returns record +0x10 (cell y, world.md)
+0x08e9ddcc,world,world_get_record_event_pos_y,M,returns record +0x30
+0x08e9ddec,world,world_get_record_event_cell_y,M,returns record +0x38
+0x08e9de0c,world,world_get_record_facing,M,returns byte record +0x14
+0x08e9de2c,world,world_get_record_direction,H,returns byte record +0x15 (direction, world.md)
+0x08e9de4c,world,world_get_record_event_facing,M,returns byte record +0x3c
+0x08e9de6c,world,world_get_record_event_direction,M,returns byte record +0x3d (npc_direction)
+0x08e9de8c,world,world_get_record_byte16,M,returns byte record +0x16
+0x08e9df88,world,world_get_record_event_byte3e,M,returns byte record +0x3e (npc_direction third argument)
+0x08e9e214,world,world_get_record_talk_key,H,reads record +0x4c/+0x4e/+0x50 into three outputs; caller world_talk_to_character
+0x08e9e268,world,world_get_record_duel_key,H,reads record +0x46/+0x48/+0x4a into three outputs; caller world_handle_field_action
+0x08e9eac0,world,world_get_record_char_id_by_index,H,returns *(records + i*0x5c + 0x1c), the character id (world.md)
+0x08e9eae8,world,world_get_record_variant_by_index,H,returns *(records + i*0x5c + 0x20), the variant (world.md)
+# family record_setters
+0x08e9d704,world,world_set_record_spot,H,writes u16 record +0x18 (spot index, world.md: set by 0x08e9d704); caller world_assign_daily_spots
+0x08e9db04,world,world_set_record_variant,H,writes record +0x20 (variant, world.md); caller 0x08e9b5d8
+0x08e9dc64,world,world_set_record_position,M,writes record +0x04, +0x08 and byte +0x14; callers world_send_npc_list, world_handle_field_action
+0x08e9dcac,world,world_set_record_event_position,M,writes record +0x2c/+0x30; caller npc_position handler 0x08ea9b18
+0x08e9dce4,world,world_set_record_event_facing,M,writes byte record +0x3c (mapped direction from npc_direction handler 0x08ea9bb4)
+0x08e9e048,world,world_set_record_event_variant,H,writes u16 record +0x40 (event variant, world.md); npc_place handler passes the variant of a char-table row
+0x08e9e098,world,world_set_record_event_word44,M,writes u16 record +0x44; caller op_50164 handler 0x08ea9a70 (story.md: record +0x44)
+0x08e9e0c0,world,world_set_record_duel_key,H,writes record +0x46 group, +0x48/+0x4a = n/100, n%100 (npc_event Duel key, world.md)
+0x08e9e110,world,world_set_record_event_cell,M,writes u16 record +0x28 (scene location) and +0x34/+0x38 cells; npc_position handler
+0x08e9e158,world,world_set_record_event_direction,M,writes record +0x3d = mapped direction (0x08e9ef3c) and +0x3e = third arg; npc_direction handler
+0x08e9e1c4,world,world_set_record_talk_key,H,writes record +0x4c/+0x4e/+0x50 (npc_event_b Talk key, world.md)
+# family runtime_records
+0x08e9b5d8,world,world_init_character_records,M,copies char table columns 5/6 into record flags 1/5 for 140 rows, variants from table 0x08eb2e20, partner, seller pick
+0x08e9d3e8,world,world_bind_runtime_records,H,world.md: sets 0x08ecd964 (records) and 0x08ecd968, qsorts char-table ids into the 0x84-byte table 0x08ec9134
+0x08e9d494,world,world_reset_runtime_records,M,memset records 0x3250, writes each char id to record +0x1c and to the 24-byte seen-recipe entries, world_reset_event_overrides
+0x08e9d628,world,world_get_character_name,M,BOOT 0x08836734(0, char, variant); result copied as 0x32-byte name in 0x08ea4a98 and sent as speaker name with lines
+0x08e9d964,world,world_reset_all_char_points,H,save_set_char_points(record +0x1c id, 0) for all 140 records; caller story init
+0x08e9dad0,world,world_is_top_character,M,returns char == save_find_top_character(); getter of the 50021 if handler 0x08ea7940
+0x08e9dbc4,world,world_get_record_character_row,M,world_find_character_row_or_default(record +0x1c, variant) -> row
+0x08e9dc08,world,world_get_talk_portrait_row,M,row of (char, variant) or -1 when BOOT 0x0885b140(row) fails; talk handlers fall back to plain narration on -1
+0x08e9deac,world,world_reroll_npc_remarks,H,world.md: re-rolls remark index +0x17 from table 0x08eb4e10 (1/3 chance of rand%10) for pairable characters
+0x08e9e340,world,world_update_npc_deck_indices,H,world.md: sets record +0x24 deck index from partner points/category per character; called by world_update_npc_positions
+# family scene_ctx
+0x08e9b13c,world,world_bind_scene_ctx,H,story init passes story block +0x3250 (0x14-byte block, world.md save fields) into *0x08ec9130
+0x08e9b148,world,world_clear_scene_ctx,H,memset *0x08ec9130 0x14 bytes (story block +0x3250)
+0x08e9b3c0,world,world_set_scene_ctx_word0,M,writes word 0 of the scene ctx block *0x08ec9130 (story block +0x3250)
+0x08e9b3e4,world,world_get_scene_ctx_word0,M,returns word 0 of *0x08ec9130
+0x08e9b3f4,world,world_set_force_location_setup,M,sets 0x08ec9128; when non-zero state 4 (0x08ea1d90) runs the full location set-up even without an event
+0x08e9b400,world,world_is_force_location_setup,M,returns 0x08ec9128 != 0; read by state 4, world_send_npc_list, world_place_player_on_arrival
+0x08e9b410,world,world_set_next_scene_mode,M,writes ctx +4; 0x08e9fec8 switches on it to call scene 4 (deck), 6 (duel), 0xf, 0x13... or return
+0x08e9b420,world,world_get_next_scene_mode,M,returns ctx +4 (*0x08ec9130), the switch value of the scene exit 0x08e9fec8
+0x08e9b430,world,world_set_scene_return_value,M,writes u16 ctx +0xc; 0x08e9fec8 default case passes it to system_scene_return(2, value)
+0x08e9b440,world,world_get_scene_return_value,M,returns u16 ctx +0xc for system_scene_return in 0x08e9fec8
+0x08e9b450,world,world_set_scene_ctx_word8,M,writes ctx +8; consumed (and cleared) by 0x08ea1a34 as the argument of field request 31
+0x08e9b460,world,world_get_scene_ctx_word8,M,returns ctx +8 of *0x08ec9130
+# family script_archives
+0x08e9eee0,dialogue,dialogue_map_language_index,M,switch on save_get_language() result; its value indexes the language-letter table 0x08eb5244 in 0x08ea3e44
+0x08ea3e00,dialogue,dialogue_init_script_archive_state,M,memset 0x08ecdb9c 0xc (the two archive pointers and language index of 0x08ea3e44)
+0x08ea3e14,dialogue,dialogue_term_script_archive_state,M,frees the archives (0x08ea4074) and clears 0x08ecdb9c
+0x08ea3e44,dialogue,dialogue_load_script_archives,H,strings 'script/story_scr_' + 'b.ehp' and + language letter + '.ehp'; loads both into slots 0/1
+0x08ea3f2c,dialogue,dialogue_bind_script_tables,H,finds 'EveB.bin', 'EveBI.bin', EveL/EveI and 'SysMsgL'/'SysMsgI' members and stores their pointers
+0x08ea4074,dialogue,dialogue_unload_script_archives,H,frees archive slots 0 and 1 (0x08eadf1c) and clears 0x08ecdb9c/0x08ecdba0
+0x08ea40c8,dialogue,dialogue_find_language_member,H,builds prefix + language letter + '.bin' and finds that member in archive slot 1
+# family script_tables
+0x08ea5028,dialogue,dialogue_init_script_tables,M,memset 0x08ece42c 0x14 (EveB/EveBI/EveI/EveL pointers); init list
+0x08ea503c,dialogue,dialogue_term_script_tables,M,same memset of 0x08ece42c from the teardown list
+0x08ea5070,dialogue,dialogue_set_eveb_code,H,stores the 'EveB.bin' member pointer (0x08ece42c); caller dialogue_bind_script_tables
+0x08ea5118,dialogue,dialogue_set_evebi_index,H,stores the 'EveBI.bin' member pointer (0x08ece434)
+0x08ea5124,dialogue,dialogue_set_evel_text,H,stores the EveL<l>.bin member pointer (0x08ece43c) when non-null
+0x08ea513c,dialogue,dialogue_get_evel_text,H,returns 0x08ece43c (EveL text); caller dialogue_get_line_text
+0x08ea51a0,dialogue,dialogue_set_evei_index,H,stores the EveI<l>.bin member pointer (0x08ece438)
+0x08ea51ac,dialogue,dialogue_get_evei_index,H,returns 0x08ece438 (EveI index); caller dialogue_get_line_text
+# family seen_recipes
+0x08e9d524,world,world_find_seen_recipe_entry,M,binary search of the 140 24-byte entries at *0x08ecd968 by char id (u16[10] recipe list at +4)
+0x08e9e2bc,world,world_record_seen_recipe,M,adds deck_get_owner_recipe(char, deck index) to the char's u16[10] list (0x08e9d524) if absent; caller duel start 0x08ea4a98
+0x08e9e9e4,world,world_get_seen_deck_level,M,deck_get_recipe_level of the char's current recipe when it is in its seen list (0x08e9ea3c), else 0
+0x08e9ea3c,world,world_is_recipe_seen,M,1 when the recipe is in the char's u16[10] list at entry +4 (0x08e9d524)
+# family staff_roll
+0x08ea3a54,world,world_staff_roll_wait_modules,H,chapter-table.md: 0x08ea3a54 waits for modules, then BOOT 0x0882b8ac(heap, 0x500000) and state 48
+# family story_archives
+0x08eade28,container,container_load_story_archive,M,container_get_file_size + heap alloc + container_load_file with bind callback into slot 0/1, waits for completion
+0x08eadf1c,container,container_free_story_archive,M,frees archive slot n (0x08ecec98) from the story heap
+0x08eadf58,container,container_find_story_archive_member,H,container_ehp_find_member(slot[n], name, 0)
+0x08eadf94,container,container_on_story_archive_loaded,M,load callback: container_ehp_bind_with_callback(0, buffer), sets done flag 0x08ececa8
+# family story_bgm
+0x08e9f0c4,audio,audio_get_location_bgm,M,maps story location 0-30 to bgm id 10-20; caller 0x08eaaa8c location music
+0x08eaa614,audio,audio_bind_bgm_state,M,story init passes story block +0x3584 into 0x08ecea50 (current track words used by the bgm functions)
+0x08eaa620,audio,audio_reset_bgm_state,M,memset bgm state 0xc bytes and sets words 0/1 to -1
+0x08eaa660,audio,audio_request_story_sounds,M,BOOT 0x08841840 (sound request, story.md bgm) for ids 0x2c6-0x2d7
+0x08eaa6bc,audio,audio_play_points_change_sound,M,called by world_change_char_points(delta): delta bands -> sound 0x7a11-0x7a16 via BOOT 0x08841898
+0x08eaa71c,audio,audio_set_bgm_track_word,M,writes bgm state word 1 (index 1) or word 0; story init/new game pass (0, 10) and (1, -1)
+0x08eaa76c,audio,audio_change_bgm_track,M,stops the current track, requests the new one, waits until loaded (0x0886997c), stores it, starts it (0x08841870)
+0x08eaa80c,audio,audio_fade_out_bgm,M,BOOT 0x08841914(1500), waits while 0x088685d8+0x08868644 busy, track word 1 = -1, 0x08841858
+0x08eaa938,audio,audio_play_island_map_bgm,M,same sequence as audio_change_bgm_track with fixed track 0x13; caller island map state 1
+0x08eaa940,audio,audio_select_scene_bgm,M,event scene bgm, duel follow-up bgm (after duel) or location music (0x08eaaa8c); caller state 4
+0x08eaaa8c,audio,audio_play_location_bgm,M,track from audio_get_location_bgm (0x14 in slot 7), level 0x60 in dorm-room locations 7-15/28, else 0x80
+0x08eaab98,audio,audio_set_bgm_level,M,writes bgm state +8 (0x80 normally, 0x60 in rooms)
+# family story_blocks
+0x08ea534c,world,world_bind_story_block_3570,M,story init passes story block +0x3570 into 0x08ece4d8
+0x08ea5358,world,world_clear_story_block_3570,M,memset *0x08ece4d8 0xc bytes
+# family story_completion
+0x08e9b9d4,world,world_recompute_completion_flags,H,story.md 0x0fd4: counts rows with save_test_character_flag_bit2 and sets story/system flags 0x41+ per finished partner
+# family story_heap
+0x08eadda0,system,system_create_story_heap,M,memset 0x08ecec94 0x1c, system_heap_create(0x08ececb0, 0x200000); init list
+0x08eadde0,system,system_destroy_story_heap,M,BOOT 0x08826414(heap) and clears 0x08ecec94; teardown list
+0x08eade1c,system,system_get_story_heap,M,returns 0x08ecec94; passed to save_open by 0x08ea3bbc
+# family story_scene
+0x08e9aa38,world,world_story_scene_main,M,scene thread body: story init 0x08e9f3ac, loops world_story_state_step + wait_frame until 0x08ea0558 done flag, then exit dispatch
+0x08e9aae8,world,world_init_story_globals,M,only caller is scene main; calls ~19 module-global clear/init functions (memsets of story globals, heap create)
+0x08e9ab94,world,world_term_story_globals,M,scene-main teardown counterpart of 0x08e9aae8: same globals cleared again, heap released (0x08eadde0)
+0x08e9f384,world,world_init_story_state_vars,M,memset 0x08ecd970 0x22c (done flag 0x08ecd970, state 0x08ecd978 world.md); init list
+0x08e9f398,world,world_term_story_state_vars,M,same memset of 0x08ecd970 from the teardown list
+0x08e9f3ac,world,world_story_init,H,world.md/chapter-table.md 'story init 0x08e9f3ac': binds every story-block sub-block, loads scripts, resumes state
+0x08e9feb8,world,world_copy_partner_word,M,copies a u16; only use copies save_copy_partner_field into a local in story init
+0x08e9fec8,world,world_exit_story_scene,M,switch on world_get_next_scene_mode: system_scene_call(2, 4/6/0xf/0x13...) with partner parameters, else scene_return
+0x08ea04c8,world,world_leave_field_scene,M,optional fade out, bgm fade, closes the 12 overlays (0x08ea2cdc(i,0)), sets done flag 0x08ecd970
+0x08ea0558,world,world_is_story_scene_done,M,returns 0x08ecd970, the loop condition of world_story_scene_main
+# family story_states
+0x08ea1bf4,world,world_state_open_island_map,H,world.md state 1 (0x08ea1bf4): request 0 scene set-up, world_open_island_map, island bgm, fade in, state 2
+0x08ea1d60,world,world_state_sync_then_enter_location,M,waits field sync, sets state 4 (enter location)
+0x08ea1d90,world,world_state_enter_location,H,world.md state 4 (0x08ea1d90): scene set-up, exit cells, arrival, NPC list, pickups, bgm, fade in
+0x08ea1ec4,world,world_state_start_field_walk,M,releases preloaded portraits, posts field request 16 (field action), state 6
+0x08ea2568,world,world_state_exit_to_island_map,H,world.md state 7 (0x08ea2568): field sync, world_change_time(2), state 1
+0x08ea2c40,world,world_state_sleep_to_next_day,M,closes windows, fade out, world_change_time(6) (location 14 + next day), clears talk target, state 4
+0x08ea2ca0,world,world_begin_map_exit,M,fade out and set state 7; callers field action and driver result
+0x08ea3bbc,world,world_state_save_story_cycle,M,closes overlays, save_open(5, story heap), state 0x34 on failure, save_advance_story_cycle, fade in
+0x08ea3c5c,world,world_state_poll_save,M,polls BOOT 0x0884123c; result 2 or 3 -> state 0x34; then 0x0884134c
+0x08ea3cc0,world,world_state_return_from_story,M,bgm fade, fade out, next scene mode 1 (scene_return path of world_exit_story_scene)
+# family stubs
+0x08e9c8f4,world,world_stub_return_0_island_map,M,returns 0; only caller world_open_island_map
+# family sysmsg
+0x08eaabb0,dialogue,dialogue_init_sysmsg_tables,M,memset 0x08ecea54 0x10 (SysMsg L/I pointers); init list
+0x08eaabc4,dialogue,dialogue_term_sysmsg_tables,M,same memset of 0x08ecea54 from the teardown list
+0x08eab0e8,dialogue,dialogue_bind_sysmsg_tables,H,dialogue_bind_script_tables passes the 'SysMsgL' and 'SysMsgI' members into 0x08ecea54/0x08ecea58
+0x08eab0fc,dialogue,dialogue_get_sysmsg_line,H,SysMsgL + 2*SysMsgI[n-1] (story.md I/L layout)
+0x08eaca40,dialogue,dialogue_show_system_message,M,codes 0x100/0x101: SysMsg question + yes/no via request 18; 0x102-0x108 map to SysMsg lines shown as narration
+# family talk_windows
+0x08eac368,dialogue,dialogue_init_talk_state,M,memset 0x08ecea70 0x224 (text buffer and the two talk-window slots 0x08ecec70..); init list
+0x08eac37c,dialogue,dialogue_term_talk_state,M,same memset of 0x08ecea70 from the teardown list
+0x08eac390,dialogue,dialogue_show_talk_line,H,story.md 0x11990: portrait window (requests 13/14) when the speaker has a row, then text box request 17 with name
+0x08eac554,dialogue,dialogue_show_portrait,H,story.md 0x11b54: portrait window without text, field request 13
+0x08eac5f8,dialogue,dialogue_show_portrait_pair,M,two speakers' rows, 0x08ead048 layout, field request 13; caller talk_pair handler
+0x08eac6c8,dialogue,dialogue_close_speaker_window,M,finds the speaker in slots 0x08ecec70, request 15 for its window, clears the slot
+0x08eac7a0,dialogue,dialogue_close_talk_windows,H,request 15 with the one or two open windows, clears both slots and 0x08ecec90
+0x08eac8a8,dialogue,dialogue_wait_talk_windows,H,loops world_field_poll(15) with wait_frame
+0x08eac8e4,dialogue,dialogue_show_narration,H,story.md 0x11ee4(text, speaker): expands text, speaker name, field request 17 and wait
+0x08eac994,dialogue,dialogue_close_narration,M,field request 17 with empty text/name
+0x08eac9c8,dialogue,dialogue_wait_narration,H,loops world_field_poll(17) with wait_frame
+0x08eaca04,dialogue,dialogue_close_all_windows,M,closes narration, waits talk windows, releases preloaded portraits
+0x08eacbe0,dialogue,dialogue_split_choice_options,H,story.md 0x121e0: splits the menu line at newlines into up to five expanded options
+0x08eace04,dialogue,dialogue_open_portrait_slot,M,picks/replaces one of the two window slots 0x08ecec70 (request 15 closes the old one); caller dialogue_show_portrait
+0x08ead048,dialogue,dialogue_layout_portrait_pair,M,matches two speakers against the open slots, reopens with dialogue_close_speaker_window/show_portrait; caller show_portrait_pair
+0x08ead1f0,dialogue,dialogue_open_talk_slot,M,speaker already in a slot -> reuse; else allocates a slot (side by opcode 0xc351), request 15; caller show_talk_line
+# family text_expand
+0x08eaccd4,dialogue,dialogue_expand_text,H,copies a line then expands $M card names, name tokens and the literal token 《PLAYER》 (U+300A P L A Y E R U+300B)
+0x08ead444,dialogue,dialogue_expand_card_names,H,replaces '$M' + 4 digits with card_db_get_name(id) (story.md $M markup)
+0x08ead690,dialogue,dialogue_expand_name_tokens,M,scans U+300A tokens (B..., Cnnn_k via char table columns 1-4, partner, team name) and substitutes text with $C colour
+0x08eadacc,dialogue,dialogue_copy_player_name,M,copies save_get_player_name() (max 32 units) into the buffer used for the PLAYER token
+0x08eadb30,dialogue,dialogue_replace_token,H,replaces every occurrence of a token with a string wrapped in '$C7' ... '$C0'
+# family vm_helpers
+0x08ea9f20,dialogue,dialogue_test_bool_b,H,story.md 0xf520 test helper: mode 1 -> value != 0, mode 2 -> value == 0
+0x08ea9f88,dialogue,dialogue_is_block_opener,H,story.md 0xf588: true for case/random_case with n = 1 and for 0xc35e-0xc37e (50014-50046)
+0x08ea9fd8,dialogue,dialogue_is_block_closer,H,story.md 0xf5d8: true for case 11 and for endif opcodes 0xc37f-0xc39f

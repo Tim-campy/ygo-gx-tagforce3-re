@@ -2,3 +2,212 @@
 # Evidence in docs/subsystems/ui.md (scene map).
 address,group,name
 0x08ea0198,ui,ui_duel_mgr_get_string_table
+# Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
+# Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
+# family duel_link
+0x08ea24d0,ui,ui_duel_start_send_link_packet,M,0x200-byte packet {type,a,b,data}; 0x08850a18 send, on failure 0x08850b68 queue; returns success
+0x08ea4e04,ui,ui_duel_result_send_link_packet,M,link packet {9,a,b}: 0x08850a18, on failure 0x08850b68
+0x08eab480,system,system_duel_mgr_is_link_lost,M,link duel and 0x0885070c state 10 or -1: stops sounds and returns 0x0881dd48()==0
+# family duel_mgr_audio
+0x08e9e530,audio,audio_duel_mgr_reload_sound_banks,M,releases duellist voice banks (0x08eaa8fc), requests sound bank 0x2cf and 9 or 8 depending on set-up +0x194 (0x08841840)
+0x08eaa8fc,audio,audio_release_duellist_voice_banks,M,stops sound (0x08841864) and releases banks +0x1b4/+0x1b8 of the four duellist records (0x08841850)
+0x08eaa9a0,audio,audio_load_duellist_voice_banks,M,per duellist: bank 0x08841a2c(char,variant) into +0x1b4 (requested 0x08841840), extra bank 0x08eaac24 for characters without 0x0885bcb8
+0x08eaab0c,audio,audio_are_duellist_voice_banks_loaded,M,0 while any bank handle +0x1b4/+0x1b8 >0 is not ready (0x08866c60); gate of queue message 1
+0x08eaabb4,audio,audio_release_duellist_extra_voice_banks,M,releases bank +0x1b8 of each of the four duellist records
+0x08eaac24,audio,audio_load_duellist_extra_voice_bank,M,when record +0x1b8 is 0: audio_get_voice_extra_bank(char,variant)+offset stored and requested (0x08841840)
+# family duel_mgr_rules
+0x08e9d49c,duel_effects,duel_effects_bias_arcana_force_roll,M,duellist character 12 and card_db_is_arcana_force: with 70%/90% (variant 0/other, duel_core_random(100)) overwrites the roll at engine +0x2dd2 and event +0xc
+# family duel_mgr_scene
+0x08e9dabc,system,system_duel_mgr_lib_init,M,no caller (library export for rel_underground): init heaps, load duel_draw and duel_eng (module 8), movie modules, 0989bf24 with both heaps
+0x08e9dc24,system,system_duel_mgr_lib_run_frame,M,library export: runs the frame callback 0x08e9eb90 unless state 0x08eba03c is 0x12; returns that test
+0x08e9dc70,system,system_duel_mgr_lib_start_duel_draw,M,library export: builds the 0x74-byte duel_draw parameter block (0x08eaa414) from the set-up and starts rel_duel_draw (0989bff4, 0989c2f4(0))
+0x08e9dcf4,system,system_duel_mgr_module_entry,H,e_entry: argsize<1 registers scene start 0x08e9dd48 / end 0x08e9ea38 with system_scene_register, else library mode 0x08ebaa80=1 (modules.md)
+0x08e9dd48,system,system_duel_mgr_scene_main,H,scene 6 start function from the module entry; frame callback 0x08e9eb90, copies the 0x858 set-up, state loop on 0x08eba03c, returns or jumps to 0xd
+0x08e9e248,system,system_duel_mgr_init_heaps,H,clears 0xa70-byte work 0x08eba010, sceKernelCreateFpl 'Resource' 0x7bd000 and 'Movie' 0x1c8000, system_heap_create on both
+0x08e9e330,system,system_duel_mgr_select_initial_state,M,from caller scene (2, 1, 0xd) and set-up mode +0x190 sets state 0x08eba03c (2, 9, 0xc); modes 5/6 draw a new seed into +0x188
+0x08e9e4e4,system,system_duel_mgr_wait_frame_check_link,M,system_wait_frame; before that switches state 0x08eba03c to 0x12 when 0x08eab480 reports a lost link
+0x08e9e6f8,system,system_duel_mgr_start_duel,M,frees the start archive, waits for voices (0x088685d8), releases bank 0x2cf, then engine set-up 0x08eaac94
+0x08e9e74c,system,system_duel_mgr_run_duel_loop,M,loops while state 0x08eba03c==1 and no exit flag 0x08eba030: exit check 0x08e9e79c, wait frame
+0x08e9e79c,system,system_duel_mgr_check_duel_exit,M,set-up mode 5 from title (caller 0xd): quits on pad input or after 0xe10 frames; modes 1/5/6 when duel flow 0x08eba02c ends; fade state 5
+0x08e9e8ec,system,system_duel_mgr_finish_duel,M,0x08850978(0), 0989c2a0, duel_core_record_duel_result(0); on 0 releases four duellist sounds 0x08841e60 and fades BGM 200
+0x08e9ea38,system,system_duel_mgr_scene_shutdown,H,scene end function: unloads modules 10, movies, 8, 9 (0989bfb4 first), restores save +0xfe04, frees and deletes both FPLs
+0x08e9eb90,system,system_duel_mgr_frame_callback,H,installed by system_scene_set_frame_callback(6); debug 'duelmgr.c'; per state: duel_core_run_duel_flow + voice queue, start draw, result draw, tutorial
+0x08eaa014,system,system_duel_mgr_reset_session_and_sounds,M,clears 0x398-byte session work 0x08836718, stops sounds and waits idle, requests banks 0x2c8 and 0x2ca
+0x08eaa090,system,system_duel_mgr_load_duel_draw,H,unless loaded (0x08eba1e0): system_module_load_ex(9, argsize 4, ...) = rel_duel_draw as a library (modules.md)
+0x08eaa104,system,system_duel_mgr_step_module_loading,M,state 0x08eba1f0: load duel_draw (9), init with heaps, duel_eng (8), movie modules, voice banks; sets busy 0x08eba1dc
+0x08eaa414,system,system_duel_mgr_build_draw_params,M,0x74-byte block: count 2/4 by +0x192, per duellist char/variant +0x1a4.., deck +0x230 and card list +0x2f0, side order from +0x18c
+0x08eaa544,system,system_duel_mgr_run_deckswap,M,sub-state 0x08eba040: load module 10 (deckswap), start it with the set-up and save_get_card_list_count, wait done, unload
+0x08eaa6b4,system,system_duel_mgr_tutorial_reset_callback,M,passed to tutorial start_lesson: clears the voice queue (0x08eab4f0) and resets turn timers (0x08eaa878)
+0x08eaa6d8,system,system_duel_mgr_run_tutorial,H,loads module 0xb, calls start_lesson(+0x193, reset cb, UI hook) at +0xfd74 (tutorial.md), polls is_busy at +0xfdcc, unloads
+0x08eab090,ui,ui_duel_mgr_on_engine_ui_event,H,UI event hook (rel_duel_mgr +0x10690, tutorial.md): reads event 09be1488, voice dispatch, forwards to ui_dispatch_draw_command unless type 1
+0x08eab0d4,system,system_duel_mgr_update_fade,M,fade state 0x08eba042 (1-7): 0x08844e0c/0x08844ec0 fades, then sets scene state 0x08eba03c to 1 or 6
+0x08eafb64,system,system_duel_mgr_reset_frame_counter,H,0x08ebaa5c = 0; called by audio_voice_on_duel_start
+0x08eafb70,system,system_duel_mgr_get_frame_counter,H,returns 0x08ebaa5c
+0x08eafb7c,system,system_duel_mgr_tick_frame_counter,H,0x08ebaa5c++ at the start of every frame callback
+# family duel_result
+0x08e9e954,ui,ui_duel_result_run_loop,M,while state 7: ui_duel_result_update; on 2 clears session work +0x20..+0x3a and restores the 0x858 set-up copy 0x08eba1fc
+0x08ea2f2c,ui,ui_duel_result_init,M,allocates 0x1b8-byte result work 0x08ebaa94 and three lists from save_get_record_table, save_add_dp, loads the result archive
+0x08ea358c,ui,ui_duel_result_update,M,result state machine: message window 0x08834d24, link packets type 9, page input 0x08ea452c, banner anims
+0x08ea3eb4,ui,ui_duel_result_draw,M,frame state 7 draw: background, header, page, outcome, footer, message window
+0x08ea3fe0,ui,ui_duel_result_free,M,frees the eight list buffers, archive +400 and the 0x1b8 work; clears 0x08ebaa94
+0x08ea40a0,ui,ui_duel_result_play_member1_anim,M,ui_duel_result_get_member(1): frame ranges 0-0x10, 0x10-0x60, 0x60-0x65 via 0x0881e914; state in +0x28 bits 4-5
+0x08ea4150,ui,ui_duel_result_is_member1_anim_done,M,member 1 frame (0x0881e9d8) >= last-1 of its range
+0x08ea41c0,ui,ui_duel_result_play_outcome_anim,M,member index +0x2a: frame ranges per phase (0x14/0x1b/0x31, 0x32, 0x46-0x4a)
+0x08ea4304,ui,ui_duel_result_is_outcome_anim_done,M,member +0x2a anim at its last frame; 1 when no member
+0x08ea4390,ui,ui_duel_result_get_match_outcome,M,session work 0x08836718 +0x34 game count and +0x36.. results (1 win, 2 loss): best-of-3 / pair -> 1, 2, 3 or 0
+0x08ea452c,ui,ui_duel_result_handle_input,M,pad: L/R switch tab +2 (page slide, SE 0x7a04), up/down scroll list +0x30 (sum of row heights <= 10)
+0x08ea48e8,ui,ui_duel_result_update_page_switch,M,after member 1 anim, counter +0x2e > 15 finishes the slide: page +0x28 = tab, state 2
+0x08ea497c,ui,ui_duel_result_measure_rows,M,for the three lists computes each row height from the strTbl text (member 8) and line height 0x088461d8
+0x08ea4b60,ui,ui_duel_result_open_message,M,fills the 0x120-byte window at +0x68 and opens it (0x088338e4); text 0xe1, 0x119, or 0xd9/0xda by set-up +0x195
+0x08ea4e84,ui,ui_duel_result_load_archive,H,sprintf 'duel/result/result_%c.ehp' with the language letter, container_load_file into heap buffer +400
+0x08ea4f8c,ui,ui_duel_result_on_archive_loaded,H,load callback: container_ehp_bind_with_callback when size>0, clears loading bit +0x18c
+0x08ea4fe8,ui,ui_duel_result_get_member,H,cached container_ehp_find_member(archive +400, name table 0x08eb9398 'menu_bg.ehf'...) at +0x194+4*id (ui.md: id 8 = strTbl.bin)
+0x08ea5060,ui,ui_duel_result_draw_background,M,draws member 0 layout with frame timing (0x0881ec8c)
+0x08ea50e4,ui,ui_duel_result_draw_header,M,draws member 1 layout and, in frames 6-0x61, the four tabs of member 6 with the current page +0x28
+0x08ea52dc,ui,ui_duel_result_draw_outcome,M,draws the outcome member +0x2a layout when set
+0x08ea53b0,ui,ui_duel_result_draw_footer,M,bottom bar 0x1e0 x 0x11; previous/next tab names from strTbl (0x113, table 0x08eb9400) and hint 0xdc
+0x08ea5838,ui,ui_duel_result_draw_page,M,calls page draw table 0x08eb93f0[page]; state 4 slides old and new page by 0x1e0
+0x08ea59c8,ui,ui_duel_result_draw_summary_page,M,page function (via 0x08eb93f0): frames and up to four totals from work +8..+0x14 with summary rows
+0x08ea5f20,ui,ui_duel_result_draw_summary_row,M,row frame, label strTbl id from 0x08eb9410[idx] and value work +8+4*idx
+0x08ea63b8,ui,ui_duel_result_draw_list_a_row,M,list A (+0x40/+0x44, labels 0x08eb919c): label, value from record table +0xc4+4*i capped 999
+0x08ea6834,ui,ui_duel_result_draw_list_b_row,M,list B (+0x4c/+0x50, labels 0x08eb9138): value record +4*i capped 999999999; entry 0x25 shown as time
+0x08ea6c34,ui,ui_duel_result_draw_list_c_page,M,page frame, header, scissor 0x0882ae8c and up to 10 rows of list C from scroll +0x54
+0x08ea6de0,ui,ui_duel_result_draw_list_c_row,M,list C (+0x58/+0x5c, labels 0x08eb9244): label and value
+0x08ea7018,ui,ui_duel_result_draw_table_page,M,pages 6-9: 2x3 grid of cells with strTbl headings 0xe3-0xe5, outcome badges, link side (0x08850d58)
+0x08ea73b8,ui,ui_duel_result_draw_page_frame,M,member 5 sprite pieces forming the page frame at an x offset
+0x08ea782c,ui,ui_duel_result_draw_page_header,M,strTbl 0xdf and page title 0x08eb941c[page], total value, scrollbar 0x08ea815c, blinking arrows
+0x08ea7ae8,ui,ui_duel_result_draw_box,M,nine-slice box from 2x2 corner sprites (or a 3-piece bar when height is 0xe)
+0x08ea7dac,ui,ui_duel_result_draw_number,M,draws an integer digit by digit ('0'+n%10) right to left with spacing, optional zero padding and a minus sign
+0x08ea7ed8,ui,ui_duel_result_draw_scroll_arrow,M,arrow sprite 0xee with alpha pulsing over the frame counter period
+0x08ea815c,ui,ui_duel_result_draw_scrollbar,M,track and thumb sized visible/total, plus up/down arrows 0x08ea7ed8
+0x08ea8434,ui,ui_duel_result_get_frame_counter,M,returns word +4 of system_get_frame_timing()
+0x08ea8454,ui,ui_duel_result_draw_centered_text,M,sets font size, centres text by width 0x08846168>>6 in a cell
+0x08ea84fc,ui,ui_duel_result_draw_label_box,M,member 5 bar 0xd8/0xe1/0xdb plus icon 0xa2 or 0xad and text
+0x08ea86ac,ui,ui_duel_result_draw_outcome_badge,M,member 5 frame and badge sprite for kind 1/2/3 (0x90, 0xa8, 0xc0)
+0x08ea899c,ui,ui_duel_result_draw_summary_panel,M,summary panel: frame styles, list C first entry, two side values +0x20/+0x1c
+0x08ea8e78,ui,ui_duel_result_draw_frame_style,M,dispatches frame style 0-4 to 0x08ea8f18/8fb8/91ec/9400/961c
+0x08ea8f18,ui,ui_duel_result_draw_frame_style0,M,style 0: one atlas rect from table 0x08eb9430 by index
+0x08ea8fb8,ui,ui_duel_result_draw_frame_style1,M,style 1: nine-slice from table 0x08eb9458 (border 4/5)
+0x08ea91ec,ui,ui_duel_result_draw_frame_style2,M,style 2: nine-slice from table 0x08eb94a0 (border 2/3)
+0x08ea9400,ui,ui_duel_result_draw_frame_style3,M,style 3: nine-slice from table 0x08eb94e8 (border 2)
+0x08ea961c,ui,ui_duel_result_draw_frame_style4,M,style 4: three-piece horizontal bar from table 0x08eb9530
+0x08ea978c,ui,ui_duel_result_reset_sprite_state,M,sprite command chain: clears blend/colour state, filters, colour 0xffffffff
+0x08ea9850,ui,ui_duel_result_draw_atlas_rect,M,0x0882979c size + 0x088295a4 position and atlas u/v
+0x08ea98cc,ui,ui_duel_result_draw_number_fit,M,counts digits and shrinks spacing to fit a width, then ui_duel_result_draw_number (kind 5 or 6 padded)
+0x08ea9a18,ui,ui_duel_result_draw_item,M,item kinds: 0-2 strTbl text (member 8), 3/4 fixed strings 0x08eb93bc/c4, 5/6 numbers
+# family duel_setup
+0x08ea9cd4,duel_core,duel_core_is_local_default_rules_duel,M,not a link duel (0x08835a7c) and the set-up has default LP and no time limit (0x08ea9d14)
+0x08ea9d14,duel_core,duel_core_setup_has_default_rules,M,set-up bytes +0x196 (LP mode) and +0x197 (time limit) both 0
+0x08ea9ef0,duel_core,duel_core_get_setup_start_lp,H,set-up +0x196: 0 8000, 1 2000, 2 4000, 3 12000, 4 16000, 5 custom word +0x198/+0x19c per side
+0x08ea9f68,duel_core,duel_core_is_player_on_second_side,M,scans duellist records for character 1 (player): true when it is only in slots 1/3; passed to 09be1890 as local side
+0x08eaac94,duel_core,duel_core_setup_engine_for_duel,M,BGM table by +0x194, UI hook 09be147c(0x08eab090), seed +0x188, first player +0x18c, local side, duellist kinds, start LP
+# family duel_start
+0x08e9e5a0,ui,ui_duel_start_open,M,loads start/start_<l>.ehp (0x08ea9dac), waits for 0x08eba1d4, then ui_duel_start_init with the Movie heap
+0x08e9e5f8,ui,ui_duel_start_run_loop,M,loops ui_duel_start_update; result-1 stored as first player +0x18c (xor 1 for net id 1 in link); steps module loading 0x08eaa104 meanwhile
+0x08e9edb4,ui,ui_duel_start_init,M,allocates 0xe8-byte start work 0x08ebaa90, binds the start archive (container_ehp_bind_with_callback), flags for tag/link/mode 5-6, language
+0x08e9f14c,ui,ui_duel_start_update,M,state machine on work bits 2-9: janken phases, versus screen 8/9 (tag), link packets, string table 5 messages
+0x08e9f98c,ui,ui_duel_start_draw,M,draw step of the frame callback (state 4): background, layouts 0-3, hands, cursor, markers per start state
+0x08e9fd08,ui,ui_duel_start_free,M,system_heap_free of start work +0xc0 and clears 0x08ebaa90
+0x08e9fd34,ui,ui_duel_start_set_modules_ready,M,sets bit 7 of start work byte +0xc; called once 0x08eaa104 reports the duel modules loaded
+0x08e9fdcc,ui,ui_duel_start_play_member2_anim,M,ui_duel_mgr_get_string_table(2) layout; frame range per kind 0-3 via 0x0881e914 and flags +0xb8
+0x08e9ff7c,ui,ui_duel_start_play_member3_anim,M,ui_duel_mgr_get_string_table(3) layout; frame range per kind 0-6 (0x28,0x27,0x4f,0x9f,0x77) via 0x0881e914
+0x08ea012c,ui,ui_duel_start_is_anim_done,M,layout of ui_duel_mgr_get_string_table(id): current frame (0x0881e9d8) >= last-1 of range (0x0881ebbc)
+0x08ea023c,ui,ui_janken_init_hand_layout,M,three 0x1a-byte hand records per side at start work +0x1c: start/target positions 0x208+0x5a*i and 0x96, cursor +4 = 1
+0x08ea0404,ui,ui_duel_mgr_copy_rect,M,copies four u16 (x, y, w, h); used for hand position records
+0x08ea042c,ui,ui_janken_step_hand_tween,M,per-side frame counter +0x10: quadratic ease of the three hands from +0x1e to +0x2e over n frames; returns 1 when done
+0x08ea0608,ui,ui_janken_update_hand_hover,M,moves each hand y by 4 toward 0xbe (cursor +4) or 0xd2 (others)
+0x08ea06c0,ui,ui_janken_update_choice,M,pad left/right cycles cursor +4 mod 3 with SE 0x7a04; link packets; CPU pick 0x08ea2450; hover update
+0x08ea118c,ui,ui_janken_copy_hand_record,M,copies a 13-u16 (0x1a-byte) hand record
+0x08ea11fc,ui,ui_janken_update_reveal,M,reveal state machine: tweens both sides' hands (0x08ea042c 2/4 frames) by choice +5 (1/2/3), then 0x08ea023c on repeat
+0x08ea185c,ui,ui_janken_update_link_exchange,M,link only: waits for peer packet 0x08850bb8/0x088509e8 type 5 sub 2, takes seed into set-up +0x188 and the peer hand
+0x08ea2038,ui,ui_janken_update_result,M,result phases with member 2/3 anims and SE 0x7a7d; then versus screen 8 or 9 (tag) via 0x08eab5fc
+0x08ea2288,ui,ui_duel_start_update_versus,M,runs ui_duel_versus_update; link sync packets type 5; when done fade 0x08844ec0 and BGM fade 600
+0x08ea2450,ui,ui_janken_pick_cpu_hand,M,system_rand_shifted%100: <20 same as cursor +4, else (cursor+2)%3 or (cursor+1)%3 -> +5
+0x08ea2584,ui,ui_janken_reset_round,M,after a tie: link packet (5,1,0) or re-layout 0x08ea023c, message string_table(5) words 2/3/4, clears flags
+0x08ea26f0,ui,ui_duel_start_draw_layout,M,draws layout ui_duel_mgr_get_string_table(id) with frame timing (0x0881ec8c); special colour for id 3
+0x08ea286c,ui,ui_janken_draw_hands,M,layout 4: draws the three hand records of both sides (0x08ea294c)
+0x08ea294c,ui,ui_janken_draw_hand_card,M,draws one 0x50 x 0x74 hand card with cos-scaled flip angle +0x10; face by choice bits
+0x08ea2b30,ui,ui_janken_draw_choice_icons,M,layout 4: draws chosen-hand icons +0xba/+0xbc at (0x96,0xb4) and (0xfa,0xb4)
+0x08ea2c30,ui,ui_janken_draw_cursor,M,layout 4: corner and edge sprites around the hand at cursor +4
+0x08ea2e38,ui,ui_janken_draw_side_marker,M,layout 4: 0x24 x 0x24 marker at the left (0) or right (1) side
+0x08ea9d6c,ui,ui_duel_start_free_archive,M,system_heap_free of start archive 0x08eba1d8 (Movie heap), clears loaded flag 0x08eba1d4
+0x08ea9dac,ui,ui_duel_start_load_archive,H,'start/start_' + language suffix j/e/g/f/i/s + '.ehp', container_get_file_size and container_load_file into the Movie heap
+# family duel_timer
+0x08eaa878,duel_core,duel_core_reset_turn_timers,M,set-up +0x197 limit 0/900/1800/5400/9000 (0 in mode 2), minus 1, into the four session words 0x08836718+0..+0xc
+0x08eab240,duel_core,duel_core_tick_turn_timers,M,decrements the side's session timer while the engine is idle (09c0d7fc); at 0 calls 09dcad94(side parity); link: local net id only
+# family duel_versus
+0x08eab5fc,ui,ui_duel_versus_create,M,allocates 0x98-byte versus work 0x08ebaa98 {heap, archive}; kinds 8/9/10 bind title tables 0x08eaf564; init by kind
+0x08eab6a4,ui,ui_duel_versus_free,M,system_heap_free with the heap stored at versus work +0
+0x08eab6b4,ui,ui_duel_versus_init,M,clears 100 bytes at +0x10, link flag, kind +0x11, frame ranges per kind; kinds 8/9 fill duellists and state 2
+0x08eab8a8,ui,ui_duel_versus_fill_duellists,M,from set-up records: char, variant, recipe +0x1ac, name +0x1bc, deck name +0x1ee per slot (0x18-byte entries)
+0x08eabcc0,ui,ui_duel_versus_set_entry,M,entry +0x14..+0x1e (char, variant, kind, recipe); deck name pointer +0x28 from deck_get_recipe_name or save_get_stored_deck
+0x08eabdd4,ui,ui_duel_versus_set_entry_with_name,M,ui_duel_versus_set_entry plus duellist name pointer at entry +0x24 when non-zero
+0x08eabe2c,ui,ui_duel_versus_set_entry_with_deck_name,M,previous plus deck name pointer at entry +0x28 when non-zero
+0x08eabe84,ui,ui_duel_versus_set_entry_full,M,previous plus display character/variant at entry +0x18/+0x1a; called by ui_duel_versus_fill_duellists
+0x08eabedc,ui,ui_duel_versus_start_main_timer,M,starts the timer at versus work +0x74 (active flag, duration)
+0x08eabef4,ui,ui_duel_versus_update,M,per-kind sprite ranges; state +0xc: fade 0x08844e0c, SE 0x7a7e, slide timers, layout anims; returns done
+0x08eac2bc,ui,ui_duel_versus_draw,M,draws layouts, portraits, names, decks and info for kind +0x11; SE 0x7a81/0x7a82 at slide frames
+0x08eac4ec,ui,ui_duel_versus_get_slide_offset,M,from timer progress at +0x74: x offset 0..+-0x168 for an entry by kind and slot
+0x08eac6e8,ui,ui_duel_versus_bind_layout,M,finds a layout member from name table 'd_menu_partner.ehf'... (index by kind/slot) and sets its anim range
+0x08eac84c,ui,ui_duel_versus_set_layout_anim,M,layout +0x7c+4*i: frame range via 0x0881e914 for modes 0/1/2
+0x08eac8d8,ui,ui_duel_versus_get_layout_frame,M,current frame 0x0881e9d8 of layout +0x7c+4*i, -1 when absent
+0x08eac948,ui,ui_duel_versus_draw_layout,M,draws layout +0x7c+4*i with frame timing (0x0881ec8c)
+0x08eaca60,ui,ui_duel_versus_draw_portraits,M,per entry: slide offset, frame part, portrait 0x08eae4e4 at fixed table positions 0x08eb979c
+0x08eacecc,ui,ui_duel_versus_draw_names,M,per entry: name plate parts 0x14/0x1b and duellist name 0x08ead2a4
+0x08ead2a4,ui,ui_duel_versus_draw_duellist_name,M,character 1 uses the stored name pointer, others 0x08836734(0,char,variant); drawn with 0x08eaf29c
+0x08ead3a0,ui,ui_duel_versus_draw_decks,M,per entry: deck plate part and deck name 0x08ead7a0
+0x08ead7a0,ui,ui_duel_versus_draw_deck_name,M,deck name from deck_get_recipe_name, stored deck, or duelmenu message 1 for recipes > 0x1cd; hidden text for the link peer
+0x08eae038,ui,ui_duel_versus_build_team_label,M,builds UTF-16 text with save_get_team_name, story block, week random bit, wcscpy/wcscat and title strings
+0x08eae4e4,ui,ui_duel_versus_draw_portrait,M,atlas portrait cell (0x08eae6dc) with size by 0x0885b168, else generic face/body 0x08eae5c0
+0x08eae5c0,ui,ui_duel_versus_draw_face_body,H,finds 'kao.gim' and 'karada.gim' in the versus archive and draws them clipped at x
+0x08eae6dc,ui,ui_duel_versus_get_portrait_cell,M,characters < 0x2e: index 0x0885b168(char,variant) -> u = (i&7)*64, v = (i>>3)*64
+0x08eae7b8,ui,ui_duel_versus_call_draw_part,M,forwards to ui_duel_versus_draw_part
+0x08eae7e8,ui,ui_duel_versus_reset_sprite_state,M,same sprite state chain as the result screen: clears blend/colour, filters, colour 0xffffffff
+0x08eae884,ui,ui_duel_versus_draw_part,M,part kinds 0-8 and 9-0x14 drawn via 0x08eaec00 with default sizes 0x47
+0x08eaec00,ui,ui_duel_versus_draw_menu_sprite,M,part table lookup, member from name table 'd_menu01.gim'..., draws the atlas rect
+0x08eaed04,ui,ui_duel_versus_lookup_part,M,copies 0x87-entry u16 table 0x08eb9a70; fills member index and default u/v/size for a part kind
+0x08eaf214,ui,ui_duel_versus_timer_clear,M,timer {u8 active, u16 count, u16 duration} = 0
+0x08eaf224,ui,ui_duel_versus_timer_set,M,timer active = a, count 0, duration = b
+0x08eaf234,ui,ui_duel_versus_timer_step,M,count++ while < duration (returns 0), else clears and returns 1; 1 when inactive
+0x08eaf284,ui,ui_duel_versus_timer_get,M,returns the active flag and writes count and duration
+0x08eaf29c,ui,ui_duel_versus_draw_text_aligned,M,alignment 0-3: centres by text width 0x08846168>>6, then fitted (2/3) or plain (0/1) text draw
+0x08eaf3ec,ui,ui_duel_versus_get_message,H,string table member 'duelmenu_msg_<l>.bin' by language, card_db_get_dictionary_word(table, id)
+0x08eaf478,ui,ui_duel_versus_draw_text_fitted,M,text draw between 0x0884874c/0x0884877c with width +2; modes 2/3 of 0x08eaf29c
+0x08eaf4f0,ui,ui_duel_versus_draw_text_plain,M,text draw between 0x0884874c/0x0884877c with width +2; modes 0/1 of 0x08eaf29c
+0x08eaf564,ui,ui_duel_versus_bind_title_tables,M,finds three members from name table 'TnId.bin'... in the versus archive into +0x8c..+0x94
+0x08eaf608,ui,ui_duel_versus_get_title_string,M,kinds <2: 0x08836734(kind+1,char,variant); else id lookup in the TnId tables +0x8c/+0x90/+0x94
+0x08eaf6bc,ui,ui_duel_versus_call_draw_character_sprite,M,forwards to 0x08eaf6e4
+0x08eaf6e4,ui,ui_duel_versus_draw_character_sprite,M,special characters 0x79-0x8d: fixed atlas cells (0x33-step u, 0x54/0xa8/0xfc v) and 0x0885ae0c lookup
+# family duel_voice_lines
+0x08e9aa2c,audio,audio_voice_record_card_category,M,card_db_get_kind 0xe (trap)/0xd (spell)/else -> 9/8/7 in 0x08eba184, later passed to 0989d490 by the LP-damage handler
+0x08e9aa8c,audio,audio_voice_get_single_attribute_index,M,counts set bits 0-9 of attribute mask 0x08eba17a (from duel_core_get_attribute_mask); index if exactly one, else 7; fed to 0989d490
+0x08e9ab14,audio,audio_voice_is_character_key_card,M,duellist categories 0/2: card in character list 0x0885b8ac(char) or in (char,card) pairs at 0x08eb900c; else level>4; selects special line
+0x08e9ac5c,audio,audio_voice_update_duel_mood,M,scores both sides' LP (09be19c8; <2000,<3000,>4000) plus ai_get_battle_dominance -> 0x08eba18a = 0 even, 1 ahead, 2 behind
+0x08e9aed0,audio,audio_voice_get_mood_for_side,M,returns mood 0x08eba18a for the local side (09be189c), swapped ahead<->behind for the other side
+0x08e9af38,audio,audio_voice_is_disabled,M,1 when 0x08835a7c (link duel) set, save_get_option_flag(0) off, set-up mode +0x190 is 2/3, or library mode 0x08ebaa70; gates every voice handler
+0x08e9afc0,audio,audio_character_has_duel_voice,M,false for characters 0, 1 (player) and 0x79-0x7e, else BOOT 0x0885b024(char,0)!=0; tested on duellist record +0x1a4 before each line
+0x08e9b04c,audio,audio_voice_set_talk_active,M,calls rel_duel_draw 0989d334(x) when 0989d3dc()!=x; 1 before every 0989d434 line, 0 on queue message 4
+0x08e9b080,audio,audio_voice_on_duel_start,M,resets frame counter and talk state; when voices are off posts BGM message 6 with track 0x08eba1a0; else scans duellists with voices
+0x08e9b3e4,audio,audio_voice_on_duel_end,M,BGM fade 0x0884192c(100), SE 0x7a3b, queue messages 0xd/6/0xe with result track 0x08eba1a6/a8/aa chosen by outcome param[1] (1/2/3)
+0x08e9bd60,audio,audio_voice_on_battle_event,M,reads attacker card (09be1c88), attribute mask, counts consecutive hits in 0x08eba180 up to 5 (sound.md 2-5 continuous hits lines)
+0x08e9c7e4,audio,audio_voice_on_summon,M,skips tokens (card_db_is_token), uses card_db_get_frame and card_db_is_summoned_without_polymerization, key-card test -> line 10/0x18 or 0xb/0x19
+0x08e9cac8,audio,audio_voice_on_card_play,M,switch on play kind +0xc; monsters remembered in 0x08eba16e/0x170; spells by card_db_get_icon (2 = field) select lines 0x20/4
+0x08e9cd5c,audio,audio_voice_on_card_placed,M,per-side counters 0x08eba18e (monsters) / 0x08eba196 (non-monsters); plays line 9 or 5 only on the first occurrence
+0x08e9ceb4,audio,audio_voice_on_spell_trap_activate,M,card kind 0xd spell / 0xe trap (card_db.md) of slot card 09be1c50; line 7 or 0x16 for key cards, then 0989d4c0(5/6, flags)
+0x08e9d10c,audio,audio_voice_on_lp_damage,M,LP change +8 below -999/-1999 plus mood selects lines 0x14/0x15/0x16; only while LP>0 (09be19c8); calls 0989d490 with card category
+0x08e9d584,audio,audio_voice_dispatch_ui_event,M,copies the 16-byte UI event and switches on its type to the voice handlers 0x08e9b080..0x08e9d49c; called from the UI event hook 0x08eab090
+0x08e9d740,audio,audio_voice_copy_ui_event,M,copies four words (the 16-byte UI event record) for audio_voice_dispatch_ui_event
+# family duel_voice_queue
+0x08e9d768,audio,audio_voice_queue_process,M,pops 16-byte entries: 1 play line 0989d434 when banks loaded, 2 wait 0989d3e8, 3 delay, 4 talk off, 6 swap BGM (0x08841850/0x08841870)
+0x08eab4f0,audio,audio_voice_queue_clear,H,memset of the 0x104-byte queue 0x08eba068 (u16 head, u16 tail, 16 x 16-byte entries)
+0x08eab504,audio,audio_voice_queue_push,H,copies a 16-byte entry to 0x08eba06c+16*tail, tail = (tail+1)&15
+0x08eab55c,audio,audio_voice_queue_peek,H,copies the head entry out when head != tail; returns whether one exists
+0x08eab5a4,audio,audio_voice_queue_replace_head,H,overwrites the head entry with a 16-byte record (used for the delay countdown)
+0x08eab5c8,audio,audio_voice_queue_pop,H,head = (head+1)&15 when the queue is not empty
+# family tag_partner
+0x08e9ba00,tag_duel,tag_duel_handle_partner_swap,M,tag set-up (+0x192==2): new active duelist kind via 09be18f4 (0 human if char<2, 1 CPU, 2 remote) and 0989c674(side,a,b) with slot pairs 0/2, 1/3
+# family tutorial_imports
+0x08eb583c,duel_core,thunk_duel_core_tutorial_start_lesson,H,import stub called at rel_duel_mgr +0xfd74 with lesson +0x193, reset callback and UI hook (tutorial.md)
+0x08eb5844,duel_core,thunk_duel_core_tutorial_update,H,import stub called every frame at rel_duel_mgr +0x427c in the tutorial state (tutorial.md)
+0x08eb584c,duel_core,thunk_duel_core_tutorial_shutdown,M,import stub called just before module 0xb (tutorial) is unloaded in system_duel_mgr_run_tutorial
+0x08eb588c,duel_core,thunk_duel_core_tutorial_is_busy,H,import stub read at rel_duel_mgr +0xfdcc (tutorial.md), result passed to 0989c6c4

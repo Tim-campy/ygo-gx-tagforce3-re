@@ -35,3 +35,212 @@ address,group,name
 0x090db684,shop,shop_update_clerk_animation
 0x090dc228,shop,shop_get_archive_member
 0x090e282c,shop,shop_find_in_sorted_table
+# Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
+# Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
+# family shop_card_list
+0x090e28a0,shop,shop_find_card_art_variant,M,linear search of (card id OR variant<<16) in a counted u32 list; used by shop_get_card_thumb_cell
+0x090e28ec,shop,shop_get_frame_style_index,M,maps card frame 0/1/2/3/7/8/10 to row style 0/1/2/3/5/6/4, else -1
+0x090e2984,shop,shop_draw_small_digits,H,draws number param_4 with 7x9 digit cells right to left, fixed width or until 0
+0x090e2f38,shop,shop_draw_race_icon,M,cell ((n-1)%7, (n-1)/7)*17 of the icon atlas, special cell for 0x15; called with the card race by row/label draws
+0x090e2fe8,shop,shop_draw_attribute_icon,M,cell (n-1)*17 in row v=0x33 of the icon atlas; called with the card attribute by row/label draws
+0x090e3064,shop,shop_draw_spell_trap_icon,M,cell grid at v=0x44 with remapping 7->14, 8->7, 9->13; the icon branch of row/label draws
+0x090e3210,shop,shop_draw_level_badge,M,9x9 star sprite then number cell ((n-1)%6, (n-1)/6) of 19x11 cells; called with the card level
+0x090e3368,shop,shop_draw_stat_value,M,ATK/DEF style value: kind 2/3 icon sprite, kind 0/1 label from 0x090efb78 + 10*kind, then the number
+0x090e3668,shop,shop_get_card_thumb_cell,M,thumbnail page/cell from entry file index (/0x187, %0x17, 22x30 cells); marked cards with a 0x088565dc variant use the alt list
+0x090e3798,shop,shop_draw_card_thumb,M,binds the thumbnail page (0x08823f78), optional drop shadow, then the 22x30 thumbnail at (x,y)
+0x090e3910,shop,shop_draw_card_badges,M,copies count (shop_draw_small_digits, max 99), blinking new marker, deck_get_card_limit badge (<3), extra flags
+0x090e3c3c,shop,shop_draw_check_icon,M,17x17 icon from atlas param_4 (image 0x2026 at the callers), u=0x11 or 0x22 by param_3
+# family shop_clerk
+0x090db590,shop,shop_init_clerk,M,clears clerk state 0x0973ad50 (0x14 bytes), stores clerk select bit 0, animation 0, loads sound bank 0x2c7 or 0x2c6
+0x090db610,shop,shop_load_clerk_models,M,clerk layouts 0x0973ad5c/0x0973ad60 = ehf 0x4001/0x4002 or 0x4003/0x4004 by clerk bit, then animation 1
+0x090db860,shop,shop_draw_clerk,M,draws the two clerk layouts 0x0973ad5c/0x0973ad60 via 0x0881ec8c with frame timing and frame override 0x0973ad58
+0x090dbc60,shop,shop_is_clerk_voice_playing,M,checks sounds 0x79f1..0x79ff (0x79de.. for the other clerk) with 0x0886997c status & 0x21
+# family shop_counter_draw
+0x090df37c,shop,shop_draw_counter_3d,M,shop_setup_counter_view, then the pack display model when the pack is on sale, then the shelf/box model
+0x090df3c8,shop,shop_draw_pack_display_model,M,draws model 0x8001 at a fixed offset, tilted by angles 0x090f9b60/0x090f9b64
+0x090df4bc,shop,shop_draw_pack_shelf_model,M,states 2-5: dims the screen, draws model 0x8002 (box 0x8003 in purchase mode 2) and the moving packs
+0x090dfa40,shop,shop_draw_screen_dim,H,full-screen 480x272 untextured quad with alpha param_2<<24, then restores texture/depth state
+0x090dfb38,shop,shop_draw_counter_overlay,M,2D pass: clerk, DP HUD, cost panel, speech box, main window 0x090faa8c when state != 0
+0x090dfbc0,shop,shop_draw_cost_panel,M,panel from image 0x2002, number 0x090f9af8 at (0x1d5,0x91) with digit grouping, '-' sign when non-zero
+0x090e0128,shop,shop_draw_pack_grid,M,2D pass: background, 48 pack icons, dividers, cursor, price tag or unavailable panel by shop_get_pack_sale_state
+0x090e01f0,shop,shop_draw_background,M,tiles image 0x2001 across 480 px and draws its side strips
+0x090e0370,shop,shop_draw_pack_icons,H,12x4 grid of packs: grey (0xff808080) for sale state 1, white for 2, hidden for 0
+0x090e046c,shop,shop_draw_pack_icon,H,frame from image 0x2002 then cell (p%12, p/12) of atlas image 0x2006
+0x090e05ac,shop,shop_draw_pack_grid_dividers,M,12x4 small 2x8 sprites from image 0x2002 between the pack icons
+0x090e06a8,shop,shop_draw_pack_cursor,H,four corner sprites around pack param_2 pulsing with the frame counter ((t&15)>>1 folded at 4)
+0x090e0864,shop,shop_draw_pack_unavailable_panel,M,draws image 0x2005 (74x168) when the selected pack's sale state is 0
+0x090e08f4,shop,shop_draw_selected_pack_icon,M,large pack sprite from image 0x2002, width scaled by angle 0x090f9b64
+0x090e09c4,shop,shop_draw_pack_price_tag,H,sale state 2: tag from atlas 0x2006 and shop_get_pack_price drawn twice (bold); state 1: another tag cell
+# family shop_dp_hud
+0x090e0b80,shop,shop_init_dp_counter,M,clears DP HUD 0x098abe38 (0x5c), stores rect as floats, shown/target value = save_get_player_value(0) (DP, save.md)
+0x090e0c38,shop,shop_release_dp_hud,M,calls the two empty release stubs 0x090e128c and 0x090e1528; called from shop_scene_exit
+0x090e0c5c,shop,shop_update_dp_hud,M,calls shop_update_dp_counter and shop_update_dp_delta every counter frame
+0x090e0c80,shop,shop_draw_dp_hud,M,if HUD texture 0x098abe74 is set: 2D state, shop_draw_dp_counter and shop_draw_dp_delta
+0x090e0d5c,shop,shop_set_dp_hud_texture,M,stores param_1 in 0x098abe74; the caller passes shop_get_image_member(0x2007)
+0x090e0e9c,shop,shop_show_dp_counter,M,sets DP HUD state 0x098abe3c = 1 (slide-in, handled by shop_update_dp_counter)
+0x090e0eac,shop,shop_update_dp_counter,M,state 1 slides the HUD in; state 5 steps shown DP 0x098abe40 toward 0x098abe44 by 0x098abe4c with tick sound 0x7a10
+0x090e1008,shop,shop_draw_dp_counter,M,sprintf of DP (shown value, scrambled low digits while counting, else save_get_player_value(0)) drawn with shop_draw_digit_sprites
+0x090e1294,shop,shop_update_dp_delta,M,states 3/4: holds the change popup 10 frames, then moves 0x098abe84 toward the counter while shrinking; then state 5
+0x090e1398,shop,shop_draw_dp_delta,M,states 3/4: draws the change amount 0x098abe48 in red with a minus sprite when negative
+0x090e179c,shop,shop_count_digits,M,counts how often param_1 can be multiplied by 0x090e9ea8 before reaching 0 (digit count for the scramble)
+# family shop_effects
+0x090d4724,shop,shop_reset_effect_render_state,M,long chain of GU enable/disable (0x08828cfc/0x08828ee4) state toggles before every reveal effect
+0x090d48e4,shop,shop_toggle_texture_state,M,param_2==1 enables GU state 9 (texture 2D) and sets texture params, else disables it
+0x090d49a0,shop,shop_toggle_depth_test,M,param_2==1 enables GU state 1 and calls 0x0882b118(param_3), else disables state 1
+0x090d49ec,shop,shop_toggle_blend,M,param_2==1 enables GU state 4 and sets blend func 0x0882b160(...), else disables it
+0x090d4a78,shop,shop_bind_image_texture,M,binds shop_get_image_member(id) with 0x08823f1c (same pattern as all 2D sprite draws)
+0x090d4d5c,shop,shop_play_reveal_effect,M,switch on prop_bits22 value: 0 none, 1/2 0x090d5200, 3 0x090d5338, 4-6 0x090d6560 (cardinfo.md field)
+0x090d4de0,shop,shop_draw_effect_flare,M,builds 2 quad strips at 0x090efd30, projects corners to screen (x*240/w+2048-1808) and draws with the blend/depth helpers
+0x090d5200,shop,shop_draw_reveal_effect_small,M,reveal effect for prop_bits22 1/2: 8-frame flare (state 0x090efdc0), done after 0x17 frames
+0x090d5338,shop,shop_draw_reveal_effect_medium,M,reveal effect for prop_bits22 3: clears 0x7ad0-byte state at 0x090efdd0, particles via 0x090d6480
+0x090d6480,shop,shop_effect_rand,M,LCG state*0x41c64e6d+0x3039, returns bits 16-30 (state pointer lost in decompilation)
+0x090d64c8,shop,shop_effect_rand_unit,M,same LCG as shop_effect_rand, returns value/32767.0
+0x090d6560,shop,shop_draw_reveal_effect_large,M,reveal effect for prop_bits22 4-6: clears 0x2240-byte state at 0x090f78a0, 16/32-frame ramps
+# family shop_math
+0x090d41fc,shop,shop_copy_vec4,H,copies four words from param_2 to param_1 and returns param_1
+0x090d4224,shop,shop_eval_quadratic_bezier,H,(1-t)^2*p0 + 2t(1-t)*p1 + t^2*p2 via vscl/vadd into param_2
+0x090d4aac,shop,shop_get_billboard_matrix,M,inverse of current view matrix with translation cleared (0x0881a9b4 + shop_clear_matrix_translation)
+0x090d4b90,shop,shop_get_mvp_matrix,M,multiplies stored matrices 0,1,2 (0x08825774 select + store) into param_1
+0x090d4c14,shop,shop_clear_matrix_translation,M,copies the matrix, zeroes the translation row and writes it back
+0x090d4c70,shop,shop_get_clamped_ratio,H,returns clamp(a,0,b)/b as float
+0x090d4ca4,shop,shop_get_inverse_clamped_ratio,H,returns 1 - shop_get_clamped_ratio(...)
+0x090d6528,shop,shop_copy_6_words,H,copies six words from param_2 to param_1 and returns param_1
+0x090d8ccc,shop,shop_copy_vec3,H,copies three words from param_2 to param_1 and returns param_1
+0x090db580,shop,shop_copy_u16,H,copies one u16 from param_2 to param_1 and returns param_1
+0x090e0e84,shop,shop_copy_vec2,H,copies two words from param_2 to param_1 and returns param_1
+# family shop_opening
+0x090d2318,shop,shop_init_pack_opening,M,heap_alloc 0x520 opening state 0x090efc00, card image setup with images 0x2023/0x2025/0x2031/0x2030, first pack via shop_next_pack_in_cart(-1)
+0x090d2a20,shop,shop_draw_pack_opening,M,state 8 draw: cameras, models 0x8006/0x8005, per-card models (0x60-byte cards at 0x090efc00+0x40), card names, dictionary word 0xc
+0x090d3470,shop,shop_draw_opening_stage_model,M,updates and draws model instance 0x8006 (shop_get_model_instance), the only model that auto-plays its animation
+0x090d34d0,shop,shop_draw_opening_pack_model,M,draws pack model 0x8005 rotated by state +0x20; when its frame +0x20 reaches 40 sets opening state *0x090efc00 = 3
+0x090d3624,shop,shop_draw_opening_card,M,draws card model 0x8004 with texture callback 0x090d3d1c; in card state 3 runs shop_play_reveal_effect by card_db_get_prop_bits22
+0x090d375c,shop,shop_setup_opening_pack,M,binds pack textures to model 0x8005 for pack +0x10, queues each card's art via 0x0883ceb0(cache 0x090facf0, id, 0x088565dc(id))
+0x090d3850,shop,shop_advance_opening_cards,M,advances per-card state/timer (+0x40/+0x42, durations 0x090ea040); plays reveal sounds 0x7a5f/0x7a60/0x7a61 for prop_bits22 4/3/1
+0x090d3a5c,shop,shop_update_opening_card_position,M,per card state 0-4 interpolates position between path points at 0x090efc00+0x410..0x480 (linear or shop_eval_quadratic_bezier)
+0x090d3d1c,shop,shop_card_model_texture_callback,M,model draw callback installed via 0x088300ac: binds EDRAM+0x160000 128x256 texture with the card art of 0x090efc00+0x510
+0x090d3edc,shop,shop_init_opening_card_path,M,fills path points/matrices at 0x090efc00+0x410..0x500 from constants 0x090ea050..0x090ea09c
+# family shop_pack_table
+0x090d952c,shop,shop_get_pack_seen_percent_byte,H,returns byte +1 of the pack record at 0x090eefc8 + 12*p (module +0x202c8 pack table; runtime seen percent, packs.md)
+# family shop_render
+0x090d76f0,shop,shop_init_render_state,M,GU setup: viewport 0x800/0x800 480x272, scissor, depth, lights 0..7, perspective 0x0882557c; called once from shop_init_scene
+0x090d889c,shop,shop_set_2d_render_state,M,enables texture (9) and blend (4), tex func, blend func (0,2,3), disables depth (1); used before every 2D pass
+0x090d890c,shop,shop_setup_counter_view,M,3D state + perspective + lookat 0x08831bcc from 0x090ea0c0..0x090ea0ec; called by the counter 3D draw 0x090df37c
+0x090d8aa0,shop,shop_setup_opening_fog_view,M,opening camera from 0x090ea100..0x090ea12c with fog enabled (state 7, colour 0x330019) and globals 0x0973ad0c
+0x090d8cec,shop,shop_setup_opening_view,M,opening camera from 0x090ea130..0x090ea15c, fog disabled; called by the opening draw and the path init
+0x090d8e80,shop,shop_set_3d_render_state,M,GU viewport/scissor 480x272, depth range, cull, lighting enable; shared by the three camera setups
+# family shop_resources
+0x090d905c,shop,shop_poll_secondary_archive,M,while 0x090faa70 low nibble is 1, polls 0x090dbf5c (archive 0x1002) and sets the nibble to 2 when loaded
+0x090d9344,shop,shop_get_pack_name,M,offset-table lookup in the pack_name_str_<l>.bin member returned by 0x090dc354, index param_1
+0x090d9384,shop,shop_get_pack_clerk_text,M,offset table in archive member 0xc002, entry pack*2 (+1 for the other clerk, bit 0 of 0x0973ad50)
+0x090dbcd0,shop,shop_init_archive_state,M,clears pack texture cache 0x098abd74 (0xc0), load flags 0x098abd70 and the 0x171000-byte card image buffer 0x0973ad70
+0x090dbd44,shop,shop_load_scene_step,M,staged load: card image cache over 0x0973ad70, archive 0x1001, then clerk, DP texture 0x2007, pack textures, fade in
+0x090dbe48,shop,shop_create_card_image_cache,M,0x090facf0 = 0x0883cafc(0x0973ad70, 0x171000, 0); the same cache feeds card art loads 0x0883ceb0
+0x090dbe84,shop,shop_destroy_models,H,field_3d_destroy_model_instance for each non-null slot of the 6-entry model table 0x090ef74c (stride 20)
+0x090dbeec,shop,shop_free_resources,H,shop_destroy_models, then heap_free of both loaded archives in table 0x090ef328 (stride 12)
+0x090dbf5c,shop,shop_load_secondary_archive_step,M,requests archive 0x1002 through shop_get_archive and returns 1 once the load callback has completed
+0x090dbfd0,shop,shop_get_archive,H,sprintf 'shop/all_%c.ehp' with 'jegfis'[language], container_get_file_size + heap_alloc + container_load_file, cached at 0x090ef328
+0x090dc0dc,shop,shop_get_image_member,H,25-entry table 0x090ef484 (e.g. 'bg1.gim'): sprintf with language letter, container_ehp_find_member in its archive, cached
+0x090dc198,shop,shop_get_layout_member,M,6-entry table 0x090ef60c of .ehf names (e.g. 'pc_tome_e.ehf'), container_ehp_find_member, cached; ids 0x4001-0x4005, 0x4010
+0x090dc354,shop,shop_get_pack_name_table,H,sprintf 'pack_name_str_%c.bin' with the language letter, container_ehp_find_member in archive 0x08837210()
+0x090dc3a8,shop,shop_get_model_instance,H,6-entry table 0x090ef748 ('pack11.tms'/'.tmt'/tma): find members, field_3d_create_model_instance, set TMGT animation or tma
+0x090dc534,shop,shop_get_pack_texture,H,matches texture name against 'pack_tex_%02d.tga', loads the member for pack param_2 with extension swapped, cached at 0x098abd74
+0x090dc69c,shop,shop_set_model_pack_textures,M,for each texture slot (+0x10, stride 0x28) of model param_1 stores shop_get_pack_texture(name, pack)
+0x090dc728,shop,shop_bsearch_resource_table,H,binary search of u16 key param_1 in table param_2 of param_3 records of param_4 bytes; returns index or -1
+0x090dc7a0,shop,shop_on_archive_loaded,H,container_load_file callback: container_ehp_bind_with_callback on the buffer, bumps load counter in 0x098abd70, sets ready bit
+# family shop_results
+0x090cfe70,shop,shop_results_list_step,M,input for states 9-11 over result list 0x090faa74/0x090faa78 (scroll 0x090faa7e, cursor 0x090faa80); opens card menu, sort menu, L/R modes
+0x090d1bc0,shop,shop_show_result_card_detail,M,fades out, passes highlighted result card id to BOOT 0x0884db08 with images 0x2028/0x2029, waits on 0x0884dbb0, fades back
+0x090d1dac,shop,shop_results_page_step,M,pad +0xc: pages result scroll 0x090faa7e by 5 up/down, or jumps to next/previous group via 0x090d1fb8
+0x090d1eb4,shop,shop_results_toggle_card_flag,M,toggles save card-record byte1 bit7 (get 0x08856478 / set 0x0885640c, save.md) of the highlighted result card
+0x090d1fb8,shop,shop_results_jump_to_group,M,sets scroll 0x090faa7e / cursor 0x090faa80 to the index from shop_results_find_group_boundary, keeping 5 visible rows
+0x090d204c,shop,shop_results_find_group_boundary,M,walks result order 0x090faa78 forward/back until 0x090dd908(entry, sort key 0x090faa82) changes; returns index or -1
+0x090d7a2c,shop,shop_open_result_card_menu,M,heap-allocates menu 0x090f9ae0 (+0x120-byte window, title word 0x15, draw callback 0x090d8048); state 0x090f9af0 = 0xd
+0x090d7c18,shop,shop_result_card_menu_step,M,state 0xd: menu phase 0 input 0x090d7d14, phase 1 close 0x090d7ec4
+0x090d7c78,shop,shop_draw_result_card_menu,M,0x08833be4 with menu window 0x090f9ae0+8; called from the results draw in state 0xd
+0x090d7ca8,shop,shop_free_result_card_menu,H,0x08834d24 on the window, heap_free of window and menu 0x090f9ae0, clears the pointer
+0x090d7d14,shop,shop_result_card_menu_input,M,window choice: 1 toggles card byte1 bit7 (0x0885640c), 0 opens card detail (0x090f9b5e bit4), 2/-2 closes
+0x090d7ec4,shop,shop_result_card_menu_close_step,M,when window +0xe9 != 5 frees the menu and returns to state 9 (or opens the sort menu)
+0x090d7f58,shop,shop_draw_menu_separator,M,two 2-vertex gradient strips (0xff479fc1/0xffa9d7e9) drawn with texture disabled
+0x090d8048,shop,shop_draw_result_card_menu_items,M,window draw callback: card thumbnail 0x090e3798, flag icon 0x2026 if card byte1 bit7, 3 items via 0x090d825c, separator
+0x090d825c,shop,shop_draw_card_menu_item,M,draws item param_2 from the 6-byte table 0x090ea0a0 through 0x090d9150
+0x090d8fb0,shop,shop_update_preview_card,M,stores the highlighted result card id in 0x090faccc (resets timer 0x090facd4 on change, -1 when none)
+0x090d9208,shop,shop_count_result_copies,H,sums field +6 (copies) of every 10-byte result entry 0x090faa74 whose card id equals param_1
+0x090dc830,shop,shop_open_results_sort_menu,M,allocates sort menu 0x098abe34 with two windows (key list titled word 0x20, order list); state 0xc
+0x090dcd20,shop,shop_results_sort_menu_step,M,state 0xc: switches between key and order windows, re-sorts with shop_sort_results on change, closes to state 9
+0x090dd100,shop,shop_close_results_sort_menu,H,0x08834d24 on both windows, heap_free of windows and menu 0x098abe34
+0x090dd180,shop,shop_draw_results_sort_menu,M,0x08833be4 for both sort menu windows (0x098abe34 +0x10/+0x14); drawn in state 0xc
+0x090dd224,shop,shop_place_sort_order_window,M,sets order window +0x5a so it lines up with the selected row of the key window
+0x090dd278,shop,shop_draw_sort_key_icon,M,draws the icon for sort key param_2 from 6-byte table 0x090efa8c; called with 0x090faa82 by the results header
+0x090dd388,shop,shop_draw_sort_order_icon,M,draws the icon for sort order param_2 from 6-byte table 0x090efae8; called with 0x090faa84
+0x090dd46c,shop,shop_sort_results,H,builds {index, pos, key} array with shop_get_result_sort_key, qsort with one of two comparators, writes order 0x090faa78, stores key/order
+0x090dd6e8,shop,shop_get_result_sort_key,H,per key: copies, limit, frame, sort position, flag, prop_bits22, state, pack, ATK/DEF/level/race/attribute/icon of the entry card
+0x090dd908,shop,shop_get_result_group_key,M,same keys as shop_get_result_sort_key but not negated (top group for key 5); used for group boundaries and the group label
+0x090ddcb4,shop,shop_draw_results_screen,M,results draw: layout 0x4005, header, preview card 0x090faccc, rows, cursor, sort menu/card menu/button help by state
+0x090ddf54,shop,shop_draw_results_layout,M,draws layout member 0x4005 (shop_get_layout_member) with frame timing, then sets 2D blend
+0x090de010,shop,shop_draw_results_header,M,header sprites 0x2003/0x2004/0x2002, sort key/order icons, counts 0x090faa7c and 0x090faa86, scrollbar 0x2023
+0x090de33c,shop,shop_draw_results_rows,H,draws up to 5 rows from scroll 0x090faa7e via shop_draw_results_row
+0x090de3d8,shop,shop_draw_results_row,H,one 0x2d-px row: frame strip, thumbnail, badges, rarity mark, card name, pack name, type/attribute/level/ATK/DEF, copies
+0x090de94c,shop,shop_draw_result_row_frame,M,4-piece row background from image 0x2002 chosen by shop_get_frame_style_index(card frame)
+0x090deb34,shop,shop_draw_rarity_mark,M,icon 0x2027 cell 0/1/2 for prop_bits22 4/3/1 (the same values that select reveal sounds and effects)
+0x090dec30,shop,shop_draw_results_cursor,M,cursor frame shop_draw_cursor_frame at row 0x090faa80 (y = 0x1a + 0x2d*row) with image 0x2022
+0x090decb0,shop,shop_draw_results_group_label,M,label of the highlighted entry's group for sort key 0x090faa82 (initial letter, icons, numbers via shop_get_result_group_key)
+# family shop_scene_flow
+0x090ced00,shop,shop_update_counter_step,M,switch on scene state 0x090f9af0 (<7: counter); calls shop_buy_*_step, clerk animation/voice; only caller is the frame function 0x090d830c
+0x090cf31c,shop,shop_dispatch_state_step,M,dispatches state 0x090f9af0 to select_purchase/open_pack/results/sort-menu steps; also checks an 11-entry button sequence at 0x090e9ecc
+0x090cf578,shop,shop_select_pack_step,M,moves pack cursor 0x090f9b5f mod 48 (+/-12 per row); on confirm checks shop_get_pack_sale_state, refills empty shelf to 0xaa (packs.md)
+0x090d7470,shop,shop_init_scene,M,render state, font setup by save_get_language, clerk init, shop_load_pack_states, speech box, DP counter, window 0x090faa8c
+0x090d7600,shop,shop_reset_counter,M,frees result lists 0x090faa74/0x090faa78, clears cart 0x090f9afc (0x60 bytes) and 0x090f9b5c, rebinds pack textures, state 0x090f9af0 = 0
+0x090d830c,shop,shop_run_frame,M,calls shop_update_counter_step then shop_dispatch_state_step; looped by shop_scene_main
+0x090d84b0,shop,shop_module_start,H,system_scene_register(0x090d856c main, 0x090d8630 exit, 0x0973ad00)
+0x090d84e8,shop,shop_scene_init,H,clears globals 0x090f9af0 (0x1210 bytes), heap_create 0x640000 at 0x090fad00, shop_init_scene, waits for archive load 0x090dbd44
+0x090d856c,shop,shop_scene_main,H,scene main: init, frame callback for scene 7, loops shop_run_frame, then scene_call(.,4) or scene_return(7)
+0x090d8630,shop,shop_scene_exit,M,registered exit callback: frees window, speech box, sound banks 0x2c6/0x2c7/0x2cd, card image cache, heap 0x090facec
+0x090ddb08,shop,shop_draw_scene,M,frame draw: counter (state <=7: grid, 3D, overlay), opening (8), results (9-14), message window, fade 0x08844fbc
+# family shop_speech
+0x090e17d4,shop,shop_init_speech_box,M,clears speech box 0x098abe94 (0x180), stores heap/position/style args, creates its window (0x090e2130)
+0x090e1878,shop,shop_reset_speech_box,M,3 lines, position floats 0x098ac004.., style, empty text (shop_set_speech_text(0,0)), relayout
+0x090e19b8,shop,shop_free_speech_box,M,0x088428fc on window 0x098abe9c and clears the 0x180-byte speech box
+0x090e19f4,shop,shop_update_speech_box,M,open/close slide (states 1/3), typewriter advance (all lines per frame when 0x0885778c()==2), R+button fast-forward
+0x090e1d28,shop,shop_draw_speech_box,M,window 0x098abe9c, per-line scissor and text, prompt sprite when printing has finished
+0x090e2004,shop,shop_set_speech_text,M,sets wide text 0x098abf78 and flag, resets progress, lays out and wraps lines, opens the box if closed; callers pass clerk lines
+0x090e208c,shop,shop_open_speech_box,M,sets speech box state 0x098abe94 = 1 (opening)
+0x090e209c,shop,shop_close_speech_box,M,sets speech box state 0x098abe94 = 3 (closing)
+0x090e20ac,shop,shop_is_speech_printing,M,true while the box is open (state 2) with text and neither the end-of-text nor page-full flag set
+0x090e20fc,shop,shop_is_speech_box_moving,M,returns 1 while the speech box state is 1 (opening) or 3 (closing)
+0x090e2130,shop,shop_create_speech_box_window,M,0x088425f8 window 0x098abe9c, fills 0x78-byte window params at 0x098abee8, 0x08842654, then shop_reset_speech_box
+0x090e2244,shop,shop_count_speech_idle_frames,M,increments 0x098abff4 while shop_is_speech_printing is false
+0x090e2280,shop,shop_advance_speech_text,M,grows the visible width of the current line (text width 0x08846168), moves to the next line, sets end/page-full flags (wcslen)
+0x090e23f8,shop,shop_layout_speech_lines,M,line rects from the window text area 0x08842f28 and font height 0x088461d8, clears progress
+0x090e24d8,shop,shop_place_speech_lines,M,moves the window to 0x098abffc and recomputes line positions without clearing progress
+0x090e267c,shop,shop_begin_speech_font,M,saves font state (0x08848518) and sets speech font size/colour/flags from 0x098abf34/0x098abf38; returns the saved state
+0x090e26f0,shop,shop_end_speech_font,M,restores the font state (0x0884850c) saved by shop_begin_speech_font
+0x090e2714,shop,shop_wrap_speech_text,M,splits text 0x098abf78 into per-line start/length (skipping a space at a break) for the 3 lines
+# family shop_sprites
+0x090e1530,shop,shop_draw_scaled_sprite,H,sprite of size (w,h) scaled by float param_1 at (x,y) from atlas (u,v) via 0x0882979c/0x088295a4
+0x090e160c,shop,shop_draw_digit_sprites,H,draws a digit string right-aligned, one shop_draw_scaled_sprite per char ('0'-based cells; two glyph sets)
+0x090e25c4,shop,shop_draw_atlas_cell,M,sprite of size (w,h) at (x,y) from atlas u = base + w*index
+0x090e2c24,shop,shop_draw_cursor_frame,H,9-piece frame (6x6 corners, 1-px edges) around a rect from atlas param_6, inflated by a frame-timing bit
+0x090e2ea0,shop,shop_draw_sprite_rect,H,sprite from struct {x,y,w,h,u,v} (s16) with texture param_3
+# family shop_stubs
+0x090df374,shop,shop_stub_noop_results_group_label,M,empty 8-byte function called only by shop_draw_results_group_label
+0x090e128c,shop,shop_stub_noop_release_dp_counter,M,empty 8-byte function called only by shop_release_dp_hud
+0x090e1528,shop,shop_stub_noop_release_dp_delta,M,empty 8-byte function called only by shop_release_dp_hud
+0x090e521c,shop,shop_stub_noop_button_help,M,empty 8-byte function called only by shop_draw_button_help
+# family shop_text
+0x090d8728,shop,shop_draw_number_grouped,H,draws decimal digits right to left with optional ',' every 3 digits (param_7) through 0x090d887c
+0x090d887c,shop,shop_draw_number_char,M,0x08846b34(x<<6, y<<6, (480-x)<<6, str): one glyph for shop_draw_number_grouped
+0x090dfd10,shop,shop_draw_cost_sign_char,M,0x08846b34(x<<6, y<<6, (480-x)<<6, str): draws the '-' of shop_draw_cost_panel
+0x090e2b24,shop,shop_draw_number_plain,H,draws decimal digits right to left with the font (no grouping) through shop_draw_text_line
+0x090e2c04,shop,shop_draw_text_line,M,0x08846b34(x<<6, y<<6, (480-x)<<6, str): text from (x,y) to the right screen edge
+# family shop_ui
+0x090d42e4,shop,shop_show_message,M,builds window 0x090efc04 (0x120 bytes) with dictionary word 0x11/3/9/8/7 for ids 5..1 and opens it (0x088338e4); id 3 = not enough DP (packs.md)
+0x090d46f8,shop,shop_draw_message_window,M,passes the display list to 0x08833be4 with window 0x090efc04; called from the scene draw 0x090ddb08
+0x090d9150,shop,shop_draw_menu_item,M,builds {image id, w, h, dictionary word} from a 6-byte item record and draws it with 0x090e4104
+0x090e4104,shop,shop_draw_menu_item_box,M,icon via shop_draw_sprite_rect, then text colour/size and label position from the icon size
+0x090e4210,shop,shop_draw_scroll_arrow,M,8x8 arrow from the atlas, optional blinking copy with alpha from a triangle wave of param_8
+0x090e44a8,shop,shop_draw_scrollbar,H,track (8x5 caps and body) and thumb sized/placed from visible/total counts, plus arrows
+0x090e4804,shop,shop_get_frame_count,M,returns word +4 of system_get_frame_timing()
+0x090e4824,shop,shop_scroll_by_delta,M,adds param_2 to value +8 of param_1, clamped to 0..max (+0xc)
+0x090e4870,shop,shop_scroll_with_analog,M,pad +0x14 (analog) outside 0x40..0xc0 scrolls param_1 by 6 per unit through shop_scroll_by_delta
+0x090e48ec,shop,shop_draw_panel_frame,H,9-slice panel (4/5-px corners, stretched edges and centre) from atlas param_6
+0x090e4b9c,shop,shop_draw_button_help,M,panel with button labels: dictionary words from 0x090efbd4/0x090efbe0 shown per pad mask bits 0x1000/0x4000/...

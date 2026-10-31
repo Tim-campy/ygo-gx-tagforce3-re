@@ -269,6 +269,14 @@ Additions to `docs/formats/save.md` (offsets in the game state / `DATA0`):
 | `0x1bf8c` | 174 × 2 bytes: per character-table-row flags. |
 | `0x1c0e8`–`0x1c0ea` | Single-bit progress flags (`0x08855660`–`0x08855ddc`), several used by the shop rules. `0x1c0e9` bit 1: a golden-egg sandwich was bought (shop pack 43); bit 2: all 50 sandwich kinds seen. |
 
+## Function families named in the 2026-10-31 round
+
+Basis and method: `system.md`, same section. 764 new `world` names.
+
+- `BOOT.BIN` `character_table` (41): accessors of the character table.
+- `rel_field` (219): the module is a set of components with init, reset, shutdown, update and draw, called from the lists `0x090d88ec`, `0x090d89e4`, `0x090d8968`; frame loop update `0x090d8098`, draw `0x090d8188`. Families: `field_resources` 36 (field heap `0x780000`, asynchronous load queue, fixed and pooled resources of kinds 0–8), `island_map` 23, `field_player` 17, `field_npcs` 17, `field_map` 16, `sandwich_roulette` 14 (request 25, `goldegg_pan` model), `field_requests` 13 (handlers without a direct caller, matched to requests 7, 8, 9, 19, 22, 23 and 25 by behaviour; not yet checked against the request table `+0x2df0c`), `overhead_icons` 12, `field_pickups` 11, `field_characters` 10, `field_draw_list` 8 (122 entries of `0x50` bytes at `0x098971c0`, sorted by view depth with `qsort`), `field_partner` 8, `field_debug` 4 (a debug entry with map select and `save_add_dp(99999)`, M). Pick-ups write occupancy value 4 into the cell grid; `field-maps.md` lists only 3 and 5.
+- `rel_story` (198): `duel_setup` 35 (set-up block `0x08ecdd50`, duel request `0x08ece428`), `field_state` 21 (`0x08ece52c`), `record_getters` 20 and `record_setters` 11 (runtime record `+0x5c`), `map_pickups` 14, `scene_ctx` 12 (story block `+0x3250`), `story_states` 10, `story_scene` 10, `runtime_records` 10, `overlays` 8, `npc_record_getters` 8.
+
 ## Open questions
 
 - The meaning of the field result codes 7 and 9–15 (other game modes). (The island-map list is the set of disabled destinations, `field-maps.md`.)
