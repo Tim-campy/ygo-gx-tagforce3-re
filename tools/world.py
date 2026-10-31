@@ -8,6 +8,8 @@ docs/subsystems/world.md.
   world.py hmp <USRDIR>/field/map/bg_02_01.ehp --grid   # print the walk grid ('#' walkable, '.' blocked)
   world.py chars <USRDIR>/gmodule/rel_story.prx --check   # per-character table (event keys, flags, tastes)
   world.py spots <USRDIR>/gmodule/rel_story.prx           # NPC spot table: spots per story location
+  world.py chapters <USRDIR> --check                       # partner chapter table vs. story records/locations
+  world.py chapters <USRDIR> -o extracted/world/chapters.json   # the chapter table, caps and partner rows
   world.py tables <USRDIR> --check                         # map/door/exit/island/spot tables, cross-checked
   world.py tables <USRDIR> [--table doors] -o extracted/world/tables.json   # the same tables as JSON
   world.py locations <USRDIR> -o extracted/world/maps [--names]           # one JSON per field map
@@ -234,6 +236,326 @@ def cmd_spots(args):
         per_location[location] = per_location.get(location, 0) + 1
     for location in sorted(per_location):
         print(f"location {location:2d}: {per_location[location]} spots")
+    return 0
+
+
+# --- Partner chapter table and progression (docs/formats/chapter-table.md) ------------------------------------
+#
+# rel_story +0x2a10c: 64 rows of 17 entries of four i32. Entry 0 is the header {kind, character, variant, alt
+# variant}; entry step + 4 (stage - 1) (stage 1..4, step 1..4) is {location, a1, a2, a3}, the story record key to
+# queue and where it plays. world_get_chapter_table_word (0x08eac0c4) is the only reader: it indexes
+# row * 0x110 + entry * 16 + word * 4 without bounds, so stages above 4 would read the following row.
+
+CHAPTER_TABLE = 0x2A10C
+CHAPTER_ROWS, CHAPTER_ENTRIES = 64, 17
+CHAPTER_STAGES = CHAPTER_STEPS = 4
+POINTS_CAPS = 0x2E528  # i32 per story stage 0..10 (world_get_points_cap, 0x08eab450)
+STORY_STAGE_LAST = 10  # world_advance_story_stage caps the stage byte here; no chapter event at stage 10
+CHAPTER_KINDS = {0: "shared chapters, own ending", 1: "generic", 2: "own story"}  # header word 0, never read
+CHAPTER_GENERIC_CHARACTER = 1  # world_find_partner_chapter_row: other categories take the first row with char 1
+OWN_ROW_CATEGORIES = (0, 2)  # categories that search their own (character, variant) row
+ENDING_OFFSET_CATEGORIES = (1, 4, 5)  # stage 4 step 4: a2 += partner - 46 (world_lookup_chapter_event)
+ENDING_OFFSET_BASE = 46
+DAILY_STEPS = (1, 4)  # queued at the first map entry of a working day, wherever the player is
+LOCATION_STEPS = (2, 3)  # queued on entering the entry's location, not in time slots 1 and 7
+# 0x08e9cad0: partner 7 at step 2 of stages 5..7 also hides two characters (record flag 1) and flags their duel
+# pair partners (flag 2). Stages above 4 are not reached by the shipped records (see the format page).
+PARTNER7_HIDDEN = {7: (2, 3), 6: (4, 20), 5: (22, 23)}
+# story bytecode opcodes the progression depends on (docs/formats/story.md)
+OP_ADVANCE_STAGE, OP_FINISH_PARTNER, OP_GOTO, OP_SCENE_MAP = 50094, 50137, 50138, 50158
+# BOOT.BIN character table (docs/formats/sound.md): u8 character, u8 variant, ..., +0x08 i8 category
+BOOT_BASE, BOOT_CHARACTERS, BOOT_CHARACTER_ROWS, BOOT_CHARACTER_SIZE = 0x08804000, 0x088AA510, 174, 148
+
+
+class ChapterTable:
+    """The partner chapter table as a flat word array, read the way the game reads it."""
+
+    def __init__(self, words):
+        if len(words) % (CHAPTER_ENTRIES * 4):
+            raise ValueError("chapter table: not whole rows")
+        self.words = list(words)
+        self.rows = len(self.words) // (CHAPTER_ENTRIES * 4)
+
+    def word(self, row, entry, index):
+        """world_get_chapter_table_word(row, entry, index); None outside the table."""
+        position = (row * CHAPTER_ENTRIES + entry) * 4 + index
+        return self.words[position] if 0 <= position < len(self.words) else None
+
+    def header(self, row):
+        kind, character, variant, alt = (self.word(row, 0, i) for i in range(4))
+        return {"kind": kind, "character": character, "variant": variant, "alt_variant": alt}
+
+    def entry(self, row, stage, step):
+        """(location, a1, a2, a3) of one stage/step, with no partner adjustment."""
+        index = step + CHAPTER_STEPS * (stage - 1)
+        return tuple(self.word(row, index, i) for i in range(4))
+
+    def find_row(self, character, variant, category):
+        """world_find_partner_chapter_row (0x08e9d25c). None where the game returns an uninitialised register."""
+        for row in range(self.rows):
+            if category in OWN_ROW_CATEGORIES:
+                head = self.header(row)
+                if head["character"] == character and variant in (head["variant"], head["alt_variant"]):
+                    return row
+            elif self.word(row, 0, 1) == CHAPTER_GENERIC_CHARACTER:
+                return row
+        return None
+
+    def lookup(self, row, stage, step, partner, category):
+        """world_lookup_chapter_event (0x08e9d08c): the entry, or None when the game returns 0 (empty entry)."""
+        if stage <= 0:
+            return None
+        location, a1, a2, a3 = self.entry(row, stage, step)
+        if None in (location, a1, a2, a3) or min(location, a1, a2, a3) < 0:
+            return None
+        if (stage, step) == (CHAPTER_STAGES, CHAPTER_STEPS) and category in ENDING_OFFSET_CATEGORIES:
+            a2 += partner - ENDING_OFFSET_BASE
+        return location, a1, a2, a3
+
+    def next_event(self, row, stage, step, partner, category):
+        """world_get_next_chapter_event (0x08e9c868): (step, entry) after skipping empty steps. The game loops
+        until it finds an entry; None as the entry stands for that endless loop."""
+        for _ in range(CHAPTER_STEPS):
+            found = self.lookup(row, stage, step, partner, category)
+            if found:
+                return step, found
+            step = advance_chapter_step(step)
+        return step, None
+
+
+def advance_chapter_step(step):
+    """world_advance_chapter_step (0x08eab40c): step + 1, back to 1 after 4."""
+    return step + 1 if step + 1 <= CHAPTER_STEPS else 1
+
+
+def read_chapter_table(prx, offset=CHAPTER_TABLE, rows=CHAPTER_ROWS):
+    count = rows * CHAPTER_ENTRIES * 4
+    return ChapterTable(struct.unpack_from(f"<{count}i", prx, PRX_FILE_OFFSET + offset))
+
+
+def read_points_caps(prx, offset=POINTS_CAPS):
+    return list(struct.unpack_from(f"<{STORY_STAGE_LAST + 1}i", prx, PRX_FILE_OFFSET + offset))
+
+
+def chapter_event_on_map_entry(table, row, partner, category, points, caps, stage, step, location, slot,
+                               day_off, talk_pending):
+    """0x08e9cad0 (world_try_chapter_event), run by world_select_partner_event on every map entry.
+
+    Returns (result, key, step, hidden): result 1 = no chapter event (the daily talk or a remark follows),
+    2 = a daily-step event was queued, 0 = a location-step event was queued; key = (a1, a2, a3) queued or None;
+    step = the chapter step afterwards; hidden = characters the partner-7 branch takes off the map."""
+    if points != caps[stage] or stage == STORY_STAGE_LAST:
+        return 1, None, step, ()
+    step, found = table.next_event(row, stage, step, partner, category)
+    if found is None:
+        raise ValueError(f"row {row} stage {stage}: no entry (the game would loop forever)")
+    where, a1, a2, a3 = found
+    if step in DAILY_STEPS:
+        if day_off or not talk_pending:
+            return 1, None, step, ()
+        return 2, (a1, a2, a3), advance_chapter_step(step), ()
+    if where != location or slot in (1, 7):
+        return 1, None, step, ()
+    hidden = PARTNER7_HIDDEN.get(stage, ()) if partner == 7 and step == 2 else ()
+    return 0, (a1, a2, a3), advance_chapter_step(step), hidden
+
+
+def read_character_categories(boot):
+    """{(character, variant): category} from the BOOT.BIN character table (category is the i8 at +0x08)."""
+    tables = _load("tables")
+    sections = tables.elf_sections(boot)
+    out = {}
+    for r in range(BOOT_CHARACTER_ROWS):
+        offset = tables.to_offset(sections, BOOT_CHARACTERS + BOOT_CHARACTER_SIZE * r, BOOT_BASE)
+        out[(boot[offset], boot[offset + 1])] = struct.unpack_from("<b", boot, offset + 8)[0]
+    return out
+
+
+def partner_category(categories, character):
+    """world_get_character_category (BOOT 0x0885aeb0) looks up variant 0; 5 when the character is missing."""
+    return categories.get((character, 0), 5)
+
+
+def story_records(events):
+    """{(a1, a2, a3): {"opcodes", "gotos", "scene_maps", "empty"}} from a story.Events program."""
+    out = {}
+    for record in range(len(events.starts)):
+        start, end = events.record_span(record)
+        head = events.instructions[start]
+        body = events.instructions[start + 1:end - 1]
+        out[tuple(head[1:4])] = {
+            "opcodes": {ins[0] for ins in body},
+            "gotos": [tuple(ins[1:4]) for ins in body if ins[0] == OP_GOTO],
+            "scene_maps": [ins[1] for ins in body if ins[0] == OP_SCENE_MAP],
+            "empty": not body}
+    return out
+
+
+def record_chain_opcodes(records, key):
+    """Opcodes of a record and of every record it reaches through goto."""
+    seen, todo, opcodes = set(), [key], set()
+    while todo:
+        current = todo.pop()
+        if current in seen or current not in records:
+            continue
+        seen.add(current)
+        opcodes |= records[current]["opcodes"]
+        todo.extend(records[current]["gotos"])
+    return opcodes
+
+
+def chapter_partners(table, categories):
+    """Every (character, variant) of the BOOT table with the row and stage-4 ending key the game would use."""
+    out = []
+    for (character, variant), _ in sorted(categories.items()):
+        category = partner_category(categories, character)
+        row = table.find_row(character, variant, category)
+        ending = None
+        if row is not None:
+            found = table.lookup(row, CHAPTER_STAGES, CHAPTER_STEPS, character, category)
+            ending = list(found[1:]) if found else None
+        out.append({"character": character, "variant": variant, "category": category, "row": row,
+                    "ending_key": ending})
+    return out
+
+
+def chapters_json(table, caps, categories=None):
+    rows = []
+    for row in range(table.rows):
+        stages = []
+        for stage in range(1, CHAPTER_STAGES + 1):
+            steps = []
+            for step in range(1, CHAPTER_STEPS + 1):
+                location, a1, a2, a3 = table.entry(row, stage, step)
+                steps.append(None if min(location, a1, a2, a3) < 0 else
+                             {"step": step, "location": location, "key": [a1, a2, a3],
+                              "trigger": "daily" if step in DAILY_STEPS else "location"})
+            stages.append({"stage": stage, "points_cap": caps[stage], "steps": steps})
+        rows.append({"row": row, **table.header(row), "stages": stages})
+    data = {"source": f"rel_story.prx +{CHAPTER_TABLE:#x}", "points_caps": caps, "rows": rows}
+    if categories is not None:
+        data["partners"] = chapter_partners(table, categories)
+    return data
+
+
+def check_chapters(table, caps, records, categories=None):
+    """Cross-check the table against the story records, the story locations and the BOOT categories.
+    Returns (problems, notes)."""
+    problems, notes = [], []
+    for stage in range(1, STORY_STAGE_LAST):
+        if caps[stage] != 1000 * min(stage, 8):
+            problems.append(f"points cap of stage {stage} is {caps[stage]}, expected {1000 * min(stage, 8)}")
+    generic = [r for r in range(table.rows) if table.word(r, 0, 1) == CHAPTER_GENERIC_CHARACTER]
+    if not generic:
+        problems.append("no generic row (character word 1)")
+    elif table.header(generic[0])["kind"] != 1:
+        problems.append(f"generic row {generic[0]} is not of kind 1")
+    owners = {}
+    for row in range(table.rows):
+        head = table.header(row)
+        if head["kind"] not in CHAPTER_KINDS:
+            problems.append(f"row {row}: kind {head['kind']}")
+        if head["kind"] == 1 and row not in generic[:1]:
+            notes.append(f"row {row}: kind-1 row with character word {head['character']} is never selected")
+        for v in (head["variant"], head["alt_variant"]):
+            if v >= 0 and head["kind"] != 1:
+                if (head["character"], v) in owners:
+                    notes.append(f"row {row}: ({head['character']}, {v}) already matched by row "
+                                 f"{owners[(head['character'], v)]}")
+                owners.setdefault((head["character"], v), row)
+        a1s, chain_ops, empty = set(), [], 0
+        for stage in range(1, CHAPTER_STAGES + 1):
+            stage_ops, filled = set(), 0
+            for step in range(1, CHAPTER_STEPS + 1):
+                entry = table.entry(row, stage, step)
+                if max(entry) < 0:
+                    continue
+                if min(entry) < 0:
+                    problems.append(f"row {row} stage {stage} step {step}: partly empty entry {entry}")
+                    continue
+                filled += 1
+                location, a1, a2, a3 = entry
+                if (stage, step) != (CHAPTER_STAGES, CHAPTER_STEPS):
+                    a1s.add(a1)  # the stage-4 step-4 ending uses its own key (219)
+                if location not in LOCATION_TO_MAP or location == 0:
+                    problems.append(f"row {row} stage {stage} step {step}: location {location} is not a story "
+                                    f"location")
+                if (stage, step) == (CHAPTER_STAGES, CHAPTER_STEPS) and head["kind"] == 1:
+                    continue  # the ending key depends on the partner; checked per partner below
+                key = (a1, a2, a3)
+                if key not in records:
+                    problems.append(f"row {row} stage {stage} step {step}: record {key} missing")
+                    continue
+                record = records[key]
+                empty += record["empty"]
+                if step == 2 and record["scene_maps"] and record["scene_maps"][0] != location:
+                    problems.append(f"row {row} stage {stage} step 2: record {key} opens scene map "
+                                    f"{record['scene_maps'][0]}, not location {location}")
+                stage_ops |= record_chain_opcodes(records, key)
+            if not filled:
+                problems.append(f"row {row} stage {stage}: no entry (world_get_next_chapter_event would loop)")
+            chain_ops.append(stage_ops)
+        if len(a1s) > 1:
+            problems.append(f"row {row}: entries use several keys {sorted(a1s)}")
+        if any(a1 not in range(201, 220) for a1 in a1s):
+            problems.append(f"row {row}: key outside 201..219")
+        if empty and all(not ops for ops in chain_ops):
+            notes.append(f"row {row} ({head['character']}, {head['variant']}): every record is empty")
+            continue
+        for stage, ops in enumerate(chain_ops[:CHAPTER_STAGES - 1], 1):
+            if OP_ADVANCE_STAGE not in ops:
+                problems.append(f"row {row} stage {stage}: no advance_counter in the stage's records")
+        if head["kind"] != 1 and head["kind"] != 0 and OP_FINISH_PARTNER not in chain_ops[-1]:
+            problems.append(f"row {row}: no finish_partner_story in stage 4")
+        if head["kind"] == 0:
+            ending = table.entry(row, CHAPTER_STAGES, CHAPTER_STEPS)
+            ops = record_chain_opcodes(records, tuple(ending[1:]))
+            if not {OP_ADVANCE_STAGE, OP_FINISH_PARTNER} <= ops:
+                problems.append(f"row {row}: ending {tuple(ending[1:])} lacks advance_counter/finish_partner_story")
+    if categories is not None:
+        selectable = 0
+        for partner in chapter_partners(table, categories):
+            c, v, category, row = partner["character"], partner["variant"], partner["category"], partner["row"]
+            if row is None:
+                notes.append(f"({c}, {v}) category {category}: no row (the game would use an undefined row)")
+                continue
+            selectable += 1
+            ending = partner["ending_key"]
+            if ending is None:
+                continue
+            ops = record_chain_opcodes(records, tuple(ending))
+            if tuple(ending) not in records:
+                (problems if category in (0, 1, 2) else notes).append(
+                    f"({c}, {v}) category {category}: ending record {tuple(ending)} missing")
+            elif table.header(row)["kind"] != 2 and not {OP_ADVANCE_STAGE, OP_FINISH_PARTNER} <= ops:
+                problems.append(f"({c}, {v}): ending {tuple(ending)} lacks advance_counter/finish_partner_story")
+        notes.append(f"{selectable} of {len(categories)} BOOT character rows resolve to a chapter row")
+    return problems, notes
+
+
+def _boot_path(usrdir):
+    return Path(usrdir).parent / "SYSDIR" / "BOOT.BIN"
+
+
+def cmd_chapters(args):
+    usrdir = Path(args.usrdir)
+    prx = (usrdir / "gmodule" / "rel_story.prx").read_bytes()
+    table, caps = read_chapter_table(prx), read_points_caps(prx)
+    boot = Path(args.boot) if args.boot else _boot_path(usrdir)
+    categories = read_character_categories(boot.read_bytes()) if boot.is_file() else None
+    if args.check:
+        events = _load("story").Events((usrdir / "script" / "story_scr_b.ehp").read_bytes())
+        problems, notes = check_chapters(table, caps, story_records(events), categories)
+        if categories is None:
+            notes.append(f"{boot}: not found, partner rows and endings not checked")
+        for line in notes:
+            print(line)
+        for problem in problems:
+            print(problem)
+        print(f"rows {table.rows}, stages {CHAPTER_STAGES} x steps {CHAPTER_STEPS}, caps {caps[1:STORY_STAGE_LAST]}")
+        print(f"failing: {len(problems)}")
+        return 1 if problems else 0
+    _json_out(chapters_json(table, caps, categories), args.output)
     return 0
 
 
@@ -927,6 +1249,13 @@ def main(argv=None):
     spots = sub.add_parser("spots", help="rel_story NPC spot table, counted per story location")
     spots.add_argument("prx", help="gmodule/rel_story.prx")
     spots.set_defaults(func=cmd_spots)
+    chapters = sub.add_parser("chapters", help="rel_story partner chapter table and points caps as JSON")
+    chapters.add_argument("usrdir", help="PSP_GAME/USRDIR of the extracted disc")
+    chapters.add_argument("--boot", help="BOOT.BIN for the character categories (default: ../SYSDIR/BOOT.BIN)")
+    chapters.add_argument("-o", "--output", help="JSON file (outside the repository or under extracted/)")
+    chapters.add_argument("--check", action="store_true",
+                          help="check every row against the story records, the locations and the categories")
+    chapters.set_defaults(func=cmd_chapters)
     tables = sub.add_parser("tables", help="map, door, exit, island and spot tables of rel_field/rel_story as JSON")
     tables.add_argument("usrdir", help="PSP_GAME/USRDIR of the extracted disc")
     tables.add_argument("-o", "--output", help="JSON file (outside the repository or under extracted/)")

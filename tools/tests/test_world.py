@@ -236,5 +236,118 @@ class FieldTableTest(unittest.TestCase):
         self.assertTrue(world._output_allowed(repo / "extracted" / "world" / "x.json"))
 
 
+EMPTY = (-1, -1, -1, -1)
+
+
+def chapter_row(header, a1, location=5, ending=None):
+    """Header + 4 stages of steps 1..3 = (location, a1, stage, step), step 4 empty or `ending` at stage 4."""
+    entries = [header]
+    for stage in range(1, 5):
+        entries += [(location, a1, stage, step) for step in range(1, 4)]
+        entries.append(ending if stage == 4 and ending else EMPTY)
+    return [w for entry in entries for w in entry]
+
+
+def chapter_table():
+    words = (chapter_row((2, 2, 0, -1), 201)  # own story of character 2 variant 0
+             + chapter_row((0, 9, 0, 1), 218, ending=(4, 219, 1, 1))  # character 9 variants 0/1
+             + chapter_row((1, 1, -1, -1), 218, ending=(4, 219, 41, 1)))  # generic row
+    return world.ChapterTable(words)
+
+
+def chapter_records():
+    rec = {}
+
+    def add(key, opcodes=(), gotos=(), scene=None):
+        rec[key] = {"opcodes": set(opcodes), "gotos": list(gotos), "scene_maps": [scene] if scene else [],
+                    "empty": not opcodes and not gotos and not scene}
+    for a1 in (201, 218):
+        for stage in range(1, 5):
+            add((a1, stage, 1))
+            add((a1, stage, 2), [world.OP_SCENE_MAP], scene=5)
+            if a1 == 201 and stage == 4:
+                add((a1, stage, 3), [world.OP_GOTO], gotos=[(a1, stage, 31)])
+                add((a1, stage, 31), [world.OP_ADVANCE_STAGE, world.OP_FINISH_PARTNER])
+            else:
+                add((a1, stage, 3), [world.OP_ADVANCE_STAGE] if stage < 4 else [])
+    for n in (1, 41, 42):
+        add((219, n, 1), [world.OP_ADVANCE_STAGE, world.OP_FINISH_PARTNER])
+    return rec
+
+
+class ChapterTableTest(unittest.TestCase):
+    def test_read_and_header(self):
+        table = chapter_table()
+        story = module(0x30000, {world.CHAPTER_TABLE: struct.pack(f"<{len(table.words)}i", *table.words),
+                                 world.POINTS_CAPS: struct.pack("<11i", -1, 1000, 2000, 3000, 4000, 5000,
+                                                                6000, 7000, 8000, 8000, 3)})
+        read = world.read_chapter_table(story, rows=3)
+        self.assertEqual(read.header(1), {"kind": 0, "character": 9, "variant": 0, "alt_variant": 1})
+        self.assertEqual(read.entry(0, 2, 3), (5, 201, 2, 3))
+        self.assertEqual(world.read_points_caps(story)[4], 4000)
+
+    def test_find_row(self):
+        table = chapter_table()
+        self.assertEqual(table.find_row(2, 0, 2), 0)
+        self.assertEqual(table.find_row(9, 1, 0), 1)  # alt variant
+        self.assertIsNone(table.find_row(9, 2, 0))  # no row: undefined in the game
+        self.assertEqual(table.find_row(70, 0, 1), 2)  # other categories: the generic row
+        self.assertEqual(table.find_row(2, 0, 3), 2)
+
+    def test_lookup_and_ending_offset(self):
+        table = chapter_table()
+        self.assertIsNone(table.lookup(0, 1, 4, 2, 2))  # empty step
+        self.assertIsNone(table.lookup(0, 0, 1, 2, 2))  # stage 0
+        self.assertEqual(table.lookup(1, 4, 4, 9, 0), (4, 219, 1, 1))  # category 0: no offset
+        self.assertEqual(table.lookup(2, 4, 4, 47, 1), (4, 219, 42, 1))  # 41 + 47 - 46
+        self.assertEqual(table.lookup(2, 4, 4, 142, 3), (4, 219, 41, 1))  # category 3: no offset
+        self.assertEqual(table.next_event(0, 1, 4, 2, 2), (1, (5, 201, 1, 1)))  # step 4 empty -> wraps to 1
+        self.assertEqual(world.advance_chapter_step(4), 1)
+        self.assertEqual(world.advance_chapter_step(2), 3)
+
+    def test_overflow_reads_next_row(self):
+        table = chapter_table()
+        self.assertEqual(table.entry(0, 5, 1), (0, 9, 0, 1))  # stage 5 step 1 = header of row 1
+
+    def test_map_entry(self):
+        table, caps = chapter_table(), [-1, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 8000, 3]
+        run = world.chapter_event_on_map_entry
+        self.assertEqual(run(table, 0, 2, 2, 999, caps, 1, 1, 5, 2, False, True), (1, None, 1, ()))  # below cap
+        self.assertEqual(run(table, 0, 2, 2, 1000, caps, 1, 1, 9, 2, False, True), (2, (201, 1, 1), 2, ()))
+        self.assertEqual(run(table, 0, 2, 2, 1000, caps, 1, 1, 9, 2, True, True)[0], 1)  # day off
+        self.assertEqual(run(table, 0, 2, 2, 1000, caps, 1, 1, 9, 2, False, False)[0], 1)  # talk done today
+        self.assertEqual(run(table, 0, 2, 2, 1000, caps, 1, 2, 9, 2, False, True)[0], 1)  # wrong location
+        self.assertEqual(run(table, 0, 2, 2, 1000, caps, 1, 2, 5, 1, False, True)[0], 1)  # slot 1
+        self.assertEqual(run(table, 0, 2, 2, 1000, caps, 1, 2, 5, 7, False, True)[0], 1)  # slot 7
+        self.assertEqual(run(table, 0, 2, 2, 1000, caps, 1, 2, 5, 3, False, True), (0, (201, 1, 2), 3, ()))
+        self.assertEqual(run(table, 0, 2, 2, 10 ** 4, caps, 10, 1, 5, 3, False, True)[0], 1)  # stage 10
+
+    def test_check(self):
+        table, caps = chapter_table(), [-1, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 8000, 3]
+        records = chapter_records()
+        categories = {(2, 0): 2, (9, 0): 0, (9, 1): 0, (46, 0): 1, (47, 0): 1}
+        problems, notes = world.check_chapters(table, caps, records, categories)
+        self.assertEqual(problems, [])
+        del records[(219, 42, 1)]
+        problems, _ = world.check_chapters(table, caps, records, categories)
+        self.assertEqual(problems, ["(47, 0) category 1: ending record (219, 42, 1) missing"])
+        records = chapter_records()
+        records[(201, 2, 2)]["scene_maps"] = [6]
+        records[(201, 1, 3)]["opcodes"] = set()
+        problems, _ = world.check_chapters(table, caps, records, categories)
+        self.assertEqual(len(problems), 2)
+        bad = world.ChapterTable(table.words[:4] + [7, 201, 1, -1] + table.words[8:])
+        problems, _ = world.check_chapters(bad, caps, chapter_records())
+        self.assertTrue(any("partly empty" in p for p in problems))
+
+    def test_json(self):
+        data = world.chapters_json(chapter_table(), [-1, 1000, 2000, 3000, 4000, 0, 0, 0, 0, 0, 0], {(2, 0): 2})
+        self.assertEqual(data["rows"][0]["stages"][0]["steps"][1],
+                         {"step": 2, "location": 5, "key": [201, 1, 2], "trigger": "location"})
+        self.assertIsNone(data["rows"][0]["stages"][0]["steps"][3])
+        self.assertEqual(data["partners"], [{"character": 2, "variant": 0, "category": 2, "row": 0,
+                                             "ending_key": None}])
+
+
 if __name__ == "__main__":
     unittest.main()

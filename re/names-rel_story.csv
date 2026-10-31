@@ -117,3 +117,15 @@ address,group,name
 0x08ea5700,world,world_set_player_position
 0x08ea0730,world,world_send_scene_setup
 0x08eab35c,world,world_fill_scene_calendar_params
+0x08e9c504,world,world_get_char_no_pairing
+0x08e9c568,world,world_queue_next_chapter_event
+0x08e9cad0,world,world_try_chapter_event
+0x08e9d944,world,world_get_char_points
+0x08ea3984,world,world_state_start_staff_roll
+0x08ea39e8,world,world_staff_roll_create_heap
+0x08ea3a9c,world,world_state_staff_roll_movie
+0x08ea3ae8,world,world_play_staff_roll_movie
+0x08ea562c,world,world_set_partner_talk_pending
+0x08ea563c,world,world_get_partner_talk_pending
+0x08eab40c,world,world_advance_chapter_step
+0x08eab440,world,world_get_chapter_step

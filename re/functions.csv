@@ -11403,8 +11403,8 @@ rel_story:0x08e9b5d8,FUN_08e9b5d8,,,1020
 rel_story:0x08e9b9d4,FUN_08e9b9d4,,,2564
 rel_story:0x08e9c3d8,FUN_08e9c3d8,,,8
 rel_story:0x08e9c3e0,world_select_partner_event,world,,292
-rel_story:0x08e9c504,FUN_08e9c504,,,100
-rel_story:0x08e9c568,FUN_08e9c568,,,72
+rel_story:0x08e9c504,world_get_char_no_pairing,world,,100
+rel_story:0x08e9c568,world_queue_next_chapter_event,world,,72
 rel_story:0x08e9c5b0,world_talk_to_character,world,,328
 rel_story:0x08e9c6f8,world_give_item_to_partner,world,verified,236
 rel_story:0x08e9c7e4,FUN_08e9c7e4,,,132
@@ -11413,7 +11413,7 @@ rel_story:0x08e9c8f4,FUN_08e9c8f4,,,8
 rel_story:0x08e9c8fc,FUN_08e9c8fc,,,176
 rel_story:0x08e9c9ac,FUN_08e9c9ac,,,180
 rel_story:0x08e9ca60,FUN_08e9ca60,,,112
-rel_story:0x08e9cad0,FUN_08e9cad0,,,572
+rel_story:0x08e9cad0,world_try_chapter_event,world,,572
 rel_story:0x08e9cd0c,world_partner_daily_event,world,,452
 rel_story:0x08e9ced8,world_partner_location_remark,world,,436
 rel_story:0x08e9d08c,world_lookup_chapter_event,world,,464
@@ -11431,7 +11431,7 @@ rel_story:0x08e9d704,FUN_08e9d704,,,40
 rel_story:0x08e9d72c,world_update_npc_positions,world,verified,472
 rel_story:0x08e9d904,FUN_08e9d904,,,32
 rel_story:0x08e9d924,FUN_08e9d924,,,32
-rel_story:0x08e9d944,FUN_08e9d944,,,32
+rel_story:0x08e9d944,world_get_char_points,world,,32
 rel_story:0x08e9d964,FUN_08e9d964,,,92
 rel_story:0x08e9d9c0,world_change_char_points,world,verified,272
 rel_story:0x08e9dad0,FUN_08e9dad0,,,44
@@ -11556,11 +11556,11 @@ rel_story:0x08ea37dc,FUN_08ea37dc,,,36
 rel_story:0x08ea3800,FUN_08ea3800,,,108
 rel_story:0x08ea386c,FUN_08ea386c,,,76
 rel_story:0x08ea38b8,world_classify_exit,world,,204
-rel_story:0x08ea3984,FUN_08ea3984,,,100
-rel_story:0x08ea39e8,FUN_08ea39e8,,,108
+rel_story:0x08ea3984,world_state_start_staff_roll,world,,100
+rel_story:0x08ea39e8,world_staff_roll_create_heap,world,,108
 rel_story:0x08ea3a54,FUN_08ea3a54,,,72
-rel_story:0x08ea3a9c,FUN_08ea3a9c,,,76
-rel_story:0x08ea3ae8,FUN_08ea3ae8,,,212
+rel_story:0x08ea3a9c,world_state_staff_roll_movie,world,,76
+rel_story:0x08ea3ae8,world_play_staff_roll_movie,world,,212
 rel_story:0x08ea3bbc,FUN_08ea3bbc,,,160
 rel_story:0x08ea3c5c,FUN_08ea3c5c,,,100
 rel_story:0x08ea3cc0,FUN_08ea3cc0,,,64
@@ -11655,8 +11655,8 @@ rel_story:0x08ea55e4,FUN_08ea55e4,,,20
 rel_story:0x08ea55f8,FUN_08ea55f8,,,20
 rel_story:0x08ea560c,FUN_08ea560c,,,12
 rel_story:0x08ea5618,FUN_08ea5618,,,20
-rel_story:0x08ea562c,FUN_08ea562c,,,16
-rel_story:0x08ea563c,FUN_08ea563c,,,16
+rel_story:0x08ea562c,world_set_partner_talk_pending,world,,16
+rel_story:0x08ea563c,world_get_partner_talk_pending,world,,16
 rel_story:0x08ea564c,FUN_08ea564c,,,8
 rel_story:0x08ea5654,FUN_08ea5654,,,8
 rel_story:0x08ea565c,FUN_08ea565c,,,20
@@ -11909,8 +11909,8 @@ rel_story:0x08eab380,world_check_new_day,world,documented,48
 rel_story:0x08eab3b0,world_get_weekday,world,documented,16
 rel_story:0x08eab3c0,world_advance_story_stage,world,,60
 rel_story:0x08eab3fc,world_get_story_stage,world,,16
-rel_story:0x08eab40c,FUN_08eab40c,,,52
-rel_story:0x08eab440,FUN_08eab440,,,16
+rel_story:0x08eab40c,world_advance_chapter_step,world,,52
+rel_story:0x08eab440,world_get_chapter_step,world,,16
 rel_story:0x08eab450,world_get_points_cap,world,,36
 rel_story:0x08eab474,FUN_08eab474,,,140
 rel_story:0x08eab500,world_get_fixed_npc_spot,world,documented,784
