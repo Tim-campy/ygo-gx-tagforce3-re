@@ -34,3 +34,10 @@ The argument is a 1,500 ms fade-out, and the track is stopped and released about
 | Slifer dorm → store | 3 ← 6 | 15.75, 8.75 | 3 | location 3: (31, 17), 3 | yes |
 
 All four agree exactly, including the per-door rule of location 6 (the arrival cell depends on the room the player comes from). The field state holds the live location, previous location, position and direction (`field-maps.md`, "Arrival cell"; `world.md`, field state). Field request 9 takes one pointer argument.
+
+## E12. Doors at midnight: pass
+
+- Slot 2: room 101's door opened (`door_open kind=0`, a sliding door) and the map changed.
+- Slot 7 (light period 4): room 101 did not open and its cell could not be entered; room 204 and the dining hall opened and led in (`door_open kind=0` and `kind=1`, a hinged door). The maintainer confirmed every outcome as expected.
+- `world_get_door_cell_target` (`0x090d9cc8`) runs **every frame** with the player's current cell (the log follows the walk cell by cell), not only on a door cell. Note for later checks: **PPSSPP reads numbers in breakpoint conditions as hexadecimal**, so the condition `a0 == 13 || a0 == 15` matched x = 19 and 21 (`0x13`, `0x15`), not 13 and 15; the door-cell part of the log is therefore not the intended filter, and it does not affect the open/closed results.
+- The partner's location remark `queue (1, 2, 6)` and `queue (301, 11, 1)` were queued on map entries.
