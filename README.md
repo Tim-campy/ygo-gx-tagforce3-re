@@ -4,7 +4,7 @@ Reverse engineering of *Yu-Gi-Oh! GX Tag Force 3* (PSP, Konami, 2008; released i
 
 The project is in its **reverse-engineering phase**: the output is knowledge, not a port. File formats, data structures and the game's own code are documented precisely enough that the 3DS version can later be built without reopening the binary.
 
-[Setup and extraction](docs/SETUP.md), [file formats](docs/formats), [subsystems](docs/subsystems), [progress rules](docs/PROGRESS.md), [working method](CLAUDE.md)
+[Setup and extraction](docs/SETUP.md), [extractor specification](docs/extractor-spec.md), [file formats](docs/formats), [subsystems](docs/subsystems), [progress rules](docs/PROGRESS.md), [working method](CLAUDE.md)
 
 ## Status
 

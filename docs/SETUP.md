@@ -10,6 +10,7 @@ How to reproduce the analysis. You need your own copy of the game; nothing from 
 | `docs/formats/` | One document per file format or data structure. | yes |
 | `docs/subsystems/` | One document per subsystem (`container`, `card_db`, ...), with open questions. | yes |
 | `docs/PROGRESS.md` | Counting rules for the progress tool. | yes |
+| `docs/extractor-spec.md` | Extractor specification: every asset class, its tool, command, output and gaps. | yes |
 | `re/functions.csv`, `re/formats.csv` | Registries that feed the progress meter. | yes |
 | `re/names.csv`, `re/names-ppsspp.csv` | Function names applied to the Ghidra project. | yes |
 | `tools/` | Extractors and the progress tool. | yes |
@@ -38,6 +39,8 @@ python3 -I tools/iso9660.py game/<image>.iso -x extracted/umd
 python3 -I tools/ehp.py extracted/umd/PSP_GAME/USRDIR/<dir>/*.ehp -x extracted/ehp/<dir> -r -z
 python3 -I tools/cardinfo.py extracted/umd/PSP_GAME/USRDIR/duelsys/cardinfo_eng.ehp -o extracted/cards_eng.csv
 ```
+
+Every asset class, its tool, command, neutral output and gaps: [`extractor-spec.md`](extractor-spec.md).
 
 ## Tools
 
