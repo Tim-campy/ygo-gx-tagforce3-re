@@ -473,8 +473,10 @@ def strong_ids(refs):
 
 SEMANTICS = HERE / "engine_ref_semantics.csv"
 # Tags that locate a card without describing its effect: AI knowledge, archetype membership, name aliases,
-# references made by another card's effect, save-file bookkeeping, and functions without a rule.
-GENERIC_TAGS = {"ai_hint", "archetype", "name_alias", "named_reference", "save_record", "unclassified"}
+# references made by another card's effect, save-file bookkeeping, constants in the id range that are not card
+# ids (flag words), and functions without a rule.
+GENERIC_TAGS = {"ai_hint", "archetype", "name_alias", "named_reference", "save_record", "not_card_id",
+                "unclassified"}
 CONFIDENCE_ORDER = {"H": 0, "M": 1, "L": 2}
 # How the helper that receives an `arg` id qualifies the rule of the calling function.
 MODALITY = [
@@ -500,7 +502,7 @@ def load_semantics(path=SEMANTICS):
     with open(path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             pattern = row["pattern"].strip()
-            rule = dict(row, pattern=pattern, lo=None, hi=None)
+            rule = dict(row, pattern=pattern, lo=None, hi=None, operand=(row.get("operand") or "").strip())
             m = re.fullmatch(r"0x([0-9a-fA-F]+)(?:-0x([0-9a-fA-F]+))?", pattern)
             if m:
                 rule["lo"] = int(m.group(1), 16)
@@ -536,6 +538,9 @@ def _rule_matches(rule, row):
     if kinds != "any" and kinds != kind:
         return False
     if rule["callee"] and not (row["kind"] == "arg" and fnmatch.fnmatchcase(row["detail"], rule["callee"])):
+        return False
+    if rule.get("operand") and not any(fnmatch.fnmatchcase(row.get("operand") or "", p)
+                                       for p in rule["operand"].split("|")):
         return False
     if rule["lo"] is not None:  # an exact address always applies; a range only to unnamed functions
         if rule["hi"] - rule["lo"] > 1 and not DEFAULT_NAME.match(row["function_name"]):
@@ -687,6 +692,8 @@ def rule_problems(rules):
             out.append(f"{r['pattern']}: confidence {r['confidence']!r} is not H/M/L")
         if not r["tag"] or not r["phrase"]:
             out.append(f"{r['pattern']}: empty tag or phrase")
+        if r.get(None):
+            out.append(f"{r['pattern']}: more fields than columns (unquoted comma?)")
     return out
 
 

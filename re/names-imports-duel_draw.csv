@@ -71,7 +71,7 @@ address,group,name
 0x098b9ac4,,thunk_FUN_09dc08a4
 0x098b9acc,,thunk_FUN_09be14cc
 0x098b9ad4,,thunk_FUN_09be14d8
-0x098b9adc,,thunk_FUN_09be4648
+0x098b9adc,duel_core,thunk_duel_core_record_duel_result
 0x098b9ae4,,thunk_FUN_09be2218
 0x098b9aec,duel_core,thunk_duel_core_start_plain
 0x098b9af4,duel_core,thunk_duel_core_start_mode2
@@ -165,7 +165,7 @@ address,group,name
 0x098b9db4,duel_core,thunk_duel_core_is_slot_without_monster_effect
 0x098b9dbc,,thunk_FUN_09beeef8
 0x098b9dc4,duel_core,thunk_duel_core_card_has_attribute
-0x098b9dcc,,thunk_FUN_09beefb4
+0x098b9dcc,duel_effects,thunk_duel_effects_is_archfiend_roll_success
 0x098b9dd4,duel_core,thunk_duel_core_find_card_location
 0x098b9ddc,duel_core,thunk_duel_core_find_card_entry_by_id
 0x098b9de4,duel_core,thunk_duel_core_find_field_slot_by_ref
@@ -178,7 +178,7 @@ address,group,name
 0x098b9e1c,duel_core,thunk_duel_core_is_entry_properly_summoned
 0x098b9e24,duel_core,thunk_duel_core_get_turn_count
 0x098b9e2c,duel_core,thunk_duel_core_is_within_turn_limit
-0x098b9e34,,thunk_FUN_09befe58
+0x098b9e34,duel_core,thunk_duel_core_get_battle_destruction_countdown
 0x098b9e3c,duel_effects,thunk_duel_effects_find_token_entry
 0x098b9e44,duel_core,thunk_duel_core_get_counter_type_card
 0x098b9e4c,duel_core,thunk_duel_core_get_counter_count
@@ -196,10 +196,10 @@ address,group,name
 0x098b9eac,,thunk_FUN_09c0093c
 0x098b9eb4,duel_core,thunk_duel_core_get_first_slot_in_mask
 0x098b9ebc,,thunk_FUN_09bf0d14
-0x098b9ec4,,thunk_FUN_09bf0d68
-0x098b9ecc,,thunk_FUN_09bf0e20
+0x098b9ec4,duel_core,thunk_duel_core_is_destruction_substitute
+0x098b9ecc,duel_core,thunk_duel_core_substitute_covers_slot
 0x098b9ed4,duel_effects,thunk_duel_effects_get_spell_speed
-0x098b9edc,,thunk_FUN_09bf2910
+0x098b9edc,duel_effects,thunk_duel_effects_is_activatable_in_window
 0x098b9ee4,duel_effects,thunk_duel_effects_is_summon_negation_card
 0x098b9eec,,thunk_FUN_09bf2fbc
 0x098b9ef4,ai,thunk_ai_classify_resolve_kind
@@ -347,7 +347,7 @@ address,group,name
 0x098ba364,duel_core,thunk_duel_core_can_flip_summon_slot
 0x098ba36c,duel_core,thunk_duel_core_can_gemini_summon
 0x098ba374,duel_effects,thunk_duel_effects_get_controlling_side
-0x098ba37c,,thunk_FUN_09bfe878
+0x098ba37c,duel_core,thunk_duel_core_is_control_change_blocked
 0x098ba384,duel_effects,thunk_duel_effects_can_take_control
 0x098ba38c,duel_effects,thunk_duel_effects_get_spell_immunity
 0x098ba394,duel_effects,thunk_duel_effects_get_trap_immunity
@@ -395,7 +395,7 @@ address,group,name
 0x098ba4e4,duel_core,thunk_duel_core_can_special_summon_list_card
 0x098ba4ec,duel_core,thunk_duel_core_can_special_summon_from_graveyard
 0x098ba4f4,duel_core,thunk_duel_core_can_special_summon_from_banished
-0x098ba4fc,,thunk_FUN_09c02b48
+0x098ba4fc,duel_effects,thunk_duel_effects_is_candidate_allowed_by_locks
 0x098ba504,duel_core,thunk_duel_core_get_off_field_race
 0x098ba50c,duel_core,thunk_duel_core_get_off_field_attribute
 0x098ba514,,thunk_FUN_09c02f80
@@ -451,7 +451,7 @@ address,group,name
 0x098ba6a4,,thunk_FUN_09c0cb20
 0x098ba6ac,duel_core,thunk_duel_core_can_special_summon_card
 0x098ba6b4,duel_core,thunk_duel_core_can_special_summon_id
-0x098ba6bc,,thunk_FUN_09c0c4c8
+0x098ba6bc,duel_core,thunk_duel_core_can_use_deck
 0x098ba6c4,duel_core,thunk_duel_core_can_special_summon_face_up
 0x098ba6cc,duel_core,thunk_duel_core_can_special_summon_card_to
 0x098ba6d4,duel_core,thunk_duel_core_get_banish_redirect_mask
@@ -469,9 +469,9 @@ address,group,name
 0x098ba734,duel_core,thunk_duel_core_can_add_from_deck_to_hand
 0x098ba73c,,thunk_FUN_09c0d7fc
 0x098ba744,duel_core,thunk_duel_core_can_draw
-0x098ba74c,,thunk_FUN_09c0da14
+0x098ba74c,duel_core,thunk_duel_core_get_hand_size_limit
 0x098ba754,,thunk_FUN_09c0dac8
-0x098ba75c,,thunk_FUN_09c2796c
+0x098ba75c,duel_core,thunk_duel_core_is_damage_converted_to_gain
 0x098ba764,duel_core,thunk_duel_core_is_lp_gain_reversed
 0x098ba76c,duel_core,thunk_duel_core_detach_effect
 0x098ba774,duel_core,thunk_duel_core_attach_effect
@@ -486,7 +486,7 @@ address,group,name
 0x098ba7bc,,thunk_FUN_09be5e2c
 0x098ba7c4,,thunk_FUN_09be5eb8
 0x098ba7cc,duel_core,thunk_duel_core_expire_turn_effects
-0x098ba7d4,,thunk_FUN_09be6ac4
+0x098ba7d4,duel_core,thunk_duel_core_init_battle_phase_attack_state
 0x098ba7dc,duel_core,thunk_duel_core_apply_phase_start_attack_rules
 0x098ba7e4,,thunk_FUN_09be71b4
 0x098ba7ec,,thunk_FUN_09be7310
@@ -510,9 +510,9 @@ address,group,name
 0x098ba87c,tag_duel,thunk_tag_duel_swap_active_duelist
 0x098ba884,duel_core,thunk_duel_core_zone_remove
 0x098ba88c,duel_core,thunk_duel_core_zone_insert
-0x098ba894,,thunk_FUN_09bee500
-0x098ba89c,,thunk_FUN_09c00a50
-0x098ba8a4,,thunk_FUN_09c00b94
+0x098ba894,duel_core,thunk_duel_core_record_attack_done
+0x098ba89c,duel_core,thunk_duel_core_add_active_card_count
+0x098ba8a4,duel_core,thunk_duel_core_flag_active_card
 0x098ba8ac,,thunk_FUN_09c00ccc
 0x098ba8b4,,thunk_FUN_09c00d70
 0x098ba8bc,,thunk_FUN_09c00e48
@@ -532,7 +532,7 @@ address,group,name
 0x098ba92c,,thunk_FUN_09dc08a4
 0x098ba934,,thunk_FUN_09dc093c
 0x098ba93c,,thunk_FUN_09c146f0
-0x098ba944,,thunk_FUN_09c147f0
+0x098ba944,duel_core,thunk_duel_core_check_targeting_links
 0x098ba94c,duel_core,thunk_duel_core_post_add_marker
 0x098ba954,duel_effects,thunk_duel_effects_attach_effect_to_slot
 0x098ba95c,duel_core,thunk_duel_core_post_add_instance_marker
@@ -888,7 +888,7 @@ address,group,name
 0x098bb44c,,thunk_FUN_09dcb7c0
 0x098bb454,duel_core,thunk_duel_core_set_statistic_max
 0x098bb45c,duel_core,thunk_duel_core_add_statistic
-0x098bb464,,thunk_FUN_09dcbbcc
+0x098bb464,duel_core,thunk_duel_core_was_card_used_in_duel
 0x098bb46c,,thunk_FUN_09dcbc54
 0x098bb474,,thunk_FUN_09dcbca0
 0x098bb47c,,thunk_FUN_09dcbccc
