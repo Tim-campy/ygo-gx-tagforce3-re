@@ -338,3 +338,13 @@ address,group,name
 0x088544f8,save,save_set_card_milestone_flag
 0x08866870,card_db,card_db_is_fusion_substitute
 0x088669a0,card_db,card_db_is_control_locked
+0x0881019c,system,system_srand
+0x088596a8,system,system_seed_rand_from_rtc
+0x0884c6b8,system,system_wait_frame
+0x088548a0,save,save_set_pack_bought
+0x0885761c,save,save_add_packs_bought
+0x0885742c,save,save_set_pack_stock
+0x0885745c,save,save_get_pack_stock
+0x08855318,save,save_set_character_flag_bit2
+0x08857158,save,save_get_card_list_count
+0x088571c8,save,save_get_card_list_entry

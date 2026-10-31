@@ -29,6 +29,7 @@ card_samepict,CARD_SamePict cards with several artworks,card_db,documented,
 card_genre,CARD_Genre category flags (names from DLG_Text 701+n),card_db,documented,
 dlg_text,DLG_Indx + DLG_Text duel prompts,card_db,documented,
 pack_table,Booster pack table and rarity tiers (rel_shop.prx),shop,documented,
+pack_draw,Shop purchase and pack draw procedure (rel_shop 0x090d9678; rarity box of 20),shop,documented,
 limit_list,Forbidden/limited list (BOOT.BIN),deck,documented,
 effect_tables,Card effect handler tables (rel_duel_eng.prx),duel_effects,documented,
 ydc_recipe,YDC deck recipe (RCP%03d.ydc in BOOT.BIN archive 0x088d77e0),deck,verified,
@@ -141,7 +142,7 @@ ai_candidate_stack,AI candidate card stack (0x09e03004; depth 0x09e03024),ai,nam
 ai_combat_tricks,AI combat trick list (0x09e27ff8; up to 8 card ids),ai,named,
 save_settings,Save settings bits (game state +0xfe04),save,documented,
 save_character_records,Save character records (game state +0xfe0c; 143 x 0x18),save,named,24
-save_pack_records,Save pack records (game state +0x16604; 48 x 0x2a),save,named,42
+save_pack_records,Save pack records (game state +0x16604; 48 x 0x2a),save,documented,42
 save_player_profile,Player profile: name / team / level / EXP / DP (game state +0xfd5c-0xfdff),save,documented,164
 save_duel_record,Duel-record block (game state +0x10f10),save,named,
 save_partner_word,Partner word (game state +0x16e12),save,named,2

@@ -37,7 +37,7 @@ All integers little-endian. The buffer is a raw copy of in-memory structures: de
 | `0x10b74` | 2 × n | `u16` per entry: bit 0 set once, bits 1–8 a value written with it (`0x08857f2c`, pointer from `0x08857fa4`); meaning unknown. | — |
 | `0x11ba4` | 3,554 × 4 | Card collection, one record per card-database record index (below). | high |
 | `0x16582` | 0x80 | Name of the active forbidden/limited list, UTF-16 (the analysed save has a `2008/03` date). Written by `deck_set_limit_list_name`, called from `deck_reset_limits`. | medium |
-| `0x16602` | 2 | Counter capped at 2000 (`0x0885761c` adds, `0x08857670` reads); meaning unknown. | — |
+| `0x16602` | 2 | Packs bought in total, capped at 2,000 (`save_add_packs_bought`, `0x0885761c`, called by every shop purchase with the quantity; `0x08857670` reads). | M (code) |
 | `0x16604` | 48 × `0x2a` | Pack records (below). | high (code) |
 | `0x16de4` | 0x26 | Bytes that only grow (`0x08856080` keeps the maximum); meaning unknown. | — |
 | `0x16e10` – `0x16e14` | | Single bytes and flags read by small getters `0x08857be8`–`0x08858078`; not decoded. | — |
@@ -107,7 +107,7 @@ The game keeps the state that `DATA0` copies in memory and reaches it only throu
 
 **Characters** (`save_get_character_table()` = `state + 0xfe0c`, `0x08857c10`; record `c` = `save_get_character_record(c)`, `0x08857d9c`, 0x18 bytes): `+0x00 u16` list count, `+0x02` up to 10 `u16` entries (`save_add_character_entry`, `0x08857d0c`, caller `0x08854188`, appends without duplicates), `+0x16 u16` points, 0–8000 (`save_get_char_points` `0x08857dd0`, `save_set_char_points` `0x08857e08`, `save_add_char_points` `0x08857e68`, all clamped). `save_find_top_character` (`0x08857ed8`) returns the character 2–142 with the most points. `deck_select_owner_variant` reads character 8's points (threshold 2000), so the points are presumably friendship points (medium).
 
-**Packs** (`save_get_pack_record(p)` = `state + 0x16604 + 0x2a × p` for `p < 48`, `0x088573d4`): byte 0 (set to `0xaa` by `save_reset_packs`, `0x088575c8`, caller `0x08854310`; accessors `0x0885742c`/`0x0885745c`), byte 1 bits 0–2 state (`save_set_pack_state` `0x08857484`, `save_get_pack_state` `0x088574d8`, caller `0x0885042c`), `+2` 20 `u16` entries (`save_get_pack_entries` `0x08857504`, `save_set_pack_entry` `0x0885752c`, `save_get_pack_entry` `0x0885757c`). 48 records match the game's 48 packs; what the state and entries mean is open.
+**Packs** (`save_get_pack_record(p)` = `state + 0x16604 + 0x2a × p` for `p < 48`, `0x088573d4`): byte 0 the **shelf stock**, two nibbles of up to 10 packs (set to `0xaa` by `save_reset_packs`, `0x088575c8`, caller `0x08854310`; `save_set_pack_stock` `0x0885742c` / `save_get_pack_stock` `0x0885745c`), byte 1 bits 0–2 sale state (`save_set_pack_state` `0x08857484`, `save_get_pack_state` `0x088574d8`, caller `0x0885042c`), `+2` 20 `u16` entries, the **rarity box**: the rarity (1–3) drawn for each pack of the current box of 20, 0 = not yet drawn (`save_get_pack_entries` `0x08857504`, `save_set_pack_entry` `0x0885752c`, `save_get_pack_entry` `0x0885757c`). Meanings from the shop code (`docs/formats/packs.md`, high). Also: `0x1542a + p`, one byte per pack set to 1 by its first purchase (`save_set_pack_bought`, `0x088548a0`).
 
 `save_get_player_value(n)` (`0x08854b68`, exported) reads the `u32` at `state + 0xfdfc + 4n`.
 
@@ -115,7 +115,7 @@ The game keeps the state that `DATA0` copies in memory and reaches it only throu
 
 ## Open questions
 
-- What the pack record state and its 20 entries hold, the meaning of the unknown collection and option bits, and the counters at `0xfdfc` and `0x16602`.
+- The meaning of the unknown collection and option bits (the pack record and the counters `0xfdfc` (DP) and `0x16602` (packs bought) are now known).
 - The unmapped regions (after the pack records, up to `0x1c0ec`): story progress, duel records, unlocks and DP. A second save that differs by one known action (for example buying one pack, with the DP before and after) will locate DP and confirm collection updates.
 - Whether the game rejects a save whose OpenPSID at `0x10` differs from the console's.
 - Which code copies the buffer to and from the game state; the meaning of collection byte 0 bits and of the other save modes (8, `0x16` and the four other callers).

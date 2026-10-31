@@ -20,7 +20,9 @@ SEGMENT_OFFSET = 0x54  # as in the game's PRX modules: vaddr 0 sits at file offs
 def fake_prx(packs):
     """One PT_LOAD segment; pack i gets descriptor and id lists after the pack table."""
     image = bytearray(tables.PACK_TABLE + 12 * tables.PACK_COUNT + 0x4000)
-    cursor = tables.PACK_TABLE + 12 * tables.PACK_COUNT
+    struct.pack_into("<3i", image, tables.BUY_FACTOR_TABLE, 1, 0, 20)
+    struct.pack_into("<4h", image, tables.RARITY_BOX_TABLE, 0, 14, 4, 2)
+    cursor = tables.RARITY_BOX_TABLE + 8
     for index in range(tables.PACK_COUNT):
         tiers = packs.get(index, ([], [], [], [0xE88]))
         pairs = []
@@ -64,6 +66,53 @@ class TablesTest(unittest.TestCase):
         self.assertEqual((packs[1]["a"], packs[1]["price"], packs[1]["flags"]), (20, 100, 1))
         self.assertEqual(tables.check_packs(packs, tables.known_ids(None)), [])
         self.assertTrue(tables.check_packs(packs, {0xE88}))
+
+    def test_random_is_newlib_rand(self):
+        rng = tables.GameRandom(1)
+        self.assertEqual(rng.rand(), 0x5851F42D)  # newlib rand() after srand(1)
+        self.assertEqual(tables.GameRandom(1).shifted(), 0x5851F42D >> 4)
+
+    def test_draw_box_and_order(self):
+        pack = {"pack": 0, "a": 20, "tiers": [tuple(range(0xE88, 0xE90)), (0xF00, 0xF01), (0xF10,), (0xF20,)]}
+        box, rng = [0] * 20, tables.GameRandom(7)
+        rarities = []
+        for _ in range(20):
+            cards = tables.draw_pack(pack, box, rng)
+            self.assertEqual(len(set(cards)), 5)
+            self.assertTrue(all(c in pack["tiers"][0] for c in cards[:4]))  # rare-slot card is last
+            rarities.append(next(t for t, ids in enumerate(pack["tiers"]) if cards[-1] in ids))
+        self.assertEqual(sorted(rarities), [1] * 14 + [2] * 4 + [3] * 2)
+        self.assertEqual(sorted(box), [1] * 14 + [2] * 4 + [3] * 2)
+        tables.draw_pack(pack, box, rng)  # the 21st pack starts a new box
+        self.assertEqual(box[1:], [0] * 19)
+
+    def test_draw_fallback_and_odds(self):
+        pack = {"pack": 1, "a": 20, "tiers": [(), (), (), tuple(range(0xE88, 0xE88 + 10))]}
+        rare, common, per_card = tables.pack_odds(pack)
+        self.assertEqual((common, round(rare[None], 3), round(rare[3], 3)), (3, 0.9, 0.1))
+        self.assertAlmostEqual(per_card[3], 0.5)
+        cards = tables.draw_pack(pack, [0] * 20, tables.GameRandom(3))
+        self.assertEqual(len(set(cards)), 5)
+
+    def test_draw_prefers_unowned(self):
+        tiers = [tuple(range(0xE88, 0xE88 + 40)), (0xF00,), (0xF10,), (0xF20,)]
+        pack = {"pack": 47, "a": 20, "tiers": tiers}
+        unowned = set(tiers[0][:4])
+        owned = lambda c: 0 if c in unowned else 1
+        rng, box, hits, n = tables.GameRandom(5), [0] * 20, 0, 2000
+        for _ in range(n):
+            hits += sum(c in unowned for c in tables.draw_pack(pack, box, rng, owned=owned)[:4])
+        # 30% of the common picks come from the 4 unowned cards, the rest from all 40
+        self.assertAlmostEqual(hits / (4 * n), 0.3 + 0.7 * 4 / 40, delta=0.03)
+
+    def test_check_draws(self):
+        image = fake_prx({i: (list(range(0xE88 + 8 * i, 0xE8F + 8 * i)), [0x1800 + i], [], []) for i in range(48)})
+        packs = tables.read_packs(image)
+        box, factors = tables.read_draw_constants(image)
+        self.assertEqual((box, factors), ((0, 14, 4, 2), (1, 0, 20)))
+        self.assertEqual(tables.check_draws(packs, box, factors, boxes=2), [])
+        self.assertTrue(tables.check_draws(packs, (0, 10, 8, 2), factors, boxes=1))
+        self.assertTrue(tables.check_draws(tables.read_packs(fake_prx({})), box, factors, boxes=1))  # 1-card pools
 
     def test_limits(self):
         pairs = [(0xE88 + k, k % 3) for k in range(tables.LIMIT_COUNT)]

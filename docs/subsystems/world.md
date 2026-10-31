@@ -151,7 +151,7 @@ The field save block (story block `+0x345c`, `0xa8` bytes) starts with the **sto
 | 9–47 | Also: `0x090d9dd4()` (per mille of the flagged entries of a 104-entry list at `0x090ef208` whose byte at duel-record block `+0x494 + 0x14c + n` is set; presumably opponents beaten) above 100–1000, a threshold per pack. |
 | 3–41 | All, when every variant of characters 2–8 (except 2/2) has row flag bit 2. |
 
-The 12-byte pack records of the shop table (`docs/formats/packs.md`) are partly runtime: `0x090d9264` writes the save state into bits 0–1 of byte 0 and a value from `0x090d9550` into byte 1, so the static `a` word (20 or 40) only contributes `byte0 >> 2` = 5 or 10 (`0x090d94dc`; hypothesis, medium: cards per pack). `+4` is read by `0x090d9414` and multiplied by `0x090d9438(n)` (a factor; for `n` = 1 the sum of the two nibbles of the save pack byte 0, which `save_reset_packs` sets to `0xaa`, giving 20), so `+4` is a unit price (medium). `+6` is read by `0x090d9508`.
+The 12-byte pack records of the shop table (`docs/formats/packs.md`) are partly runtime: `shop_load_pack_states` (`0x090d9264`) writes the save state into bits 0–1 of byte 0 and the percentage of the pack's cards ever obtained (`0x090d9550`) into byte 1; `byte0 >> 2` is the number of cards per pack (5, or 10 for pack 23), `+4` the unit price, `+6` a clerk voice index. Buying, the shelf of 20, the rarity box and the card draw are in `docs/formats/packs.md` ("Buying and opening packs"; high for the draw).
 
 ## Documented functions
 
@@ -204,7 +204,7 @@ Registry names (`re/names.csv`, `re/names-rel_field.csv`, `re/names-rel_story.cs
 | `rel_story 0x08eab450` | `world_get_points_cap()` | M |
 | `rel_story 0x08e9d9c0` | `world_change_char_points(char, delta) → +1/−1/0` | H |
 | `rel_story 0x08eab224`, `0x08eab124`, `0x08ea0860` | exit-cell selection and request 3 | M |
-| `rel_shop 0x090d9e5c`, `0x090d9cec`, `0x090d9264`, `0x090d9dd4` | shop pack-unlock rules, pack completion ‰, load pack states, opponent ratio ‰ (not in a names file yet: there is no `re/names-rel_shop.csv`) | M |
+| `rel_shop 0x090d9e5c`, `0x090d9cec`, `0x090d9264`, `0x090d9dd4` | `shop_update_pack_unlocks`, `shop_get_pack_owned_permille`, `shop_load_pack_states`, `shop_get_opponents_beaten_permille` (`re/names-rel_shop.csv`; the draw functions are in `docs/formats/packs.md`) | M |
 | `rel_story 0x08ea0154` | `world_story_state_step()`: the free-roam state machine (state `0x08ecd978`) | H (code) |
 | `rel_story 0x08ea5dc8` / `0x08ea259c` | `world_driver_next_event() → result` / `world_driver_handle_result()` | H (code) |
 | `rel_story 0x08ea5d18` / `0x08ea5c84` | `world_queue_event(a1, a2, a3)` / `world_reset_event_driver()` | H |

@@ -1,0 +1,37 @@
+# Names applied to gmodule/rel_shop.prx (runtime base 0x090ced00, shared slot: registry ids are prefixed with the module name).
+# Evidence in docs/formats/packs.md ("Buying and opening packs") and docs/subsystems/world.md ("Card shop").
+address,group,name
+0x090d9678,shop,shop_draw_pack_cards
+0x090d9cac,shop,shop_pack_has_card
+0x090d2fd4,shop,shop_open_next_pack
+0x090d2da0,shop,shop_open_all_packs
+0x090d23fc,shop,shop_open_pack_step
+0x090d3104,shop,shop_record_opened_cards
+0x090d32a8,shop,shop_grow_result_list
+0x090d33ec,shop,shop_fill_result_counts
+0x090d90c0,shop,shop_commit_results
+0x090d45f8,shop,shop_results_exit_step
+0x090d30c4,shop,shop_next_pack_in_cart
+0x090d9644,shop,shop_count_packs_in_cart
+0x090d94dc,shop,shop_get_cards_per_pack
+0x090d9414,shop,shop_get_pack_price
+0x090d9438,shop,shop_get_buy_quantity
+0x090d949c,shop,shop_get_purchase_price
+0x090d9508,shop,shop_get_pack_voice
+0x090d93ec,shop,shop_get_pack_sale_state
+0x090d9550,shop,shop_get_pack_seen_percent
+0x090d9264,shop,shop_load_pack_states
+0x090d92fc,shop,shop_save_pack_stock
+0x090d9e5c,shop,shop_update_pack_unlocks
+0x090d9cec,shop,shop_get_pack_owned_permille
+0x090d9dd4,shop,shop_get_opponents_beaten_permille
+0x090cfa00,shop,shop_select_purchase_step
+0x090d0178,shop,shop_buy_single_step
+0x090d0a38,shop,shop_buy_shelf_step
+0x090d154c,shop,shop_buy_box_step
+0x090e0d68,shop,shop_change_dp
+0x090dbab8,shop,shop_play_clerk_voice
+0x090db904,shop,shop_set_clerk_animation
+0x090db684,shop,shop_update_clerk_animation
+0x090dc228,shop,shop_get_archive_member
+0x090e282c,shop,shop_find_in_sorted_table

@@ -15,7 +15,11 @@ Statically linked C runtime (newlib), libm and VFPU helpers in `BOOT.BIN`. Most 
 | `0x0880ce2c` | `system_get_reent()` | H | Returns `*(k0 + 4)` when the thread-local block in `k0` has one, else the global `0x0889e5b0`: newlib's `__getreent`. 27 callers in the C library, including `system_malloc`, `system_free`, `system_sprintf`. |
 | `0x08811804` | `system_strncpy(dst, src, n)` | H | Word-at-a-time copy, then NUL padding up to `n`. Callers `container_index_directory`, `container_read_async`, `system_queue_module_load`, `system_module_register_table`, `system_module_get_basename`, `system_module_get_filename`. |
 | `0x0885827c` | `system_wcsncpy(dst, src, n)` | H | The same for `u16` strings. Callers include `card_db_expand_dictionary`, `card_db_expand_card_refs`, `deck_set_limit_list_name`, `0x088491dc`, `0x0884d000`, `0x08858304`. |
-| `0x08859688` | `system_rand_shifted()` | H | `system_rand() >> 4`. Callers `system_main` (once per frame, result unused), `system_init_game_globals`, `0x0884c6b8`. |
+| `0x08859688` | `system_rand_shifted()` | H | `system_rand() >> 4`. Callers `system_main` (once per frame, result unused), `system_init_game_globals`, `system_wait_frame`; imported by every game module (the shop's pack draw, `docs/formats/packs.md`). |
+| `0x088101d4` | `system_rand()` | H | newlib `rand`: the 64-bit state at reentrancy block `+0xa8`/`+0xac` becomes `state × 0x5851F42D4C957F2D + 1`; returns bits 32–62. One stream for the whole game. Callers `system_rand_shifted`, `0x0884adf0`, `0x0884ae5c`. |
+| `0x0881019c` | `system_srand(seed)` | H | newlib `srand`: state = `seed`, high word 0. Callers `system_seed_rand_from_rtc`, `0x088596cc`, `0x0881d028`. |
+| `0x088596a8` | `system_seed_rand_from_rtc()` | H | `system_srand(low word of sceRtcGetCurrentTick)`; called once by `system_init_game_globals`. So the random stream differs at every boot. |
+| `0x0884c6b8` | `system_wait_frame()` | M | `system_rand_shifted()` (discarded) then `0x0881d01c` (the wait); the busy-wait loops of the story handlers call it (`docs/formats/story.md`). Callers `0x0884c6dc`, `0x0884c808`, `0x0884c850` and the module imports. |
 
 ### Heaps
 
