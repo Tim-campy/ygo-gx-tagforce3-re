@@ -128,6 +128,10 @@ Turn-related commands:
 
 `duel_core_cmd_enter_phase(phase)` (`0x09dbc394`): on its first call posts UI event 5 `(side, phase)` (the phase banner), stores the phase, runs the per-card phase-change hooks `0x09be6d90(new, old)` (cards that end "until the end of the phase"/"until your next Standby Phase", e.g. cards `0x13f9` when leaving the Battle Phase), `0x09be71b4` and `0x09be6ac4(side, phase)` (Battle Phase entry and Draw Phase rules), clears `0x09e2864c`; once the banner animation is done it calls `0x09be75f8` and posts UI event `0x26`.
 
+`void duel_core_next_turn(void)` (`0x09dbc184`), the handler of command 4 (only caller `duel_core_execute_command`, `0x09dc09ec`), reads the side of the current command (bit 15 of `0x09e290f8`) and makes the other side the new turn player. Side effects, in order: turn side `0x09e2d1d8 ^= 1`; turn step `0x09e2d210` and sub-step `0x09e2d214` = 0; turn counter `0x09e2d1e0 += 1`; phase `0x09e2d1e8 = 7`; a walk of the 11 field slots of both sides: card `0x1dd9` in a Spell & Trap Zone (slot > 4) of the side that ended its turn has its slot word at player `+0x40 + slot × 0x14` cleared (the card id is at `+0x3c + slot × 0x14`), and card `0x1740` in a Monster Zone of the new turn player whose hand is empty (`+0x0c` = 0) gets effect node `(1, 0x1740, 0)` (`duel_core_attach_effect`); statistic `0x41` through `0x09dcb7c0` with "the local side has fewer LP" (`0x09e02994` selects the local side); in tag mode (`0x09e2d1fc`) `tag_duel_swap_active_duelist(new side)` (`tag_duel.md`); UI event 6 with the new side; `0x09e29904 = 0` (command finished). No return value. Confidence H (decompiled).
+
+**Verified in PPSSPP (2026-10-26, [`results/2026-10-26-sessionA-part1.md`](../verification/results/2026-10-26-sessionA-part1.md), A1–A2; 2026-10-27, [`results/2026-10-27-sessionB.md`](../verification/results/2026-10-27-sessionB.md), B1):** the 5 → 7 phase write at each turn change came from `0x09dbc1f8` inside it, the turn side alternated 0/1 and the counter grew by one per turn; in the tag duel it called the partner swap for the new side at every turn change.
+
 `duel_core_set_phase(phase)` (`0x09dc8208`) is the non-animated setter used by the `.ydq` loader and command `0x1a`: it stores the phase and positions the turn step accordingly (phase 0 → step 1, 1 → 2, 2/4 → 3, 3 → step 3 with sub-step 0x16 and Battle index 1, 5 → 4; sub-step 1 otherwise).
 
 ## Timing events
@@ -145,6 +149,12 @@ Card handlers read `0x09e2d1e8` directly and compare it with constants. Over the
 - Turn ownership is tested separately against `0x09e2d1d8` with the controller computed from the context (`owner ^ switched`).
 
 So the phase is not passed to the handlers; there is no per-phase handler slot. Phase-restricted effects are ordinary activation conditions (slot `+0x0c`) that read the global.
+
+## Player input
+
+`void duel_core_begin_player_input(int side, int mode)` (`0x09dce84c`) opens a decision for `side`. For a CPU side (`0x09e02998[side] == 1`) it only handles mode 1, by submitting the draw confirmation at once (`duel_core_submit_player_action(side, 0x0d, 0, 0x0c)`); other modes are answered by the AI elsewhere. For a human or remote side it clears the input state (`0x09e2d250`, `0x09e2d25c`, `0x09e2d258`, `0x09e2d260`, `0x09e2d28c`), stores the mode in `0x09e2d24c` and the side in `0x09e2d274`, and for mode 1 sets `0x09e2d250 = -1`. Modes: 1 Draw Phase confirmation, 2 free Main Phase control, 3 Battle Phase (attacker choice), 4 activation in an open timing window, 5 response to a chain link. No return value. Callers: `duel_core_step_draw_phase` (mode 1), `duel_core_step_main_phase` (2), `duel_core_battle_step_select_attack` (3), `duel_core_offer_response_window` (4 or 5, `chain.md`). Confidence H (decompiled); the reader of `0x09e2d24c` is `summon.md`'s action handler.
+
+**Verified in PPSSPP (2026-10-27, [`results/2026-10-27-sessionD.md`](../verification/results/2026-10-27-sessionD.md), D1):** logged as `(0, 5)` from the response window after each chain link and as `(0, 2)` when the chain had resolved and the Main Phase menu returned.
 
 ## Key functions
 
@@ -176,7 +186,8 @@ So the phase is not passed to the handlers; there is no per-phase handler slot. 
 | `0x09dd0a2c` | `duel_core_can_conduct_battle(side)` | M | 0 on turn 0 and while one of several cards (`0xeb7`, `0xebd`, `0x13eb`, `0x1475`, `0x15f0`, `0x173f`, `0x16d4`, `0x1dbf`) applies. |
 | `0x09dd09f4` | `duel_core_can_enter_battle_phase(side)` | H | `phase < 4 && duel_core_can_conduct_battle(side)`; about 80 callers. |
 | `0x09dc78cc` | `duel_core_show_phase_menu(side, mask)` | M | Human only; UI event `0x36`. |
-| `0x09dce84c` | `duel_core_begin_player_input(side, mode)` | M | Human: resets the input state and stores the mode (1 Draw, 2 Main, 3 Battle) in `0x09e2d24c`. CPU: mode 1 only. |
+| `0x09dce84c` | `duel_core_begin_player_input(side, mode)` | H | See "Player input" below. Verified in PPSSPP (Session D). |
+| `0x09dbc184` | `duel_core_next_turn()` | H | Command 4; see "Phase-changing commands". Verified in PPSSPP (Sessions A and B). |
 | `0x09ccaae4` | `duel_core_raise_timing_event(code, arg)` | M | See "Timing events". |
 | `0x09dbc4a8` | `duel_core_cmd_begin_turn()` | M | Command 2. |
 | `0x09dbc584` | `duel_core_cmd_end_turn_cleanup()` | M | Command 3. |
