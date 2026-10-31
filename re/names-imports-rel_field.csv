@@ -377,7 +377,7 @@ address,group,name
 0x090ef7f4,,thunk_FUN_08865e64
 0x090ef7fc,card_db,thunk_card_db_get_turn_counter_rule
 0x090ef804,card_db,thunk_card_db_get_spell_counter_capacity
-0x090ef80c,,thunk_FUN_08866470
+0x090ef80c,card_db,thunk_card_db_gains_spell_counter_on_spell
 0x090ef814,card_db,thunk_card_db_has_own_counters
 0x090ef81c,card_db,thunk_card_db_has_hand_effect
 0x090ef824,card_db,thunk_card_db_is_hand_summon_trigger
@@ -385,7 +385,7 @@ address,group,name
 0x090ef834,card_db,thunk_card_db_is_fusion_substitute
 0x090ef83c,card_db,thunk_card_db_fusion_allows_substitute
 0x090ef844,card_db,thunk_card_db_is_control_locked
-0x090ef84c,,thunk_FUN_088669e4
+0x090ef84c,card_db,thunk_card_db_is_unnegatable_card
 0x090ef854,,thunk_FUN_08866a1c
 0x090ef85c,card_db,thunk_card_db_is_sarcophagus_or_spirit_message
 0x090ef864,card_db,thunk_card_db_get_guardian_equip

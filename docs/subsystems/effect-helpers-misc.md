@@ -256,7 +256,7 @@ A second request block drives player prompts (H for the layout, M for the kinds)
 | `0x09ce388c` | `duel_effects_count_slots_passing` | `int (void *link, int side, int (*pred)(void *, int, int))` | Number of enabled slots of the side accepted by pred. | 2 | 1 (1) | H |
 | `0x09ce3b3c` | `duel_effects_count_filter_matches_on_side` | `int (void *link, int side)` | Number of slots of one side accepted by the record's slot +08 filter. | 20 | 1 (1) | H |
 | `0x09d9fca0` | `duel_core_is_summoned_to_opponent_field` | `int (int card_id)` | 1 for Volcanic Queen, Grinder Golem, Alien Skull and Lava Golem. | 1 | 1 (1) | M |
-| `0x09dc5150` | `duel_core_get_battle_flip_trigger` | `int (int defender, int apply)` | For a battle participant: 0/1/2 whether a flip or battle effect triggers (Dharma-type, Ha Des rules, 0x165f, 0x1f19 ...); with `apply` set adds the related markers. | 1 | 1 (1) | L |
+| `0x09dc5150` | `duel_core_get_battle_destroyed_negation` (was `duel_core_get_battle_flip_trigger`) | `int (int defender_destroyed, int apply)` | For the monster destroyed by battle: 0, or 1/2 when the destroyer negates its effects (Element Soldier family, Dark Lucius, Ha Des rules, 0x165f, 0x1f19 ...; Flip effects only for Twin-Headed Wolf / Blade Knight / Harpie Lady 2); with `apply` set adds the related markers. Re-read in the third round (`battle.md`). | 1 | 1 (1) | H |
 
 ### BOOT.BIN card_db helpers (reached through import stubs)
 
@@ -360,9 +360,43 @@ The unnamed functions were ranked by how many `partial`/`engine_only` cards they
 
 Rows without a name: other cards' record handlers that only name the blocked card (Dragon Piper `0x09c34cf4`, Desrook Archfiend `0x09c61e38`, Orca Mega-Fortress of Darkness `0x09c3b904`, The First Sarcophagus `0x09c497e8`/`0x09c9af3c`, Silent Magician LV4 `0x09c64eac`, Machiners Force `0x09c66200`, Burst Stream of Destruction / Evolution Burst `0x09c997f4`, the shared link handler `0x09c36bdc`, the shared resolve `0x09c4c140`) get `named_reference`; `0x09be2eac` (whose body `0x09be2fb8`-`0x09be3bb8` Ghidra cut off) gets `save_record` like `duel_core_check_duel_condition`. Arguments in the id range passed to `duel_effects_target_filter` are flag words (`effect-tables.md`) and get the new generic tag `not_card_id`; this removed false card references for Hayabusa Knight (`0x1411`), Mad Sword Beast (`0x1416`) and Alchemic Kettle - Chaos Distill (`0x1444`).
 
+### Third round: the battle functions and the last small blockers
+
+The battle functions that held cards with only L descriptive tags were read branch by branch (`battle.md`, "Per-card branches of the battle functions"), and the unnamed functions that held one or two blocked cards were decompiled (`-readOnly`). Rows of `tools/engine_ref_semantics.csv` were raised or added only where the branch was read; own-card compares and named references of the same function are separated by `kinds`, `callee` and `operand`. D = also in `re/documented-duel_eng.tsv`.
+
+| Address | Name | Meaning | Callers | Conf. |
+| --- | --- | --- | --- | --- |
+| `0x09dc5150` | `duel_core_get_battle_destroyed_negation` (D, renamed from `duel_core_get_battle_flip_trigger`) | Effect negation of a monster destroyed by battle (`battle.md`). | `duel_core_battle_resolve` | H |
+| `0x09ce2230` | `duel_core_mark_battle_opponent_negated` (D) | Rainbow Veil / Advanced Dark: kind-9 marker on the opposing monster. | `duel_core_battle_step_attack_declared` | M |
+| `0x09ce096c` | `duel_core_check_defense_position_destruction` (D) | Destroys Cloudian monsters / Berserk Gorilla / Scab Scar Knight in Defense Position. | rule-function pointer | H |
+| `0x09bf7ea8` | `duel_core_battle_record_effect_applies` (D) | Battle-record gate: not an effect monster, or effect active. | battle steps 7 and 8 | H |
+| `0x09be2eac` | `duel_core_compute_duel_bonuses` (D) | End-of-duel bonus table (82 cases; body repaired, `battle.md` "Function boundaries"). | `duel_core_record_duel_result` | M |
+| `0x09cde3e0` | `duel_effects_apply_unique_name_rule` (D) | Kotodama: links new face-up monsters or destroys duplicated names. | battle step 8 | M |
+| `0x09cdfc28` | `duel_core_destroy_targeted_spirit_reapers` (D) | Spirit Reaper / Reaper on the Nightmare destroyed when a targeting marker is present. | battle step 8 | M |
+| `0x09c000fc` | `duel_effects_can_card_destroy_slot` | `duel_effects_can_destroy_slot` with a dummy link of a card id. | 12 rule checks | M |
+| `0x09c13d40` | `duel_core_prompt_shien_substitute` (D) | Prompt-request kind 4: Great Shogun Shien's destruction substitute (yes/no 0x14d, then a selection). | prompt dispatcher | M |
+| `0x09c14480` | `duel_core_prompt_advanced_dark_deck_card` (D) | Prompt-request kind 8: Advanced Dark's Deck pick (hint 0x121). | prompt dispatcher | M |
+| `0x09c12230` | `duel_core_pending_select_with_hint` | Pending action: per-card hint and selecting player (Patrician of Darkness re-targets the attack, hint 0xde). | `duel_core_run_pending_action` | M |
+| `0x09c11ea0` | `duel_core_get_pending_selection_filter` (D) | Candidate filter callback per card for that selection. | `duel_core_pending_select_with_hint`, AI | M |
+| `0x09c139e0` | `duel_core_prompt_pending_yes_no` | Per-card yes/no or option prompt of a pending action (Armor Exe 0xdb, Dark Coffin, Ordeal of a Traveler). | pending prompts | M |
+| `0x09c38520` | `duel_effects_filter_flipping_the_table_target` (D) | Flipping the Table's target filter; Dizzy Angel excluded. | record M3 34 | H |
+| `0x09c9375c` | `duel_effects_resolve_physical_double` (D) | Physical Double's Mirage Token; none under Power Filter at 1000 ATK or less. | record S/T 352 | H |
+| `0x09c01e10` | `duel_core_count_graveyard_names_by_attribute` (D) | Distinct Graveyard names of an Attribute; The Lady in Wight as Skull Servant, Harpie Queen as Harpie Lady. | summon masks, AI | M |
+| `0x09daa7d4` | `duel_core_summon_step_fog_king` | `summon_prepare` state: Fog King with one or no Tribute (messages 0x72 / 0x13f). | `duel_core_summon_prepare` | M |
+| `0x09cbf5c4` | `duel_effects_get_target_prompt_text` | Per-card text of the target prompt (5,652 bytes); some prompts name another card. | `duel_effects_choose_targets_ui` | M |
+| `0x09cd2978` | `duel_effects_collect_turn_counter_candidates` | L1 handler of Pyro Clock of Destiny: cards with a turn counter. | list L1 | H |
+| `0x09c09e00` | `duel_core_get_link_effect_kind` | Kind of a source card's link on a monster (4 lock: The Unhappy Girl, Invitation to a Dark Sleep, Dark-Eyes Illusionist; 5 stat: Castle of Dark Illusions, Common Soul, The Wicked Dreadroot). | `0x09c0a174` | M |
+| `0x09dde4b4` | `duel_core_resolve_flip_marker_send` (D) | Sends a monster carrying a marker unless Royal Command / Fiend Skull Dragon is active. | pending-work pointer | M |
+| `0x088669e4` (BOOT) | `card_db_is_unnegatable_card` | 1 for Spiritualism / Amplifier / Slash Draw. | `duel_effects_cannot_be_negated` | H |
+| `0x08866470` (BOOT) | `card_db_gains_spell_counter_on_spell` | 1 for the monsters that gain a Spell Counter when a Spell is activated. | counter placement | H |
+
+Rows added for named functions that had none: `duel_core_apply_battle_damage`, the `arg` references of `duel_core_compute_card_stats` and `duel_core_battle_compute_stats`, `duel_core_get_level_ex` (`level_rule`), `duel_core_get_attribute` / `_get_off_field_attribute` / `_get_attribute_mask` / `_monster_has_attribute` (`attribute_rule`), `duel_core_get_race_ex` / `_get_off_field_race` (`type_rule`), `duel_effects_is_control_changing_card`, `duel_core_can_send_slot_to`, `duel_effects_cannot_be_negated` (`unnegatable`), `duel_core_send_ritual_hand_tribute`, `duel_core_is_summoned_to_opponent_field`, `duel_core_can_monster_attack` (`attack_rule`), `card_db_get_spell_counter_capacity` / `card_db_has_own_counters`, and the `arg` references of `duel_core_get_direct_attack_mode`.
+
+Result (disc, `--boot --draw`): full 2,707 -> 2,748, partial 66 -> 46, engine_only 42 -> 21; no card moved back. Precision, judged against the card texts (read locally, not copied): all 41 cards that changed status were read; 40 had only correct tags with every clause located; one phrase (the `arg` row of the stat functions, "counts its copies or links") was too narrow for Cyber Blader and was reworded before the commit.
+
 ## Open questions
 
-- Prompt-request kinds 4, 7 and 8 (`0x09c13d40`, `0x09c14284`, `0x09c14480`) and the meaning of UI events 3 (command 7) and `0x2a` (mode 9 picks).
+- Prompt-request kind 7 (`0x09c14284`) and the meaning of UI events 3 (command 7) and `0x2a` (mode 9 picks). Kinds 4 and 8 are Great Shogun Shien's substitute and Advanced Dark's Deck pick (third round).
 - Command `0x28` with a non-zero location and reference 0 (`duel_core_post_show_location`): what the presentation layer shows.
 - Mode `0x0d`: whether every caller declares an Attribute (the prompt is the Attribute one, message `0xf2`) or only reuses its mask mechanism.
 - `card_db_fusion_allows_substitute`: the reading "no Fusion substitute" for the eleven listed Fusions is a hypothesis; the flag is only consumed by `duel_effects_can_fusion_with_materials`.
@@ -371,8 +405,9 @@ Rows without a name: other cards' record handlers that only name the blocked car
 - `duel_core_get_slot_activation_kind` and `duel_core_flag_face_up_copies` (slot flag 7): the meaning of the returned kinds and of the flag.
 - The 87 records still partial reach no effect category; they need categories (new `effect_categories.csv` rows or per-card reading), not names.
 - `card_db_get_special_summon_condition_class` (BOOT `0x0886354c`): what classes 1-5 mean (stays L until a caller is read).
-- `0x09be2eac`: Ghidra ends the function at 268 bytes; the code at `0x09be2fb8`-`0x09be3bb8` (jump-table cases that call `duel_core_was_card_used_in_duel`) has no function. Re-create the function body and check whether it is a second duel-condition table.
+- Resolved: `0x09be2eac` is `duel_core_compute_duel_bonuses`; its body was repaired with `tools/ghidra/FixJumpTableFunction.java` (`battle.md`, "Function boundaries"). Open: the bonus names.
 - `duel_core_check_duel_condition` / `duel_core_was_card_used_in_duel`: which game feature the condition index at `+0x290` belongs to (duel bonuses or story challenges), and what sets the bit set `0x09e02f24`.
 - `duel_core_is_destruction_substitute`: the BOOT list `0x08861d2c` and card `0x1f0d` (unreleased) are not identified.
-- The 24 cards whose engine references carry only L descriptive tags (`duel_core_battle_resolve`, `duel_core_battle_step_*`, `duel_core_get_battle_flip_trigger` ...) need those named functions read branch by branch before their rows can be raised.
+- Resolved for the battle functions (third round). Still L: `duel_core_summon_step_flip`, `duel_effects_can_target_slot`, `duel_effects_can_destroy_slot`, `duel_core_draw_cards_ex` / `duel_core_can_draw`, `duel_effects_get_lp_cost`, the Ritual helpers, `duel_core_can_banish*`, `duel_core_is_gemini_effect_enabled`; they hold the remaining L-only cards.
+- Unnamed blockers left (one or two cards each): `0x09bf5b40` (2,680 bytes, negation on resolution), `0x09dcc1e0` (per-card default side of a target prompt), `0x09ddef8c` (removes a monster's acquired markers: Goblin Attack Force, Greed Quasar), `0x09c1b224`, `0x09c29bd4` (Makyura's player marker when sent to the Graveyard), `0x09be5eb8` (detaches location effects on a move), `0x09c8396c` / `0x09da930c`, `0x09da0800`, `0x09dad6cc`, `0x09ccdfec`; in rel_duel_draw the presentation functions `0x0984d970`, `0x0989bd78`, `0x09867a20`, `0x0988a188`, `0x098a1440` (card-id-keyed tasks and info panels; no rule), and in BOOT `0x0885fe2c`.
 - `duel_core_begin_select_tributes`: the meaning of its arguments `a`/`b` and of selection state 8 outside Ritual and Tribute selections.
