@@ -1,0 +1,4 @@
+# Names applied to gmodule/rel_duel_mgr.prx (runtime base 0x08e9aa00, shared slot: registry ids are prefixed with the module name).
+# Evidence in docs/subsystems/ui.md (scene map).
+address,group,name
+0x08ea0198,ui,ui_duel_mgr_get_string_table

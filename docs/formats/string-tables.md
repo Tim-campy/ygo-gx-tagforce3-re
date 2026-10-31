@@ -74,6 +74,7 @@ python3 -I tools/strtbl.py dump <USRDIR> -o extracted/strtbl                    
 
 ## Open questions
 
-- Which index each screen reads (code knowledge per scene module; only the field, recipe-name, voice-caption and deck-tutorial lookups are traced so far).
+- Which index each screen reads: mapped statically by `tools/scenes.py` (`ui.md`, "Scene map"): every table but those in unreferenced archives is attributed to a scene, and 332 of 854 accessor calls give both table and constant index. The rest choose the table at runtime (PPSSPP).
+- All headed tables are read through one accessor, `card_db_get_dictionary_word(table, index)` (`0x08836ed0`), with the table from `container_ehp_find_member`.
 - Whether any code reads the end offset (for example to compute a string's length) or only uses offsets as start positions.
 - What `pack_explain_str` entries 48–95 are (two strings per pack, or a second set for alternative pack states; not checked against the shop code).
