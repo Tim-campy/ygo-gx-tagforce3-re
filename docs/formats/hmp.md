@@ -29,7 +29,19 @@ Sizes on the disc: from 13 × 8 cells (the eight Slifer dorm rooms, 1,636 bytes)
 
 - After loading, `world_bind_map_archive` subtracts vertex 0 from every vertex (`system_vfpu_vector_sub_t` loop over `vertex_count`) and stores vertex 0 separately (`0x09106fe4`). Grid coordinates are therefore relative to the grid corner.
 - Story set-up opcodes give positions as cell indices: `scene_player` (50159) and `npc_position` (50168) turn `(x, y)` into `(x·0.5 + 0.25, y·0.5 + 0.25)`, the centre of cell `(x, y)` (`docs/formats/story.md`).
-- **Cell byte**: 1 = walkable, 0 = blocked (high for the data, static only). Basis: with the story location → map mapping of `docs/formats/field-tables.md`, 213 of the 214 player start cells (`scene_player`) and 973 of the 988 in-grid NPC cells (`npc_position`) of the set-up records lie on 1-cells (10 NPCs and 1 start on 0-cells, 5 NPCs outside the grid: presumably characters standing behind a counter or off-screen). The exit cells (for example `(12, 5)` and `(12, 6)` of the 13 × 8 rooms) are 1-cells too.
+- **Cell byte**: 1 = walkable, 0 = blocked (high for the data, static only). Basis: with the story location → map switch of `docs/formats/field-maps.md` (`world_location_to_map_id`), 1,214 of the 1,218 player start (`scene_player`) and NPC (`npc_position`) cells of the set-up records lie on 1-cells; 349 of the 350 NPC spots do too. (An earlier count used the exit selector as the location → map mapping, which is wrong for locations 27–30.) The exit cells (for example `(12, 5)` and `(12, 6)` of the 13 × 8 rooms) are 1-cells too.
+
+## Floor height
+
+`world_sample_floor_height` (`rel_field` `0x090d9948`) gives the height at a grid-relative position `(px, pz)` (high for the structure; the two BOOT.BIN vector helpers it calls are read as cross and dot product from the formula, medium):
+
+1. Cell `(ix, iz) = (int(px / 0.5), int(pz / 0.5))`; vertex `v00` = vertex `ix + iz · vertex_columns`. On maps 12 and 37 (Slifer dorm outside) the door cells `(15, 24)` and `(15, 20)`, `(15, 16)`, `(15, 12)` use the column to their right.
+2. If `px − v00.x < pz − v00.z` the triangle is `(v00, v01, v11)` (v01 = next row, v11 = next row and column), else `(v00, v11, v10)`: the cell is split along the `v00`–`v11` diagonal.
+3. `n = (a − v00) × (b − v00)` for the triangle's other two vertices; `y = (n · v00 − n.x · px − n.z · pz) / n.y`.
+
+Outside the vertex array the position is left unchanged. Vertices are relative to vertex 0 (see "Use in the field module"), so the result is too. `WalkGrid.floor_height` in `tools/world.py` implements the rule (tests on synthetic grids).
+
+Walkability: the field also blocks a few cells by code before it reads the cell byte (door cells, cells next to the classroom exits, two store cells); see `docs/formats/field-maps.md`.
 
 ## Tool
 
@@ -38,4 +50,4 @@ Sizes on the disc: from 13 × 8 cells (the eight Slifer dorm rooms, 1,636 bytes)
 ## Open questions
 
 - Whether any code reads values other than 0/1 (none occur on the disc).
-- How the height is interpolated inside a cell (bilinear over the four vertices is the obvious reading; the sampling code is VFPU-heavy and not read yet).
+- PPSSPP confirmation of the triangle split (static only).

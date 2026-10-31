@@ -1,13 +1,13 @@
 # Free-roam field tables (`rel_field.prx`, `rel_story.prx`, `field/*.ehp`)
 
-Static tables that define the Duel Academy maps: which archive each map loads, its doors, its exit cells, and the field string tables. Addresses are module offsets unless stated; runtime address = base + offset (`rel_field` `0x090ced00`, `rel_story` `0x08e9aa00`), file offset = offset + `0x54`. Pointers stored in the tables are module offsets (relocated at load). All values little-endian. Tables were read from the module files; the code that reads them is named in `docs/subsystems/world.md`.
+Static tables that define the Duel Academy maps: which archive each map loads, its doors, its exit cells, and the field string tables. How they are used per map (lighting, door behaviour, walk overrides, arrival cells, island map, the per-location JSON export of `tools/world.py`) is in `docs/formats/field-maps.md`. Addresses are module offsets unless stated; runtime address = base + offset (`rel_field` `0x090ced00`, `rel_story` `0x08e9aa00`), file offset = offset + `0x54`. Pointers stored in the tables are module offsets (relocated at load). All values little-endian. Tables were read from the module files; the code that reads them is named in `docs/subsystems/world.md`.
 
 ## Map ids (`rel_field.prx`)
 
 Three numberings are involved:
 
 1. **Story location** `L` (1–30): the argument of the story opcode `scene_map` (50158).
-2. **Field map id** `M` (1–42, sparse): the value the field module keeps in `0x09106bec` (`world_get_current_map`, `0x090d9f3c`). The table below (`rel_story` `+0x1f968`) maps `L` → `M`.
+2. **Field map id** `M` (1–42, sparse): the value the field module keeps in `0x09106bec` (`world_get_current_map`, `0x090d9f3c`). `L` → `M` is the switch `world_location_to_map_id` (`rel_story` `0x08e9ecfc`; table in `field-maps.md`), not the exit selector below.
 3. **Map index** `i` (0–31): `world_map_id_to_index(M)` (`0x090d1144`) is a switch: `M` 1–5 → 0–4, 12–27 → 5–20, 29–32 → 21–24, 36–42 → 25–31; anything else → 0.
 
 `i` indexes two pointer tables:
@@ -47,7 +47,7 @@ Resulting map list (debug names are the bracketed strings at `+0x2d120`, kept in
 | 41 | 30 | `bg_23_01` | `E_LABORATORY2` |
 | 42 | 31 | `bg_24_01` | `E_GENOCIDE_BRIDGE` |
 
-Confidence: high for the table contents and the switch; the place names are labels only. The location → map mapping is confirmed by the walk grids: 99% of the scripted start and NPC cells fall on walkable cells (`hmp.md`).
+Confidence: high for the table contents and the switch; the place names are labels only. The location → map switch is confirmed by the walk grids: 1,214 of 1,218 scripted start and NPC cells fall on walkable cells (`field-maps.md`).
 
 ### Archive members
 
@@ -60,11 +60,12 @@ Confidence: high for the table contents and the switch; the place names are labe
 | Offset | Type | Field | Conf. |
 | --- | --- | --- | --- |
 | `+0x00` | ptr | Mesh member name (`bg_01_01_door_a.tms`, …) | H |
-| `+0x04` | u32 | Door kind: 0 (`door_a`) or 1 (`door_b`) | M |
-| `+0x0c` | 3 × f32 | Position x, y, z (map coordinates before re-centring) | M |
-| `+0x1c` | f32 | Rotation about y, degrees (90 in every entry) | M |
-| `+0x24` | f32 | Scale or opening amount (1.0, 0.5, 0.25) | L |
-| `+0x28` | u32 | **Target field map id** `M`, 0 for none | M |
+| `+0x04` | u32 | Door kind: 0 sliding (`door_a`), 1 hinged (`door_b`) | H |
+| `+0x08` | u32 | 0 in every entry; not read by the door code | — |
+| `+0x0c` | 3 × f32 | Position x, y, z (map coordinates; the field subtracts walk-grid vertex 0) | H |
+| `+0x18` | 3 × f32 | Rotation about x, y, z, degrees (y is 90, or 0 for two classroom doors) | H |
+| `+0x24` | f32 | Opening amount: slide length (kind 0, × 1.5) or fraction of a full turn (kind 1); 1.0, 0.5, 0.25 on the disc | H |
+| `+0x28` | u32 | **Target field map id** `M`, 0 for none (not read by the door animation) | M |
 
 Entries exist for map indices 1 (three classroom doors), 2 (store), 5 and 26 (the Slifer dorm outside, both versions: eight `door_b` with targets 13–20, the rooms 101–204, and one `door_a` with target 21, the dining hall). Basis for `+0x28`: the eight room doors carry 13–20 in the order of the upper/lower floor positions, matching the room maps.
 
@@ -82,11 +83,11 @@ Two tables, read by `world_get_exit_cells` (`0x08eab124`) and sent to the field 
 | `+0x08`, `+0x0a` | Story flag and mode: 3 = requires the flag set, 4 = requires it clear (`world_test_story_flag`) |
 | `+0x0c`, `+0x0e`, `+0x10` | Second condition: a bit test on a runtime character record (`0x08e9d6c8(char, bit)`), mode at `+0x10` as above |
 
-On the disc every record is unconditional, so the selector is a plain `L` → `M` map (1–5 → 1–5, 6–21 → 12–27, 22–25 → 29–32, 26–29 → 36–39).
+On the disc every record is unconditional, so the selector is a plain `L` → group map (1–5 → 1–5, 6–21 → 12–27, 22–25 → 29–32, 26–29 → 36–39). The group key equals the map id up to location 26 only: locations 27–29 load maps 39–41 but use groups 37–39 (`field-maps.md`); location 30 has no record.
 
 **Cell groups** (`+0x1fb84`, 6-byte records `u16 key, x, y`, terminated by three zeros at `+0x208ec`): a record with `key ≠ 0` starts the group for map `key` (its `x, y` are 0); following records with `key = 0` are the cells `(x, y)` of that group. Groups exist for keys 1–39.
 
-These are the **exit cells** of each map (high): `world_field_load_map` (`rel_field` `0x090d921c`, the request 3 handler at `+0xa51c`) copies the list, and `world_is_exit_cell` (`0x090d9c6c`) ends the walk with field action 0 when the player's cell is in it; `rel_story` then returns the player from a dorm room to the dorm outside or, elsewhere, advances one time slot and opens the island map (`docs/subsystems/world.md`, "Island map"; the "Exit from this spot?" prompt, `field_strtbl.bin` entry 128, was not traced). Layout basis: they lie on the grid border or at the door of each room (rooms 101–104: `(12, 5)`, `(12, 6)`, the right-hand column of a 13 × 8 grid; classroom: `(0, 3)`, `(0, 4)`, `(10, 0)`, `(11, 0)`, `(21, 0)`, `(22, 0)`); all are walkable. The list is sent only when `0x08ea51e4()` returns 0 (presumably "no event running", low) or the location is 7–15 or 28; otherwise an empty list is sent.
+These are the **exit cells** of each map (high): `world_field_load_map` (`rel_field` `0x090d921c`, the request 3 handler at `+0xa51c`) copies the list, and `world_is_exit_cell` (`0x090d9c6c`) ends the walk with field action 0 when the player's cell is in it; `rel_story` then returns the player from a dorm room to the dorm outside or, elsewhere, advances one time slot and opens the island map (`docs/subsystems/world.md`, "Island map"; the "Exit from this spot?" prompt, `field_strtbl.bin` entry 128, was not traced). Layout basis: they lie on the grid border or at the door of each room (rooms 101–104: `(12, 5)`, `(12, 6)`, the right-hand column of a 13 × 8 grid; classroom: `(0, 3)`, `(0, 4)`, `(10, 0)`, `(11, 0)`, `(21, 0)`, `(22, 0)`); on the reference disc 446 of the 513 selected cells are walkable; the rest are on blocked cells or outside the grid and can never trigger (`world.py tables --check`). The list is sent only when `0x08ea51e4()` returns 0 (presumably "no event running", low) or the location is 7–15 or 28; otherwise an empty list is sent.
 
 ## String tables (`field/always*.ehp`)
 
@@ -102,6 +103,5 @@ These are the **exit cells** of each map (high): `world_field_load_map` (`rel_fi
 
 ## Open questions
 
-- The meaning of door `+0x24` and of the unread words `+0x08`, `+0x18`, `+0x20`.
-- The island-map areas and destinations are in `docs/subsystems/world.md`; the screen coordinates at `rel_field` `0x090f85b0` and the arrow (`bm_arrow11–14`) navigation code (`0x090e3c58`) are not decoded.
+- The island-map areas and destinations are in `docs/subsystems/world.md`; screen positions and navigation are decoded in `field-maps.md`.
 - Map ids 6–11, 28, 33–35 are absent from the switch (they map to index 0, the main gate).
