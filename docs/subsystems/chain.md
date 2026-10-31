@@ -133,6 +133,19 @@ States (`0x09e28f54`); "link" is the chain entry `0x09e28e38`:
 
 The window order follows the rules: after an activation the opponent may respond first. Each response re-enters state 1 for the new link, so costs and targets of a response are handled before the next window.
 
+### The response window: `duel_core_offer_response_window(link, side)` (`0x09ccbe74`)
+
+`int duel_core_offer_response_window(void *link, int side)` asks one side whether it responds to `link` (the top chain link), or, with `link = 0`, whether it activates something in an open timing window. It is a state machine on `0x09e29040` and is called every frame until it returns non-zero. Callers: `duel_core_chain_build_step` (states `0x0c`–`0x0e`, twice), `duel_core_run_timing_windows` (`0x09ccc494`, twice) and `0x09ccc634`. Confidence H for the paths below (decompiled), M for the meaning of the prompt-state numbers.
+
+- **State 0/1/5 (start).** For an open window (`link = 0`) during event codes `0x20`–`0x22` (`0x09e28fa0`), a side that cannot respond (`duel_core_can_respond(side, 0)`) is skipped (returns 1). Then by the duelist kind `0x09e02998[side]`:
+  - CPU (1): `ai_chain_response(side, link)` for a link, `0x09d9e108(side, 0)` for an open window; a "yes" moves to state `0x0b`, a "no" returns 1.
+  - remote (2): state `0x14`, which sends net command 10 (the trigger list) and waits (states `0x14`, `0x15`).
+  - human (0): builds the prompt text ("activate …?" with the card name, or the generic text) from `duel_core_can_respond`/`0x09ccb534`, shows it with `0x09dc74b8(side, text, n)`, state 2; when the player says yes (`0x09e2d248`), state 10 calls `duel_core_begin_player_input(side, link ? 5 : 4)` and state `0x0b` waits for the choice (`0x09e2d26c`: 1 opens a card list, 3 goes on to the activation, otherwise back to state 10; no choice made → back to state 5 and the prompt).
+- **State `0x1e` (activation).** For a link it posts command `0x63` with `b` = 1 when `side` is not the link's controller; sets `0x09e2d258 = 1`; then runs the chosen action by its location `0x09e2d27c`: lists `0x0c`–`0x0f` → `duel_core_action_use_card_list`, the hand (`0x0b`) → `duel_core_action_activate_hand_monster` or `duel_core_action_place_spell_trap(1, link)`, a field slot → `duel_core_action_activate_field_card`. Success sets `0x09e2904c = 1`.
+- **Return value**: 1 when the window is over for this side (declined, skipped, or the activation was performed), 0 while it is still running. Side effects: `0x09e29040`, `0x09e2904c`, the input state through `begin_player_input`, command `0x63`.
+
+**Verified in PPSSPP (2026-10-27, [`results/2026-10-27-sessionD.md`](../verification/results/2026-10-27-sessionD.md), D1):** after each new link up to the 15th the function was entered for side 1 (CPU, which declined) and then for side 0, whose path called `begin_player_input(0, 5)`; once the chain held 16 links state `0x0b` no longer reached the windows and the chain resolved.
+
 ## Resolution: `duel_core_chain_step` (`0x09c2f1fc`)
 
 This answers the open question "the states of `duel_core_chain_step`". The current link is always the top (`0x09e28cb4 + (n − 1) × 0x18`, `n = 0x09e28e34`); `n` is decremented after each link, so resolution is **last in, first out**. (H)
@@ -244,7 +257,8 @@ All addresses are in `rel_duel_eng.prx` at base `0x09be1400`. Callers come from 
 | `0x09c32e54` | `duel_core_chain_summon_window_step() → busy` | H | `duel_core_summon_raise_trigger` |
 | `0x09c2e244` | `duel_core_chain_build_step() → 1` | H | the two above |
 | `0x09c2f1fc` | `duel_core_chain_step() → 1` | H | the two above |
-| `0x09c329e8` | `duel_core_chain_build_from_triggers() → 1` | H | `0x09c32dac` |
+| `0x09c329e8` | `duel_core_chain_build_from_triggers() → 1` | H | `0x09c32dac`. Verified in PPSSPP (Session A, A9) |
+| `0x09ccbe74` | `duel_core_offer_response_window(link, side) → done` | H | `duel_core_chain_build_step` (2), `duel_core_run_timing_windows` (2), `0x09ccc634`; see "The response window". Verified in PPSSPP (Session D, D1) |
 | `0x09c32c5c` | `duel_core_chain_build_summon_response() → 1` | H | `0x09c32e54` |
 | `0x09c2c19c` | `duel_core_chain_add_link(to_chain, packed, instance, arg) → added` | H | 10 |
 | `0x09c2c9cc` | `duel_core_chain_activate(packed, instance, mode)` | H | player input `0x09dcd49c`, `0x09dcd5d0`, `0x09dcd710` |

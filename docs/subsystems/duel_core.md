@@ -100,11 +100,18 @@ The `0x3e` list-to-list move is in `summon.md`.
 | `0x09c28f44` | `duel_core_draw_cards_ex(player, count, a, b)` | M | Body not read. |
 | `0x09c0d920` | `duel_core_can_draw(player, count) → bool` | H | Negative count selects the opponent; false while card `0x178b` or `0x1885` prevents drawing; otherwise compares with the deck size. |
 | `0x09c2c134` | `duel_core_get_effective_card_id(ctx)` | M | 0 unless bit 0 of `ctx+6`; then the id at `ctx+0x18`, resolved through a table at `0x09e2bbcc` for card `0x1935`. |
-| `0x09dbc184` | `duel_core_next_turn()` | H | Toggles `0x09e2d1d8`, increments `0x09e2d1e0`, sets the phase to 7, walks the 11 field slots of both sides for two special cards, compares the sides' `+0x00` words, and in tag mode swaps the next side's active duelist. |
+| `0x09dbc184` | `duel_core_next_turn()` | H | Handler of command 4; documented in `duel-phases.md` ("Phase-changing commands"). Toggles `0x09e2d1d8`, increments `0x09e2d1e0`, sets the phase to 7, walks the 11 field slots of both sides for two special cards, compares the sides' LP (`+0x00`), and in tag mode swaps the next side's active duelist. Verified in PPSSPP (Sessions A and B). |
+| `0x09dc07f8` | `duel_core_push_command(op, a, b, c)` | H | See "The command queue" below. Verified in PPSSPP (Sessions A, B, D). |
 | `0x09dc7cb0` | `duel_core_reset()` | H | Clears the duel state regions and sets the phase to 7. |
 | `0x09bf1f74` | `duel_core_load_deck(side, deck)` | M | Called with a `0xc0`-byte deck structure; body not read. |
 
 `0x09e2bbcc` is a table of 6-byte entries indexed by the `u16` card references stored in hand, deck and field lists; its low 14 bits are the card id.
+
+### The command queue: `duel_core_push_command` (`0x09dc07f8`)
+
+`void duel_core_push_command(int op, int a, int b, int c)` is how the whole engine changes duel state: rules code, effect handlers, the summon, battle and phase steps, the AI and the tutorial post **engine commands**, which `duel_core_process_command_queue` later executes one at a time (`duel-phases.md`, "Phase-changing commands"). The function stores the four arguments as `u16` at `0x09e29100 + count × 8` (`op`, `a`, `b`, `c`) and increments the count `0x09e29900`. It does nothing when the duelist kind word `0x09e02998` is 3 (replay/demo mode, `ai.md`) or when the queue already holds 256 entries (the command is then lost; no error path). Bit 15 of `op` is the side, the low 12 bits the command code. No return value. Callers: about 390 call sites in about 200 functions (the full list comes from the call graph; `effect-classification.md` recovers the code at 385 of 388 sites), plus the thunk `0x09be14bc` and the tutorial (`tutorial.md`). Confidence H (decompiled).
+
+**Verified in PPSSPP** (2026-10-26/27, [`results/2026-10-26-sessionA-part1.md`](../verification/results/2026-10-26-sessionA-part1.md), [`results/2026-10-27-sessionB.md`](../verification/results/2026-10-27-sessionB.md), [`results/2026-10-27-sessionD.md`](../verification/results/2026-10-27-sessionD.md)): an execute log at its entry recorded `(op, a, b, c)` for whole duels; bit 15 was set on every CPU command, and every posted command then took effect in posting order (phase changes, LP changes, chain links, markers).
 
 ## The chain
 

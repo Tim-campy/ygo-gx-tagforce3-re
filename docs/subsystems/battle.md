@@ -207,10 +207,10 @@ Consumers:
 | `0x09c28cf0` | `duel_core_gain_lp(ctx, player, amount)` | H | Command `0x23`, timing `0x11`. |
 | `0x09c278cc` | `duel_core_pay_lp(player, amount)` | H | Command `0x24` reason 2. |
 | `0x09c2791c` | `duel_core_lose_lp(player, amount)` | H | Command `0x24` reason 3. |
-| `0x09dc05e4`, `0x09dc05ec`, `0x09dc05f4` | `duel_core_cmd_lp_gain`, `_lp_loss`, `_set_lp` | H | Commands `0x23`–`0x25`; the only LP writers. |
+| `0x09dc05e4`, `0x09dc05ec`, `0x09dc05f4` | `duel_core_cmd_lp_gain`, `_lp_loss`, `_set_lp` | H | Commands `0x23`–`0x25`; the only LP writers. `_lp_loss` verified in PPSSPP (Session A, A3: 8000 → 7800 for `0x24 a=200`; Session B: the tag pair's LP fell by the logged amounts); `_lp_gain` and `_set_lp` not exercised yet. |
 | `0x09dcae58` | `duel_core_check_win(side)` | H | Win-reason table. |
 | `0x09ccc494` | `duel_core_run_timing_windows()` | H | Window state machine. |
-| `0x09ccbe74` | `duel_core_offer_response_window(link, side)` | M | Human/AI/link response window. |
+| `0x09ccbe74` | `duel_core_offer_response_window(link, side) → done` | H | Human/AI/link response window; documented in `chain.md` ("The response window"). |
 | `0x09ccb3b0` | `duel_core_can_respond(side, check_cards)` | M | Field and hand scan. |
 | `0x09c2bbcc`, `0x09c2bd18` | `duel_core_timing_batch_begin()`, `_end()` | H | Nest counter `0x09e28f90`. |
 | `0x09c232a0` | `duel_core_request_battle_destruction()` | H | `0x09e2d2bc = 4`, `0x09e2d298 = 1`. |

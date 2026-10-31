@@ -76,3 +76,5 @@ address,group,name
 0x08ea05a8,world,world_change_time
 0x08eab848,world,world_pick_sandwich_seller
 0x08eac004,world,world_get_duel_pair_partner
+0x08eab3b0,world,world_get_weekday
+0x08eab380,world,world_check_new_day

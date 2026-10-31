@@ -31,7 +31,7 @@ All integers little-endian. The buffer is a raw copy of in-memory structures: de
 | `0x00010` | 16 | The console's OpenPSID: `save_init_new_game` fills it with `sceOpenPSIDGetOpenPSID(state + 0x10)`. | high (code) |
 | `0x048c4` | 127 × `0x16c` | Deck slots 0–126 (below). The code addresses slot `s` at `0x48c4 + 0x16c`·s (`deck_get_slot_name` reads `+0x10`, `deck_get_slot_cards` returns `+0x50`); slot 1, at `0x4a30`, is the player's starting deck, slots 2–126 are the partners' decks. What slot 0 holds is not established. | high (code) |
 | `0x0fd5c` | 16 | Player name: the system nickname (`sceUtilityGetSystemParamString(1)`), at most 8 UTF-16 units, `$` doubled. Starts right after slot 126. | high (code) |
-| `0x0fdfc` | 4 × n | `u32` values read by `save_get_player_value(n)`. The first is **DP**, changed by `save_add_dp` (`0x08854ba0`) (verified in PPSSPP, `docs/verification/results/2026-10-27-sessionC.md`); the others are unknown. | H for DP |
+| `0x0fdfc` | 4 × n | `u32` values read by `save_get_player_value(n)`. The first is **DP**, changed by `save_add_dp` (`0x08854ba0`) (verified in PPSSPP, `docs/verification/results/2026-10-27-sessionC.md`); the second (`+0x0fe00`) grows with every positive `save_add_dp` (presumably total DP earned, low); the others are unknown. | H for DP |
 | `0x0fe04` | 3+ | Settings bits (below). | high (code) |
 | `0x0fe0c` | 143 × `0x18` | Per-character records 0–142 (below); they end exactly at `0x10b74`. | high (code) |
 | `0x10b74` | 2 × n | `u16` per entry: bit 0 set once, bits 1–8 a value written with it (`0x08857f2c`, pointer from `0x08857fa4`); meaning unknown. | — |
