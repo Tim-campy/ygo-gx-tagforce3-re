@@ -16,3 +16,6 @@ address,group,name
 0x090e3854,world,world_island_map_open
 0x090e47d0,world,world_island_area_of_map
 0x090e4710,world,world_island_area_to_map
+0x090d87a8,world,world_field_req_hud_marker
+0x090cf620,world,world_field_req_preload_portraits
+0x090cfcc0,world,world_field_portrait_loaded

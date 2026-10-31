@@ -137,11 +137,13 @@ class EventTest(unittest.TestCase):
         self.assertEqual(story.opcode_name(50023), "if_flag")
         self.assertEqual(story.opcode_name(50056), "endif")
         self.assertEqual(story.opcode_name(50024), "if_50024")
-        self.assertEqual(story.opcode_name(50157), "op_50157")
+        self.assertEqual(story.opcode_name(50154), "op_50154")
+        self.assertEqual(story.opcode_name(50157), "nop")
+        self.assertEqual(story.format_args((50162, 16, 3, 0, 0)), "char=16 deck=3")
         self.assertEqual(story.opcode_name(50033), "nop")
         self.assertEqual(story.format_args((50022, 200, 3, 0, 0)), "value=200 cmp=>=")
         self.assertEqual(story.format_args((50090, 54, 2, 0, 0)), "flag=54 op=clear")
-        self.assertEqual(story.format_args((50157, 0, 9, 0, 0)), "a2=9")  # undecoded: non-zero arguments
+        self.assertEqual(story.format_args((50154, 0, 9, 0, 0)), "a2=9")  # undecoded: non-zero arguments
         self.assertEqual(story.format_args((50175, 0, 0, 5, 0)), "a3=5")  # unread argument that is set
 
     def test_control_structure_and_listing(self):

@@ -77,11 +77,11 @@ Note: on Windows a single `ehp.py` call over every archive of the disc exceeds t
 | Item | Value |
 | --- | --- |
 | Source | Packs: table at `0x202c8` in `<USRDIR>/gmodule/rel_shop.prx` (48 × 12 bytes, four rarity tiers). Limit list: `BOOT.BIN` `0x08878cb8`, 114 × `(u16 id, u16 status)`. |
-| Format docs | `docs/formats/packs.md`, `docs/formats/limit-list.md`, shop rules in `docs/subsystems/world.md` |
-| Tool / command | `python3 -I tools/tables.py packs <USRDIR>/gmodule/rel_shop.prx [-o …] [--check] [--cardinfo <cardinfo_eng.ehp>]`; `python3 -I tools/tables.py limits <SYSDIR>/BOOT.BIN [-o …] [--check] [--cardinfo …]` |
-| Port output | CSV/JSON: pack → tier → card ids; card id → status (0 forbidden, 1 limited, 2 semi-limited). |
-| Verified | Check run: `ok: 48 packs, 9177 entries`; `ok: 114 restricted cards`. Both `documented`. |
-| Gaps | Pack names/artwork mapping (`shop/all_<l>.ehp` `strTbl`, `pack_explain_str`), pull probabilities and cards per pack, the meaning of pack fields `a`/`flags`/`price`; the unlock rules (`shop_unlock_rules`, `named`). **Blocking for a faithful shop**: the draw procedure is not in the table and must be read from `rel_shop` code. |
+| Format docs | `docs/formats/packs.md` (table, purchase flow, draw procedure), `docs/formats/limit-list.md`, shop rules in `docs/subsystems/world.md`, save pack records in `docs/formats/save.md` |
+| Tool / command | `python3 -I tools/tables.py packs <USRDIR>/gmodule/rel_shop.prx [-o …] [--check] [--cardinfo <cardinfo_eng.ehp>]`; `python3 -I tools/tables.py odds <USRDIR>/gmodule/rel_shop.prx [-o …] [--check] [--cardinfo …]` (per-pack odds; `--check` replays the draw); `python3 -I tools/tables.py limits <SYSDIR>/BOOT.BIN [-o …] [--check] [--cardinfo …]` |
+| Port output | CSV/JSON: pack → tier → card ids, cards per pack, unit price, clerk voice; per-pack odds; card id → status (0 forbidden, 1 limited, 2 semi-limited). The draw itself is code: port `draw_pack` from `tools/tables.py` (rarity box of 20 = 14/4/2 per pack kind, kept in the save; rare slot with tier fallback; commons without duplicates; packs 15/47 favour unowned cards). |
+| Verified | Check run: `ok: 48 packs, 9177 entries`; `ok: 48 packs, rarity box 14/4/2 per 20, 245 cards per round of packs, draws replayed`; `ok: 114 restricted cards`. `pack_table`, `pack_draw` and `limit_list` `documented`. Tests: `tools/tests/test_tables.py`. |
+| Gaps | Pack names/artwork mapping (`shop/all_<l>.ehp` `strTbl`, `pack_explain_str`); the unlock rules (`shop_unlock_rules`, `named`); a PPSSPP trace of one purchase (DP, rarity entry, counters). Not blocking: the draw procedure is documented. |
 
 ### 3b. Fusion and ritual recipes
 
@@ -206,7 +206,7 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | Tool / command | `python3 -I tools/story.py text <USRDIR>/script/story_scr_<l>.ehp [-o lines.csv] [--check]`; `python3 -I tools/story.py events <USRDIR>/script/story_scr_b.ehp --text <USRDIR>/script/story_scr_e.ehp [-o events.csv \| --list] [--record N] [--check]` |
 | Port output | Text: CSV/JSON of lines per language (markup kept: `《PLAYER》`, `《Cnnn_k》`, `$M`/`$C`). Events: one row per instruction with symbolic opcode names and named arguments, or a readable disassembly; the port's own event VM consumes the instruction list. |
 | Verified | Check run: all five languages `Eve 11976, SysMsg 21 lines`; events `ok: 7468 records, 39095 instructions, 11976 text references`. `story_text` is `verified` (59,985 lines identical to ygotfToolkit); `story_bytecode` `reimplemented`. Tests: `tools/tests/test_story.py`. |
-| Gaps | Nine opcodes with unnamed effect (50105, 50118, 50137, 50144, 50148, 50149, 50156, 50162, 50170); the 33 field requests on the field side; where `《…》` placeholders are expanded; the driver that picks records. Partly blocking (the VM can be built; some opcodes need PPSSPP traces). |
+| Gaps | Every opcode in use is named (2026-10-30: `set_time_slot`, `hud_marker`, `finish_partner_story`, `preload_portrait`, `series_win`, `series_loss`, `bgm_stop`, `npc_deck`, `npc_remark`, plus `duel_target_*`); PPSSPP confirmation of `hud_marker` targets and of story state 46; most of the 33 field requests on the field side; where `《…》` placeholders are expanded; the driver that picks records. Not blocking: the VM can be built from `story.md`. |
 
 ## 14. Tutorials
 
@@ -294,6 +294,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 - `python3 -I tools/progress.py --check`: `ok`.
 - All 30 test files under `tools/tests/` pass (`test_gim.py` and `test_strtbl.py` added with the GIM and string-table tools).
 - `python3 -I tools/gim.py check <PSP_GAME>` and `python3 -I tools/strtbl.py check <PSP_GAME>`: `OK` (§7, §15).
+- `python3 -I tools/tables.py odds <USRDIR>/gmodule/rel_shop.prx --check --cardinfo <cardinfo_eng.ehp>` (added with the pack-draw analysis): `ok: 48 packs, rarity box 14/4/2 per 20, 245 cards per round of packs, draws replayed` (§3a); `story.py events --check` still passes with the new opcode names (§13).
 
 ## Coverage
 
@@ -302,7 +303,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | Disc layout and file index | complete | no | Optional cross-check with a second ISO extractor. |
 | EHP archives and gzip | complete | no | Extract the six `BOOT.BIN`-embedded archives with `ehp.py` directly (today only via `ehf.py`/`decks.py`). |
 | Card database (`cardinfo`) | complete | no | Add a `DLG_Text` dump; close the small field questions. |
-| Packs and limit list | partial | yes (shop draws) | Read the pack-opening code in `rel_shop`; map pack names and art. |
+| Packs and limit list | complete (data and draw) | no | Map pack names and art; PPSSPP trace of one purchase. |
 | Fusion and ritual recipes | complete | no | PPSSPP check of overlapping-material ties. |
 | Card art (`.cip`) | complete | no | Batch mode for `cip.py png` (optional; the JPEG covers the port). |
 | Card effects data | partial | **yes** | Continue per effect family: name single-use handlers, resolve the 244 open compare chains, decode `engine_only` branches. |
@@ -313,7 +314,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | Field-spell 3D backdrops | partial | yes | Document `duel/bg/fmagic*.ehp` in `tgm.md` or its own format page; find the loader in `rel_duel_draw`; camera tracks. |
 | Free-roam maps and field assets | partial | yes | Height interpolation; inspect `field/event/` and `field/mail/`; reuse the TGM/GIM exporters. |
 | World and field tables | partial | yes | Add `world.py` commands for map/door/exit/island tables; decode the chapter table. |
-| Story and event scripts | partial | partly | Name the nine remaining opcodes; trace the field requests in PPSSPP. |
+| Story and event scripts | partial | no | Trace the field requests and the lower-confidence opcodes in PPSSPP. |
 | Tutorials | partial | no | Identify whether `tutorial/` is used; decode the remaining engine command codes. |
 | UI string tables | partial | yes (mapping) | Tool and census done; map table indices to screens with the scene analysis of the UI. |
 | Sound and voices | partial | yes (decoder) | Choose and document the ATRAC3/ATRAC3plus decode route; batch export; cue flags and loops. |
