@@ -635,7 +635,7 @@ address,group,name
 0x098bac64,duel_core,thunk_duel_core_post_set_duel_flag
 0x098bac6c,duel_core,thunk_duel_core_post_set_player_flag
 0x098bac74,duel_core,thunk_duel_core_post_set_slot_flag
-0x098bac7c,,thunk_FUN_09c27694
+0x098bac7c,duel_core,thunk_duel_core_post_announce_location_card
 0x098bac84,duel_core,thunk_duel_core_post_announce_field_card
 0x098bac8c,duel_core,thunk_duel_core_chain_announce_activation
 0x098bac94,duel_core,thunk_duel_core_post_announce_card
@@ -1640,7 +1640,7 @@ address,group,name
 0x098bcbcc,card_db,thunk_card_db_has_genre_mapped
 0x098bcbd4,card_db,thunk_card_db_get_next_alias_id
 0x098bcbdc,card_db,thunk_card_db_is_same_name
-0x098bcbe4,,thunk_FUN_0885fe2c
+0x098bcbe4,card_db,thunk_card_db_is_card_in_unused_list
 0x098bcbec,card_db,thunk_card_db_is_monster
 0x098bcbf4,card_db,thunk_card_db_is_spell
 0x098bcbfc,card_db,thunk_card_db_is_trap

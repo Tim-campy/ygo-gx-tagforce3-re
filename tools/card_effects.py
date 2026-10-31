@@ -53,13 +53,15 @@ ci = _load("re_cardinfo", "cardinfo.py")
 cr = _load("re_card_refs", "card_refs.py")
 fs = _load("re_family_split", "family_split.py")
 
-SCHEMA = 6  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
+SCHEMA = 7  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
 #             3 = 2 plus slots.resolve.categories_refined / .refinement (tools/family_split.py);
 #             4 = 3 plus effects[].inert, spec_basis and the engine-mapped `full` rule;
 #             5 = 4 plus the symbolic chain cases (params.chains[].method/values/expression/reason/own, kinds
 #                 conditional/expression/behaviour, classes expression/behaviour) and engine_branches[]
 #             6 = 5 plus loop summaries: chain-case kind and class `iteration`, method `loops`, loop results in
 #                 expressions (count_of/sum_of/last/any_of/at_exit) and generated rows for iteration cases
+#             7 = 6 plus the `state_effect:<kind>` slot categories (tools/effect_categories.csv root rows for
+#                 handlers whose written state has a traced rule reader; docs/formats/card-effect-spec.md)
 FIRST_CARD, LAST_CARD = ep.FIRST_CARD, ep.LAST_CARD
 
 # Token table read by duel_effects_find_token_entry (0x09befee0, 68 bytes): 46 records of four u16

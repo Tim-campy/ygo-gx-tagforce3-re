@@ -138,6 +138,18 @@ name,^duel_core_(begin|init)_summon_from_hand$|^duel_core_(action|init)_gemini_s
 # --- unnamed helpers (hypotheses; remove when the function is named)
 addr,0x09ca2924,change_effect,effect,Sets bit 0 of byte +6 of the other link (copied effect; chain.md): Mystical Refpanel, Spell of Pain, Ring of Defense, Dark Deal (M)
 addr,0x09c821b8,change_target,effect,Copies the own link's target (+8) to the other link: Fairy's/Fiend's Hand Mirror, Remote Revenge, Shift (M)
+# --- state_effect (sixth round; docs/formats/card-effect-spec.md "State-effect categories"): slot handlers whose whole
+#     effect is a state they write (slot value, player flag, hand-public flag) that a named rule function reads later.
+#     A row is added only when that reader was traced in the decompilation; the note names it. The handler is still
+#     descended into, so its meta categories (set_value, set_flag, reveal) stay. These are root rows (the slot
+#     handler's own address), so they never change how another function is classified.
+addr,0x09cc31e0,state_effect:declared_type,effect,duel_effects_choose_declared_type stores the declared Type as the slot value (+0x40): read by duel_core_get_off_field_race (Declaration of Rebirth) / duel_core_get_race_ex (DNA Surgery) / duel_core_check_attack_restrictions via duel_core_count_active_cards_with_value (The Regulation of Tribe) (H)
+addr,0x09cc73fc,state_effect:declared_attribute,effect,duel_effects_choose_declared_attribute stores the declared Attribute as the slot value (+0x40): read by duel_core_get_attribute (DNA Transplant) and duel_core_can_summon_attribute (Tualatin) (H)
+addr,0x09c7d4a4,state_effect:turn_countdown,effect,duel_effects_resolve_set_turn_countdown stores turn + 1 (+ 2 on its controller's turn) as the slot value: read by duel_core_compute_base_stats (Hourglass of Courage halves then doubles ATK/DEF) (H)
+addr,0x09c84ea8,state_effect:skip_draw,effect,duel_effects_resolve_skip_opponent_draw sets player flag bit 0 of the opponent: read and cleared by duel_core_step_draw_phase which then posts no draw command (Time Seal / Fenrir) (H)
+addr,0x09c84fa8,state_effect:hand_reveal,effect,duel_effects_resolve_reveal_opponent_hand refreshes the opponent's hand-public state (command 0x53 / player flag bit 1 via duel_core_post_set_hand_reveal): the state is computed by duel_core_is_hand_revealed (The Eye of Truth) and read by duel_core_get_hand_public_flag (M)
+# --- callbacks the classifier does not follow (a stop-row callee receives them)
+addr,0x09c8ca84,gain_lp,effect,duel_effects_resolve_life_absorbing_machine hands duel_effects_life_absorbing_machine_gain_step (0x09c8ca28: duel_core_gain_lp of half each 0x14c0 marker) to duel_core_find_slot_marker (a find_ stop row) (H)
 # --- named helpers: meta (not counted for coverage)
 name,^duel_effects_mark_used_this_turn$,once_per_turn,meta,
 name,^duel_effects_confirm_(optional|recruiter)_trigger$,optional,meta,

@@ -459,3 +459,4 @@ address,group,name
 0x0882fa2c,field_3d,field_3d_set_animation
 0x0882fa88,field_3d,field_3d_set_tma
 0x0882ff6c,field_3d,field_3d_get_frame
+0x0885fe2c,card_db,card_db_is_card_in_unused_list

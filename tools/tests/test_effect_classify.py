@@ -248,6 +248,21 @@ class ClassifyTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ec.Mapping.load_text("kind,pattern,category,role,note\narg,^x$|a3>2,destroy,effect,\n")
 
+    def test_state_effect_rows_of_the_mapping(self):
+        """state_effect:<kind> rows (card-effect-spec.md, schema 7) are root addr rows with role effect whose note
+        names the rule function that reads the written state."""
+        path = Path(__file__).resolve().parents[1] / "effect_categories.csv"
+        lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+        rows = [r for r in csv.DictReader(lines) if r["category"].startswith("state_effect:")]
+        self.assertGreaterEqual(len(rows), 5)
+        for r in rows:
+            self.assertEqual((r["kind"], r["role"]), ("addr", "effect"))
+            self.assertRegex(r["category"], r"^state_effect:[a-z_]+$")
+            self.assertIn("read", r["note"])
+        mapping = ec.Mapping.load(path)
+        self.assertEqual(mapping.lookup(0x09C84EA8, "duel_effects_resolve_skip_opponent_draw"),
+                         ("state_effect:skip_draw", "effect"))
+
     def test_first_name_row_wins(self):
         mapping = ec.Mapping.load_text(MAPPING)
         self.assertEqual(mapping.lookup(DRAW, "duel_core_draw_cards"), ("draw", "effect"))

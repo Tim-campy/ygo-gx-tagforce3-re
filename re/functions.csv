@@ -2262,7 +2262,7 @@ id,name,group,status,size
 0x0885f864,card_db_get_frame,card_db,documented,224
 0x0885f944,card_db_get_next_alias_id,card_db,,352
 0x0885fb5c,card_db_is_same_name,card_db,documented,720
-0x0885fe2c,FUN_0885fe2c,,,196
+0x0885fe2c,card_db_is_card_in_unused_list,card_db,documented,196
 0x0885fef0,card_db_is_monster,card_db,documented,76
 0x0885ff3c,card_db_is_spell,card_db,documented,36
 0x0885ff60,card_db_is_trap,card_db,documented,36
@@ -3730,7 +3730,7 @@ rel_field:0x090ef4e4,thunk_deck_get_current_card_limit,deck,,1
 rel_field:0x090ef4ec,thunk_card_db_has_genre_mapped,card_db,,1
 rel_field:0x090ef4f4,thunk_card_db_get_next_alias_id,card_db,,1
 rel_field:0x090ef4fc,thunk_card_db_is_same_name,card_db,,1
-rel_field:0x090ef504,thunk_FUN_0885fe2c,,,1
+rel_field:0x090ef504,thunk_card_db_is_card_in_unused_list,card_db,,1
 rel_field:0x090ef50c,thunk_card_db_is_monster,card_db,,1
 rel_field:0x090ef514,thunk_card_db_is_spell,card_db,,1
 rel_field:0x090ef51c,thunk_card_db_is_trap,card_db,,1
@@ -5525,7 +5525,7 @@ rel_shop:0x090e5ac4,thunk_deck_get_current_card_limit,deck,,8
 rel_shop:0x090e5acc,thunk_card_db_has_genre_mapped,card_db,,1
 rel_shop:0x090e5ad4,thunk_card_db_get_next_alias_id,card_db,,1
 rel_shop:0x090e5adc,thunk_card_db_is_same_name,card_db,,1
-rel_shop:0x090e5ae4,thunk_FUN_0885fe2c,,,1
+rel_shop:0x090e5ae4,thunk_card_db_is_card_in_unused_list,card_db,,1
 rel_shop:0x090e5aec,thunk_card_db_is_monster,card_db,,8
 rel_shop:0x090e5af4,thunk_card_db_is_spell,card_db,,1
 rel_shop:0x090e5afc,thunk_card_db_is_trap,card_db,,1
@@ -7541,7 +7541,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,,1
 0x09878394,FUN_09878394,,,104
 0x098783fc,FUN_098783fc,,,192
 0x098784bc,FUN_098784bc,,,92
-0x09878518,FUN_09878518,,,300
+0x09878518,ui_duel_create_draw_task,ui,,300
 0x09878644,FUN_09878644,,,68
 0x09878688,FUN_09878688,,,96
 0x098786e8,FUN_098786e8,,,48
@@ -7796,7 +7796,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,,1
 0x0989bcac,FUN_0989bcac,,,116
 0x0989bd20,FUN_0989bd20,,,52
 0x0989bd54,FUN_0989bd54,,,36
-0x0989bd78,FUN_0989bd78,,,56
+0x0989bd78,ui_duel_start_exodia_win_scene,ui,,56
 0x0989bdb0,FUN_0989bdb0,,,72
 0x0989bdf8,FUN_0989bdf8,,,36
 0x0989be1c,FUN_0989be1c,,,32
@@ -9077,7 +9077,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,,1
 0x098bac64,thunk_duel_core_post_set_duel_flag,duel_core,,1
 0x098bac6c,thunk_duel_core_post_set_player_flag,duel_core,,1
 0x098bac74,thunk_duel_core_post_set_slot_flag,duel_core,,1
-0x098bac7c,thunk_FUN_09c27694,,,1
+0x098bac7c,thunk_duel_core_post_announce_location_card,duel_core,,1
 0x098bac84,thunk_duel_core_post_announce_field_card,duel_core,,1
 0x098bac8c,thunk_duel_core_chain_announce_activation,duel_core,,1
 0x098bac94,thunk_duel_core_post_announce_card,duel_core,,1
@@ -10082,7 +10082,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,,1
 0x098bcbcc,thunk_card_db_has_genre_mapped,card_db,,1
 0x098bcbd4,thunk_card_db_get_next_alias_id,card_db,,1
 0x098bcbdc,thunk_card_db_is_same_name,card_db,,1
-0x098bcbe4,thunk_FUN_0885fe2c,,,1
+0x098bcbe4,thunk_card_db_is_card_in_unused_list,card_db,,1
 0x098bcbec,thunk_card_db_is_monster,card_db,,8
 0x098bcbf4,thunk_card_db_is_spell,card_db,,1
 0x098bcbfc,thunk_card_db_is_trap,card_db,,1
@@ -12253,7 +12253,7 @@ rel_story:0x08eae91c,thunk_deck_get_current_card_limit,deck,,1
 rel_story:0x08eae924,thunk_card_db_has_genre_mapped,card_db,,1
 rel_story:0x08eae92c,thunk_card_db_get_next_alias_id,card_db,,1
 rel_story:0x08eae934,thunk_card_db_is_same_name,card_db,,1
-rel_story:0x08eae93c,thunk_FUN_0885fe2c,,,1
+rel_story:0x08eae93c,thunk_card_db_is_card_in_unused_list,card_db,,1
 rel_story:0x08eae944,thunk_card_db_is_monster,card_db,,1
 rel_story:0x08eae94c,thunk_card_db_is_spell,card_db,,1
 rel_story:0x08eae954,thunk_card_db_is_trap,card_db,,1
@@ -14205,7 +14205,7 @@ rel_deck:0x08eb8a78,thunk_deck_get_current_card_limit,deck,,1
 rel_deck:0x08eb8a80,thunk_card_db_has_genre_mapped,card_db,,1
 rel_deck:0x08eb8a88,thunk_card_db_get_next_alias_id,card_db,,1
 rel_deck:0x08eb8a90,thunk_card_db_is_same_name,card_db,,8
-rel_deck:0x08eb8a98,thunk_FUN_0885fe2c,,,1
+rel_deck:0x08eb8a98,thunk_card_db_is_card_in_unused_list,card_db,,1
 rel_deck:0x08eb8aa0,thunk_card_db_is_monster,card_db,,8
 rel_deck:0x08eb8aa8,thunk_card_db_is_spell,card_db,,1
 rel_deck:0x08eb8ab0,thunk_card_db_is_trap,card_db,,1
@@ -16431,7 +16431,7 @@ rel_title:0x08edf108,thunk_deck_get_current_card_limit,deck,,1
 rel_title:0x08edf110,thunk_card_db_has_genre_mapped,card_db,,1
 rel_title:0x08edf118,thunk_card_db_get_next_alias_id,card_db,,1
 rel_title:0x08edf120,thunk_card_db_is_same_name,card_db,,1
-rel_title:0x08edf128,thunk_FUN_0885fe2c,,,1
+rel_title:0x08edf128,thunk_card_db_is_card_in_unused_list,card_db,,1
 rel_title:0x08edf130,thunk_card_db_is_monster,card_db,,1
 rel_title:0x08edf138,thunk_card_db_is_spell,card_db,,1
 rel_title:0x08edf140,thunk_card_db_is_trap,card_db,,1
@@ -18620,7 +18620,7 @@ rel_duel_mgr:0x08eb10d4,thunk_duel_core_request_send_slot_to_side,duel_core,,1
 rel_duel_mgr:0x08eb10dc,thunk_duel_core_post_set_duel_flag,duel_core,,1
 rel_duel_mgr:0x08eb10e4,thunk_duel_core_post_set_player_flag,duel_core,,1
 rel_duel_mgr:0x08eb10ec,thunk_duel_core_post_set_slot_flag,duel_core,,1
-rel_duel_mgr:0x08eb10f4,thunk_FUN_09c27694,,,1
+rel_duel_mgr:0x08eb10f4,thunk_duel_core_post_announce_location_card,duel_core,,1
 rel_duel_mgr:0x08eb10fc,thunk_duel_core_post_announce_field_card,duel_core,,1
 rel_duel_mgr:0x08eb1104,thunk_duel_core_chain_announce_activation,duel_core,,1
 rel_duel_mgr:0x08eb110c,thunk_duel_core_post_announce_card,duel_core,,1
@@ -19625,7 +19625,7 @@ rel_duel_mgr:0x08eb303c,thunk_deck_get_current_card_limit,deck,,1
 rel_duel_mgr:0x08eb3044,thunk_card_db_has_genre_mapped,card_db,,1
 rel_duel_mgr:0x08eb304c,thunk_card_db_get_next_alias_id,card_db,,1
 rel_duel_mgr:0x08eb3054,thunk_card_db_is_same_name,card_db,,1
-rel_duel_mgr:0x08eb305c,thunk_FUN_0885fe2c,,,1
+rel_duel_mgr:0x08eb305c,thunk_card_db_is_card_in_unused_list,card_db,,1
 rel_duel_mgr:0x08eb3064,thunk_card_db_is_monster,card_db,,8
 rel_duel_mgr:0x08eb306c,thunk_card_db_is_spell,card_db,,1
 rel_duel_mgr:0x08eb3074,thunk_card_db_is_trap,card_db,,1
@@ -21668,7 +21668,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c273c0,duel_core_request_send_mask_to_graveyard,duel_core,documented,228
 0x09c274a4,duel_core_request_send_mask_to_graveyard_as_cost,duel_core,,240
 0x09c27594,duel_core_request_send_slot_to_side,duel_core,documented,256
-0x09c27694,FUN_09c27694,,,76
+0x09c27694,duel_core_post_announce_location_card,duel_core,documented,76
 0x09c276e0,duel_core_post_announce_field_card,duel_core,,172
 0x09c2778c,duel_core_chain_announce_activation,duel_core,,140
 0x09c27818,duel_core_post_announce_card,duel_core,documented,88
@@ -21685,7 +21685,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c28cf0,duel_core_gain_lp,duel_core,documented,596
 0x09c28f44,duel_core_draw_cards_ex,duel_core,,3204
 0x09c29bc8,duel_core_draw_cards,duel_core,documented,12
-0x09c29bd4,FUN_09c29bd4,,,2736
+0x09c29bd4,duel_core_queue_sent_to_graveyard_triggers,duel_core,documented,2736
 0x09c2a69c,duel_core_send_deck_ref_to_graveyard_ex,duel_core,,700
 0x09c2a958,duel_core_send_named_cards_from_deck,duel_core,,528
 0x09c2ab68,duel_core_mill_deck,duel_core,,228
@@ -23201,7 +23201,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c8325c,FUN_09c8325c,,,268
 0x09c83368,FUN_09c83368,,,1168
 0x09c837f8,FUN_09c837f8,,,372
-0x09c8396c,FUN_09c8396c,,,1548
+0x09c8396c,duel_effects_resolve_magical_hats,duel_effects,documented,1548
 0x09c83f78,FUN_09c83f78,,,596
 0x09c841d0,duel_effects_resolve_special_summon_targets,duel_effects,documented,716
 0x09c8449c,FUN_09c8449c,,,232
@@ -23292,7 +23292,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c8c5b4,FUN_09c8c5b4,,,828
 0x09c8c8f0,FUN_09c8c8f0,,,272
 0x09c8ca00,FUN_09c8ca00,,,40
-0x09c8ca28,FUN_09c8ca28,,,92
+0x09c8ca28,duel_effects_life_absorbing_machine_gain_step,duel_effects,documented,92
 0x09c8ca84,duel_effects_resolve_life_absorbing_machine,duel_effects,,52
 0x09c8cab8,FUN_09c8cab8,,,688
 0x09c8cd68,FUN_09c8cd68,,,104
@@ -26149,7 +26149,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09da8654,duel_core_filter_contact_fusion_material,duel_core,,56
 0x09da868c,duel_core_summon_prepare_contact_fusion,duel_core,,1556
 0x09da8ca4,duel_core_summon_prepare_synchro,duel_core,,1640
-0x09da930c,FUN_09da930c,,,356
+0x09da930c,duel_core_summon_step_ask_tribute_summon_option,duel_core,documented,356
 0x09da9470,duel_core_filter_familiar_possessed_material,duel_core,documented,648
 0x09da96f8,FUN_09da96f8,,,520
 0x09da9904,FUN_09da9904,,,192
@@ -26173,7 +26173,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09dac2e0,duel_core_summon_raise_trigger,duel_core,,896
 0x09dac660,FUN_09dac660,,,300
 0x09dac78c,FUN_09dac78c,,,3880
-0x09dad6cc,FUN_09dad6cc,,,4904
+0x09dad6cc,duel_core_queue_summon_event_triggers,duel_core,documented,4904
 0x09daea0c,duel_core_summon_step_normal,duel_core,,4740
 0x09dafc90,duel_core_summon_step_flip,duel_core,,1128
 0x09db00f8,duel_core_summon_step_special,duel_core,,4668
@@ -26509,7 +26509,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09dde4b4,duel_core_resolve_flip_marker_send,duel_core,documented,292
 0x09dde5d8,FUN_09dde5d8,,,136
 0x09dde660,FUN_09dde660,,,352
-0x09dde7c0,FUN_09dde7c0,,,276
+0x09dde7c0,duel_core_end_phase_destroy_filtered_monsters,duel_core,documented,276
 0x09dde8d4,FUN_09dde8d4,,,128
 0x09dde954,FUN_09dde954,,,464
 0x09ddeb24,FUN_09ddeb24,,,184
@@ -26842,7 +26842,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09de4a04,thunk_card_db_has_genre_mapped,card_db,,8
 0x09de4a0c,thunk_card_db_get_next_alias_id,card_db,,8
 0x09de4a14,thunk_card_db_is_same_name,card_db,,8
-0x09de4a1c,thunk_FUN_0885fe2c,,,1
+0x09de4a1c,thunk_card_db_is_card_in_unused_list,card_db,,1
 0x09de4a24,thunk_card_db_is_monster,card_db,,8
 0x09de4a2c,thunk_card_db_is_spell,card_db,,8
 0x09de4a34,thunk_card_db_is_trap,card_db,,8

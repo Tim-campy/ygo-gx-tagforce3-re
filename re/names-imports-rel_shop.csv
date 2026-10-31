@@ -280,7 +280,7 @@ address,group,name
 0x090e5acc,card_db,thunk_card_db_has_genre_mapped
 0x090e5ad4,card_db,thunk_card_db_get_next_alias_id
 0x090e5adc,card_db,thunk_card_db_is_same_name
-0x090e5ae4,,thunk_FUN_0885fe2c
+0x090e5ae4,card_db,thunk_card_db_is_card_in_unused_list
 0x090e5aec,card_db,thunk_card_db_is_monster
 0x090e5af4,card_db,thunk_card_db_is_spell
 0x090e5afc,card_db,thunk_card_db_is_trap

@@ -504,7 +504,7 @@ class EngineBranches(unittest.TestCase):
         bare = specs[BARE]["params"]["chains"][0]
         self.assertEqual((bare["value"], bare["confidence"]), (7, "medium"))  # paths constants are at most medium
         self.assertEqual(specs[EQUIP]["params"]["chains"][0]["expression"], "helper(arg0, 5)")
-        self.assertEqual(ce.SCHEMA, 6)
+        self.assertEqual(ce.SCHEMA, 7)
 
 
 if __name__ == "__main__":

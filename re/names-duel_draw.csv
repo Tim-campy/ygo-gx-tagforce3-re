@@ -28,3 +28,5 @@ address,group,name
 0x0985a980,ui,ui_update_duel_scene
 0x0989cf94,ui,ui_run_duel_draw_frame
 0x09841ee4,field_3d,field_3d_update_cutin
+0x0989bd78,ui,ui_duel_start_exodia_win_scene
+0x09878518,ui,ui_duel_create_draw_task
