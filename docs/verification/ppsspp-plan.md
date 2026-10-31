@@ -2,7 +2,7 @@
 
 Almost everything in `docs/subsystems/` comes from static analysis. This plan is the step-by-step runtime check that turns the hypotheses the port depends on most into `verified` evidence (`docs/PROGRESS.md`). The maintainer runs it in the portable PPSSPP at `external/ppsspp` (Windows, v1.20.x at the time of writing). The agent then updates the documents and registries from the filled-in result tables.
 
-The checks are grouped into four sessions so that each needs as little play as possible:
+The checks are grouped into sessions so that each needs as little play as possible. Sessions A–D cover the duel engine; Sessions E and F collect the checks that later static work left for PPSSPP (save data, world, story, shop, UI tables, movies, sound, tutorial, the AI plan and the duel leftovers), each split into scene blocks that can be done one sitting at a time:
 
 | Session | Where in the game | Checks | Play time (estimate) |
 | --- | --- | --- | --- |
@@ -11,6 +11,8 @@ The checks are grouped into four sessions so that each needs as little play as p
 | B | One tag duel | B1, B2: partner swap and tag state | Two turn changes, about 15 min |
 | C | Free roam with a partner | C1–C6: calendar, daily pairing, gift points, item counters, DP, partner word | One in-game day, about 20 min |
 | D | One single duel against a CPU, with staged hands | D1, D2: the 16-link chain limit and the 16-trigger limit (replaces the former optional A11) | 1 duel, about 30 min |
+| E | Outside the duel, in seven scene blocks: boot and title, save/load, free roam, shop, deck editor, tutorial lesson, minigames | E1–E24 (E6, E14, E15, E17 optional): file index, opening movie, title message tables, sound play call, save regions, `hud_marker`, BGM fade, arrival cells, door locks, chapter stage/step, story state 46, one pack purchase and the rarity box, deck-editor and progress bytes, `rel_tutorial` base, `.ydq` draw order, tutorial resumption, minigame scores and result table | 10–45 min per block, about 3 h in all |
+| F | Duels: own turns, CPU turns, a field-spell duel, saves around duels, and D2 | F1–F12 (F8 optional): turn-0 draw, LP writers, direct and piercing attacks, A6 steps 3–6, Magic Jammer, the AI plan comparison (the seven `ai.md` checks), the `ddstrtbl` HUD tables, backdrop frame rate, duel-record saves, D2 | about 2 h 30 in five blocks |
 
 Legal boundary (`CLAUDE.md`): savestates, `.sym` exports, `DATA0` files and memory dumps contain game data. They stay under `external/ppsspp/` or `ghidra/` (both git-ignored; `*.ppst` and `*.sym` are ignored as well) and are never committed. Result tables record only addresses, small numbers and card ids, never dumps.
 
@@ -414,6 +416,463 @@ Card Destruction (`0x12d5`) makes both players discard their hands by a card eff
 
 Details: `docs/verification/results/2026-10-27-sessionD.md`. D2 not run.
 
+## Session E: outside the duel (title, save, free roam, shop, deck editor, tutorial, minigames)
+
+Session E collects the checks that static work on save data, the world, the story bytecode, the shop, the UI string tables, movies, sound and the tutorial left for PPSSPP. It is split into seven **scene blocks**. Each block is self-contained: do one block per sitting, in any order, and start each sitting with Session 0's quick check for the modules that block uses (table E0). Inside each block the cheapest, highest-value checks come first; checks marked *(optional)* can be skipped without blocking anything.
+
+| Block | Scene | Checks | Time (estimate) |
+| --- | --- | --- | --- |
+| E-T | Boot and title screen | E1–E6 (E6 optional) | 30 min |
+| E-S | Save and load | E7, E8 | 10 min |
+| E-W | Free roam | E9–E15 (E14, E15 optional) | 45 min, plus a chapter duel if E13 is taken to the end |
+| E-P | Card shop | E16, E17 (E17 optional) | 15 min |
+| E-K | Deck editor | E18, E19 | 15 min |
+| E-L | Tutorial lesson | E20–E22 | 20 min |
+| E-M | Minigames | E23, E24 | 5 min per minigame, about 40 min for all seven |
+
+**Save-file setup** (blocks E-S, E-P, E-K, E-M and some E-W checks). Several checks are the "differential saves" of `docs/formats/save.md` ("PPSSPP experiments"): save in game, do one action, save again, compare. `EncryptSave = False` must be set in `ppsspp.ini` so that `DATA0` is written in plaintext (`save.md`, "On the memory stick"). After each save copy `PSP/SAVEDATA/ULES011830001/DATA0` to `external/ppsspp/saves/<check>-<a|b>.bin` (git-ignored) and compare with
+
+```
+python -I tools/save.py json external/ppsspp/saves/<check>-a.bin > external/ppsspp/saves/<check>-a.json
+python -I tools/save.py json external/ppsspp/saves/<check>-b.bin > external/ppsspp/saves/<check>-b.json
+```
+
+and a JSON or byte diff (`fc /b` on Windows). The results file records offsets and small values only (the list of changed offsets, old → new), never the files.
+
+**Save-state address.** Checks that read the game state in memory use `S = 0x08aa5794 + 4 × [0x08ac18c0]` (Session 0, M2, verified). `S` changes on every fresh boot and is kept by a savestate, so compute it once per boot and write it at the top of the results file. In the log texts below, `S+0x…` stands for the computed number: type the sum, not the letter (for example with `S = 0x08aa57c0`, `{[S+0x0c]}` becomes `{[0x08aa57cc]}`).
+
+**Standing instrumentation for every block of Session E** (set once per sitting, Log on, Break off; all `BOOT.BIN` addresses, which never shift):
+
+| Address | Function (`docs/formats/save.md`, "In the game") | Log text |
+| --- | --- | --- |
+| `0x0883e874` | `save_start_autoload_dialog` (mode 0) | `save_dialog autoload ra={ra}` |
+| `0x0883e9e0` | `save_start_autosave_dialog` (mode 1) | `save_dialog autosave ra={ra}` |
+| `0x0883e918` | `save_start_save_dialog` (mode 3) | `save_dialog save ra={ra}` |
+| `0x0883eaa4` | save dialog mode 7 (unnamed) | `save_dialog mode7 ra={ra}` |
+| `0x0883e694` | save dialog mode 8 (unnamed) | `save_dialog mode8 ra={ra}` |
+| `0x0883e78c` | save dialog mode `0x16` (unnamed) | `save_dialog mode16 ra={ra}` |
+| `0x08854ba0` | `save_add_dp(delta)` | `dp_add {a0} ra={ra}` |
+
+Any hit of modes 7, 8 or `0x16`, with the screen it happened on, answers the open question in `save.md` ("The meaning of the other save modes").
+
+### E0. Module bases for Session E
+
+Modules are placed by the kernel allocator; the bases below come from PPSSPP symbol exports (`docs/subsystems/modules.md`, "Runtime bases"), but only `rel_duel_*`, `rel_story` and `rel_field` were re-confirmed in Session 0. **Quick check** (1 minute per scene): in the Disassembly window go to the address in the last column. PPSSPP labels every function it has detected (`z_un_<address>` or a symbol name): the label must sit exactly at that address. **Full check** (once per scene, if the quick check fails or for a module without a known base): fresh boot, go to the scene, **Debug → Save Map File…** to `ghidra/<scene>-<date>.sym`, then `python -I tools/modules.py base ghidra/<scene>-<date>.sym <USRDIR>/gmodule` (as M1). If a base differs, every module-relative address of that module below shifts by `new base − documented base`; report it before continuing.
+
+| Module | Scene (block) | Documented base | Quick-check address |
+| --- | --- | --- | --- |
+| `rel_title` | title (E-T) | `0x08e9aa00` (export only, not in Session 0) | `0x08e9cbf0` `ui_title_get_message`; within its 252 bytes there is a `jal 0x08e9d0e0` |
+| `rel_story`, `rel_field` | free roam (E-W) | `0x08e9aa00`, `0x090ced00` (verified, M1) | as M1 (`0x08eaacc8`) |
+| `rel_shop` | shop (E-P) | `0x090ced00` (export only) | `0x090d9678` `shop_draw_pack_cards` |
+| `rel_deck` | deck editor (E-K) | `0x08e9aa00` (export only) | not needed: E-K uses no module address |
+| `rel_tutorial` | lesson (E-L) | **unknown** | found in E20 |
+| minigame modules | minigames (E-M) | **unknown** | found in E23 |
+
+### Block E-T: boot and title screen
+
+#### E1. The in-memory file index is ready after boot
+
+- **Hypothesis**: `container_build_file_index` (`0x0881e054`) builds a sorted array of 16-byte entries `{path pointer, LBA, size, unused}` from the disc's ISO 9660 directories at boot, between `[0x089218c8]` (start) and `[0x089218cc]` (end), and sets the ready flag `0x089218dc` to 1 (`docs/formats/file-index.md`; high, code; open question "confirm at runtime").
+- **Breakpoints**: none needed. *Optional*, only if your PPSSPP build can start a game paused (a developer setting in recent builds; otherwise skip it): fresh boot, paused before the first instruction, memory breakpoint on `0x089218dc`, size 4, Write, Log `index_ready pc={pc}`.
+- **Steps**: on the title screen open Memory View at `0x089218c8` and read the seven words `0x089218c8`–`0x089218e0`. Go to the address in `[0x089218c8]`, read the first entry's path pointer, LBA and size, and look at the path string it points to.
+- **Record**: `[0x089218dc]`, `[0x089218e0]`, the entry count `([0x089218cc] − [0x089218c8]) / 16`, the first entry's path (a file name), LBA and size; the writer `pc` if the optional breakpoint ran.
+- **Expected**: ready = 1, building = 0, the count equals the number of files on the disc (the agent counts them from the ISO with the extractor), and the first entry is the alphabetically first path (the array is sorted case-insensitively, presumably); its LBA and size equal the ISO's. The writer `pc` lies in `0x0881e054`–`0x0881e447`.
+
+#### E2. Who plays the opening movie, and can it be skipped?
+
+- **Hypothesis**: `rel_title` plays `movie/TF3_opening_a.pmf` through the `BOOT.BIN` player (`system_movie_create_player` `0x0882b964`); whether a button skips it, and whether it replays after an idle time on the title screen, is open (`docs/subsystems/movies.md`, "Open questions"; `psmf-movies.md`; low for the skip, no claim made).
+- **Breakpoints** (`BOOT.BIN`, Log only): `0x0882b964` `movie_create ra={ra} a0={a0}`; `0x0882d6fc` (`system_movie_stop_video`) `movie_stop ra={ra}`; `0x0882b834` (`system_load_movie_modules`) `movie_modules_load ra={ra}`; `0x0882b874` (`system_unload_movie_modules`) `movie_modules_unload ra={ra}`.
+- **Steps**: fresh boot; set the breakpoints on the title-scene load at the latest (the opening starts after the boot logos; if the first run is missed, take a savestate during the logos, `E2-boot`, and reload it). Let the opening start; after about 5 s press Start. If it keeps playing, press Cross, then Circle. Reload the boot savestate and let the opening run to the end without input. Then wait 3 minutes on the title screen without input.
+- **Record**: for each run the logged functions with `ra`; which button stopped the movie (none / Start / Cross / Circle); whether the title screen came early; whether the opening (or another movie) started again after the idle wait.
+- **Expected**: `movie_create` with `ra` inside `rel_title` (`0x08e9aa00`–`0x08ef8443`, 383,556 bytes). Skip: no expectation, the result is the answer. The `ra` of `movie_stop` after a button press names the `rel_title` code that handles the skip (the agent reads it afterwards).
+
+#### E3. Which message table each title screen reads
+
+- **Hypothesis**: `ui_title_get_message(index, k)` (`rel_title` `0x08e9cbf0`) reads message `index` from table `k` (0 `title_msg`, 6 `option_msg`, 12 `tushin_msg`, 18 `duelmenu_msg`, plus the language) of `title_menu_<l>.ehp`; 25 call sites choose `k` at runtime (`docs/subsystems/ui.md`, "Open questions"; high for the function, the per-screen `k` is unknown).
+- **Base**: `rel_title` at `0x08e9aa00` (E0 quick check).
+- **Breakpoints**: execute at `0x08e9cbf0`, Log only, `title_msg idx={a0} k={a1} ra={ra}`.
+- **Steps**: from the title screen, open every screen reachable without starting a game: main menu, each options page, the communication (ad hoc / infrastructure) menus, the duel menu if it is offered from the title. Stay about 3 s on each screen and note the screen name in the log console's order (or write it down with the time).
+- **Record**: per screen the distinct `(ra, idx, k)` triples.
+- **Expected**: `k` ∈ {0, 6, 12, 18} (the language is added inside the function, so `k` itself never carries it). Every `ra` lies in `rel_title`. The agent maps the 25 runtime call sites (`ra − 8`) to their tables.
+
+#### E4. The sound play call (menu sounds)
+
+- **Hypothesis** (low): one `BOOT.BIN` function takes a global sound id (bank first id + cue, `audio_get_bank_first_sound_id` `0x08868874`) and starts it on a sceSas voice (PS-ADPCM) or a sceAtrac handle. The old candidates were `0x08826458`/`0x088265ac`, called from `0x08841514`–`0x0884155c` (`docs/formats/sound.md`, "Open questions"); `0x088265ac` has since been identified as `system_heap_free`, so only `0x08826458` (340 bytes, unnamed) stays a candidate, and a weak one. **Address status**: the candidate is unconfirmed; the check is designed to find the real function from the system calls instead.
+- **Breakpoints** (Log only; import stubs can take execute breakpoints, they run as `jr ra` + `syscall`):
+  - `0x08826458` `snd_candidate a0={a0} a1={a1} a2={a2} ra={ra}`
+  - `0x0887288c` (`__sceSasSetVoice`) `sas_set_voice core={a0} voice={a1} buf={a2} size={a3} ra={ra}`
+  - `0x0887287c` (`__sceSasSetKeyOn`) `sas_key_on core={a0} voice={a1} ra={ra}`
+  - `0x088727d4` (`sceAtracSetDataAndGetID`) `atrac_set_data buf={a0} size={a1} ra={ra}`
+  - `0x088727dc` (`sceAtracSetLoopNum`) `atrac_loop id={a0} n={a1} ra={ra}`
+  - `0x08868874` (`audio_get_bank_first_sound_id`) `bank_first {a0} ra={ra}`
+  - Fallback if stub breakpoints do not fire: **Log Console** with the `SASMIX` and `ME`/`ATRAC` channels at Debug level, which print the same calls.
+- **Steps**: on the title menu move the cursor five times (one sound each), confirm once, cancel once. Then wait 10 s without input (music only).
+- **Record**: per button press the logged lines in order; which `ra` values repeat once per press; the `atrac_loop` calls for the music.
+- **Expected**: each press gives one `sas_key_on` (or one `atrac_set_data`) whose `ra` lies in one `BOOT.BIN` function; walking up its callers (the agent does this statically from the `ra` chain) names the play call. The music track gives `atrac_loop … n=-1` (loop forever). Follow-ups once the play call is known (not part of this check): the cue flags `0x02`, `0x04`, `0x10`, `0x11` and envelope bytes `0x08`–`0x0b` (`sound.md`) can then be traced on a cue that has them, and the 11 looping effect waves in banks 714–723 can be watched for `sceAtracSetLoopNum`.
+
+#### E5. Title and option words `0x1bf0c` (differential save 16)
+
+- **Hypothesis**: the three words at save `+0x1bf0c` hold title-screen / extras settings (`save.md`, map and experiment 16; medium).
+- **Breakpoints**: memory breakpoint on `S + 0x1bf0c`, size 12, Write, Log `title_words pc={pc}`.
+- **Steps**: load the game, save (`E5-a`); return to the title, change each option on the options screen once (one at a time, noting the order), then load and save again (`E5-b`).
+- **Record**: the logged writes (pc and which option was changed just before), and the diff of `E5-a`/`E5-b` restricted to `0x1bf0c`–`0x1bf17` and to the settings bits `0x0fe04`–`0x0fe0b`.
+- **Expected**: each option change writes one field of the three words or of the settings bits (`save_get_settings`); the diff shows only those bytes and the frame counter `+0x0c`.
+
+#### E6. *(optional)* Audio lead of the opening movie
+
+- **Hypothesis**: every movie's first audio PTS is 85,069 and first video PTS 90,000, so the audio leads by 2,416 samples (one 2,048-sample ATRAC3plus frame + 368 samples of decoder delay), and dropping them aligns audio with the first frame (`docs/formats/psmf-movies.md`, "Timing"; medium).
+- **Caveat**: PPSSPP's `sceMpeg` is an emulation (FFmpeg-based); what it does is evidence about PPSSPP, not about the PSP decoder. Record it as "PPSSPP behaviour"; this check alone cannot reach `verified`.
+- **Breakpoints** (Log only): `0x0887299c` (`sceMpegAtracDecode(mpeg, au, buffer, init)`) `atrac_dec pts={[a1+4]} ra={ra}`; `0x08872934` (`sceMpegAvcDecode(mpeg, au, …)`) `avc_dec pts={[a1+4]} ra={ra}` (`SceMpegAu`: `+0` PTS high, `+4` PTS low). Disable both after the first ten lines of each.
+- **Steps**: fresh boot, let the opening start.
+- **Record**: the first five PTS values of each stream, in log order.
+- **Expected**: first audio PTS `0x14c4d` (85,069), first video PTS `0x15f90` (90,000), and the first audio decode happens before the first video decode. Whether the first decoded audio frame is played or dropped cannot be seen from these calls; note PPSSPP's console messages about the audio stream if any.
+
+### Block E-S: save and load
+
+#### E7. Frame counter and main-loop rate (differential saves 1 and 2)
+
+- **Hypotheses**: `u32` save `+0x0c` counts main-loop iterations (`save_tick_frame_counter` `0x088359f4`, saturating), so its rate is the game's frame rate; the two `u32` at `+0x04` are unknown and expected never to change (`save.md`, experiments 1 and 2; medium / unknown).
+- **Breakpoints**: none.
+- **Steps**: in free roam, read `[S + 0x0c]`, wait exactly 60 s by a stopwatch with PPSSPP at 100 % speed (no fast-forward; the speed is shown with **Settings → Graphics → Show FPS counter**), read it again. Then save (`E7-a`), wait 60 s, save again (`E7-b`). Return to the title, load, save (`E7-c`).
+- **Record**: the two in-memory readings and their difference; the FPS counter shown (game frames per second); the diffs `E7-a`/`E7-b` and `E7-b`/`E7-c`.
+- **Expected**: the counter grows by about 3,600 (60 per second) or 1,800 (30 per second); the FPS counter agrees. Between `E7-a` and `E7-b` only `+0x0c` (and possibly the calendar) changes; `+0x04`–`+0x0b` never change. Any other changed byte is new information for the map. The main-loop rate is also the time base of E10 and F10.
+
+#### E8. Save buffer round trip and the unknown regions (C5 and differential save 15)
+
+- **Hypothesis**: `DATA0` is a 1:1 copy of the `0x1c0ec` state bytes at `S` (`save.md`; high for the copy code), and the unknown regions (`0x00004`, story block `+0x3524`, record table `+0x292`, `0x1b108`, `0x1bf18`) stay zero or unchanged unless the static pass missed a writer.
+- **Steps**: this is Session C's C5 (not run there): save in game, then compare `python -I tools/save.py <DATA0> --check` and spot values between the file and memory at `S`: DP `+0x0fdfc`, partner word `+0x16e12`, calendar `+0x1a24c`, frame counter `+0x0c` (allow the frames that passed). Then, at the end of every block of Session E and F, run the diff of that block's save pairs over the five unknown regions.
+- **Record**: matches yes/no per value; per unknown region, any byte that ever changed (offset, old → new, the action that changed it).
+- **Expected**: identical values; no change in the unknown regions (any change locates a field).
+
+### Block E-W: free roam
+
+**Setup.** Confirm M1 for `rel_story` and `rel_field`, compute `S`. Savestate `E-W0` on a field map in time slot 2–6 of a working day (calendar weekday `[S + 0x1a268]` ≠ 0), with the partner chosen (Session C used Jaden, partner word `0x0023`) and at least 600 DP. Add these standing logs for the whole block (all Log only):
+
+| Address | Function | Log text |
+| --- | --- | --- |
+| `0x0884192c` (`BOOT.BIN`) | BGM fade start, called by `bgm_stop` and by `bgm` before a new track (`story.md`, opcode 50156) | `bgm_fade {a0} fc={[S+0x0c]} ra={ra}` |
+| `0x088418f8` (`BOOT.BIN`) | stop the current track | `bgm_stop fc={[S+0x0c]} ra={ra}` |
+| `0x08841850` (`BOOT.BIN`) | release the track | `bgm_release fc={[S+0x0c]}` |
+| `rel_story:0x08ea5d18` | `world_queue_event(a1, a2, a3)` | `queue {a0} {a1} {a2}` |
+
+#### E9. `hud_marker` at the sandwich seller
+
+- **Hypothesis**: story opcode 50118 `hud_marker` posts field request 26; the `rel_field` handler `world_field_req_hud_marker` (`0x090d87a8`) arms marker A with sub-index `v` (`0x090d5fa4(10, 5, v)`, script targets 0 and 2–6) or marker B (`0x090e5b20(10, 5)`, target 7), and target 1 clears both. The seller lines use 7 … 1, so marker B points at the DP display (`docs/formats/story.md`, opcode table; medium for the code, low for which element 0–4 is).
+- **Base**: `rel_field` `0x090ced00`.
+- **Breakpoints** (Log only): `0x090d87a8` `hud_req a0={a0} a1={a1}`; `0x090d5fa4` `markerA {a0} {a1} {a2}`; `0x090e5b20` `markerB {a0} {a1}`.
+- **Steps**: from `E-W0`, talk to the sandwich seller and buy one sandwich (it can be given to the partner, as in C3). Note on screen what the arrow or highlight points at while each log line appears.
+- **Record**: the order of the log lines relative to the dialogue; what the marker points at (in words, no screenshot in the repository).
+- **Expected**: `markerB 10 5` when the line that mentions DP appears, with a marker on the DP counter; a later `hud_req` that clears it (no marker call). Marker A (sub-index 0–4) needs the other six `hud_marker` uses: before the session the agent lists their records with `python -I tools/story.py events <USRDIR>/script/story_scr_b.ehp --list -o extracted/story/events.txt` (opcode 50118) and says where they play; observe them only if one is reachable.
+
+#### E10. BGM fade time (opportunistic, standing logs)
+
+- **Hypothesis**: `bgm_stop` (50156) and `bgm` call `0x0884192c(1500)`: a 1,500 ms fade-out, then wait for the voices, stop and release the track (`story.md`; medium).
+- **Steps**: no extra steps: every event in this block that changes the music logs the three lines. Make sure at least one happens (an event with its own music, for example a chapter event in E13 or the duel request menu).
+- **Record**: per fade: `a0`, the frame counter at `bgm_fade`, `bgm_stop` and `bgm_release`, and the `ra` of `bgm_fade`.
+- **Expected**: `a0 = 0x5dc` (1,500), and `bgm_stop` follows about 1.5 s later (90 frames at 60 per second, 45 at 30, using E7's rate). If the stop follows at once, the argument is not a fade time.
+
+#### E11. Arrival cells
+
+- **Hypothesis**: when no event places the player, `world_place_player_on_arrival` (`rel_story` `0x08ea09c8`) puts the player on a fixed cell and direction per location, centred as `x·0.5 + 0.25`, and sends it with field request 9; the field state (save `+0x1a0e0`) holds `+0x00` location, `+0x04` previous location, `+0x08`/`+0x0c` player position (`f32`) and `+0x10` direction (`docs/formats/field-maps.md`, "Arrival cell"; `world.md`, save fields; high for the code, the field-state reading is high from the code but untested).
+- **Breakpoints** (Log only): `rel_story:0x08ea09c8` `arrival`; `rel_field:0x090d83c4` (`world_field_request`) with condition `a0 == 9`, Log `req9 {a1} {a2} {a3}` (the argument layout of field requests is not documented: log the registers and read what they point at if they look like pointers). **Address status**: the request number in `a0` is an assumption from the name; if the condition never matches, log every call for one map change and report the `a0` values.
+- **Steps**: from `E-W0`, make four map changes without an event: (1) from the Slifer dorm outside (location 6) into room 101 (location 7); (2) back out of room 101; (3) into the store (location 3) from outside; (4) any other exit. After each change, when the map is shown and the player stands still, read the five field-state words at `S + 0x1a0e0`–`S + 0x1a0f0`.
+- **Record**: per change the location and previous location, the two floats (convert from hex), the direction, and the logged lines.
+- **Expected**: (1) room 101: cell (11, 6), direction 3 → `5.75` (`0x40b80000`), `3.25` (`0x40500000`); (2) dorm outside from 7: (17, 24), direction 7 → `8.75` (`0x410c0000`), `12.25` (`0x41440000`); (3) store: (31, 17), direction 3 → `15.75` (`0x417c0000`), `8.75`; (4) the cell listed for that location in `field-maps.md`. If the floats do not change between maps, the live position is held elsewhere (in `rel_field`) and only the logs count.
+
+#### E12. Doors: midnight lock *(distance part optional)*
+
+- **Hypothesis**: on the Slifer dorm outside (maps 12/37, location 6) at light period 4 (time slot 7, "midnight"), the doors to maps 13–19 and 38 stay shut and the door cells `(15, 24)`, `(15, 20)`, `(15, 16)`, `(15, 12)`, `(13, 24)`, `(13, 20)`, `(13, 16)` are not walkable (`world_is_cell_walkable` mode 1), while room 204 (`(13, 12)` → map 20) and the dining hall (`(13, 6)` → map 21) stay reachable. A door opens when the player is within 0.75 units (`world_update_doors` `0x090da588`; `field-maps.md`, "Doors", "Walkability overrides"; high for the code).
+- **Base**: `rel_field` `0x090ced00`.
+- **Breakpoints** (Log only): `0x090db820` (door sound, called when a door starts opening) `door_open kind={a0} pc={pc}`; `0x090d9cc8` (`world_get_door_cell_target(x, y)`) with condition `a0 == 13 || a0 == 15`, Log `door_cell x={a0} y={a1}`.
+- **Steps**: on the dorm outside in slot 2–6, walk up to room 101's door and step on its cell (`door_open`, then the map change). Reload, use the PDA's "Advance Time" to slot 7 (read `[S + 0x1a260]` = 4, the light period), go to the dorm outside, and try room 101, then room 204 and the dining hall. *(Optional, distance)*: at the moment `door_open` logs, read the player floats at `S + 0x1a0e8`/`S + 0x1a0ec` (if E11 showed that they follow the walk) and compare with the door's position (the agent supplies it from `world.py tables`, `doors`).
+- **Record**: per door and slot: door opened (log yes/no), could the player step on the cell, did the map change; light period; *(optional)* distance at opening.
+- **Expected**: slot 2–6: room 101 opens and leads in. Slot 7: room 101 neither opens nor lets the player onto its cell; room 204 and the dining hall open and lead in. *(Optional)* the distance at opening is ≤ 0.75 (in map units, after subtracting grid vertex 0).
+
+#### E13. Chapter stage and step bytes during one chapter
+
+- **Hypothesis**: field save block bytes `+0x00` (story stage 1–10) and `+0x01` (chapter step 1–4) at save `+0x1a270`/`+0x1a271` drive the partner chapter: when the partner's points equal the stage cap (`1000 × stage`), `world_try_chapter_event` (`rel_story` `0x08e9cad0`) queues step 1 on the first map entry of a working day (daily step, needs the partner-talk-pending word, save `+0x1a394`, = 1), step 2 at the highlighted location in slots 2–6 (it ends in a duel), step 3 right after the duel, and the stage-closing record's `advance_counter` (`world_advance_story_stage` `0x08eab3c0`) sets stage + 1, step 1 (`docs/formats/chapter-table.md`; high for the code; the step-3 location test is an open question there).
+- **Named memory edit E-X1** (allowed for this check only, under rules 3–5 of the policy: emulation paused, recorded, everything observed comes from the game's code): set the partner's points `u16` at `S + 0x0fe0c + c × 0x18 + 0x16` (Jaden `c = 2`: `S + 0x0fe52`) to `cap − 10` (990 in stage 1). The gift in step 2 below then lets the game's own `world_change_char_points` reach and clamp to the cap. The check observes the stage/step bytes and the queued keys, never the points directly.
+- **Breakpoints**: memory breakpoint on `S + 0x1a270`, size 2, Write, Log `stage_step pc={pc}`; execute logs (`rel_story`): `0x08e9cad0` `try_chapter pts={a0} loc={a1} stage={a2}`, `0x08eab40c` `advance_step`, `0x08eab3c0` `advance_stage`, `0x08e9d9c0` `points char={a0} delta={a1}`, and the standing `queue` log.
+- **Steps**:
+  1. From `E-W0` (stage byte `[S + 0x1a270]` = 1, step 1), read stage, step, points and `[S + 0x1a394]`. Savestate `E13-pre`. Apply E-X1.
+  2. Give the partner one sandwich (any taste except 4/5, which lower the points): the points should become 1,000.
+  3. End the day (PDA), then enter any map in slot 1–6: expect step 1's key in the `queue` log and step → 2.
+  4. Open the island map: the step-2 location should be highlighted. Go there in slot 2–6: expect step 2's key and step → 3; the record ends in a duel. Savestate `E13-duel`.
+  5. *(optional, 15 min)* Play and win the duel. Back on the field, expect step 3's key at once (`world_queue_next_chapter_event`, mode 4), step → 4, then `advance_stage` (stage → 2, step 1) from the stage-closing record.
+- **Record**: the stage/step bytes after each step with the writer `pc`; every `try_chapter` and `queue` line; the points before and after the gift; whether the location of step 2 needed a slot outside 1 and 7; the edit E-X1.
+- **Expected**: bytes `(1,1)` → `(1,2)` → `(1,3)` → [after the duel] `(1,4)` → `(2,1)`. Queued keys `(a1, 1, 1)`, `(a1, 1, 2)`, `(a1, 1, 3)` with `a1` the partner's row key (201–203 for Jaden's rows; `world.py chapters` gives the exact row). `try_chapter` returns early (no queue) while the points are below 1,000. The points clamp at 1,000 even when the delta would exceed it.
+
+#### E14. *(optional)* Weekly pairing byte and picture bits (differential saves 13 and 11)
+
+- **Steps**: save on a Sunday (weekday `[S + 0x1a268]` = 0, `E14-a`), end the day, save on the Monday (`E14-b`); watch an event that shows a picture (story opcode 50111; the agent names one from `story.py events`) and save before (`E14-c`) and after (`E14-d`).
+- **Expected**: `0x16e11` bit 0 may flip on Monday and the pairing order at `0x1a28c` changes (Session C); `0x16e10`: record whether and when it changes. After the picture, bit `id` of `0x1b0fc` is set (`save.md`, experiments 13 and 11).
+
+#### E15. *(optional, needs a late save)* Story state 46 and what follows the staff roll
+
+- **Hypothesis**: `finish_partner_story` (50137) makes `world_driver_finish_partner_story` (`rel_story` `0x08ea2b38`) set the partner's character-row bit 2, unlock the partner's decks and set story state 46; state 46 (`world_state_start_staff_roll`, `0x08ea3984`) leads through 49/48 to `world_play_staff_roll_movie` (`0x08ea3ae8`), which plays `TF3_staffroll2_a.pmf` or `TF3_staffroll_a.pmf` (`chapter-table.md`, "End"; `story.md`; medium). What comes after is open.
+- **Precondition**: a save at stage 4 step 4 of a partner story (or just before the ending record `(219, n, 1)`). Without one, skip this check; E13 shows the way there.
+- **Breakpoints**: memory breakpoint on the story state `0x08ecd978` (`rel_story` global), size 4, Write, Log `story_state pc={pc}`; execute logs `0x08ea2b38` `finish_partner`, `0x08ea3984` `staff_roll_start`, `0x08ea3ae8` `staff_roll_movie`, and E2's `movie_create`.
+- **Record**: the sequence of story-state values, the movie chosen, what the game shows after the movie (title, new partner choice, field), the stage/step bytes afterwards, and the diff of a save before/after (also differential save 14 if a new cycle starts: partner word bits 1–3, `0x16e0c`, all pack stocks back to `0xaa`).
+- **Expected**: states 46 → 49 → 48 → 49 → 50; character-row bit 2 of the partner set (save `+0x1bf8c + 2r`, byte 0 bit 2).
+
+### Block E-P: card shop
+
+**Setup.** Confirm `rel_shop` at `0x090ced00` (E0). Free roam with enough DP for one pack of a kind never bought (the shelf of packs on sale; prices are in `tools/tables.py odds`). Save before entering (`E16-a`).
+
+#### E16. One pack purchase
+
+- **Hypothesis**: buying one pack (mode 0, no shoulder button) calls `save_add_dp(−price)`, `save_set_pack_bought(p)` (`0x088548a0`, save byte `+0x1542a + p` = 1) and `save_add_packs_bought(1)` (`0x0885761c`, `u16` `+0x16602`), and removes one pack from the shelf (record byte 0, two nibbles); opening it (`shop_draw_pack_cards(p, out)`, `0x090d9678`) draws the rarity from the pack's rarity box and writes it to one entry with `save_set_pack_entry(p, n, r)` (`0x0885752c`), `n = 20 − remaining`, `r` ∈ 1–3; the cards enter the collection only at `shop_commit_results` (`0x090d90c0`) when leaving through the results screen (`docs/formats/packs.md`; high for the draw, medium for the flow).
+- **Breakpoints** (Log only): `0x088548a0` `pack_bought p={a0}`; `0x0885761c` `packs_bought +{a0}`; `rel_shop:0x090d9678` `draw p={a0} out={a1}`; `0x0885752c` `pack_entry p={a0} n={a1} r={a2}`; `rel_shop:0x090d90c0` `commit`; standing `dp_add`.
+- **Steps**: in the shop, before buying, read for the chosen pack `p` (the agent gives `p` for the pack's shelf position, or read it from the first `draw` log and repeat on a reload): the record at `S + 0x16604 + 0x2a × p` (byte 0 stock, byte 1 state, 20 `u16` entries from `+2`), `[S + 0x1542a + p]`, `u16 [S + 0x16602]`, DP `[S + 0x0fdfc]`. Buy one pack, let it open, leave through the results screen, read everything again. Save (`E16-b`).
+- **Record**: values before/after; the log lines in order; the pack's 5 card ids drawn (from `out` after the draw, `u16` each, or from the results screen).
+- **Expected**: DP − price (one `dp_add` with the negative price), byte `0x1542a + p` 0 → 1, `0x16602` + 1, stock nibble − 1, exactly one `pack_entry` with `n` = the number of non-zero entries before and `r` ∈ {1, 2, 3}, and the rare-slot card shown last. `commit` logs once on leaving. The diff `E16-a`/`E16-b` shows these bytes and the collection counts of the drawn cards (`0x11ba4 + 4 × record`, byte 1), nothing else outside the frame counter (this is differential save 10).
+
+#### E17. *(optional)* A box of 20: the rarity box
+
+- **Hypothesis**: every 20 consecutive packs of one kind hold exactly 14 rarity-1, 4 rarity-2 and 2 rarity-3 draws (slot counts `{0, 14, 4, 2}` at `rel_shop` `0x090ef2fc`); when all 20 entries are used they are cleared and the box restarts (`packs.md`, "Rarity box"; high, code).
+- **Steps**: with a full shelf of one pack kind (stock `0xaa`), hold the shoulder button for the box purchase (mode 2, 20 packs), open them all (skipping is fine: `shop_open_all_packs`). Keep E16's logs on.
+- **Record**: the 20 entries before, the `pack_entry` lines `(n, r)` in order, and the 20 entries after.
+- **Expected**: counting the entries that were already used before the box and the new draws up to the point where the box was full, the rarities are exactly 14 × 1, 4 × 2, 2 × 3; at the wrap the entries are cleared and `n` restarts at 0.
+
+### Block E-K: deck editor
+
+#### E18. Deck editor state (differential saves 8 and 9)
+
+- **Hypotheses**: the 99-entry card list at save `+0x161f4` (count) / `+0x161f6`, its states at `+0x162bc`, and the `0x200`-byte edit block at `+0x16382` belong to the deck editor (medium for the list, low for the meaning); stored deck records at `+0x20` hold named decks saved from the editor (medium) (`save.md`, experiments 8 and 9).
+- **Steps**: save (`E18-a`). In the deck editor: take two cards out of the deck, put one in, change the sort order and one filter, then save the deck and leave; save the game (`E18-b`). If the editor offers storing a deck under a new name, do it and save the game again (`E18-c`).
+- **Record**: the changed offsets of each pair (offset, old → new), grouped by region; which action came last before each change.
+- **Expected**: changes in the deck slot lists (slot 0 or 1), in the card list `0x161f4` and its states, possibly in the edit block (sort and filter settings); with a stored deck, flag, name and lists of stored record 0.
+
+#### E19. First-visit progress bytes (differential save 12)
+
+- **Hypothesis**: the bytes `0x16de4 + n` record first visits of help pages or tutorials; entry 2 changes to 1 after day 8 (`save.md`, experiment 12; low).
+- **Steps**: save (`E19-a`), open each deck-editor help page that has never been opened, save (`E19-b`). *(optional)* Save before and after day 8 (Session C's savestate reached day 8).
+- **Expected**: one byte `0x16de4 + n` grows per new page; record `n` per page.
+
+### Block E-L: tutorial lesson
+
+**Setup.** Start tutorial lesson 1 (lessons 20–25 have no script and are not useful here) from the tutorial list. Confirm M1 for `rel_duel_eng` (`0x09be1804`, as always). Savestates: `E-L00` in the tutorial list just before choosing the lesson (the `.ydq` loader and the opening draws may run before the field is shown), `E-L0` on the first frame of the duel field. As with `S`, `T+0x…` in a log text stands for the computed number (E20).
+
+#### E20. `rel_tutorial`'s runtime base
+
+- **Hypothesis**: during a lesson `rel_tutorial` is loaded at an unknown base `T` (none of the seven symbol exports was taken in a lesson; `docs/formats/tutorial.md`, "Open questions"). Its init registers `duel_core_tutorial_ui_event_hook` (`T + 0x6098`) at `0x09e01e10` and `duel_core_tutorial_gate_duel_flow` (`T + 0x4310`) at `0x09e01e3c` (`tutorial.md`, hook table; high).
+- **Steps**: read `[0x09e01e10]` and `[0x09e01e3c]`; compute `T = [0x09e01e10] − 0x6098` and `T' = [0x09e01e3c] − 0x4310`. Then **Debug → Save Map File…** to `ghidra/tutorial-<date>.sym` and run `python -I tools/modules.py base ghidra/tutorial-<date>.sym <USRDIR>/gmodule`. Also read the duel mode `[0x09e2d1f4]`.
+- **Record**: both pointers, `T`, `T'`, the vote result for `rel_tutorial` (base, starts matched), the duel mode.
+- **Expected**: `T = T'`, aligned to `0x100`, equal to the vote result with most of the 161 starts matched; duel mode 3. Every `T + offset` below uses this value.
+
+#### E21. Opening hands are drawn from the start of the `.ydq` list
+
+- **Hypothesis**: the `.ydq` loader puts the lesson's hand cards into the deck list ahead of the deck cards and then posts command `0x56` (draw, handler `0x09dbb7d8`) per side with the hand count, turn player first, so a draw takes the list from its start (index 0 = top) (`tutorial.md`, "Hand"; medium; the deck-top convention itself was effectively confirmed in Session D, where Pots of Greed drew Deck entries 0–11).
+- **Breakpoints**: execute at `0x09dbb7d8`, **Break on**, enabled from `E-L00` (load it, set the breakpoint, choose the lesson) until the two opening draws have run.
+- **Steps**: at each break read the side's hand count `+0x0c` and deck count `+0x10` and the first eight deck entries (`[P + 0x304 + 4i] & 0x3fff`; side 0 `0x09e2a82c`, side 1 `0x09e2b368`); Step Out and read the hand list (`P + 0x124`) and both counts again.
+- **Record**: per side the deck ids before (first eight), the hand ids after, the counts.
+- **Expected**: the hand equals the first `n` deck entries in order (`n` = the lesson's hand count), the deck count falls by `n`, and the ids match the lesson file's `CardInHand` lines (the agent compares them with `python -I tools/tutorial.py` output under `extracted/`).
+
+#### E22. How a `wait_input` and a `wait_event` resume the script
+
+- **Hypothesis**: the tutorial state word (`T + 0x17f2c`) is 4 while a `wait_input` waits; the UI event that confirms the awaited action (for example `0x38` summon done, `0x1e` card set, 5 phase banner) sets 2, and `duel_core_tutorial_wait_ui_idle` sets 1 once no UI event is busy; in state 6 (`wait_event`) the awaited event resumes at once (events 4, 54, 55) or through state 2. The duel-flow gate holds the engine except in states 4, 6 and 8 (`tutorial.md`, hook table, "The events are UI events"; high for the code).
+- **Breakpoints**: memory breakpoint on `T + 0x17f2c`, size 4, Write, Log `tut_state pc={pc}` (read the value with F10 or log `{[T+0x17f2c]}` one write later); execute at `0x09be1400` (`duel_core_post_ui_event(event, a1, a2, a3)`), Log `ui_event {a0} {a1} {a2} {a3}`; execute at `T + 0x39b4` (`duel_core_tutorial_filter_input`), Log `filter {a0} {a1}`. Keep the Session A command log on.
+- **Steps**: from `E-L0`, follow the lesson's instructions for its first three player actions (for example a Normal Summon, a set card, a phase change). Once, do a wrong action first (press a different button than the hint asks).
+- **Record**: the sequence of states with the UI events and commands between them; for the wrong action, the `filter` line and whether anything happened on screen; the awaited kind and card `u16 [T + 0x17f3a]`, `u16 [T + 0x17f3c]` during each wait.
+- **Expected**: per instruction: state 4 (awaited kind as in the `wait_input` table) → the matching UI event → state 2 → 1 after the UI is idle, then the script runs to the next wait. The wrong action is filtered (`filter` logs, nothing happens). No UI event 54 with `a1 = 3`, `a3 < 2` reaches the screen (answered with 0 unless `flag_on 2`).
+
+### Block E-M: minigames
+
+#### E23. Minigame bases, high scores and blocks (differential saves 6 and 7)
+
+- **Hypotheses**: nine high scores at save `0x11444`–`0x11464` and their "new" bits at `0x11490 + k`, plus per-minigame blocks at `0x1be0c` (blackjack), `0x1be10` (dodge), `0x1be18` (underground), `0x1be50` (throw) (`save.md`, experiments 6 and 7; medium / low). The minigame modules' runtime bases are unknown (`modules.md`).
+- **Steps**: save (`E23-<game>-a`). Play one round of one minigame, note the score and any setting changed inside the game, and on its result screen take **Debug → Save Map File…** (`ghidra/<game>-<date>.sym`; the agent runs `modules.py base` on it later). Leave and save (`E23-<game>-b`). Repeat for blackjack, connection, dodge, quiz, reversi, throw, underground, as time allows.
+- **Record**: per minigame: score shown, settings changed, the changed save offsets with old → new, DP before/after (standing `dp_add` log).
+- **Expected**: per game one high-score word and one bit change (the index → minigame mapping), DP rises by the reward, and the game's block (if it has one) changes when its settings do. The `.sym` files give the module bases for E24 and later work.
+
+#### E24. The result screen's string table (`mini_result`)
+
+- **Hypothesis**: the minigames share one result helper that receives its string table from the caller's buffer; the table is presumably `mini_result_<l>.bin` from `mini_result_<l>.ehp`, inferred from the archive only (`ui.md`, "Open questions"). **Address status**: the helper's address is not known (minigame bases unknown), so this check works from `BOOT.BIN` functions only.
+- **Breakpoints**: `0x08822280` (`container_ehp_find_member(ehp, name, out_size)`), **Break on**, enabled only while the result screen is being entered; `0x08836ed0` (`card_db_get_dictionary_word(dict, n)`), Log `dict={a0} n={a1} ra={ra}`, enabled on the result screen.
+- **Steps**: in one minigame, just before the round ends, enable the `find_member` breakpoint. At each break read the name string at `a1` in Memory View, Step Out, note `v0`. Disable it when the result screen shows, then let the dictionary log run for 3 s.
+- **Record**: the `(name, v0)` pairs; the distinct `(dict, n, ra)` lines.
+- **Expected**: one `find_member` returns the pointer that later appears as `dict` in the dictionary log, and its name is `mini_result_<l>.bin` (or the table the open question names); the `ra` values lie in the minigame module (E23's base) and give the helper's address.
+
+**Session E results**
+
+| Check | Recorded | Expected | Pass? | Notes |
+| --- | --- | --- | --- | --- |
+| E0 bases: title / shop / tutorial / minigames | | `0x08e9aa00` / `0x090ced00` / E20 / E23 | | `.sym` names |
+| Save dialog modes seen (standing) | | modes 0, 1, 3; 7/8/`0x16`? | | screen per mode |
+| E1 ready flag, building flag, entry count | | 1, 0, number of files on the disc | | first path, LBA, size |
+| E2 opening: `movie_create` ra; skip button | | ra in `rel_title`; (open) | | idle replay? |
+| E3 `(ra, idx, k)` per title screen | | `k` ∈ {0, 6, 12, 18} | | screens visited |
+| E4 play call: function of the repeating `ra` | | one function per sound | | `atrac_loop` for music |
+| E5 title words / settings bits per option | | one field per option | | |
+| E6 *(optional)* first audio / video PTS | | `0x14c4d` / `0x15f90`, audio first | | PPSSPP behaviour only |
+| E7 frame counter +60 s, FPS shown; `+0x04` | | ≈ 3,600 or 1,800; `+0x04` constant | | |
+| E8 file vs memory; unknown regions | | identical; no change | | |
+| E9 marker B on the DP counter | | `markerB 10 5`, then cleared | | other targets reachable? |
+| E10 fade `a0`, frames fade → stop | | `0x5dc`, ≈ 1.5 s | | |
+| E11 field state after four map changes | | cells and directions of the table | | |
+| E12 doors at slot 2–6 / slot 7 | | 101 open / 101 shut, 204 and dining hall open | | *(optional)* distance |
+| E13 stage/step bytes, queued keys | | `(1,1)→(1,2)→(1,3)[→(1,4)→(2,1)]` | | edit E-X1 listed |
+| E14 *(optional)* `0x16e10`/`0x16e11`, picture bit | | (open) / bit `id` | | |
+| E15 *(optional)* story states, movie, what follows | | 46 → 49 → 48 → 49 → 50 | | |
+| E16 DP, bought byte, packs bought, stock, rarity entry | | −price, 1, +1, −1, one entry 1–3 | | pack `p`, cards |
+| E17 *(optional)* box rarity counts | | 14 / 4 / 2 | | |
+| E18 changed offsets: editor actions, stored deck | | `0x161f4` list, slots, edit block | | |
+| E19 progress byte per help page | | one byte per page | | |
+| E20 `T` from hook, gate, vote; duel mode | | equal; 3 | | |
+| E21 hand = first `n` deck entries | | yes | | lesson file match |
+| E22 state sequence per instruction; wrong input | | 4 → event → 2 → 1; filtered | | |
+| E23 score offset and bit per minigame | | one each | | `.sym` per game |
+| E24 result table name, helper `ra` | | `mini_result_<l>.bin` | | |
+
+## Session F: duels (leftovers of Session A, the AI plan, the duel HUD, D2)
+
+**Setup.** Session 0 (M1 duel bases, M2 for `S`), then a single duel against a CPU (an early opponent with few removal cards is best, as in Session D). Standing instrumentation of Session A: command log at `0x09dc07f8` and Memory View pinned on `0x09e2d1d8`. All shortcuts (S1–S3) follow the memory-edit policy; write every edit into the results file. Card ids below were looked up with `tools/cardinfo.py` on `cardinfo_eng.ehp` and are cards of this game: Dian Keto the Cure Master `0x10fc`, Ookazi `0x1100`, Pot of Greed `0x12ec`, Magic Jammer `0x12fe`, Shield & Sword `0x12cb`, Rush Recklessly `0x1329`, Big Bang Shot `0x1625`, Cyberdark Impact! `0x1c31`.
+
+| Block | Scene | Checks | Time (estimate) |
+| --- | --- | --- | --- |
+| F-1 | Single duel, own turns | F1–F5 | 40 min |
+| F-2 | Same duel, CPU turns | F6–F8 (F8 optional) | 25 min |
+| F-3 | Any duel with a field spell | F9, F10 | 15 min |
+| F-4 | Free roam around duels | F11 | 3 duels (one tag), about 45 min; can be combined with ordinary play |
+| F-5 | Single duel, staged | F12 (= D2) | 30 min |
+
+### Block F-1: own turns
+
+#### F1. Does the first player draw on turn 0 of a single duel?
+
+- **Hypothesis**: open for single duels (`duel-phases.md`, "Open questions"); in tag duels the first player draws on turn 0 (Session B).
+- **Steps**: start the command log **before** the duel starts (on the versus screen). After the opening hands (`0x56` / `0x8056` with `b = 5`), watch turn 0 (`[0x09e2d1e0] = 0`) between command `0x0a` (or `0x800a`, enter Draw Phase) and `0x0b`.
+- **Record**: the commands of turn 0 up to `0x0c`; the first player's hand count `+0x0c` before and after its Draw Phase.
+- **Expected**: none fixed; the answer closes the open question. Note which side went first.
+
+#### F2. Every Life Point writer, gain and effect damage
+
+- **Hypothesis**: only commands `0x23` (gain), `0x24` (loss; `b` = 0 effect, 1 battle, 2 cost, 3 lost) and `0x25` (set) write LP, through `0x09dbffd8`–`0x09dc05e3` and the `0x25` handler `0x09dc05f4` (`battle.md`, "Life Points"; high; `_lp_loss` verified in Session A, `_lp_gain` and `_set_lp` not exercised).
+- **Breakpoints**: memory breakpoints on `0x09e2a528` and `0x09e2b064`, size 4, Write, **Break on** (rare), Log `LP write pc={pc} ra={ra}`; step once (F10) before reading the new value.
+- **Steps**: with S1, replace two own hand cards with Dian Keto the Cure Master (`0x10fc`, gain 1,000) and Ookazi (`0x1100`, 800 damage to the opponent) in a Main Phase 1 (`u16 [0x09e27fee] == 0`). Activate both. Keep the breakpoints on for the rest of the session: every battle damage, cost and effect counts.
+- **Record**: per write the command before it (`op`, `a`, `b`), LP before/after, the writer `pc`; whether any write had no command before it.
+- **Expected**: Dian Keto: `0x23 a=0x3e8` (side bit clear for side 0), own LP + 1,000, `pc` in the gain/loss body. Ookazi: `0x8024 a=0x320 b=0` (bit 15 = the damaged side, as Session A's `0x8024 a=0xc8 b=1`), CPU LP − 800. No write without a preceding `0x23`–`0x25` after the duel start. A `0x25` (set) only if a card in play sets LP; note it if seen.
+
+#### F3. Direct attack (step 8?) and piercing damage
+
+- **Hypotheses**: the Battle step index `0x09e2d220` runs `2…10` per attack (`battle.md`, "The steps"); whether step 8 runs for a direct attack is open (Session A stopped at step 4). With a piercing equip (Big Bang Shot `0x1625`: +400 ATK and piercing, `duel_core_has_piercing` `0x09bedf1c`), an attack on a Defense Position monster with `ATK > DEF` deals `ATK − DEF` to its controller; damage records at `0x09e286e0 + i × 0x14` (amount, source side, source slot, damaged player, damaged slot) (`battle.md`; high).
+- **Breakpoints**: memory breakpoint on `0x09e2d220`, size 4, Write, Log `bstep pc={pc}` (or the step-entry logs of A4 with condition `[0x09e2d224] == 0`); execute at `0x09dd7528` (step 7), **Break on**.
+- **Steps**: (a) on a turn > 0 with the CPU's monster zones empty, attack directly. (b) Equip Big Bang Shot (S1 into the hand) to a monster and attack a CPU Defense Position monster whose DEF is lower than the new ATK. At each step-7 break read `0x09e28620` (attacker side), `0x09e2863c` (attacker slot), `0x09e28640` (target, 5 = direct), the battle records' `+0x24`/`+0x28` (`0x09e28650 + side × 0x48`) and the two damage records.
+- **Record**: the step sequence of each attack; the damage records; the `0x24` commands.
+- **Expected**: (a) target 5, damage record `damaged slot = 5`, amount = ATK; record whether 8 appears. (b) one damage record with amount `ATK − DEF` for the CPU, `0x24 … b=1`, the defender destroyed. A second record (`add_damage(A, A, …)`) should not appear here (it belongs to an opponent-controlled piercing equip, `battle.md` open question).
+
+#### F4. ATK with a temporary boost and a field spell (A6 steps 3–6)
+
+- **Hypothesis**: as A6 (Session A). Steps 1–2 passed; steps 3–6 remain: the field spell, the temporary boost (a kind-2 record keyed by the card, freed at the turn change by `duel_core_expire_turn_effects` `0x09be6864`), the reading in the opponent's turn, the equip leaving.
+- **Instrument**: as A6 (`0x09c0a604` `duel_core_get_atk`, Break on with a condition on side and slot, Step Out, `v0`; enable only for a reading).
+- **Steps**: from a Main Phase with a face-up monster: activate Rush Recklessly (`0x1329`, +700 until the End Phase; S1 into the hand) and read ATK; walk the slot's record list as in A6 (head `[0x09e2a566 + slot × 0x14] & 0xffff` for side 0, records at `0x09e2c7cc + 10 × i`). In the CPU's turn read ATK again and walk the list. If the deck has a field spell that boosts the monster's Type or Attribute, activate it and read ATK; if the equip from A6 can be destroyed (or the monster unequipped), read once more.
+- **Record**: the readings next to the screen; each record (key, kind, counter, value, timestamp); the `0x35` commands.
+- **Expected**: +700 after Rush Recklessly with a kind-2 record keyed `0x1329`, counter 0; the record gone and ATK back in the CPU's turn; field spell and equip changes match the card texts and the screen.
+
+#### F5. A negated chain link keeps its place (Magic Jammer)
+
+- **Hypothesis**: a negated link stays on the chain with `+0x04` bit 1 set; its effect does not run (`chain.md`; open question answered by Magic Jammer).
+- **Breakpoints**: memory breakpoint on `0x09e28e34` (chain count), size 4, Write, Log `chain_n pc={pc}`.
+- **Steps**: with S1 put Magic Jammer (`0x12fe`) and Pot of Greed (`0x12ec`) into the hand; set Magic Jammer face-down and end the turn. In the next own Main Phase 1 activate Pot of Greed, then chain Magic Jammer (discard one card). When link 2 has resolved (count 2 → 1), break once and read link 1 (`0x09e28cb4`: `+0x00` card id, `+0x04`).
+- **Record**: link 1's id and `+0x04` before and after link 2 resolves; whether Pot of Greed drew (hand and deck counts); the `0x11`/`0x12` commands.
+- **Expected**: link 1 = `0x12ec` with `+0x04` bit 1 set after the Jammer resolves; no draw; Pot of Greed goes to the Graveyard.
+
+### Block F-2: the CPU's turns (AI plan checks of `ai.md`)
+
+These are the seven checks of `docs/subsystems/ai.md`, "PPSSPP checks for the plan comparison", made concrete. `rel_duel_eng` must be at `0x09be1400` (M1). None of them edits an AI block (policy rule 2); only S1 on the CPU's hand is used, during the human's Main Phase with `u16 [0x09e27fee] == 0`.
+
+**Staging.** In your Main Phase 1 replace one CPU hand card with Shield & Sword (`0x12cb`, a combat trick listed by `ai_analyze_board`) and, for F7, another with Cyberdark Impact! (`0x1c31`, a card that `ai_board_note_card_interests` tests). Leave at least one monster on your side so that the CPU has something to attack. Savestate `F6-pre` at your End Phase.
+
+#### F6. Plan headers, the trick mask, snapshots and the plan value (ai.md checks 1, 2, 4, 5, 6)
+
+- **Hypothesis**: during the CPU's battle planning `ai_plan_battle_with_tricks` (`0x09d15b58`) builds a base plan and one plan per usable trick, compares each with `ai_compare_plans(new, best)` (`0x09d36d4c`) and keeps the new one when `v0 & 0x1e` (`& 0x10` for Limiter Removal `0x1409`) is non-zero. Plan header: `+0x06` opposing monsters (`u16`), `+0x08` total damage, `+0x0c` score, `+0x10`/`+0x14` own / opposing LP after the plan, `+0x1c`/`+0x1e` own / opposing deck (`s16`), `+0x20` the trick card id (0 in the base plan). `ai_plan_battle` (`0x09d16568`) pushes and pops snapshots (depth `u16 0x09e27fee`) and leaves LP unchanged. The accepted full plan is copied to `0x09e279c8 + side × 0x2e4` (`ai.md`, "Decision pipeline", steps 3 and 7; high for the logic, medium for the field meanings).
+- **Breakpoints** (Log only unless noted):
+  - `0x09d16568` `plan_battle depth={[0x09e27fee]&0xffff} lp0={[0x09e2a528]} lp1={[0x09e2b064]}`
+  - `0x09d15b58` `with_tricks side={a0} mode={a1}`
+  - `0x09d36d4c` `cmp a={a0} b={a1} a.trick={[a0+0x20]&0xffff} a.opp_mon={[a0+0x04]>>16} a.dmg={[a0+0x08]} a.score={[a0+0x0c]} a.own={[a0+0x10]} a.opp={[a0+0x14]} b.score={[a1+0x0c]} b.own={[a1+0x10]} b.opp={[a1+0x14]}` (if memory reads are not interpolated, use **Break on** for the first three hits and read the fields by hand)
+  - the result `v0` of `ai_compare_plans`: **Break on** at `0x09d36d4c` for the first three hits and Step Out. *Address status*: `ai.md` suggests a log at `0x09d36e00`; use it only if the Disassembly shows `jr ra` there and the instruction after it (the delay slot, `0x09d36e04`) does not write `v0`; then log `cmp_ret {v0}`.
+  - `0x09d16a84` (`ai_get_plan_value`), **Break on** once, Step Out, read `v0`.
+  - `0x09d0c2e4` (`ai_is_better_attack_result(side, result, best, flag)`) `better side={a0} res={a1} best={a2} flag={a3}`; enable only for one attacker (it runs per candidate target).
+- **Steps**: load `F6-pre`, end your turn, let the CPU play. Disable the logs after the CPU's Battle Phase begins. Then read the CPU's accepted plan header at `0x09e279c8 + side × 0x2e4` (*address status*: that the header starts at the block start is an assumption; record the first `0x28` bytes' fields as above and say if they look shifted) and let the Battle Phase run.
+- **Record**: the `cmp` lines (trick, fields, `v0`), which plan was kept (the next `cmp` uses it as `b`), whether the CPU actually activated Shield & Sword; depth and LP at entry and after Step Out of `ai_plan_battle`; `ai_get_plan_value`'s `v0`; the planned `+0x08` against the battle damage actually dealt (the `0x24 … b=1` commands of that turn); the `better` hits and the attack the CPU declared (`0x09e2863c`, `0x09e28640`, command `0x14`/`0x15`).
+- **Expected**: the base plan with `a.trick = 0`, the trick plan with `0x12cb`; `+0x10`/`+0x14` equal to the LP minus the planned damage; the trick plan is kept exactly when `v0 & 0x1e ≠ 0`, and the CPU activates Shield & Sword only then. Depth and LP are the same before and after `ai_plan_battle`. Planned damage `+0x08` = damage dealt when the CPU follows the plan. The winning `better` candidate matches the declared target.
+
+#### F7. Interest records (ai.md check 7)
+
+- **Hypothesis**: `ai_analyze_board(view)` (`0x09d91fe8`) fills 32 interest records of 24 bytes at `0x09e28014 + side × 0x30c` (`u16` weight at `+0`, card id at `+4`, flag bytes) for cards the side holds (`ai.md`, "Board view"; medium, flag bytes low).
+- **Breakpoints**: `0x09d91fe8`, **Break on** once in the CPU's Main Phase 1, Step Out.
+- **Steps**: with Cyberdark Impact! in the CPU's hand (staging above), read the CPU side's table after Step Out: for each non-empty record, the weight, the card id and the flag bytes (`+6`–`+0x17`).
+- **Record**: the non-empty records (index, weight, id, flag bytes); the CPU's hand and field ids for comparison.
+- **Expected**: at least one record whose id is `0x1c31` or one of the cards it combines with (the agent reads the compare chain for `0x1c31` to say which); weights small positive integers; empty records all zero.
+
+#### F8. *(optional)* The crossed guards of `ai_compare_plans` (ai.md check 3)
+
+- **Hypothesis**: `ai_compare_plans(a, b)` returns 0 when `a.own_lp ≤ 0 && b.opp_lp > 0`, and sets `0x10` when `a.opp_lp ≤ 0 && b.own_lp > 0` (the guards cross `a`'s own value with `b`'s opponent value; whether that is intended is open; `ai.md`, step 7).
+- **Steps**: no staging is required: every `cmp` line of F6 (and of any later CPU turn with the same logs) is a data point. To provoke the "a wins" case, use S2 to set your LP low (for example 500, never 0) before the CPU's turn, so that a plan can win; for "a loses", set the CPU's LP low while you have a monster whose battle damage reflects (as in Session A's 2000-DEF Defense Position monster).
+- **Record**: the `cmp` lines with `a.own ≤ 0` or `a.opp ≤ 0`, and `v0`.
+- **Expected**: `v0 = 0` for `a.own ≤ 0` with `b.opp > 0`; bit `0x10` for `a.opp ≤ 0` with `b.own > 0`; the agent checks every logged pair against the formula.
+
+### Block F-3: a duel with a field spell
+
+#### F9. The duel HUD's `ddstrtbl` index/body pair
+
+- **Hypothesis**: `rel_duel_draw` (`0x0983fb00`–`0x09903127`, 800,296 bytes) reads `ddstrtbl_<lang>_idx.bin` / `_body.bin` without the headed accessor, and `ddstrtbl_<l>.bin`, `help_strtbl_*` through `card_db_get_dictionary_word` with table pointers held in runtime state (`ui.md`, "Open questions"; the table names are in the module's data, medium).
+- **Breakpoints**: `0x08822280` (`container_ehp_find_member(ehp, name, out_size)`) with condition `ra >= 0x0983fb00 && ra < 0x09903128`, **Break on**; `0x08836ed0` (`card_db_get_dictionary_word(dict, n)`) with the same condition, Log `dict={a0} n={a1} ra={ra}`.
+- **Steps**: set both before the duel starts (versus screen). At each `find_member` break read the name at `a1` and Step Out (`v0` = member data, `[a2]` = size if `a2` ≠ 0). For the `_idx` member, add a memory breakpoint on its first 16 bytes (`v0`, size 16), **Read**, Log `ddidx read pc={pc}`, and disable the `find_member` break. Play until the HUD has shown a phase banner, a card-effect message and a menu.
+- **Record**: the `(name, v0, size, ra)` list; the `pc` values of the `_idx` reads; the distinct `(dict, n, ra)` lines, with `dict` matched to a name from the list.
+- **Expected**: `find_member` returns the `_idx` and `_body` members, and their reads come from one or two `rel_duel_draw` functions (the agent decompiles them); every `dict` of the dictionary log is one of the names found, which turns the 29 runtime-table requests of `rel_duel_draw` into named ones.
+
+#### F10. Playback rate of the 3D backdrop animation
+
+- **Hypothesis**: `field_3d_update_model(inst, step*)` (`BOOT.BIN` `0x0882fa94`) advances an instance's frame by `*step` (1.0 when `step` is null) per call; the number of calls per second (30, 60 or variable) is not established; the exporter assumes 30 (`docs/formats/tgm.md`, "Playback", "Open questions"; high for the code, unknown for the rate).
+- **Breakpoints**: `0x0882fa94`, Log only, `tgm_upd inst={a0} step={a1} fc={[S+0x0c]} ra={ra}`; enable for about 5 s, then disable (it runs for every animated model every frame).
+- **Steps**: activate a field spell so that its backdrop (`duel/bg/fmagic%04d.ehp`) animates. Enable the log for 5 s with PPSSPP at 100 % speed and the FPS counter on. If `step` is non-zero, read the float at that address once. *(optional)* Repeat the same 5-second log on a free-roam map and in the shop's pack screen.
+- **Record**: per distinct `inst`: number of calls and the first and last `fc`; `step` (null or the float); the `ra` (backdrop, cut-in, HUD); the FPS shown.
+- **Expected**: one call per instance per frame-counter tick, with a null step (1.0) or a constant float; the backdrop rate is then E7's main-loop rate × step (30 or 60 per second). Report each `ra` group separately, since the step may differ per user.
+
+### Block F-4: around duels in free roam (differential saves 3, 4, 5)
+
+#### F11. Duel record, record table and recipe unlock
+
+- **Hypotheses**: a win adds to the totals `0x10f10`, `0x10f1c`, the streak maximum `0x10f20` and the opponent's row `0x10f2c + 8c`; record values `0x113a4 + 4i`, bits `0x11468 + i` and the bonus bytes `0x1149c`/`0x114f0`/`0x1155c` reflect the bonuses shown after the duel; a loss updates the loss fields and streaks; a tag win also updates the second opponent's row; the first win against a character whose deck was not unlocked sets bit 0 and the owner bits of that recipe's `u16` at `0x10b74 + 2r` (`save.md`, experiments 3–5; high for the duel record, medium for the record table).
+- **Steps**: in free roam, save (`F11-a`); win one single duel against a known character `c` (note `c` and the bonuses on the result screen); save (`F11-b`). Lose one duel; save (`F11-c`). Win one tag duel; save (`F11-d`). Use an opponent whose deck you have not unlocked for the first win (the deck list in the editor shows which), or note that it was already unlocked.
+- **Record**: per pair the changed offsets (old → new); the opponent ids; the bonuses shown (names in words, no text dump).
+- **Expected**: the fields listed in the hypothesis and nothing else outside the frame counter, the calendar and DP; the tag win changes two opponent rows.
+
+### Block F-5: D2 (sixteen links from simultaneous triggers)
+
+#### F12. D2 of Session D
+
+Run D2 exactly as written in Session D (staging with S1, Card Destruction `0x12d5`, Broww `0x1966`, Pot of Greed `0x12ec`; breakpoint at `0x09c329e8` with condition `[0x09e28e48] >= 2`). It was not run in Session D. Record into the D2 rows of the Session F table below (they replace the empty D2 rows of the Session D table).
+
+**Session F results**
+
+| Check | Recorded | Expected | Pass? | Notes |
+| --- | --- | --- | --- | --- |
+| F1 first player draws on turn 0 (single duel)? | | (open) | | side that went first |
+| F2 Dian Keto: cmd, LP, pc | | `0x23 a=0x3e8`, +1000, body | | |
+| F2 Ookazi: cmd, LP, pc | | `0x8024 a=0x320 b=0`, −800 | | |
+| F2 any LP write without a command? | | no | | `0x25` seen? |
+| F3 direct attack: steps, damage record | | target 5, amount = ATK | | step 8 present? |
+| F3 piercing: damage record, cmd | | `ATK − DEF` to the CPU, `b=1` | | |
+| F4 ATK readings 3–6 vs screen | | equal | | records |
+| F4 temporary record kind, key, expiry | | kind 2, `0x1329`, gone | | |
+| F5 link 1 `+0x04` bit 1, draw? | | set, no draw | | |
+| F6 `cmp` fields: base and trick plan | | as documented | | |
+| F6 kept plan vs `v0 & 0x1e`; trick used? | | consistent | | |
+| F6 depth / LP across `ai_plan_battle` | | unchanged | | |
+| F6 planned `+0x08` vs damage dealt | | equal | | plan block offset ok? |
+| F6 `better` winner vs declared target | | same | | |
+| F7 interest records | | `0x1c31`-related record | | |
+| F8 *(optional)* guard cases | | formula | | edits listed |
+| F9 `ddstrtbl` member names, reader pcs | | `_idx`/`_body` read in `rel_duel_draw` | | dict names |
+| F10 calls per tick per instance, step, FPS | | 1 per tick, step 1.0? | | per `ra` group |
+| F11 win / loss / tag win changed offsets | | as listed in `save.md` | | opponent ids |
+| F12 (D2) queued `N`, chain / queue after the sort | | `N` / 16 / `N − 16` | | trigger kinds |
+| F12 (D2) sides of links 1–16 | | turn player's first | | |
+| F12 (D2) second chain from the remainder | | `N − 16` links | | |
+| Edits (S1/S2/S3, E-X1) | | all listed | | |
+
 ## Reporting results
 
 1. Fill in the session's results table (copy it from this file). Save it as `docs/verification/results/<yyyy-mm-dd>-<session>.md`, or paste it into a session with the agent. Record values, addresses and card ids only: no screenshots of card art, no memory dumps, no text from the game.
@@ -424,7 +883,7 @@ The agent then, in the same session:
 
 - Edits the subsystem or format document: the claim's confidence becomes "verified in PPSSPP (`<date>`, results file)". Answered open questions are struck through with the answer, and refuted claims are rewritten.
 - Raises registry rows, following the stage definitions in `docs/PROGRESS.md`:
-  - **Formats** (`re/formats.csv`, edited by hand): set `verified` when the layout matched live memory in the check. A row can only reach `verified` if its layout is already written down (`documented`). Candidates: `chain_link` (A7), `effect_marker` (A8), `duel_stat_block` and `duel_effect_records` (A6), `duel_turn_state` (A1, A2), `duel_player_block` (A2, A3, A5), `duel_field_slot` (A5, A6), `attack_state`, `battle_record`, `battle_steps` and `battle_damage_record` (A4), `turn_steps` (A1), `summon_record` (A5), `chain_state` (A7, D1), `trigger_queue` (A9, D2), `duel_command_queue` (every session), `tag_waiting_area` (B1), `story_calendar` (C1), `story_runtime_records` (C2), `story_field_state` (C3, C4), `save_player_profile` (C4), `save_data` (C4, C5). The rows still at `named` are first brought to `documented` from the existing text.
+  - **Formats** (`re/formats.csv`, edited by hand): set `verified` when the layout matched live memory in the check. A row can only reach `verified` if its layout is already written down (`documented`). Candidates: `chain_link` (A7), `effect_marker` (A8), `duel_stat_block` and `duel_effect_records` (A6), `duel_turn_state` (A1, A2), `duel_player_block` (A2, A3, A5), `duel_field_slot` (A5, A6), `attack_state`, `battle_record`, `battle_steps` and `battle_damage_record` (A4), `turn_steps` (A1), `summon_record` (A5), `chain_state` (A7, D1), `trigger_queue` (A9, D2), `duel_command_queue` (every session), `tag_waiting_area` (B1), `story_calendar` (C1), `story_runtime_records` (C2), `story_field_state` (C3, C4), `save_player_profile` (C4), `save_data` (C4, C5); from Sessions E and F: `file_index` (E1), `story_field_state` (E11), `field_door_table` (E12), `story_field_save_block` and `story_chapter_table` (E13), `save_pack_records` and `pack_draw` (E16, E17), `save_card_list` (E18), `save_progress_bytes` (E19), `ydq` (E21), `save_minigame_blocks` and `save_record_table` (E23, F11), `ai_battle_plan` and `ai_board_view` (F6, F7), `tgm_model_instance` (F10), `save_duel_record` and `save_recipe_table` (F11). The rows still at `named` are first brought to `documented` from the existing text.
   - **Functions** (`re/functions.csv`): `verified` only for functions that are already `documented` and whose documented behaviour (arguments, return value, side effects) the check exercised. Examples: `duel_core_cmd_enter_phase`, `duel_core_get_phase`, `duel_core_cmd_lp_gain`/`_lp_loss`/`_set_lp`, `duel_core_use_normal_summon`, `duel_core_has_normal_summon`, `duel_core_get_atk`, `duel_core_chain_build_from_triggers`, `duel_effects_mark_used_this_turn`, `ai_mask_hidden_card_id`. Functions still at `named` (`duel_core_next_turn`, `tag_duel_swap_active_duelist`, `duel_core_push_command`, the `rel_story` world functions) are documented first, with the runtime evidence as one of their bases.
 - Runs `python -I tools/progress.py --check` and the headline command, and reports what moved.
 
