@@ -15,7 +15,7 @@ Two per-player blocks of `0xb3c` bytes; player `p` (0 or 1) starts at about `0x0
 | `0x09e2a540` (`+0x18`) | Cards in the extra deck (list at `+0x4e4`) | Location `0x0c`; swapped with the hand and deck in tag duels (H). |
 | `0x09e2a544` (`+0x1c`) | Cards in the banished zone (list at `+0x7b4`) | `duel_core_find_in_banished` (H). |
 | `0x09e2a548` (`+0x20`) | Summons completed with command `0x2b` this turn | Incremented by `duel_core_cmd_summon_complete`, cleared by command 2 (M; `summon.md`). |
-| `0x09e2a54c` (`+0x24`) | Lost flag: the other side wins with reason 2 when it is set (hypothesis: deck-out; no direct writer found) | `duel_core_check_win`. |
+| `0x09e2a54c` (`+0x24`) | Lost flag (deck-out): the other side wins with reason 2 when it is set | `duel_core_check_win`; written (= 1) by the draw command `0x56` handler `duel_core_cmd_draw_cards` (`0x09dbb7d8`) when the side must draw from an empty Deck (`+0x10` = 0), found in the 2026-10-31 documentation round (H, code). |
 | `0x09e2a554` (`+0x2c`) | Card id of a special-victory monster whose battle damage won the duel (reason 8) | `duel_core_cmd_lp_loss`. |
 | `0x09e2a558` (`+0x30`) | Win reason of this side after the duel is decided | `duel_core_check_duel_end`, command 5. |
 | `0x09e2a648` (`+0x120`) | Player flags word, laid out as a twelfth slot flag word (`+0x10 + 11 × 0x14`); the upper 16 bits are per-turn and cleared by command 2 together with the slots' upper halves. Bit 0 skip the draw; bit 16 a summon was declared; bit 17 Normal Summon used; bit 21 a monster was Normal Summoned face-up | `summon.md` (H for bits 0, 17 and the reset). |
@@ -135,7 +135,7 @@ Basis and method: `system.md`, same section. 517 new `duel_core` names in `rel_d
 | Family | Count | Evidence |
 | --- | --- | --- |
 | `export_accessors` | 57 | The exported getters and setters at `0x09be147c`–`0x09be20ec`: turn, seed, local side, duelist kinds, LP, list counts and references, slot fields, hooks. |
-| `engine_commands`, `engine_command_stubs`, `command_posts` | 64 | Command handlers. The jump table of `duel_core_execute_command` at `0x09e00944` was decoded from the module file; it agrees with every documented code. Command `0x22` makes a side concede: its LP become 0 and the opponent's block `+0x30` gets the reason passed in `b` (`0xc` from `duel_core_action_surrender`; `0xd` skips UI event `0x35`, poster unknown; the "turn limit" reading of `0xd` is withdrawn, the turn-limit win is reason 11 of `duel_core_check_win`). |
+| `engine_commands`, `engine_command_stubs`, `command_posts` | 64 | Command handlers. The jump table of `duel_core_execute_command` at `0x09e00944` was decoded from the module file; it agrees with every documented code. Command `0x22` makes a side concede: its LP become 0 and the opponent's block `+0x30` gets the reason passed in `b` (`0xc` from `duel_core_action_surrender`; `0xd` skips UI event `0x35`; its poster is `duel_core_declare_turn_limit_loss` (`0x09dcad94`, found in the 2026-10-31 documentation round), which posts `0x22` with `a = 0xd` once per duel (guard `0x09e2d1d4`) and is called by `duel_core_step_turn_end` and by `rel_duel_mgr`'s `duel_core_tick_turn_timers`; the "turn limit" reading of `0xd` is withdrawn, the turn-limit win is reason 11 of `duel_core_check_win`). |
 | `effect_records` | 33 | Find, count and detach records in the effect pool `0x09e2c7cc`. |
 | field, hand, deck, graveyard and banished counts | 61 | Counting queries (`duel_core_count_tokens` …). `0x09bf9cec` has the same body as `duel_core_count_monsters` (`_alt`). |
 | `list_primitives` | 22 | Append, insert and remove for hand, deck, extra deck, graveyard and banished; card-instance allocation. |
@@ -160,6 +160,10 @@ Findings to reconcile, settled on 2026-10-31 (round 2):
 ## Round 2 of the 2026-10-31 naming
 
 Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 40 new `duel_core` names: 13 more `duel_core_view_*` wrappers in `rel_duel_draw`; in `rel_duel_eng` the engine command 8 handler `duel_core_cmd_show_declaration` (`0x09dbc6d8`: shows `duel_core_show_declaration_message` with the command arguments, then clears the busy word `0x09e29904`), the duelist timers of the BOOT session (`duel_core_get_duelist_timer_seconds`/`_value`), and six 8-byte entries that fix an argument and enter a neighbour's body (`duel_core_can_send_slot_to_graveyard`/`_to_hand` …).
+
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/duel_core.md`](functions/duel_core.md).
 
 ## Open questions
 

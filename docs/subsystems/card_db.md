@@ -83,6 +83,10 @@ The limit getters exported from the same block, `0x08832fa4` and `0x08833624`, a
 
 Basis and method: `system.md`, same section. 22 new names in `BOOT.BIN`: `cip_reader` 18 (the four `.cip` openers are H from their file-name strings; `card_db_cip_bind_texture` binds the 64×64 DXT1 texture of `cip.md`, H) and `card_lists` 3. From `rel_shop`: `card_db_get_prop_bits22` behaves as the card's rarity there (reveal effect, sound and icon chosen by its value; M, see `shop.md`).
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/card_db.md`](functions/card_db.md).
+
 ## Open questions
 
 - See `docs/formats/cardinfo.md` for the open fields.

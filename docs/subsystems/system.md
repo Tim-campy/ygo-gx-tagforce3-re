@@ -145,6 +145,18 @@ Quality sample of the first round (seed 20261031, re-read against the current de
 
 Still unnamed (281 registry rows, about 1 %): 52 own functions and the 229 thunks/stubs that point at them. They are kept unnamed because no H/M name exists: getters, setters and swaps of single globals whose meaning is unknown (`0x08823dac`, `0x0882ef28`, `0x0882ef3c`, `0x088359dc`/`e8`, `0x0883744c`/`58`, the 13 constant-address getters `0x0885bd4c`–`0x0885bddc`, `0x08850610`–`0x088525c4` in the net API, `0x08867f7c`, `0x0886d86c`, `rel_duel_draw` `0x098a3db8`, `0x098a6194`–`0x098a6a8c`, `rel_duel_eng` `0x09be4bd8`/`0x09be4bf4`); empty or constant stubs without a caller or context (`0x08817270`, `0x0882d338`, `0x08867b28`, `0x0886d8e4`, `0x09be5000`); code fragments that are the tail of a neighbour (`0x0880dc40`, `0x0886f520`); one function the decompiler fails on (`0x09be26f4`); and a few with unexplained mappings or no reader (`rel_field` `0x090cf0b8`, `0x090d0c80`, `0x098419b4`, `0x0985345c`, `0x0989ddb8`, `0x098a35a0`, `0x098a6d44`, `0x09be1dc4`, `0x09cdfbac`).
 
+## Documentation round of 2026-10-31
+
+Method: every program in `ghidra/TF3.gpr` was dumped read-only with the current names (decompilation, callers, callees and tags of every function). Named but undocumented functions were ranked (those already described in `docs/`, exported functions whose import stubs depend on them, then size) and read in packs of 60-110 functions per group; a row was written only when the whole body was read, with the prototype corrected for tail calls and hidden pass-through arguments (in doubtful cases from the disassembly), and skipped otherwise (296 skips: hidden arguments, lost tail calls, unresolved import stubs, failed decompilations, VFPU code, and 3 names contradicted by the body: `rel_deck` `deck_stub_noop_save_stored_deck` is the sceRtc import, `ui_card_viewer_get_frame_tick` returns the frame rate, `ui_help_disable_ruby` is empty). 33 rows whose writer flagged a decompiler artefact or an inferred return value were withdrawn before applying. All prototypes were parsed by `ApplySignatures.java` in a read-only session before the registry refresh. Result: 4,707 functions read and documented, plus 10,856 import stubs whose targets are documented (below). A re-read of 16 random rows against the decompilation found no error. The per-group tables are in `functions/`.
+
+## Import stubs of documented functions
+
+Module import stubs whose target is documented are documented with the target's prototype; they are listed in [`functions/import-stubs.md`](functions/import-stubs.md).
+
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/system.md`](functions/system.md).
+
 ## Open questions
 
 - Heap size and placement (needed later for memory-budget estimates on 3DS).

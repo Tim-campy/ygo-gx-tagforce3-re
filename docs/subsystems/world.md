@@ -313,6 +313,10 @@ The finding of the round above, that the `field_requests` handlers were matched 
 
 Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 94 new `world` names: the 26 `rel_story` sub-module states (`dialogue.md`), the `rel_field` request handlers (table above), story globals and field-state accessors (`+0x160`–`+0x168`).
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/world.md`](functions/world.md).
+
 ## Open questions
 
 - Field requests 27 and 30 (table above).

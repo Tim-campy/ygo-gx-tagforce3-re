@@ -27,6 +27,10 @@ Differences with `story.md` found by reading the handlers, and how they were set
 
 The import stubs they call are named from `re/game-libs.csv` (see `system.md`, "Game-library imports").
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/dialogue.md`](functions/dialogue.md).
+
 ## Open questions
 
 - Opcodes 50042, 50100 and 50154 are read (`dialogue_op_if_setting_b0_bit3`, `dialogue_op_mark_card`, `dialogue_op_prefetch_bgm`; `story.md`). BOOT `0x08835ad0(0/1)` around every sub-module run is `system_set_loading_overlay` (round 2: it restarts the `loading.ehf` player; M), so the open point is only what its argument selects.

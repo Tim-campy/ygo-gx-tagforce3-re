@@ -52,6 +52,10 @@ Basis and method: `system.md`, same section. 8 new `tag_duel` names, all reading
 
 Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 6 new `tag_duel` names in `rel_duel_draw`: the partner-switch UI mode (mode 10 of the duel UI mode table `0x098d1f5c`, `ui.md`).
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/tag_duel.md`](functions/tag_duel.md).
+
 ## Open questions
 
 - ~~The high half of the waiting-area word `+0x14` (`u16 +0x16`) changes at every swap (seen in PPSSPP: `0xaa`, `0x57`, `0x23`, `0x12`, `0x81`); meaning unknown.~~ It is the first saved card reference (the first hand card's instance), written by the `memcpy` of step 3 above.
