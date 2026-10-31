@@ -373,3 +373,5 @@ address,group,name
 0x0882ffc4,field_3d,field_3d_get_group_mask
 0x0881c650,system,system_quat_slerp
 0x0881c904,system,system_quat_normalize
+0x088669e4,card_db,card_db_is_unnegatable_card
+0x08866470,card_db,card_db_gains_spell_counter_on_spell

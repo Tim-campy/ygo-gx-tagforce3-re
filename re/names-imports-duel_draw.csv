@@ -246,7 +246,7 @@ address,group,name
 0x098ba03c,,thunk_FUN_09bf7c00
 0x098ba044,duel_core,thunk_duel_core_is_active_card_at
 0x098ba04c,duel_core,thunk_duel_core_is_face_up_card_at
-0x098ba054,,thunk_FUN_09bf7ea8
+0x098ba054,duel_core,thunk_duel_core_battle_record_effect_applies
 0x098ba05c,duel_core,thunk_duel_core_count_active_card_on_side
 0x098ba064,duel_core,thunk_duel_core_count_active_card
 0x098ba06c,duel_core,thunk_duel_core_count_active_card_affecting
@@ -331,7 +331,7 @@ address,group,name
 0x098ba2e4,,thunk_FUN_09bfcfbc
 0x098ba2ec,duel_core,thunk_duel_core_count_graveyard_by_race
 0x098ba2f4,,thunk_FUN_09c01d64
-0x098ba2fc,,thunk_FUN_09c01e10
+0x098ba2fc,duel_core,thunk_duel_core_count_graveyard_names_by_attribute
 0x098ba304,,thunk_FUN_09c02220
 0x098ba30c,,thunk_FUN_09c022e8
 0x098ba314,,thunk_FUN_09c02474
@@ -359,7 +359,7 @@ address,group,name
 0x098ba3c4,duel_effects,thunk_duel_effects_can_target_slot
 0x098ba3cc,,thunk_FUN_09c000f4
 0x098ba3d4,duel_effects,thunk_duel_effects_can_destroy_slot
-0x098ba3dc,,thunk_FUN_09c000fc
+0x098ba3dc,duel_effects,thunk_duel_effects_can_card_destroy_slot
 0x098ba3e4,duel_effects,thunk_duel_effects_can_banish_slot
 0x098ba3ec,,thunk_FUN_09c004fc
 0x098ba3f4,,thunk_FUN_09c00504
@@ -418,7 +418,7 @@ address,group,name
 0x098ba59c,duel_core,thunk_duel_core_get_base_stats
 0x098ba5a4,duel_core,thunk_duel_core_get_card_stats
 0x098ba5ac,duel_core,thunk_duel_core_compute_card_stats
-0x098ba5b4,,thunk_FUN_09c09e00
+0x098ba5b4,duel_core,thunk_duel_core_get_link_effect_kind
 0x098ba5bc,,thunk_FUN_09c0a174
 0x098ba5c4,duel_core,thunk_duel_core_get_atk
 0x098ba5cc,duel_core,thunk_duel_core_get_original_atk
@@ -757,14 +757,14 @@ address,group,name
 0x098bb034,duel_core,thunk_duel_core_update_pumpking
 0x098bb03c,duel_core,thunk_duel_core_pay_chain_energy_lp
 0x098bb044,duel_core,thunk_duel_core_pay_queen_of_thorns_lp
-0x098bb04c,,thunk_FUN_09cdfc28
-0x098bb054,,thunk_FUN_09cde3e0
+0x098bb04c,duel_core,thunk_duel_core_destroy_targeted_spirit_reapers
+0x098bb054,duel_effects,thunk_duel_effects_apply_unique_name_rule
 0x098bb05c,,thunk_FUN_09cde63c
 0x098bb064,duel_effects,thunk_duel_effects_refresh_prohibition_markers
 0x098bb06c,,thunk_FUN_09cdead4
 0x098bb074,,thunk_FUN_09cdf658
 0x098bb07c,,thunk_FUN_09ce1e3c
-0x098bb084,,thunk_FUN_09ce2230
+0x098bb084,duel_core,thunk_duel_core_mark_battle_opponent_negated
 0x098bb08c,duel_effects,thunk_duel_effects_has_table3_record
 0x098bb094,duel_effects,thunk_duel_effects_call_handler_0c_b
 0x098bb09c,duel_effects,thunk_duel_effects_call_handler_0c
@@ -1737,7 +1737,7 @@ address,group,name
 0x098bced4,,thunk_FUN_08865e64
 0x098bcedc,card_db,thunk_card_db_get_turn_counter_rule
 0x098bcee4,card_db,thunk_card_db_get_spell_counter_capacity
-0x098bceec,,thunk_FUN_08866470
+0x098bceec,card_db,thunk_card_db_gains_spell_counter_on_spell
 0x098bcef4,card_db,thunk_card_db_has_own_counters
 0x098bcefc,card_db,thunk_card_db_has_hand_effect
 0x098bcf04,card_db,thunk_card_db_is_hand_summon_trigger
@@ -1745,7 +1745,7 @@ address,group,name
 0x098bcf14,card_db,thunk_card_db_is_fusion_substitute
 0x098bcf1c,card_db,thunk_card_db_fusion_allows_substitute
 0x098bcf24,card_db,thunk_card_db_is_control_locked
-0x098bcf2c,,thunk_FUN_088669e4
+0x098bcf2c,card_db,thunk_card_db_is_unnegatable_card
 0x098bcf34,,thunk_FUN_08866a1c
 0x098bcf3c,card_db,thunk_card_db_is_sarcophagus_or_spirit_message
 0x098bcf44,card_db,thunk_card_db_get_guardian_equip

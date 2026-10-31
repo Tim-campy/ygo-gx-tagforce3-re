@@ -45,7 +45,7 @@ Filled by `duel_core_battle_compute_stats`; offsets relative to the record.
 | `+0x2c`, `+0x30` | Current Type and current Level (stat-block words 2 and 5) | H |
 | `+0x34` | Destroyed by battle | H |
 | `+0x38` | Destruction handled by a card effect instead (Mystical Beast Serket, Thunder Nyan Nyan set it in step 9) | M |
-| `+0x40` | Destruction mode from `0x09dc5150`; command `0x20` sets slot byte `+0x36` bit 6 when > 0 | L |
+| `+0x40` | Effect negation of this monster when it is destroyed by battle, from `duel_core_get_battle_destroyed_negation` (`0x09dc5150`): 0 none, 1 or 2 its effects are negated (see "Per-card branches"); command `0x20` sets slot byte `+0x36` bit 6 when > 0 | M (the card set is the "negate the effects of monsters destroyed by battle with this card" family; the difference between 1 and 2 is open) |
 | `+0x44` | Monster still on the field at the end of the Damage Step | M |
 
 Damage records follow at `0x09e286e0 + i × 0x14` (2 entries): `+0x00` amount, `+0x04` source side, `+0x08` source slot, `+0x0c` damaged player, `+0x10` damaged slot (5 = the player). `duel_core_battle_add_damage` fills the first free entry (H).
@@ -89,6 +89,69 @@ Then, in order: `duel_core_battle_is_destroyed` cancels a destruction for monste
 `duel_core_battle_add_damage(src, dst, amount)` (`0x09dc4330`) redirects the damage to the other player when the damaged side controls Magical Reflect Slime, Amazoness Swords Woman or a Metal Fiend Token in the battle, or Dimension Wall is active (H).
 
 The two arguments of `resolve` (and the second of `compute_stats`) let the AI reuse the same code: `apply = 0` suppresses side effects (activations, statistics), `simulate ≠ 0` keeps damage that a real battle would hand to an effect and reads the stats from the AI snapshot at `0x09e0308c` (callers `0x09d06188`, `0x09d30ef0` in the AI; M).
+
+## Per-card branches of the battle functions
+
+The battle functions were read branch by branch in a `-readOnly` Ghidra decompilation (this round: `duel_core_battle_resolve`, `duel_core_battle_add_damage`, `duel_core_get_battle_destroyed_negation`, steps 4, 7 and 8 completely; steps 2, 6 and 10 for the branches that the blocked cards use). Card names identify the ids the code tests. "Record" is a battle record; the compare is on its card id `+0x18` unless the table says otherwise. These readings back the battle rows of `tools/engine_ref_semantics.csv`; per-card arithmetic is listed machine-readably in `tools/engine_branches.csv` (`card-effect-spec.md`, "Proposed field: engine_branches").
+
+`duel_core_battle_resolve` (`0x09dc5a4c`), after the ATK/DEF comparison of "Damage calculation":
+
+| Test | Branch | Conf. |
+| --- | --- | --- |
+| Equip links on the attacker (`duel_core_count_links_from_card_if_affected`): Fairy Meteor Crush, Big Bang Shot, Cyclon Laser, Pitch-Dark Dragon (not on Union Rider), Koitsu, Sword of Kusanagi | Piercing damage for a Defense-Position target | H |
+| Destruction Punch / Cross Counter (slot effect) and an active Continuous Destruction Punch on the target's side, when the attacker hit a stronger DEF | Marker on the attacker (destroyed afterwards) | H |
+| Gravekeeper's Vassal active on the damage source, damage to the other player | Player marker with the amount (turned into effect damage in step 7); the record is zeroed unless `simulate` | H |
+| Dark Scorpion Combination on a direct attack | Damage set to 400 | H |
+| Submarineroid / Sonic Shooter attacking directly by their effect | Damage set to the original ATK | H |
+| Piranha Army on a direct attack | Damage doubled | H |
+| Shadowknight Archfiend / Susa Soldier (attacker or target) | Damage to the opponent of its controller halved | H |
+| Crystal Beast Amethyst Cat / Plasma Warrior Eitom attacking directly by their effect | Damage halved | H |
+| Saurobeast Brachion / Stone Statue of the Aztecs as the target | Damage to the attacker's controller doubled | H |
+| Arcana Force XIV - Temperance (effect value 2 on the damaged player's side, or value 1 on the other side) | Damage halved | M |
+| Cross Counter on a Defense-Position target; Canyon with a Rock-Type (Type 6) target in Defense Position | Damage doubled | H |
+| Ancient City - Rainbow Ruins on the damaged player | Damage halved | H |
+| Rod of the Mind's Eye equipped on the damage source | Damage set to 1000 | H |
+| Clear Wall on the damaged player's side | Damage of 1000 or less set to 0 | H |
+| Rainbow Life marker (kind 1) on the damaged player | Player marker with the amount (LP gain in step 7); damage 0 | H |
+| The Unhappy Girl (attacker or target, effect not negated, face-up Attack Position) | Marker on the other monster naming its slot (kind 6: battle lock) | H |
+| Maiden in Love as the target | Maiden Counter (counter 0x0d) on the attacker unless it is immune | H |
+| Ally Bomb (destroyed by a monster of Attribute 1), Gonogo, The Six Samurai - Zanji, Alien Hunter (target with an A-Counter), Oxygeddon (vs Type 4), Dark Mimic LV3, Prickle Fairy, Elemental Hero Neo Bubbleman / Hyper Hammerhead / Archfiend Matador (other side), Soldier of Mist Valley, Ryu Kokki (vs Types 0x12 / 0x0f), Getsu Fuhma (vs Types 2 / 3), Mechanical Spider (vs Attribute 2), Kaminote Blow | Marker for the after-battle effect resolved in steps 8-10 (`+0x38` set for the destroy-by-effect ones when `simulate`) | M |
+| Sword of Dragon's Soul linked to a monster battling a Dragon (Type 1) | Marker on the Dragon (destroyed after the battle) | M |
+
+`duel_core_battle_add_damage` (`0x09dc4330`): the damaged player's battle record holds Magical Reflect Slime, Amazoness Swords Woman or Metal Fiend Token with an active effect, or the damaged player has Dimension Wall: the damage goes to the other player (H).
+
+`duel_core_get_battle_destroyed_negation` (`0x09dc5150`, renamed from `duel_core_get_battle_flip_trigger`): the value for the monster destroyed by battle. The old name read the flip test as a trigger; the card set and the texts show a negation (H for the set, M for value 2):
+
+| Destroyer | Result |
+| --- | --- |
+| Element Doom / Element Saurus / Element Soldier while a DARK (Attribute 5) monster is face-up | 1; posts marker `0x17e4` on the destroyed monster |
+| Dark Lucius LV6 / LV8 with their own effect, different sides; LV4 and Ancient Gear Beast on different sides | 1 (LV6 posts an instance marker) |
+| Terrorking Archfiend, Guardian Baou, Ultimate Obedient Fiend, Dark Balter the Terrible | 1 |
+| Twin-Headed Wolf with another face-up Fiend (Type 3); Blade Knight as the only monster; Harpie Lady 2 | 1 only for a Flip monster (`card_db_get_flip_kind == 1`) |
+| Diffusion Wave-Motion marker, Wicked-Breaking Flamberge - Baou link | 1 |
+| Fiend destroyer with Dark Ruler Ha Des active, Zombie destroyer with Revived King Ha Des active | 2 when a copy in another slot applies, else 1 |
+| Marker `0x1f19` on the destroyed monster | 2 |
+
+Step 4, `duel_core_battle_step_attack_declared` (`0x09dd3bd4`): The Dark Door (player marker kind 1 on the attacker's instance); Mirror Wall (kind-7 marker on the attacker naming the Mirror Wall slot, unless linked); Hero Barrier (player effect slot `0xb`, with an Elemental Hero, attacker not immune to Traps), Necro Gardna (player effect slot `0xb`), Cyber Barrier Dragon in Attack Position (once, Time Wizard key as the "used" marker) negate the attack (command `0x1f`); on the first declaration the Ancient Gear monsters (Ultimate Ancient Gear Golem, Evil Hero Wild Cyclone, Ancient Gear Knight, Gadjiltron Dragon, Engineer, Soldier, Beast, Golem) post player marker `0x18ab` on the opponent, which `duel_effects_is_activation_locked` reads (no Spell/Trap activation until the end of the Damage Step); White Veil marks itself; `duel_core_mark_battle_opponent_negated` (`0x09ce2230`) runs for Advanced Dark (a Rainbow Dragon battles) and Rainbow Veil (the equipped monster battles); Super Vehicroid - Stealth Union marks itself (H).
+
+Step 7, `duel_core_battle_step_inflict_damage` (`0x09dd7528`): the attacker's "inflicts battle damage" trigger (event `0x1e2`) for Red Dragon Archfiend, Nitro Warrior, Alien Hunter, Ruin Queen of Oblivion, Divine Dragon - Excelion, Element Doom / Magician / Dragon, Black Luster Soldier - Envoy of the Beginning, Rocket Warrior and `0x1f19` (also as target); Satellite Cannon and Satellite Laser lose their counter marker; Gravekeeper's Vassal: effect damage of the marker value (`duel_core_inflict_card_damage(opponent, value, 1, Vassal)`); Rainbow Life: `duel_core_gain_lp` of the marker value; Reflect Bounder (target, other side) destroys the attacker; Cloudian monsters, Berserk Gorilla and Scab Scar Knight attacked in Defense Position are destroyed (`duel_core_battle_record_effect_applies` gates both) (H).
+
+Step 8, `duel_core_battle_step_after_damage_calc` (`0x09dd7ae4`): sub-step 0 runs `duel_effects_apply_unique_name_rule(Kotodama)` and `duel_core_destroy_targeted_spirit_reapers`; sub-step 1 queues the "after damage calculation" trigger (event `0x2a2`) of Ally of Justice - Unknown Crusher (vs LIGHT), D.D. Assailant (destroyed, other side), D.D. Warrior Lady (other side), Divine Knight Ishzark / D.D. Crazy Beast (opponent destroyed), Mechanical Spider (marked), Kangaroo Champ, D.D. Warrior, Kelbek, Wall of Illusion; Swordsman from a Foreign Land and Zone Eater (attacker) mark the target with command `0x46` (5 turns, key Zone Eater) and Steel Scorpion (target) the attacker (3 turns) unless it is a Machine (Type 7); Electric Lizard (target) gives the attacker marker kind `0x21` unless it is a Zombie (Type 2); Cloak and Dagger marks itself when its declared name dealt the damage (H).
+
+Step 10, `duel_core_battle_step_attack_end` (`0x09dd889c`), branches used by the cards of this round: Spear Dragon / Axe Dragonute / Elemental Hero Darkbright change to Defense Position after attacking (marker `0x14d6`); Big Shield Gardna to Attack Position after being attacked; Kaminote Blow markers destroy; the B.E.S. monsters and Big Core are destroyed without counters or queue their trigger; the after-battle markers of step 6 queue their triggers (event `0x002`); equips found on the attacker: Cupid Kiss (the damage dealer with a Maiden Counter: marker kind 5 = take control), Gladiator Beast's Battle Halberd / Ancient Gear Fist / Cyclone Blade (field trigger) (M; the rest of the function is in the step table above).
+
+Step 2, `duel_core_battle_step_declare_attack` (`0x09dd2a6c`): Ring of Magnetism forces its holder as target; Evil Hero Malicious Fiend, Scab Scar Knight and Volcanic Doomfire (with a Defense-Position monster) on the defender's side, Patrician of Darkness, Dark Arena and Call of the Earthbound let the other player choose (selection prompt `0x0b`, yes/no `0x0a`); Submarineroid, Sonic Shooter, Cyberdark Edge, Crystal Beast Amethyst Cat and Plasma Warrior Eitom post a player marker when they attack directly only by their effect, which `duel_core_battle_resolve` reads (M).
+
+## Function boundaries
+
+`0x09be2eac` was cut by Ghidra at 268 bytes because the `jr v1` at `0x09be2f24` dispatches through a jump table (`0x09deb640`, 82 entries, bound `sltiu 0x52`) that the analyser did not recover; `0x09be2fb8`-`0x09be3bb4` were outside any function. `tools/ghidra/FixJumpTableFunction.java` reads the table, adds the 81 distinct case targets as `COMPUTED_JUMP` references from the `jr`, writes a decompiler jump-table override and re-derives the body: 268 → 3,340 bytes (`0x09be2eac`-`0x09be3bb8`, which ends at the `jr ra` before `thunk_world_character_can_duel`). It is idempotent and must run without `-readOnly`:
+
+```
+analyzeHeadless <projdir> TF3 -process rel_duel_eng.prx -noanalysis -scriptPath tools/ghidra \
+    -postScript FixJumpTableFunction.java 0x09be2eac 0x09be2f24 0x09deb640 82
+```
+
+The repaired function is `duel_core_compute_duel_bonuses`: the end-of-duel bonus table. Each case writes the points of one bonus to the result block `+0xc4 + 4 × index` (examples: duelist level × 2, LP below 1000 → 20, below 100 → 100, at least 20000 → 20, exactly 5730 → 573, duel statistics through `0x09dcb734`, a listed card used in the duel (`duel_core_was_card_used_in_duel`: Perfectly Ultimate Great Moth, Gate Guardian, Exodia Necross ...) → 30, global `0x09e2d1f8` equal to Skull Servant → 1) and `+0x20c` receives 30 × the number of non-zero entries (one more when `0x09be2604(0x52)` is true). Caller `duel_core_record_duel_result` (M: the reading as DP bonuses follows the in-game result screen, not a runtime trace). The `0x1662` compare in it is the LP value 5730, not a card.
 
 ## Life Points
 
@@ -187,7 +250,7 @@ Consumers:
 | `0x09dd4530` | `duel_core_battle_step_damage_start()` | H | Entry 5; timing `0x14`. |
 | `0x09dd5454` | `duel_core_battle_step_damage_calc()` | H | Entry 6; timing `0x0d`, `resolve_live(1)`, commands `0x15`, `0x16`, `0x20`. |
 | `0x09dd7528` | `duel_core_battle_step_inflict_damage()` | H | Entry 7; timing `0x0e`, `apply_battle_damage`. |
-| `0x09dd7ae4` | `duel_core_battle_step_after_damage_calc()` | M | Entry 8. |
+| `0x09dd7ae4` | `duel_core_battle_step_after_damage_calc()` | H | Entry 8; trigger event `0x2a2`, command `0x46` countdowns (read completely, "Per-card branches"). |
 | `0x09dd82b4` | `duel_core_battle_step_damage_end()` | M | Entry 9; `request_battle_destruction`. |
 | `0x09dd889c` | `duel_core_battle_step_attack_end(side)` | H | Entry 10; command `0x1c`, next index 1/2/3/11. |
 | `0x09ddac64` | `duel_core_run_effect_battle(a, cancel_cmd, no_windows)` | M | Runs entries 5–7. |
@@ -199,6 +262,12 @@ Consumers:
 | `0x09dc6f90` | `duel_core_battle_resolve_live(apply)` | H | `resolve(apply, 0)`. |
 | `0x09dc4330` | `duel_core_battle_add_damage(src, dst, amount)` | H | Writes `0x09e286e0`. |
 | `0x09dc4594` | `duel_core_battle_is_destroyed(attacker, apply, simulate)` | M | Per-card "cannot be destroyed by battle" chain. |
+| `0x09dc5150` | `duel_core_get_battle_destroyed_negation(defender_destroyed, apply)` | H | Battle record `+0x40`; card table in "Per-card branches". |
+| `0x09bf7ea8` | `duel_core_battle_record_effect_applies(rec)` | H | Not an effect monster, or effect active with `+0x40` = 0. |
+| `0x09ce2230` | `duel_core_mark_battle_opponent_negated(card_id)` | M | Rainbow Veil / Advanced Dark kind-9 marker in steps 4-6. |
+| `0x09ce096c` | `duel_core_check_defense_position_destruction()` | H | Cloudian / Berserk Gorilla rule check. |
+| `0x09c14480` | `duel_core_prompt_advanced_dark_deck_card(side, card_id, arg)` | M | Prompt-request kind 8 (Deck list for Advanced Dark). |
+| `0x09be2eac` | `duel_core_compute_duel_bonuses()` | M | 82-case bonus table; body repaired ("Function boundaries"). |
 | `0x09dc555c` | `duel_core_battle_is_damage_prevented(rec, attacker)` | M | Per-card damage negation. |
 | `0x09bedf1c` | `duel_core_has_piercing(side, slot)` | H | Card list; equips. |
 | `0x09c28074` | `duel_core_apply_battle_damage(rec)` | H | Command `0x24` reason 1, timing `0x0f`. |
@@ -226,7 +295,10 @@ Consumers:
 
 - Confirm at runtime (PPSSPP): LP at `0x09e2a528`/`0x09e2b064`, the step sequence through `0x09e2d220`, and the damage records at `0x09e286e0` for one ATK-vs-DEF attack with piercing.
 - Resolved: the per-card modifiers and their order are in `stat-modifiers.md` and extracted by `tools/stat_mods.py`; record fields `+0x14`–`+0x30` are stat-block words.
-- Record field `+0x40` (hypothesis above) and what the Clear Vice Dragon / Wicked Avatar flag of `duel_core_battle_compute_stats` changes.
+- Record field `+0x40`: the meaning is established (effect negation of the battle-destroyed monster); open: what value 2 changes against value 1 (Ha Des copies, marker `0x1f19`), and what the Clear Vice Dragon / Wicked Avatar flag of `duel_core_battle_compute_stats` changes.
+- Trigger codes queued by the steps: `0x1e2` (inflicts battle damage, step 7), `0x2a2` (after damage calculation, step 8), `0x002` (after battle, step 10). Their decoding into timing events is not traced.
+- `duel_core_compute_duel_bonuses`: the name of each of the 82 bonuses (the result screen text table) and what `0x09e2d1f8` holds (compared with Skull Servant).
+- Step 6 (`duel_core_battle_step_damage_calc`) and steps 5, 9 and 10 are only partly read; their rows in `tools/engine_ref_semantics.csv` stay L where the branch was not read.
 - Who writes player block `+0x24` (win reason 2, presumably deck-out); it is not referenced directly.
 - The second record written by `resolve` when the attacker carries one of the piercing equips controlled by the opponent (`add_damage(A, A, …)`); the rule it implements is unclear.
 - Event code `0x2a2` used by after-battle trigger registrations (`0x09c2c578`) and the other timing codes raised elsewhere (`0x03`, `0x04`, `0x08`, `0x09`, `0x1e`, `0x20`–`0x22`, `0x25`).

@@ -152,7 +152,7 @@ Unnamed functions in the table were given a meaning from their id set or their c
 
 | Measure | Value |
 | --- | --- |
-| `engine_only` cards with at least one descriptive tag | 266 of 273 (97.4 %) before the engine-mapped rule; 37 of the 42 that remain `engine_only` now (`--check --spec`; previous commit: 88 of 95) |
+| `engine_only` cards with at least one descriptive tag | 266 of 273 (97.4 %) before the engine-mapped rule; 17 of the 21 that remain `engine_only` now (`--check --spec`; previous commits: 37 of 42, 88 of 95) |
 | Best descriptive confidence per card | H 105, M 132, L 29 (of the 273); H 7, M 9, L 21 (of the 42) |
 | Cards with only generic tags | 5: alias cards with `ai_hint`, `archetype` and `name_alias`, and one with an `unclassified` test |
 

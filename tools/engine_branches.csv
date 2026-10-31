@@ -1,0 +1,28 @@
+card_id,function,when,effect,amount,condition,confidence,basis
+0x0ead,0x09c0b204,continuous,attribute_becomes,DARK,Crystal Beast monsters on the field,M,duel_core_get_attribute case (battle.md / effect-helpers-misc.md third round)
+0x0ead,0x09c02d48,continuous,attribute_becomes,DARK,Crystal Beast cards outside the field while it is active,M,duel_core_get_off_field_attribute: duel_core_count_active_card(0x0ead)
+0x0ead,0x09dd5454,damage_calculation,battle_damage_set,0,its controller sends 1 Crystal Beast from the Deck (prompt kind 8; sub-steps 0x73 / 0x480),M,battle.md step 6; duel_core_send_deck_ref_to_graveyard then player marker 0x0ead kind 4
+0x0ead,0x09ce2230,attack_declared,negate_battle_opponent,,a Rainbow Dragon (card_db_is_rainbow_dragon) battles; marker kind 9 on the opposing monster,M,duel_core_mark_battle_opponent_negated
+0x1d14,0x09ce2230,attack_declared,negate_battle_opponent,,the equipped monster battles an opponent's monster; marker kind 9 on that monster,M,duel_core_mark_battle_opponent_negated (0x09be8148 link test)
+0x14a5,0x09c29bd4,sent_to_graveyard,player_marker,kind 1,command 0x2d then player marker 0x14a5 with its card reference,L,body of duel_core_send_list_card_to_graveyard (unnamed; the gating local is not decoded)
+0x197f,0x09be5eb8,card_moved,detach_effect,,its attached location effect is detached when the card leaves the location,L,unnamed 0x09be5eb8 (card-move commands): duel_core_detach_effect for a list of Graveyard / banished effects
+0x1419,0x09ddef8c,state_reset,remove_marker,,its marker is removed with the other acquired markers of the monster,L,unnamed 0x09ddef8c (pending-work pointer)
+0x1ad5,0x09ddef8c,state_reset,remove_marker,,its own marker (Level gain) is removed with the other acquired markers,L,unnamed 0x09ddef8c
+0x130e,0x09dcc1e0,activation,target_side,opponent,equip icon (3): the default side of its target prompt is the opponent's,L,unnamed 0x09dcc1e0 (with Flint / Ekibyo Drakmord / Mask of the Accursed / Germ Infection)
+0x1292,0x09dc5a4c,battle,battle_damage_multiply,x2,it is the attack target; damage to the attacker's controller,H,battle.md: duel_core_battle_resolve
+0x1750,0x09dc5a4c,battle,battle_damage_multiply,x2,direct attack by it,H,battle.md: duel_core_battle_resolve
+0x19f2,0x09dc5a4c,battle,battle_damage_multiply,x2,the attack target is a Rock-Type (Type 6) monster in Defense Position; damage to the attacker's controller,H,battle.md: duel_core_battle_resolve (duel_core_count_active_card)
+0x1663,0x09dc5a4c,battle,battle_damage_set,1000,damage dealt by the equipped monster,H,battle.md: duel_core_battle_resolve (links counted from the equip)
+0x1589,0x09dd7528,battle_damage,battle_damage_to_effect_damage,same amount,damage it deals to the opponent (player marker set in duel_core_battle_resolve),H,battle.md: step 7 duel_core_inflict_card_damage
+0x14a4,0x09dc4330,battle,battle_damage_redirect,opponent,damage its controller would take from its battle (effect active),H,battle.md: duel_core_battle_add_damage
+0x1c7d,0x09dc4330,battle,battle_damage_redirect,opponent,damage its controller would take from its battle (effect active),H,battle.md: duel_core_battle_add_damage
+0x1439,0x09dc5a4c,battle,add_counter,1 (counter 0x0d),it is the attack target and the attacker is not immune,H,battle.md: duel_core_battle_resolve (duel_core_add_counters)
+0x1743,0x09dc5a4c,battle,lock_battle_opponent,,face-up Attack Position; marker kind 6 naming its slot on the other monster,H,battle.md: duel_core_battle_resolve
+0x14bc,0x09dc5150,destroyed_by_battle,negate_destroyed_effects,flip only,another face-up Fiend-Type monster on its side,H,battle.md: duel_core_get_battle_destroyed_negation
+0x182b,0x09dc5150,destroyed_by_battle,negate_destroyed_effects,flip only,,H,battle.md: duel_core_get_battle_destroyed_negation
+0x18ad,0x09dd3bd4,attack_declared,spell_trap_lock,until the end of the Damage Step,first declaration; player marker 0x18ab on the opponent,H,battle.md: step 4; marker read by duel_effects_is_activation_locked
+0x1c7e,0x09dd3bd4,attack_declared,spell_trap_lock,until the end of the Damage Step,first declaration (Gemini effect active); player marker 0x18ab on the opponent,H,battle.md: step 4
+0x1135,0x09dd7ae4,after_damage_calculation,destroy_after_turns,5,the monster it attacked (command 0x46 key 0x112f),H,battle.md: step 8
+0x16bf,0x09ce096c,rule_check,destroy_self,,in face-up Defense Position,H,duel_core_check_defense_position_destruction
+0x1343,0x09cde3e0,rule_check,destroy_duplicate_names,,a face-up monster shares its name with another face-up monster,M,duel_effects_apply_unique_name_rule
+0x182d,0x09c28074,battle_damage,atk_gain_marker,marker kind 3,direct attack damage by it (the +1000 itself is applied by the marker reader),M,battle.md: duel_core_apply_battle_damage
