@@ -473,12 +473,12 @@ address,group,name
 0x08edf718,,thunk_FUN_08835ebc
 0x08edf720,,thunk_FUN_08836104
 0x08edf728,,thunk_FUN_0883634c
-0x08edf730,,thunk_FUN_08836358
+0x08edf730,deck,thunk_duel_setup_load_decks
 0x08edf738,,thunk_FUN_08836718
 0x08edf740,,thunk_FUN_08836724
 0x08edf748,,thunk_FUN_08836734
 0x08edf750,world,thunk_world_get_character_category
-0x08edf758,,thunk_FUN_088367bc
+0x08edf758,deck,thunk_deck_is_player_deck_recipe
 0x08edf760,,thunk_FUN_088369e0
 0x08edf768,,thunk_FUN_088369f4
 0x08edf770,,thunk_FUN_08836a0c
@@ -1322,7 +1322,7 @@ address,group,name
 0x08ee11a0,,thunk_FUN_08855d68
 0x08ee11a8,,thunk_FUN_08855d98
 0x08ee11b0,,thunk_FUN_08855ddc
-0x08ee11b8,,thunk_FUN_0885600c
+0x08ee11b8,save,thunk_save_get_stored_deck
 0x08ee11c0,,thunk_FUN_0885604c
 0x08ee11c8,,thunk_FUN_08856080
 0x08ee11d0,save,thunk_save_get_card_record
@@ -1549,7 +1549,7 @@ address,group,name
 0x08ee18b8,deck,thunk_deck_get_recipe_level
 0x08ee18c0,deck,thunk_deck_get_recipe_name
 0x08ee18c8,deck,thunk_deck_load_recipe
-0x08ee18d0,,thunk_FUN_0885c528
+0x08ee18d0,deck,thunk_deck_get_recipe_card_list
 0x08ee18d8,,thunk_FUN_0885c660
 0x08ee18e0,,thunk_FUN_0885ca28
 0x08ee18e8,deck,thunk_deck_get_owner_recipe_count
