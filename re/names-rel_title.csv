@@ -292,38 +292,6 @@ address,group,name
 0x08e9e254,ui,ui_title_get_fade_state,H,returns 0x08eea400 (set to 1 by ui_title_start_screen_fade, tested == 2 before applying pending state)
 # family title_imports
 0x08ede5d0,ui,ui_title_draw_module_overlays,M,mode 0xf: select_card draw import 0x08ee1958 and window 0x8eea9b8; mode 9: charalist draw import 0x08ede828
-0x08ede7c8,ui,ui_call_cardalbum_0ab67a89,H,import stub, rel_title .lib.stub: libcardalbum_rel NID 0x0ab67a89 (provider base unknown); caller 0x08ec902c
-0x08ede7d0,ui,ui_call_cardalbum_ee554159,H,import stub, rel_title .lib.stub: libcardalbum_rel NID 0xee554159; caller 0x08ec8f1c
-0x08ede7d8,ui,ui_call_cardalbum_43ab5667,H,import stub, rel_title .lib.stub: libcardalbum_rel NID 0x43ab5667; caller 0x08ec8f1c
-0x08ede7e0,ui,ui_call_charalist_open,M,import stub libcharalist_rel NID 0x0b63a183; called (mode 5, heap) right after module 0xd loads, before polling 0x08ede7e8
-0x08ede7e8,ui,ui_call_charalist_update,M,import stub libcharalist_rel NID 0xfd65b042; polled after open, returns 1 (chosen) or 2 (cancelled)
-0x08ede7f0,ui,ui_call_charalist_6e5ebe0f,H,import stub, rel_title .lib.stub: libcharalist_rel NID 0x6e5ebe0f; caller 0x08eb4f84
-0x08ede7f8,ui,ui_call_charalist_e11636ec,H,import stub, rel_title .lib.stub: libcharalist_rel NID 0xe11636ec; callers 0x08eacc04, 0x08ec2ce4
-0x08ede818,ui,ui_call_charalist_get_selected_character,M,import stub libcharalist_rel NID 0x342a4009; first picker result, stored +0x44 and passed as the opponent to the minigame
-0x08ede820,ui,ui_call_charalist_get_selected_variant,M,import stub libcharalist_rel NID 0xbac2ba34; second picker result, stored +0x48 next to the character id
-0x08ede828,ui,ui_call_charalist_draw,M,import stub libcharalist_rel NID 0x99d1857c; called only from draw paths while the picker is open
-0x08ede830,ui,ui_call_charalist_close,M,import stub libcharalist_rel NID 0xb80f59ad; called once the picker returned 1 or 2
-0x08ede838,deck,deck_call_deck_tutorial_e5389f40,H,import stub, rel_title .lib.stub: libdeck_tutorial_rel NID 0xe5389f40; caller 0x08ec9890
-0x08ede840,deck,deck_call_deck_tutorial_4e16f5a6,H,import stub, rel_title .lib.stub: libdeck_tutorial_rel NID 0x4e16f5a6; caller 0x08ec9778
-0x08ede848,deck,deck_call_deck_tutorial_9f1777a8,H,import stub, rel_title .lib.stub: libdeck_tutorial_rel NID 0x9f1777a8; caller 0x08ec9778
-0x08ede850,ui,ui_call_duelrecord_6adb95db,H,import stub, rel_title .lib.stub: libduelrecord_rel NID 0x6adb95db; caller 0x08ec90f0
-0x08ede858,ui,ui_call_duelrecord_420f9405,H,import stub, rel_title .lib.stub: libduelrecord_rel NID 0x420f9405; caller 0x08ec90f0
-0x08ede860,ui,ui_call_duelrecord_8d53dc42,H,import stub, rel_title .lib.stub: libduelrecord_rel NID 0x8d53dc42; caller 0x08ec91fc
-0x08ee1908,deck,deck_call_limitlist_e69a45d2,H,import stub, rel_title .lib.stub: liblimitlist_rel NID 0xe69a45d2; caller 0x08ec929c
-0x08ee1910,deck,deck_call_limitlist_56e1ca7a,H,import stub, rel_title .lib.stub: liblimitlist_rel NID 0x56e1ca7a; caller 0x08ec929c
-0x08ee1918,deck,deck_call_limitlist_780ba2ad,H,import stub, rel_title .lib.stub: liblimitlist_rel NID 0x780ba2ad; caller 0x08ec9414
-0x08ee1920,deck,deck_call_recipe_viewer_98e7e882,H,import stub, rel_title .lib.stub: librecipe_viewer_rel NID 0x98e7e882; caller 0x08ec8a50
-0x08ee1928,deck,deck_call_recipe_viewer_099048e2,H,import stub, rel_title .lib.stub: librecipe_viewer_rel NID 0x099048e2; caller 0x08ec8a50
-0x08ee1930,deck,deck_call_recipe_viewer_363d43c5,H,import stub, rel_title .lib.stub: librecipe_viewer_rel NID 0x363d43c5; caller 0x08e9c3a0 (a draw path)
-0x08ee1938,ui,ui_call_select_card_open,M,import stub libselect_card_rel NID 0xbf2b46d7; called (2, cfg {heap, art reader, archive}, &count, list) after module 0x1d loads
-0x08ee1940,ui,ui_call_select_card_update,M,import stub libselect_card_rel NID 0x5b395307; polled each frame, 1 = picking finished (list copied)
-0x08ee1948,ui,ui_call_select_card_0787468b,H,import stub, rel_title .lib.stub: libselect_card_rel NID 0x0787468b; caller 0x08edceac (a gate query)
-0x08ee1950,ui,ui_call_select_card_close,M,import stub libselect_card_rel NID 0x4d3d501f; called by ui_card_trade_release when flag bit 0 says the picker is open
-0x08ee1958,ui,ui_call_select_card_draw,M,import stub libselect_card_rel NID 0xcfa64443; called from ui_title_draw_module_overlays in card-trade mode
-0x08ee1968,ui,ui_call_tutoriallist_c1b2b589,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0xc1b2b589; caller 0x08ec96d8
-0x08ee1970,ui,ui_call_tutoriallist_41015b0f,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0x41015b0f; caller 0x08ec9510
-0x08ee1978,ui,ui_call_tutoriallist_cf2830ff,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0xcf2830ff; caller 0x08ec9510
-0x08ee1980,ui,ui_call_tutoriallist_f498562a,H,import stub, rel_title .lib.stub: libtutoriallist_rel NID 0xf498562a; caller 0x08ec9510
 # family title_input
 0x08eb26a8,ui,ui_title_is_confirm_or_cancel_pressed,H,returns 1 if pad +4 has the confirm (0x08836a98(0)) or cancel (0x08836a98(1)) button
 0x08ebd470,ui,ui_title_read_start_confirm_cancel,M,pad +4: START (8) -> 0, confirm button 0x08836a98(0) -> 1, cancel 0x08836a98(1) -> 2, SE 0x7a05/0x7a06
@@ -701,3 +669,41 @@ address,group,name
 0x08eb27d4,ui,ui_title_draw_wireless_card_gift,M,draw for subs 0x10-0x13: layouts 8/0xf, windows, help message and tushin box 0x08eea6b4
 0x08eb2a08,ui,ui_title_draw_wireless_card_gift_help,M,tushin message 0x55 for subs 0x10-0x13 in window (9,0x67,0x135,0x10)
 0x08eb2ad0,ui,ui_title_draw_wireless_card_gift_caption,M,window callback: tushin message 0x34 at y+0x10, colour 0xff404040
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family card_trade
+0x08edceac,ui,ui_card_trade_check_session_gate,M,0 when 0x08eeda4c is 0xd/0x1d with bit 5 of 0x08eeda48; in sub-state 0xf calls select_card export 0x0787468b, result bit 7 of 0x08eec0dc
+# family font_px_wrappers
+0x08ebbeb8,ui,ui_title_option_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_title_draw_option_message
+0x08ec54e0,ui,ui_title_deck_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width
+0x08ec577c,ui,ui_title_date_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; caller ui_title_draw_date_time
+0x08ec58a4,ui,ui_title_draw_text_to_screen_edge,H,disassembly: font_draw_text(x<<6, y<<6, (480-x)<<6, text); caller ui_title_draw_number_text
+0x08ecb230,ui,ui_title_text_line_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; caller ui_title_split_text_lines
+0x08ed128c,ui,ui_title_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_title_draw_text_fit_width
+0x08ed1310,ui,ui_title_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; caller ui_title_draw_text_box
+0x08ed1390,ui,ui_title_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; caller ui_title_draw_text
+# family mini_result
+0x08ed6d5c,ui,ui_mini_result_is_layout_frame_101,H,disassembly: returns ui_menu_ctx_get_layout_frame(work 0x09aee308 +0x54, 0) == 0x65
+# family minigame_menu
+0x08ed8410,ui,ui_minigame_menu_set_step3_on_bar_anim,M,sets minigame work 0x09aee30c +0xc = 3 when ui_title_get_menu_bar_anim_phase() != 0
+0x08ed8740,ui,ui_minigame_menu_stub_noop_list,M,disassembly: frame only, loads work pointers and returns; caller ui_minigame_menu_update_list
+# family partner_menu
+0x08ed1e68,ui,ui_partner_menu_is_layout_frame_101,H,disassembly: returns ui_partner_menu_get_layout_frame(0) == 0x65
+# family title_duel_setup
+0x08ec37c8,ui,ui_title_check_deck_valid_copy,M,copies the 0xc0-byte deck record to the stack and returns deck_check_deck_valid(copy, 0); caller ui_title_build_deck_list
+0x08ec3830,ui,ui_title_get_character_default_deck,M,0 for the player/char 0x2e; else builds the deck list and returns the recipe (+4) of the last 6-byte entry with flags&3 != 0
+0x08ec4c94,ui,ui_title_draw_deck_select_entry,M,one row of the deck list: recipe name / stored deck / NO DATA / owner name and number; caller ui_title_draw_deck_select_list
+0x08ecd51c,ui,ui_title_set_duel_setup_layout_position,H,when layout +0x7c+4*i of work 0x09aee300 exists, ui_ehf_set_position(layout, x, y), else 0
+0x08ecd648,ui,ui_title_duel_setup_is_link_tag_layout,M,kinds 8/9/10 -> 0; else work +0x10 set and system_net_api_get_peer_count >= 3 (same as ui_duel_versus_is_link_tag_layout)
+# family title_library
+0x08ec9d04,ui,ui_title_call_unload_library_module,H,only calls ui_title_unload_library_module; caller ui_title_update_partner_deck_select
+# family title_stubs
+0x08ea127c,ui,ui_title_stub_return_1_wireless,M,returns 1; callers are the wireless/comm slot handlers (handle_wireless_tag_input, refresh_comm_player_slot, ...)
+0x08eb91dc,ui,ui_title_stub_return_list_window,M,returns its display-list argument unchanged (empty frame); no direct callers, between the title message-window draw functions
+0x08ec2aa4,ui,ui_title_stub_noop_comm_menu,M,jr ra; called from ui_title_update_comm_menu
+0x08ec9068,ui,ui_title_stub_noop_state23_update,M,empty frame; ui_title_update_state jump-table case 23 (between card album 22 and duel record cases)
+0x08ec9080,ui,ui_title_stub_noop_state23_draw,M,empty frame; ui_title_draw_state case matching ui_title_stub_noop_state23_update
+# family title_window
+0x08ebd71c,ui,ui_title_draw_name_entry_frame,M,menu ctx 0x08eede64 image 2: nine-slice at (0x15,0xaf) 0xc5x0x8b and panel part 0xe; caller ui_title_draw_name_entry
+# family title_wireless
+0x08ea8f28,ui,ui_title_copy_wireless_record,M,copies 4 halfwords + 3 words (20 bytes), returns dst; caller ui_title_update_wireless_menu

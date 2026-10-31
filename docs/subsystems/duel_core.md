@@ -135,7 +135,7 @@ Basis and method: `system.md`, same section. 517 new `duel_core` names in `rel_d
 | Family | Count | Evidence |
 | --- | --- | --- |
 | `export_accessors` | 57 | The exported getters and setters at `0x09be147c`–`0x09be20ec`: turn, seed, local side, duelist kinds, LP, list counts and references, slot fields, hooks. |
-| `engine_commands`, `engine_command_stubs`, `command_posts` | 64 | Command handlers. The jump table of `duel_core_execute_command` at `0x09e00944` was decoded from the module file; it agrees with every documented code. Command `0x22` makes a side concede: its LP become 0 and the opponent gets win reason `0xc` (surrender) or `0xd` (turn limit). |
+| `engine_commands`, `engine_command_stubs`, `command_posts` | 64 | Command handlers. The jump table of `duel_core_execute_command` at `0x09e00944` was decoded from the module file; it agrees with every documented code. Command `0x22` makes a side concede: its LP become 0 and the opponent's block `+0x30` gets the reason passed in `b` (`0xc` from `duel_core_action_surrender`; `0xd` skips UI event `0x35`, poster unknown; the "turn limit" reading of `0xd` is withdrawn, the turn-limit win is reason 11 of `duel_core_check_win`). |
 | `effect_records` | 33 | Find, count and detach records in the effect pool `0x09e2c7cc`. |
 | field, hand, deck, graveyard and banished counts | 61 | Counting queries (`duel_core_count_tokens` …). `0x09bf9cec` has the same body as `duel_core_count_monsters` (`_alt`). |
 | `list_primitives` | 22 | Append, insert and remove for hand, deck, extra deck, graveyard and banished; card-instance allocation. |
@@ -150,11 +150,16 @@ Basis and method: `system.md`, same section. 517 new `duel_core` names in `rel_d
 
 Duel set-up block fields seen by `rel_duel_mgr` (M, not yet in `save.md`/`tutorial.md`): `+0x188` seed, `+0x18c` first player, `+0x190` mode, `+0x192` 1 single / 2 tag, `+0x193` tutorial lesson, `+0x194` BGM set, `+0x196` LP mode, `+0x197` time limit, `+0x198`/`+0x19c` custom LP. The BOOT duel session at `0x08836718` is `0x398` bytes: `+0x00`–`+0x0c` turn timers, `+0x34`… per-game results.
 
-Findings to reconcile:
+Findings to reconcile, settled on 2026-10-31 (round 2):
 
-- `0x09c0f55c` `duel_core_request_pick_hand_cards` (L) is probably a Tribute selection: its mode-9 worker `0x09c11fec` calls `duel_core_begin_select_tributes` with the filter `0x09c114e0`, which accepts only monster zones that pass `duel_core_can_tribute_for_effect`.
-- `0x09be1840` returns the turn counter `0x09e2d1e0` (now `duel_core_get_turn_counter`); `duel_core_set_turn` (`0x09be184c`) writes that counter, and the registry's `duel_core_get_turn_count` is a different 508-byte function (`0x09befbc0`). Both names deserve a check.
-- `summon.md` lists the `0x61` handler as not read; `tutorial.md` documents it as `0x09dbe9cc`.
+- `0x09c0f55c` `duel_core_request_pick_hand_cards` → **`duel_core_request_tribute_for_effect` (changed, M).** It posts card request mode 9 (`0x09e2d2e8 = 9`, side, source `side | slot << 8`, count in the low byte and an optional Type in the high byte of the third argument). The worker `duel_core_card_request_select_tributes_step` (`0x09c11fec`) counts and selects field slots with `duel_core_filter_tribute_selection_candidate` (`0x09c114e0`: zones 0–4 that pass `duel_core_can_tribute_for_effect`, of the Type when one is given, not the source, not yet picked). Callers are cost handlers. `effect-helpers-misc.md` is corrected.
+- Turn names → **`duel_core_set_turn` renamed `duel_core_set_turn_counter` (H)**: it writes the turn counter `0x09e2d1e0` that `duel_core_get_turn_counter` (`0x09be1840`) returns. **`duel_core_get_turn_count` renamed `duel_core_get_slot_turn_count` (H)**: it reads the per-slot `u16` at slot entry `+0x0c` (`0x09e2a568 + slot·0x14`) for cards whose `card_db_get_turn_counter_rule` is positive, with card-specific conditions, and returns −1 otherwise; it has nothing to do with the global turn counter.
+- `0x61` → **settled, `summon.md` corrected**: `duel_core_execute_command` case `0x61` calls `duel_core_cmd_show_summon_declaration` (`0x09dbe9cc`), as `tutorial.md` says.
+- Command `0x22` → **settled** (`summon.md`, "Open questions"): surrender posts reason `0xc`; the meaning of `0xd` is open.
+
+## Round 2 of the 2026-10-31 naming
+
+Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 40 new `duel_core` names: 13 more `duel_core_view_*` wrappers in `rel_duel_draw`; in `rel_duel_eng` the engine command 8 handler `duel_core_cmd_show_declaration` (`0x09dbc6d8`: shows `duel_core_show_declaration_message` with the command arguments, then clears the busy word `0x09e29904`), the duelist timers of the BOOT session (`duel_core_get_duelist_timer_seconds`/`_value`), and six 8-byte entries that fix an argument and enter a neighbour's body (`duel_core_can_send_slot_to_graveyard`/`_to_hand` …).
 
 ## Open questions
 

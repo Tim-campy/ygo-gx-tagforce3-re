@@ -277,8 +277,45 @@ Basis and method: `system.md`, same section. 764 new `world` names.
 - `rel_field` (219): the module is a set of components with init, reset, shutdown, update and draw, called from the lists `0x090d88ec`, `0x090d89e4`, `0x090d8968`; frame loop update `0x090d8098`, draw `0x090d8188`. Families: `field_resources` 36 (field heap `0x780000`, asynchronous load queue, fixed and pooled resources of kinds 0–8), `island_map` 23, `field_player` 17, `field_npcs` 17, `field_map` 16, `sandwich_roulette` 14 (request 25, `goldegg_pan` model), `field_requests` 13 (handlers without a direct caller, matched to requests 7, 8, 9, 19, 22, 23 and 25 by behaviour; not yet checked against the request table `+0x2df0c`), `overhead_icons` 12, `field_pickups` 11, `field_characters` 10, `field_draw_list` 8 (122 entries of `0x50` bytes at `0x098971c0`, sorted by view depth with `qsort`), `field_partner` 8, `field_debug` 4 (a debug entry with map select and `save_add_dp(99999)`, M). Pick-ups write occupancy value 4 into the cell grid; `field-maps.md` lists only 3 and 5.
 - `rel_story` (198): `duel_setup` 35 (set-up block `0x08ecdd50`, duel request `0x08ece428`), `field_state` 21 (`0x08ece52c`), `record_getters` 20 and `record_setters` 11 (runtime record `+0x5c`), `map_pickups` 14, `scene_ctx` 12 (story block `+0x3250`), `story_states` 10, `story_scene` 10, `runtime_records` 10, `overlays` 8, `npc_record_getters` 8.
 
+### Field request table (checked 2026-10-31, round 2)
+
+The finding of the round above, that the `field_requests` handlers were matched to requests "by behaviour" and not against the table, is settled: `rel_field.prx` `+0x2df0c` holds 33 entries of three module-relative words `{start, poll, unused (0)}` (runtime = `0x090ced00` + word), read from the module file. Most poll handlers and nine start handlers had no function in Ghidra (only data references); they are created and named now (`field_request_polls`, `field_requests`). Every poll is "busy flag == 0" (18 and 25 also return a result word).
+
+| # | Start | Meaning (story side in `story.md`) |
+| --- | --- | --- |
+| 0 | `world_field_req_scene_setup` | scene parameters; busy until `world_field_on_ui_resource_loaded` (`0x090dee74`, formerly `world_field_req_bind_ui`: it is the resource-load callback, not a request) |
+| 1 | `world_field_req_set_event_mode` | event mode, command bar |
+| 2 | `world_field_req_island_map` | island map |
+| 3 | `world_field_load_map` | map and exit cells (`field-maps.md`) |
+| 4, 5 | `world_field_req_release_map`, `world_field_req_release_character_models` | release pools |
+| 6 | `world_spawn_pickups` | pick-ups |
+| 7, 8 | `world_field_req_npc_list`, `world_field_req_update_npc` | NPCs (the earlier matching was right) |
+| 9 | `world_field_req_place_player_at` (`0x090de508`) | jumps into `world_field_req_place_player` (`0x090df2ec`), so that name and its "request 9" basis stand |
+| 10 | `world_field_req_set_partner` | partner follower |
+| 11–14 | `world_field_req_preload_portraits`, `dialogue_field_req_release_portraits`, `dialogue_field_req_show_portraits`, `dialogue_field_req_set_portrait_expressions` | portraits |
+| 15 | `dialogue_field_req_close_talk_windows` (`0x090cf980`, M) | `close_talk`/`close_talk_of` |
+| 16 | `world_field_req_begin_walk` | free walk (poll `world_field_poll_action`) |
+| 17, 18 | `dialogue_field_req_talk_line`, `dialogue_field_req_choice_menu` | talk line, choice menu (poll returns the option) |
+| 19 | `ui_field_req_picture` | picture |
+| 20, 21 | `world_field_req_camera_shake`, `world_field_req_stop_camera_shake` | camera shake on/off |
+| 22 | `world_field_req_fade` | fade (1 in, 0 out; `dialogue.md`) |
+| 23 | `ui_field_req_show_card_get` (jumps to `ui_field_show_card_get`) | `give_card` |
+| 24 | `ui_field_req_dp_change` | `dp_add`/`dp_sub` |
+| 25 | `world_field_req_buy_sandwich` (M) | `buy_sandwich` (command state `0x11`, the sandwich roulette; poll returns the item) |
+| 26 | `world_field_req_hud_marker` | `hud_marker` |
+| 27 | `world_field_req_store_param_27` | stores a word at `0x09106b18`; meaning open |
+| 28 | `ui_field_req_partner_points_anim` (jumps to `ui_field_req_set_partner_icon_anim`) | `partner_points_add` mood animation; so `0x090d60b8` is the request-28 body and keeps its name |
+| 29 | `world_island_begin_session` | island session (poll `world_island_poll_result`) |
+| 30 | `world_field_req_30` | sets `0x09899e10`/`0x09899e0c`; meaning open |
+| 31, 32 | `world_field_req_start_field`, `world_field_req_end_field` | start/end the field |
+
+## Round 2 of the 2026-10-31 naming
+
+Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 94 new `world` names: the 26 `rel_story` sub-module states (`dialogue.md`), the `rel_field` request handlers (table above), story globals and field-state accessors (`+0x160`–`+0x168`).
+
 ## Open questions
 
+- Field requests 27 and 30 (table above).
 - The meaning of the field result codes 7 and 9–15 (other game modes). (The island-map list is the set of disabled destinations, `field-maps.md`.)
 - Where the item menu's counts live: the counters at field state `+0x94` are only decremented in `rel_story`; the field module's Item menu (and the event items 101–104, bandanna, barrette, hat, autograph) was not read. PPSSPP (Session C): buying a sandwich and giving or eating it never writes them (an eaten sandwich gives a card at once); what the menu counts is still open.
 - Which driver result queues `(301, 8/9/10/11, …)` (duel win/loss, events) and the exact role of the story flags 21–29 in `world_driver_next_event`.

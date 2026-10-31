@@ -38,7 +38,7 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 | word 1, 10–13 | level | 0 for spells and traps. |
 | word 1, 14–16 | icon | Spell/trap sub-type: 0 normal, 1 counter (Solemn Judgment), 2 field (Fallen Paradise), 3 equip, 4 continuous, 5 quick-play, 6 ritual (Black Luster Ritual). |
 | word 1, 17–21 | type (race) | 1 Dragon, 2 Zombie, 3 Fiend, 4 Pyro, 5 Sea Serpent, 6 Rock, 7 Machine, 8 Fish, 9 Dinosaur, 10 Insect, 11 Beast, 12 Beast-Warrior, 13 Plant, 14 Aqua, 15 Warrior, 16 Winged Beast, 17 Fairy, 18 Spellcaster, 19 Thunder, 20 Reptile, 21 Psychic, 22 Divine-Beast, 23 spell, 24 trap. Basis: public card data for each value (for example Kairyu-Shin 5, Skull Servant 2, Mind Master 21); the same order, doubled, appears in ygotfToolkit's notes for TF4. |
-| word 1, 22–31 | unknown | Values 0 (2,337), 1 (513), 3 (386), 4 (317). The game reads it as a 3-bit field, bits 22–24 (`card_db_get_prop_bits22`, `0x08832bdc`, exported); bits 25–31 are not read by any getter. |
+| word 1, 22–31 | unknown | Values 0 (2,337), 1 (513), 3 (386), 4 (317). The game reads it as a 3-bit field, bits 22–24 (`card_db_get_prop_bits22`, `0x08832bdc`, exported); bits 25–31 are not read by any getter. In `rel_shop` it behaves as the card's **rarity** (2026-10-31, M): values 1/2, 3 and 4–6 select the three reveal effects, values 4/3/1 the reveal sounds `0x7a5f`/`0x7a60`/`0x7a61` and the icon cell `0x2027`, and it is sort key 3 of the obtained-cards list (`shop.md`). |
 
 ## `CARD_Pass.bin`, `CARD_IntID.bin`
 

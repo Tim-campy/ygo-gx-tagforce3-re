@@ -73,7 +73,7 @@ The `step*` argument of `field_3d_update_model` is a small record, not a bare fl
 
 The game runs one main-loop iteration per displayed frame and caps it at 30 frames per second:
 
-- `system_main` (`0x08833734`) loops: `system_scene_run_slice`, `save_tick_frame_counter`,
+- `system_main` (`0x08833734`) loops: `system_scene_run_slice`, `system_run_frame_services` (was `save_tick_frame_counter`),
   `system_scene_run_frame` (`0x0881d24c`, calls the current frame callback from the handler table
   `0x08920c48`: 12 bytes per entry = id, frame callback, leave callback; current index at `0x08920ca8`;
   `system_scene_set_frame_callback(id, cb, leave)` `0x0881d2d0` runs the old leave callback and stores
@@ -123,8 +123,11 @@ Request path: an engine message reaches `rel_duel_draw` through `rel_duel_mgr` (
 `ui_dispatch_draw_command` at `0x08e9b0fc`, `0x08e9d984`, `0x08eab0c0`, …). `ui_dispatch_draw_command`
 (`0x09899364`, exported) sorts the 75-entry command table `0x098d0180` (12 bytes: id, argument count,
 handler) once with `qsort`, binary-searches the id and calls the handler. **Command 7, one argument** is
-`field_3d_cmd_set_backdrop` (`0x09899cdc`) → `field_3d_backdrop_request(id)`. Which engine event sends
-command 7 with which id (activation, destruction of the field spell) is not traced yet.
+`field_3d_cmd_set_backdrop` (`0x09899cdc`) → `field_3d_backdrop_request(id)`. The only sender is the engine
+command handler `duel_core_cmd_change_field_spell` (`0x09dbc94c`, command `0x13`, read 2026-10-31): it stores the
+command's `b` word in `0x09e2bbc8` (the current field-spell id), posts UI event 7 with it once, waits until event 7 is
+no longer busy, normalises the effect records and posts UI event `0x26`. Which ids the rules pass (the field
+spell's card id, 0 when it leaves) is still to be traced.
 
 Manager record `0x098e69a0` (`0x220` bytes, cleared by `field_3d_backdrop_init` `0x0985a9d8`): two slots
 of `0x28` bytes at `+0x00` and `+0x28` (double buffering for the change-over), `+0x50` current slot,
@@ -190,11 +193,15 @@ Basis and method: `system.md`, same section. 775 new `field_3d` names.
 
 Field-spell extras: the switch of `field_3d_backdrop_start_extra` (`0x0985c324`) ties each creator to a card: `0x0987aee0` Chorus of Sanctuary, `0x0987b450` Umiiruka, `0x0987c598` Molten Destruction, `0x0987d014` Mystic Plasma Zone, `0x0987df00` Pandemonium, `0x0987eb08` Mausoleum of the Emperor, `0x0987f004` Jurassic World, `0x0987f5e0` Venom Swamp; `0x0987ad08` is the Final Countdown transition. The texture-name table `0x098cfe8c` has 36 `.gim` entries; 0x19–0x22 are the per-card field textures. Draw event 7 (`field_3d_cmd_set_backdrop`) is posted only by the engine command handler `0x09dbc94c` (partly answers an open question below).
 
+## Round 2 of the 2026-10-31 naming
+
+Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 109 new `field_3d` names, 99 in `rel_duel_draw`. The effect tasks that the first round knew only by sound id are named after the UI event that starts them, with the sound in the basis (family `card_fx_tasks`, 36): card set (`0x7a17`), summon (`0x7a1c`), destroy (`0x7a18`), Tribute (`0x7a3c`), Fusion/Synchro material (`0x7a38`/`0x7a3c`), card travelling between zones, card pop-up. The event → sender map comes from the draw command table `0x098d0180` and the `jal duel_core_post_ui_event` sites with a constant `a0` in `rel_duel_eng` (read from the module files). Events `0x3c`/`0x3d` are the coin and the dice (object table `0x098d0960`: models `coin01`, `dice01`), event `0x40` the Destiny Board letters (`duel_ouija.gim`), case 7 of the duel-end dispatcher `0x0989bdb0` Final Countdown (win reason 7). Fourteen more per-character cut-in callbacks were tied to characters by disassembling `field_3d_cutin_get_chara_setup`.
+
 ## Open questions
 
 - Answered 2026-10-31 (static, high): `field_3d_update_model` advances 1.0 frame per game frame for backdrops and cut-ins, at a game rate capped at 29.97 per second ("Frame timing and playback rate"); the backdrop loops (flags 2), the cut-in plays once (flags 0). Still to confirm in PPSSPP (F10): the effective rate during a duel, which may drop under load.
 - Answered 2026-10-31: the loader of `duel/bg/fmagic<id>.ehp` and the caller of `field_3d_apply_scene_etc` ("Field-spell backdrop manager").
-- Which engine event emits draw command 7 and with which id (field spell resolved, field spell leaves the field: presumably 0, low); trace from `rel_duel_eng` or with a PPSSPP breakpoint on `0x09899cdc`.
+- Which ids engine command `0x13` carries (the sender of draw command 7 is now known, "Field-spell backdrop manager"): field spell resolved, field spell leaves the field (presumably 0, low); trace the `0x13` pushes in `rel_duel_eng` or break on `0x09899cdc` in PPSSPP.
 - What the eight card-specific extras (`field_3d_backdrop_start_extra`) draw, and the change-over task `0x0987a604` (duration, fade or wipe).
 - Texture-mapping callbacks `0x0882ef50` / `0x0882f050` (layer types 1/2).
 - How the group mask `inst+0x64` reaches the draw hook (`hook+0x10`).

@@ -22,7 +22,7 @@ Prompt functions near `0x09dc7200`–`0x09dc7c00` all have the same shape: if th
 | `0x09dc76c8` (pick one of up to four card ids, 17 callers) | 4 | `0x09d9f654` | `0x09d9a1fc`, `0x09d9a4b4` |
 | `0x09dc790c` | 6 | `0x09d9f8a4` | `0x09d9c2c4` |
 | `0x09dc795c` | 7 | `0x09d9f9a8` | `0x09d9d238` |
-| `0x09dc79c0` (chain/response prompt; reads the pending link `0x09e290bc`) | 8 | `0x09d9e204` | `0x09d48720` among others |
+| `0x09dc79c0` `duel_core_ask_summon_position` (summon position prompt; passes fields of the summon record `0x09e290bc`, `summon.md`; corrected 2026-10-31) | 8 | `0x09d9e204` | `0x09d48720` among others |
 | `0x09dc7a88` | 9 | `0x09d9f434` | `0x09d99fe0` (per-card coin/odd-even answers, `duel_core_random(2)` default) |
 | `0x09dc7adc` | 10 | `0x09d9f31c` | `0x09d99db8` (Sixth Sense number choice) |
 | `0x09dc7b60` (choose a number in a range) | 11 | `0x09d9f1d4` | `0x09d999dc` (per-card values, e.g. a random 4–8) |
@@ -49,7 +49,7 @@ The phase/step handlers are function-pointer tables at `0x09e01da0` (`0x09de0094
 
 | Step | Function | What it tries, in order (confidence M unless noted) |
 | --- | --- | --- |
-| 0 | `ai_main_state_open` `0x09d8b184` | Rebuild view and plan; summon set-up (`0x09d9284c`); **table A** (105 opening spells such as Heavy Storm, Harpie's Feather Duster); field/flip checks (`0x09d8c79c`); hand spells (`0x09d899a8`); comeback table if losing; main table and position changes (`ai_try_main_cards`). |
+| 0 | `ai_main_state_open` `0x09d8b184` | Rebuild view and plan; summon set-up (`0x09d9284c`); **table A** (105 opening spells such as Heavy Storm, Harpie's Feather Duster); field/flip checks (`0x09d8c79c`); hand monsters' Special Summons (`ai_try_hand_special_summons` `0x09d899a8`, which walks hand monsters with `duel_core_get_special_summon_mask`; formerly read as "hand spells"); comeback table if losing; main table and position changes (`ai_try_main_cards`). |
 | 1 | `ai_main_state_summon` `0x09d93f6c` | Summon enablers (table C), special summons (`ai_choose_special_summon`), normal summon or set (`ai_choose_normal_summon` → `ai_execute_summon`), then the same sequence again after re-planning; skips summoning while the opponent controls Swords of Revealing Light. |
 | 2 | `ai_main_state_summon_extra` `0x09d94cf4` | Double Summon / Chain Summoning once per turn (flags `0x09e03070` bits 0–1), then hand spells, comeback, main table, set monsters (`0x09d94740`), second summon. |
 | 3 | `ai_main_state_battle_check` `0x09d9524c` | Decides whether to enter battle: battle-phase cards (`ai_try_battle_cards`), plan value `ai_get_plan_value(side) == 0` and no attacker → skip battle. |
@@ -309,10 +309,16 @@ Basis and method: `system.md`, same section. 577 new `ai` names in `rel_duel_eng
 
 Findings to reconcile:
 
-- `ai-helpers.md` describes `0x09d30dc8` as "the opponent's attacker would win the battle"; the code returns 100 only for card `0x1bb3` and the ATK for `0xec2`.
-- `0x09cec59c` compares the visible **DEF** with the best ATK when slot `+0x06 == 0` (Attack Position), unlike `0x09cec388`; either the game swaps them or the reading of `+0x06` needs a check.
-- The prompts table calls dialog 8 (`0x09dc79c0`) "reads the pending link `0x09e290bc`"; by `summon.md` that address is the summon record. `0x09d899a8` ("hand spells") walks hand monsters with `duel_core_get_special_summon_mask` and is now `ai_try_hand_special_summons`.
-- The Morphtronic Datatron evaluators `0x09d8e848`/`0x09d8eb68` estimate −600 LP in Defence and −300 in Attack, the reverse of the card; named by value (`_600`/`_300`) until PPSSPP decides.
+Settled on 2026-10-31 (round 2):
+
+- `0x09d30dc8` → **named `ai_get_relative_atk_bonus` (M), `ai-helpers.md` corrected.** It is not "the opponent's attacker would win": it returns 100 for The Wicked Avatar (`0x1bb3`, unless slot flag `0x100` is set), the target's visible ATK when Clear Vice Dragon (`0xec2`) is the attacker, else 0. Callers: `ai_eval_attack` and three AI handlers.
+- `0x09cec59c` `ai_can_best_attacker_beat_a_monster` → **kept; the code is confirmed and differs from `0x09cec388`.** Both functions use the same stats frame (`duel_core_get_card_stats` out `+0x18` ATK, `+0x1c` DEF, `stat-modifiers.md`) and the same slot `+0x06` (0 = Attack Position, H in `duel_core.md`). `ai_can_boost_win_battle` (`0x09cec388`) compares ATK in Attack Position and DEF in Defence Position, as the rules do; `0x09cec59c` does the opposite (DEF for an Attack Position monster, ATK for a Defence Position one). So the original AI misjudges this case; a faithful port should keep it. To confirm in PPSSPP (one breakpoint on `0x09cec59c` with a monster in each position).
+- Dialog 8 (`0x09dc79c0`) → **prompts table corrected**: the function is `duel_core_ask_summon_position` and it passes fields of the summon record `0x09e290bc` (`summon.md`). The main-loop row now calls `0x09d899a8` `ai_try_hand_special_summons`.
+- Morphtronic Datatron → **renamed, no reversal.** `0x09d8e848` runs only for a monster in Defence Position (`+0x06 != 0`) and `0x09d8eb68` only for a face-up Attack Position monster; each evaluates what the monster gains from a **position change**: changed to Attack Position, Crass Clown (Defence→Attack trigger) and Datatron's 600 damage; changed to Defence Position, Dream Clown and Blade Rabbit (Attack→Defence triggers), Datatron's 300, Morphtronic Clocken, Yubel. That matches the card text. Now `ai_eval_change_to_attack_position` and `ai_eval_change_to_defense_position` (M); callers `ai_try_main_cards` (position changes).
+
+## Round 2 of the 2026-10-31 naming
+
+Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 95 new `ai` names in `rel_duel_eng` (M except a few H). The "truncated inner parts" of `ai_eval_attack` (`0x09d06188`) are separate helpers, not mis-split code: the function boundary is correct. They work on a 68-byte attack result with one block per side at `+0x14 + side·0x18` (`+0x16` destination of the destroyed card, `+0x20` battle damage, `+0x24` LP loss by effects, `+0x28` value lost) plus the destroyed mask `+0x0e`, a flag `+0x06` and the result class `+0x02`: `ai_attack_result_get_destroyed_destination` (`0x09d1c99c`), `ai_attack_result_add_card_lp_change` (`0x09cfe484`), `ai_attack_result_add_chosen_targets` (`0x09cfe5f8`), `ai_attack_result_add_side_losses` (`0x09d04a88`), `ai_eval_destroyer_battle_effects` (`0x09cfe7c8`), `ai_eval_destroyer_graveyard_effects` (`0x09cff044`, only when the destination is `0x0e`), `ai_eval_destroyed_monsters_effects` (`0x09d01288`), `ai_eval_battle_card_effects` (`0x09d015b8`), `ai_eval_battle_damage_effects` (`0x09d050b0`), `ai_rate_monster_loss_value` (`0x09d0457c`), `ai_sim_redirect_attack_to_slot` (`0x09d04914`: Dreamsprite, White Night Dragon, Amber Mammoth) and `ai_is_attack_trade_favorable` (`0x09d05734`). Other families: per-card choosers and scorers (21), summon choice and filters (17; five per-card veto chains carry generic `_a`…`_d` suffixes because only their card list tells them apart), attack-declared responses (5). Several AI handler stubs are 8-byte entries that load an argument and jump into a shared body (`0x09d76574`, `0x09d7e92c`, `0x09d6de24`), as `ai-helpers.md` describes.
 
 ## Open questions
 

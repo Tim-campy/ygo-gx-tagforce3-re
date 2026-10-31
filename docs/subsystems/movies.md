@@ -49,6 +49,6 @@ What this means for the port plan: treat the 73 movies as **disc data to be conv
 ## Open questions
 
 - Which 3DS decode path plays the converted movies with enough margin (needs a measurement on hardware). The install-time conversion itself is done (`psmf.py --convert`); what remains is the target codec and resolution of the port-side re-encode.
-- Call sites of `system_movie_create_player` in `rel_title`, `rel_story` and `rel_duel_draw`: when the opening starts (boot, after an idle timeout on the title screen), whether a button skips it, and what the game does if the file is missing.
+- Call sites of `system_movie_play` in `rel_title`, `rel_story` and `rel_duel_draw`: when the opening starts (boot, after an idle timeout on the title screen), whether a button skips it, and what the game does if the file is missing.
 - What selects between the base and the `_a` movie names, why `ouijaboard_death` has no file on this disc, and whether a localised variant per language exists (the opening has no language suffix).
 - A PPSSPP check of the playback timing (`docs/verification/ppsspp-plan.md` has no movie check yet).

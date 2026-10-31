@@ -88,7 +88,7 @@ One generic player serves all of them. It is a thin layer over the `sceMpeg` imp
 
 | Address | Name | `sceMpeg` calls it makes |
 | --- | --- | --- |
-| `0x0882b964` | `system_movie_create_player` | `sceMpegQueryMemSize`, `Create`, `Init`, `RingbufferQueryMemSize`, `RingbufferConstruct`, `RegistStream`, `MallocAvcEsBuf`, `QueryAtracEsSize`, and the matching destroy calls |
+| `0x0882b964` | `system_movie_play` (formerly `system_movie_create_player`: it also runs the playback loop and tears the player down) | `sceMpegQueryMemSize`, `Create`, `Init`, `RingbufferQueryMemSize`, `RingbufferConstruct`, `RegistStream`, `MallocAvcEsBuf`, `QueryAtracEsSize`, and the matching destroy calls |
 | `0x0882c294` | `system_movie_flush_video` | `sceMpegAvcDecodeFlush`, `sceMpegRingbufferAvailableSize` |
 | `0x0882c4d0` | `system_movie_query_stream` | `sceMpegQueryStreamOffset`, `sceMpegQueryStreamSize` |
 | `0x0882d554` | `system_movie_decode_audio` | `sceMpegGetAtracAu`, `sceMpegAtracDecode` |

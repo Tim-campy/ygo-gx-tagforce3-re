@@ -149,6 +149,8 @@ All take a test (`test`: 1 true / 2 false) or a comparison (`cmp`: 1 `==`, 2 `!=
 | 50028 | `if_card_marked` | card, test | `BOOT.BIN` `0x0885654c(card)` | Bit 3 of byte 0 of the card's save-collection record (`save.md`; `0x088560e4` maps the id to the record). Always used as "if not marked: show, give and mark the card". | H (code), M (meaning) |
 | 50037 | `if_partner` | char, test | `0xb04c` | W `+0x14` == char. W `+0x14` is the character `duel_tag_partner` takes as partner and whose points 50084/50085 change; the dialogue inside the blocks is spoken by that character. | M |
 | 50021, 50024–50027, 50029, 50030, 50032, 50035, 50038–50040, 50042–50045 | `if_<opcode>` | — | various | Unused; getters not identified. | — |
+| 50042 (unused) | `if_<opcode>` | test | `0x08ea8170` (`dialogue_op_if_setting_b0_bit3`) | `dialogue_test_bool(save_test_setting_b0_bit3(), a1)`, else skip to `0xc39b`. | H (code) |
+| 50030 (unused) | `if_<opcode>` | deck, test | `0x08ea7d50` | `deck_is_player_deck_recipe(a1)` tested with `a2`; on failure it skips to `0xc38e`, the `endif` of 50029, not to its own `0xc38f`: a slip in the game that matters only if the opcode is used (port: keep the behaviour). | H (code) |
 | 50031, 50033, 50034, 50036, 50041, 50046 | `nop` | — | empty | Unused openers with an empty handler. | H (code) |
 
 ### Story state, rewards, money
@@ -166,7 +168,7 @@ All take a test (`test`: 1 true / 2 false) or a comparison (`cmp`: 1 `==`, 2 `!=
 | 50097 | `give_card` | card (4007–6397), show | `0xfb70` | Field request 23 (card display) then `BOOT.BIN` `0x08856248(card, show)`. | M |
 | 50098 | `give_random_card` | pack (60000 = random), rarity lo, hi | `0xf7a0(1)` | Pack index `a1`, or `rand() % 48` when `a1` ≥ 60,000; draws one card with a rarity in [lo, hi] from the pack lists in the module and gives it with `give_card`'s routine. "There was a card in the sandwich!" | M |
 | 50099 | `give_booster` | pack, rarity lo, hi | `0xf7a0(5)` | As 50098 but first 4 cards with rarity range (0, 4), then one in [lo, hi]: a 5-card booster. 279 uses, mostly `(60000, 3, 4)`. | M |
-| 50100 | `mark_card` | card | `BOOT.BIN` `0x08856510` | Sets bit 3 of the card's collection flags. | H (code) |
+| 50100 | `mark_card` | card | `BOOT.BIN` `0x08856510` | Sets bit 3 of the card's collection flags. The handler `0x08ea87dc` (`dialogue_op_mark_card`) is a tail jump to the import stub with `a1`, which is why Ghidra decompiles it as empty. | H (code) |
 | 50103 | `set_pack_state` | pack (0–47 or 60000), state | `0xde70` | `BOOT.BIN` `0x08857484(pack, state)` writes 3 bits of a per-pack byte; with 60000 the first pack from 3 whose state is < 2 gets state 4. Used next to duel prizes: presumably unlocks shop packs. | M (code), L (meaning) |
 
 ### Scene, sound, pictures
@@ -174,7 +176,7 @@ All take a test (`test`: 1 true / 2 false) or a comparison (`cmp`: 1 `==`, 2 `!=
 | Opcode | Name | Arguments | Handler | Effect | Conf. |
 | --- | --- | --- | --- | --- | --- |
 | 50111 | `picture` | id (1–86), op | `0xe010` | op 1 shows picture `id` (`id` 1/2 are mapped to −2/−3), op 2 hides it (−1); field request 19. Showing also sets bit `id` of a save bit array (`BOOT.BIN` `0x088580a0`): presumably the gallery unlock. 509 uses, typically between `fade_out` and `fade_in`. | M |
-| 50112 / 50113 | `fade_in` / `fade_out` | frames (30, 60, 300), flag | `0xe108` → `0xa70(on, wait, frames)` | Field request 22 with on = 0 / 1. | M |
+| 50112 / 50113 | `fade_in` / `fade_out` | frames (30, 60, 300), flag | `0xe108` → `0xa70(on, wait, frames)` | Field request 22 with on = 1 / 0 (50112 passes 1, 50113 passes 0; `world_fade_screen(1)` follows the location set-up and `(0)` precedes leaving the field, and the `rel_field` handler calls `system_start_fade_in` for 1, `system_start_fade_out` for 0). | H |
 | 50114 / 50115 | `npc_appear` / `npc_leave` | char | `0xe17c` | Builds a character's placement from its set-up data (50114) or marks it gone (state 4, 50115) and sends field request 8. 50115 used 142×. | L |
 | 50116 / 50117 | `screen_effect` / `screen_effect_end` | kind (1–3) | `0xe354` / `0xe414` | Field requests 20 / 21; used around portal and "dimension" scenes. | L |
 | 50118 | `hud_marker` | target (1, 7) | `0xe468` | Field request 26 with `0x4758(target)`: 1 → −1, 0/2 → 0, 3–7 → 1–5. The `rel_field` handler (`0x9aa8`, runtime `0x090d87a8`) arms one of two on-screen markers: values 0–4 call `0x90d5fa4(10, 5, v)` (marker A with sub-index `v`), 5 calls `0x90e5b20(10, 5)` (marker B), −1 clears both. Used in pairs `7 … 1` around the seller lines that point at the DP counter, so 7 = point at the DP display, 1 = off. 8 uses. | M (code), L (which element 0–4 is) |
@@ -192,7 +194,7 @@ The per-character record is returned by `0x2b94(char)`.
 | --- | --- | --- | --- | --- |
 | 50158 | `scene_map` | map (1–30), b (0/2) | Field state `+0x14` = map, `+0x18` = b; map 2 sets system flag 30. Once in each of the 218 set-up records. | M |
 | 50159 | `scene_player` | direction (8–11), x, y | Player position `(x·0.5 + 0.25, y·0.5 + 0.25)` and direction (`0x453c`: 8→1, 9→3, 10→5, 11→7) into W `+0x8/+0xc/+0x10`. | M |
-| 50160, 50161 | `npc_place`, `npc_place_b` | char, location | Location id → position via `BOOT.BIN` `0x0885ad14`; record `+0x40`. | L |
+| 50160, 50161 | `npc_set_variant`, `npc_set_variant_b` | char, row | Handler `0x08ea99c4` (`dialogue_op_npc_set_variant`): `world_get_character_key(row)` gives the variant of character-table row `a2`, written to the runtime record of character `a1` at `+0x40` (`world_set_record_event_variant`). No location or position is involved (this row said so before 2026-10-31). | H |
 | 50162 | `npc_deck` | char, deck | Record `+0x42` (`0x3670`): during an event `0x3178(char)` returns it instead of the free-roam deck-recipe index `+0x24` (65000 = no override, reset by `0x35c8` at event start). `0x3178` is the index passed to `deck_get_owner_recipe(char, …)` by the duel set-ups ("Duels" below) and by the deck refresh `0x3940`. Values 2, 3, 9; 8 uses. | M |
 | 50164 | `op_50164` | char, value | Record `+0x44`. Unused. | — |
 | 50166 | `npc_event` | char, group, number | Record `+0x46`–`+0x4a`: the record the **Duel** command runs for this character during the event (`world_handle_field_action`, high). `(0, 0)` in 833 uses; otherwise group 301 and a number 204–340. Earlier hypothesis: the event that talking to the character starts (301 is a header `a1`). | L |
@@ -238,7 +240,8 @@ The per-character record is returned by `0x2b94(char)`.
 | 50104 | `advance_time` | slots | `0xdf54`: `world_change_time(2)` for 0 (one slot), else `world_change_time(3, slots)`. Unused. | H (code) |
 | 50105 | `set_time_slot` | slot (5) | `0xdfb0`: `world_change_time(4, slot)` (`0x5ba8`): jump to that slot of the day, with the new-day and per-slot updates (`world.md`). 2 uses, after the choice to attend class and before `exit_111`. | H (code) |
 | 50106 | `next_day` | — | `0xdfdc`: `world_change_time(5)`. Unused. | H (code) |
-| 50096, 50101, 50154 | `op_…` | — | Unused. | — |
+| 50096, 50101 | `op_…` | — | Unused. | — |
+| 50154 | `op_…` | track | Unused in the scripts. Handler `0x08ea980c` (`dialogue_op_prefetch_bgm`): `audio_prefetch_snddat_block(dialogue_map_bgm_track(a1))`. | H (code) |
 | 50141 | `op_50141` | — | `0xa96c(1)`. Unused. | — |
 | 50088, 50089, 50092, 50093, 50095, 50102, 50107, 50109, 50110, 50135, 50136, 50142, 50143, 50146, 50147, 50157, 50173, 50174 | `nop` | — | Empty handlers. | H (code) |
 
@@ -256,9 +259,9 @@ The bytecode findings (10-byte instructions, `EveBI` record starts, text referen
 ## Open questions
 
 - The driver around `0xb3c8` (how the field module picks the record to run, how the exit codes are consumed).
-- What the field-module requests (33 entries in `rel_field.prx` at `0x2df0c`) do on the field side, in particular 13/14 (talk window), 19 (picture), 20/21, 24 (DP display) and 28 (11 and 26 are read under `preload_portrait` and `hud_marker`); and which save fields the `BOOT.BIN` getters read (DP, per-character points, pack state, picture bits).
+- Which save fields the `BOOT.BIN` getters read (DP, per-character points, pack state, picture bits). The field side of the 33 requests is now listed in `docs/subsystems/world.md` ("Field request table"); requests 27 and 30 remain unexplained.
 - The meaning of `talk`'s `a3` flag (0/1; 148 uses with 1, often on lines like "..."), of `npc_event`'s `(301, n)` pair, of the `duel_rules`/`duel_option` bytes, and the order of the duel follow-up keys (win/loss/draw?).
-- Every opcode in use now has a name (the nine formerly open ones and 50126–50128 were read on 2026-10-30). Readings that a PPSSPP trace should confirm: which on-screen element each `hud_marker` value points at (sub-index 0–4 of marker A), the 1,500 ms fade of `bgm_stop`, and what story state 46 after `finish_partner_story` shows. Unused opcodes still without a name: 50096, 50101, 50123–50125, 50141, 50154, 50164, and the unread `if` getters.
+- Every opcode in use now has a name (the nine formerly open ones and 50126–50128 were read on 2026-10-30). Readings that a PPSSPP trace should confirm: which on-screen element each `hud_marker` value points at (sub-index 0–4 of marker A), the 1,500 ms fade of `bgm_stop`, and what story state 46 after `finish_partner_story` shows. Unused opcodes still without a name in `tools/story.py`: 50096, 50101, 50123–50125, 50141, 50154 (handler read: BGM prefetch), 50164, and the unread `if` getters (50030 and 50042 read).
 - The `《Cnnn_k》` forms 1–5, and whether `nnn` equals the speaker id in `a1` of 50001/50002/50009. The ranges overlap (2–141 vs 001–151), but this is not proven.
 - Where `《…》` placeholders and `$M`/`$C` are expanded in code, and whether the bracketed tokens in `SysMsg` are placeholders at all.
 - Whether the empty lines (158 per language) are ever displayed.

@@ -243,5 +243,5 @@ Not named in this round (left for the AI agent or for later): the AI wrappers an
 - `card_db_get_flip_kind`: what value 2 (Kinka-byo, Mecha Bunny, Royal Keeper, the flip spirits …) means to the summon code.
 - Archetype 60 (`0x08862fec`) tests ids missing from the English database; check the Japanese database.
 - Command `0x28`: the two uses (reveal/target number, and `c = 0xffff` for targets after the fifth) should be confirmed in its handler.
-- The card request posted by `0x09c0f55c` (mode 9, arguments `(side, a, b)`, called by six cost handlers) and the zone request of `duel_core_request_spell_trap_zone` (block `0x09e2d2c0`, kind 3): their workers are not yet read.
+- The card request posted by `0x09c0f55c` is read (2026-10-31): `duel_core_request_tribute_for_effect`, mode 9, Tribute of field monsters as a cost (`effect-helpers-misc.md`). Still open: the zone request of `duel_core_request_spell_trap_zone` (block `0x09e2d2c0`, kind 3): their workers are not yet read.
 - `duel_core_add_statistic`: map the statistic indexes (`0x34`/`0x35` Spell Counters) to the duel-record screen or save data.

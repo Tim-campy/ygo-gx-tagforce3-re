@@ -53,7 +53,7 @@ address,group,name
 0x09dc82cc,duel_core,duel_core_parse_ydq_line
 0x09dc8208,duel_core,duel_core_set_phase
 0x09dc07f8,duel_core,duel_core_push_command
-0x09be184c,duel_core,duel_core_set_turn
+0x09be184c,duel_core,duel_core_set_turn_counter,H,writes the turn counter 0x09e2d1e0 read by duel_core_get_turn_counter; was duel_core_set_turn
 0x09be1400,duel_core,duel_core_post_ui_event
 0x09be1448,duel_core,duel_core_is_ui_event_busy
 0x09be1804,duel_core,duel_core_get_phase
@@ -596,7 +596,7 @@ address,group,name
 0x09bf8388,duel_core,duel_core_count_active_card_affecting
 0x09bf91d8,duel_core,duel_core_count_active_timed_cards
 0x09befdbc,duel_core,duel_core_is_within_turn_limit
-0x09befbc0,duel_core,duel_core_get_turn_count
+0x09befbc0,duel_core,duel_core_get_slot_turn_count,H,u16 at slot entry +0x0c (0x09e2a568 + slot*0x14) for cards with card_db_get_turn_counter_rule > 0, -1 otherwise; was duel_core_get_turn_count
 0x09c1ab2c,duel_core,duel_core_post_advance_turn_count
 0x09bf93c0,duel_core,duel_core_count_active_cards_value_at_least
 0x09bf92b0,duel_core,duel_core_count_active_cards_with_value
@@ -995,7 +995,7 @@ address,group,name
 0x09bf9d58,duel_core,duel_core_count_monsters_matching_both
 0x09c7bf94,duel_effects,duel_effects_attach_effect_to_self_kind2
 0x09c8ad6c,duel_effects,duel_effects_attach_effect_to_self_kind3
-0x09c0f55c,duel_core,duel_core_request_pick_hand_cards
+0x09c0f55c,duel_core,duel_core_request_tribute_for_effect,M,card request mode 9: worker duel_core_card_request_select_tributes_step selects count field monsters (filter: can_tribute_for_effect, optional Type, not the source); was duel_core_request_pick_hand_cards
 0x09c27870,duel_core,duel_core_post_announce_slot
 0x09bf1b30,duel_core,duel_core_count_deck_cards_matching
 0x09c033a8,duel_core,duel_core_count_hand_cards_named
@@ -2198,8 +2198,8 @@ address,group,name
 0x09d81da4,ai,ai_eval_ice_master_targets,M,opponent monsters stronger than ctx ATK with counter type 0x10 (Ice Counter); callers ai_handler_check_*_1b71 (Ice Master)
 0x09d83664,ai,ai_can_outclass_with_per_target_boost,M,targets (duel_effects_filter_monster_target_b) x 1000 + own ATK >= ai_get_best_visible_battle_stat of the opponent
 0x09d8e664,ai,ai_has_targets_for_linked_1ee3,M,duel_core_count_links_from(side, slot, 0x1ee3); rewrites ctx to the face-up 0x1ee3 S/T card and counts targets
-0x09d8e848,ai,ai_eval_morphtronic_position_effect_600,M,builds a ctx at chain top for a slot with +6 set; Morphtronic Datatron 0x1ec4 case estimates -600 LP; caller ai_try_main_cards
-0x09d8eb68,ai,ai_eval_morphtronic_position_effect_300,M,same ctx build for a face-up slot with +6 clear; Datatron 0x1ec4 case -300 LP, Clocken eval; caller ai_try_main_cards
+0x09d8e848,ai,ai_eval_change_to_attack_position,M,only for a slot in Defense Position (+0x06 != 0): Crass Clown 0x1005 (Defense->Attack trigger), Datatron 0x1ec4 600 damage in Attack Position; was ai_eval_morphtronic_position_effect_600
+0x09d8eb68,ai,ai_eval_change_to_defense_position,M,only for a face-up Attack Position slot: Dream Clown, Blade Rabbit (Attack->Defense triggers), Datatron 300 and Clocken in Defense, Yubel; was ai_eval_morphtronic_position_effect_300
 # family ai_card_filters
 0x09d79da4,ai,ai_filter_level_8,M,returns card_db_get_level(card) == 8; filter pointer placed among AI handlers
 0x09d86fe0,ai,ai_filter_psychic_level_5_plus,M,card_db_get_race == 0x15 (Psychic) and level > 4
@@ -5630,3 +5630,181 @@ address,group,name
 0x09dd2a0c,duel_core,duel_core_filter_attack_target_slot,H,zone callback: 0x800 for an opponent monster zone that duel_core_is_valid_attack_target accepts for attacker 0x09e28620/0x09e2863c
 0x09dd34f4,duel_core,duel_core_filter_attack_cost_tribute,M,zone callback near battle_step_attack_costs: 0x800 for a monster duel_core_can_tribute_for_effect accepts, other than the attacker itself
 0x09de23f4,duel_core,duel_core_filter_tribute_other_own_monster,M,zone callback: 0x800 for a turn-player monster that can_tribute_for_effect accepts, other than slot 0x09e2d21c
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family ai_attack_response
+0x09d21de0,ai,ai_should_negate_current_attack,M,Attack-declared helper: Morphtransition 0x1ef6, Hero Barrier 0x195f, Magical Dimension 0x1678, Necro Gardna 0x1c0a; ai_sim_current_attack test
+0x09d21fa8,ai,ai_should_block_current_attack,M,Opponent attacking (0x09e28620); skipped while Waboku 0x1316 / 0x1805 / 0x1d3b active; Mirror Wall 0x1381 halves ATK in the sim
+0x09d221a0,ai,ai_should_target_current_attacker,M,Attacker slot in mask; cases Sakuretsu Armor 0x16a7, Dimensional Prison 0x1ce8, Enemy Controller 0x1581, Lightsworn Barrier 0x1e54 with sim attack
+0x09d22588,ai,ai_has_better_mass_attack_trap,M,Attackers sum >= 3000 and side holds Mirror Force 0x1317, Radiant Mirror Force 0x1be1 (3+), Cell Explosion Virus 0x1c9d or Froggy Forcefield 0x1dde
+0x09d22740,ai,ai_is_revive_response_worthwhile,M,Revive cards Call of the Haunted 0x137d, Birthright 0x1b65, Limit Reverse 0x1dd4, Emergency Teleport 0x1e43: estimated ATK/DEF vs value, LP check
+# family ai_battle_plan
+0x09d1c960,ai,ai_plan_get_attack_entry_by_order,M,plan+0x14c+16*i >= 0 -> plan+0xc4+32*idx, else plan+0x24+32*u16(plan+0x146+16*i); same layout as ai_plan_get_attack_entry
+# family ai_battle_queries
+0x09d30dc8,ai,ai_get_relative_atk_bonus,M,The Wicked Avatar 0x1bb3 (not flag 0x100): 100; Clear Vice Dragon 0xec2 when it attacks: the target's visible ATK; else 0; caller ai_eval_attack
+# family ai_candidate_pickers
+0x09d3f8c0,ai,ai_choose_rescue_cat_candidates,M,Called from ai_choose_candidate_by_card case 0x1876 (Rescue Cat); simulates candidate pairs + extra-deck plan 0x09d39c2c, pair in 0x09e03068
+0x09d41eec,ai,ai_find_opponent_graveyard_benefit_candidate,M,First candidate kept by ai_reject_candidate, owned by the other side, for which ai_is_graveyard_benefit_card holds; -1 if none
+0x09d426d0,ai,ai_choose_name_copy_candidate,M,Cases Hero Mask 0x1dc2, Elemental Hero Prisma 0x1d43, The Rival's Name 0xea9: marks table-usable cards, ai_choose_monster_candidate_with_score_fn
+# family ai_candidate_scores
+0x09d3ac7c,ai,ai_get_spell_search_priority,M,Rank 1..13 for 12 spells, Reinforcement of the Army 0x14d0 first, Dimension Fusion 0x1712 last; 0 otherwise; caller ai_reject_candidate
+0x09d3ec34,ai,ai_score_candidate_for_1ba1,M,Address loaded in ai_choose_candidate_by_card case 0x1ba1 (Crystal Beacon); ai_score_card_for_current_link + ai_score_candidate_by_location
+0x09d3ffe0,ai,ai_score_candidate_for_1dda,M,Address loaded in ai_choose_candidate_by_card case 0x1dda (Arcana Call); card level when link +0x12 equals ai_get_fixed_coin_call + 1
+# family ai_card_choosers
+0x09d4e6f0,ai,ai_score_target_for_12d1,M,Address loaded in ai_choose_target_for_12d1 (Mind Control); moves the slot to the other side in sim, scores with 0x09d39c2c + ai_score_plan_improvement
+0x09d4ecc0,ai,ai_score_target_for_0eba,M,Address loaded in ai_choose_target_by_card case 0xeba (Dark Psycho Eye); visible ATK, or battle stat + ai_can_attack_now
+0x09d4ed94,ai,ai_score_equip_target_by_planned_attack,M,Shared by ai_choose_target_by_card cases 0xec6, 0x1e3d, 0x1237, 0x1e46, 0x130d ... 0x1842; own slot ATK when its plan entry attacks and destroys
+0x09d4ee9c,ai,ai_score_target_for_0ec8,M,Address loaded in ai_choose_target_by_card case 0xec8 (Attribute Chameleon); records link slot, ai_choose_declared_attribute without current ones
+0x09d4fbe0,ai,ai_score_cost_for_1e79,M,Address loaded in ai_choose_cost_by_card case 0x1e79 (id only, no name in cards.csv); 1 for the link's own slot, else 2 or 3 by 0x09c004fc
+0x09d4ffb0,ai,ai_score_target_for_12e2,M,Scorer of 0x09d501f4 (Magical Arm Shield 0x12e2): moves the opponent monster to own zone in sim, ai_sim_current_attack result tiers
+0x09d501f4,ai,ai_choose_target_for_12e2,M,Called from ai_choose_target_by_card case 0x12e2 (Magical Arm Shield); free own zone, shuffled opponent slots scored by 0x09d4ffb0
+0x09d505b8,ai,ai_choose_target_for_1b71,M,Called from ai_choose_target_by_card case 0x1b71 (Ice Master); skips planned targets, ai_score_ice_counter_target, own side with Cold Enchanter 0x1b10
+0x09d56770,ai,ai_score_target_for_138d,M,Address loaded in ai_choose_target_for_138d (Ring of Destruction); ATK tiers vs ctx +0x10/+0x12 thresholds and the current attacker
+0x09d57148,ai,ai_score_adjacent_zone_move,M,ai_choose_cost_by_card cases 0x1aef/0x1af0 (Rampaging Rhynos, Storm Shooter) call it twice: swaps ctx slot with slot+offset, ai_simulate_attack total
+0x09d59b64,ai,ai_score_target_for_1326,M,Address loaded in ai_choose_target_by_card case 0x1326 (Darkness Approaches); original ATK for 0x1cb2/0x1864/0x1838, Hourglass of Courage 0x120e
+0x09d5a32c,ai,ai_score_target_for_1763,M,Address loaded in ai_choose_target_for_1763 (Micro Ray); opponent defense-position slot DEF if >= ctx +0x0a
+0x09d5d6c8,ai,ai_score_cost_for_1c70,M,Address loaded in ai_choose_cost_by_card case 0x1c70 (Cloudian - Altus); Fog Counter (type 0x12) count x100, Nimbusman 0x1c62 kept
+0x09d5d9ac,ai,ai_score_cost_for_19b3_attacker,M,Address in ai_choose_cost_for_19b3 (Super Junior Confrontation) for opponent slots; ai_sim_battle_resolve per mask slot, results 0x09e27fd4/d8
+0x09d5db28,ai,ai_score_cost_for_19b3_defender,M,Address in ai_choose_cost_for_19b3 for own slots; ai_sim_battle_resolve against ctx +8 attacker, LP and destroy tiers
+0x09d5ee90,ai,ai_score_cost_for_1e49,M,Address in ai_choose_cost_by_card case 0x1e49 (Equip Shot); attaches the equip effect to the slot, ai_eval_attack, detaches
+0x09d5f120,ai,ai_choose_cost_for_1e49,M,Address in ai_choose_cost_by_card case 0x1e49 (Equip Shot); shuffles ai_get_target_mask slots scored by 0x09d5ee90
+0x09d5f2c0,ai,ai_score_cost_for_140b,M,Address in ai_choose_cost_by_card case 0x140b (Insect Imitation); ai_try_choose_candidates kind 6 with the level, estimated ATK*100 - ATK
+0x09d5fd40,ai,ai_score_flip_target_for_1d78_1d7b,M,Address loaded twice in ai_choose_target_for_1d78_1d7b (Worm Barses/Erokin); own flip effect rank (ai_eval_flip_effect, ai_rank_card_by_genre)
+0x09d67754,ai,ai_score_target_for_12dc,M,Scorer of 0x09d678ac (Ectoplasmer 0x12dc): half card ATK vs opponent LP, Lich Lord 0x1beb / Malice Doll 0x17de tiers
+0x09d678ac,ai,ai_choose_target_for_12dc,M,Called from ai_choose_hand_card_by_card_b case 0x12dc (Ectoplasmer); ai_pick_slot_by_threat, else shuffled own slots scored by 0x09d67754
+# family ai_conditions
+0x09d6b768,ai,ai_cond_has_hand_candidate,M,ai_count_acceptable_hand_candidates(controller, ctx card) > 0; between ai_cond_has_candidate and ai_can_choose_candidates_for_ctx; exported
+# family ai_handler_common
+0x09d6de24,ai,ai_handler_check_battle_by_cost_count,M,Shared body jumped to by ai_handler_check_battle_1a61/1a4b/10ac/1b08_1941/1d6b; counts cards to send (0x09e03068) until ATK beats best stat
+0x09d76574,ai,ai_handler_check_targets_12d1_common,M,Shared body: ai_handler_check_targets_12d1/_12d1_b (Mind Control) set arg 1/0 and j here; rule flag 0x80, target, tribute uses (0x16a0, 0x18ca)
+0x09d7e92c,ai,ai_handler_check_board_wipe_common,M,Shared body jumped to by ai_handler_check_battle_1707, ai_handler_board_wipe_effect, ai_handler_check_rule_state_1bc9 (hand card arg 0x18e8)
+# family ai_slot_pickers
+0x09d4d720,ai,ai_pick_target_by_score_fn_and_side_counts,M,Shuffles mask slots (duel_core_random) per side, keeps best callback score; side order from two count args; called 3x by ai_choose_target_by_card
+# family ai_slot_scores
+0x09d4f8a0,ai,ai_score_slot_sparing_18ab,M,Monster slots 200000-ATK (1 for Ancient Gear Golem 0x18ab), S/T by deck_get_current_card_limit unless linked to 0x18ab; no reference found
+# family ai_stubs
+0x09d744c8,ai,ai_stub_return_1_for_15c7,M,Returns 1; its address is loaded as a callback inside ai_handler_check_summon_15c7 (Cost Down)
+# family ai_summon_choice
+0x09d19fbc,ai,ai_call_eval_hand_summon_candidate,M,Exported pass-through to 0x09d19690 (hand-monster summon evaluator: tribute count, ai_choose_tributes, ai_plan_battle_with_summoned_monster)
+0x09d1a160,ai,ai_choose_best_summon_candidate,M,Walks field Gemini monsters (ai_eval_gemini_summon) and hand cards (0x09d19690), keeps the best in choice record 0x09e03080 via 0x09d18eb4; returns found
+0x09d1a558,ai,ai_sim_summon_get_position,M,Simulates summon (0x09d17310), reads slot +6 position word 0x09e2a562 (stats from card_db on failure), pops snapshot depth 0x09e27fee
+0x09d1a7fc,ai,ai_call_should_summon_in_defense,M,Exported pass-through to 0x09d1a820; caller ai_answer_dialog_kind_8 (summon-position prompt)
+0x09d1a820,ai,ai_should_summon_in_defense,M,Simulated summon then ai_filter_positions_by_lethal_attack: 0x10 (ATK) -> 0, 0x40 (DEF) -> 1; also 1 when ATK < 1400 and ATK <= DEF+200
+0x09d1c5a4,ai,ai_choose_summon_by_dominance_order,M,Builds a hand mask (summon mask 0x10, not worth keeping), then 0x09d1a160 with mode 2, then 0/1 per ai_get_battle_dominance, then -1
+0x09d362dc,ai,ai_eval_summon_plan_gain,M,Simulated summon 0x09d17310, compares battle plans (ai_compare_plans, ai_eval_dominance_change), falls back to extra-deck plan 0x09d39c2c; pops snapshot
+0x09d365ec,ai,ai_rate_extra_deck_summon_by_card,M,Per-card value for Storm Neos 0x1d12, VWXYZ 0x1954, Chimeratech Fortress 0x1ceb, Armityle 0x1cae, Neos fusions; tail-calls 0x09d362dc
+0x09d39c2c,ai,ai_find_best_extra_deck_summon_plan,M,duel_effects_build_candidate_list(side,0xfffe,0xc), ai_eval_extra_deck_summon per extra-deck card, best plan by ai_compare_plans; Rescue Cat 0x1876 case
+0x09d9902c,ai,ai_choice_has_special_card,M,Returns u16 0x09e03086 != 0 (choice record 0x09e03080 +6, card needing special handling, ai.md); exported
+# family ai_summon_filter
+0x09d31f24,ai,ai_filter_summon_requires_attack_chance,M,Callee of ai_filter_summon_mode_flags: Goku En 0x1eaf, Mist Archfiend 0x1bed, Goryu 0x1a21, Ohka 0x1a20 need can_monster_attack/can_enter_battle_phase
+0x09d320cc,ai,ai_filter_summon_flags_by_board_cards,M,Callee of ai_filter_summon_mode_flags; returns mode mask or 0: Yubel-Terror Incarnate 0x1cf2, Red Dragon Archfiend 0x1e37, spirits (0x10), Simorgh 0x1a40
+0x09d323e4,ai,ai_check_summon_card_conditions_a,M,Callee of ai_filter_summon_mode_flags; per-card chain: Thunder Nyan Nyan 0x13a4, Destructotron 0x1e29, Yubel 0x1cf1, Cure Mermaid 0x1454, 0x1298
+0x09d32908,ai,ai_check_summon_card_conditions_b,M,Callee of ai_filter_summon_mode_flags; Venom Swamp 0x1bfc, Stumbling 0x16d0 / Level Limit B 0x17a6 locks, Zombie Mammoth 0x1ea6, Yubel forms, 0xeb5
+0x09d32ef8,ai,ai_check_summon_card_conditions_c,M,Callee of ai_filter_summon_mode_flags; 5,564-byte per-card chain (Six Samurai copies, 0x1df6, 0x1d98, 0x1ec0, Golden Ladybug 0x1db9 with Fire Princess)
+0x09d345b8,ai,ai_check_summon_card_conditions_d,M,Callee of ai_filter_summon_mode_flags; per-card chain: 0x1eba dominance, 0x1d96, 0x1d3f race counts, 0x1b1a ai_would_deck_out, Fog King 0x1cec ATK < 0x709
+0x09d34ac0,ai,ai_check_summon_by_effect_card_conditions,M,Callee of ai_filter_summon_mode_flags; tests effect card param_4: chain links 0x1bad/0x1aa5, rule flag 0x80 card list, 0x1d85 banish material, 0x1ca6
+# family attack_result
+0x09cfe484,ai,ai_attack_result_add_card_lp_change,M,ai_estimate_card_lp_change into int[2]; losses added to result side +0x24, then marks side +0x1a / +0x1c or increments +0x1e; ai_eval_attack family
+0x09cfe5f8,ai,ai_attack_result_add_chosen_targets,M,Picks N targets/costs with ai_choose_target/cost_with_temp_link, ORs them into result +0x0e (destroyed mask, bit side*5+slot), marks side +0x1a / +0x1c
+0x09d0457c,ai,ai_rate_monster_loss_value,M,Max of sim record +0x34/+0x38 plus bonuses (Micro Ray 0x1763, Gladiator Beast +500, 5/4 of excess); ai_eval_attack adds it +1 to result side +0x28
+0x09d04a88,ai,ai_attack_result_add_side_losses,M,Adds ai_rate_monster_loss_value to result side +0x28 for the destroyed battler and each monster in the +0x0e mask; Destructotron 0x1e29 / race 0x15 rule
+0x09d1c99c,ai,ai_attack_result_get_destroyed_destination,M,Returns result side record +0x16 (destination from ai_sim_get_destroyed_card_destinations, compared to 0x0e); 0 for Dark Resonator 0x1e1c, Gyroid 0x18f1, Toons
+# family attr_query
+0x09cdead4,duel_core,duel_core_has_face_up_monster_attr_mask_fc,M,True if a face-up active monster (flag bits 1/3 clear) has duel_core_get_attribute_mask & 0xfc; callers battle_step_damage_end, 0x09d323e4
+# family battle_risk
+0x09cfabec,ai,ai_check_slot_battle_risk,M,Callers ai_review_battle_plan, ai_score_target_for_140c; 0 for monsters that leave anyway (Super Double Summon 0x1c8a, Kinka-byo 0x1e30); value vs ATK+1000
+# family card_list
+0x09cf8908,ai,ai_is_multi_attack_monster,H,List: Thousand Arms 0x1e92, Chimeratech Overdragon 0x1a4e, Chain Thrasher 0x19c1, Ben Kei 0x186c, Ultimate Tyranno 0x1a79, Asura Priest 0x1505
+# family cond_1bab
+0x09c6cf88,duel_effects,duel_effects_check_activation_1bab,M,Only caller duel_effects_activation_1bab; can_send_to_graveyard, count_candidates(card) >= 2, count_field_slots_passing(target_filter_shared_0fb6_x13)
+# family discard
+0x09cf4b90,ai,ai_rate_send_to_graveyard_benefit,M,Per-card value of sending a hand card: Gren 0x1b3f, Broww 0x1966, Dark World lords, Dandylion 0x19fe, Peten 0x17c5, D-Hero Malicious 0x1b25
+0x09cf50c4,ai,ai_has_discard_trigger_benefit,M,Dark World discard triggers: Reign-Beaux 0x1b3d, Goldd 0x1969, Sillva 0x1968 (free zone), Broww 0x1966 (no deck-out), Elephant Statues, Fear from the Dark
+# family duel_core_commands
+0x09dbc6d8,duel_core,duel_core_cmd_show_declaration,H,Engine command 8 handler: once (0x09e29908) duel_core_show_declaration_message(args 0x09e290f8..fe); clears busy 0x09e29904 when prompt idle
+# family duel_core_dialogs
+0x09dc74b8,duel_core,duel_core_post_human_dialog_3,M,For a human side (0x09e02998[side] == 0) posts UI event 0x36 kind 3 (a, b); callers cmd_show_message, offer_response_window
+0x09dc7be4,duel_core,duel_core_post_human_dialog_0c,M,For a human side posts UI event 0x36 kind 0x0c; callers duel_core_net_process_packet, duel_core_flow_report_result
+0x09dc7c28,duel_core,duel_core_post_human_dialog_0d,M,For a human side posts UI event 0x36 kind 0x0d (arg); callers card_request_discard_step, prompt_send_hand_to_graveyard
+# family duel_core_end_phase
+0x09ddf374,duel_core,duel_core_end_phase_clear_hand_reveal,M,End-phase table 0x09e014f4 entry (fn, 0x1db9 Golden Ladybug): each hand copy with the marker gets duel_core_post_hand_reveal_command(side, i, 0)
+# family duel_core_getters
+0x09dcd490,duel_core,duel_core_get_ptr_09e01dc8,M,Returns &0x09e01dc8 (word between turn table 0x09e01da0 and battle step table 0x09e01dcc); exported
+# family duel_core_list_activation
+0x09dcfd34,duel_core,duel_core_list_cond_can_activate_player_effect,M,Condition fn in list table 0x09e00dbc for Last Will 0x1315, Lady Panther 0x1449 ...; duel_effects_can_activate_packed_link(side<<31|0x500000|card)
+# family duel_core_player_input
+0x09dcfcfc,duel_core,duel_core_close_input_with_answer_0d,M,If input mode 0x09e2d24c is open: clears it, answer-ready 0x09e2d258 = 1, answer code 0x09e2d26c = 0x0d; exported
+# family equip
+0x09c15dfc,duel_core,duel_core_destroy_equipped_monster,M,duel_core_find_monster_equipped_to_slot(side, slot), then duel_core_request_destroy_slot_by_card(monster, 1, this slot's card id)
+# family estimate
+0x09ce4fec,ai,ai_estimate_dreadmaster_stat,M,Callers ai_estimate_card_atk/def; sums ATK/DEF of face-up Destiny Heroes and, under Clock Tower Prison 0x1a0c, two best GY D-Heroes except Dreadmaster 0x1a05
+# family eval_attack
+0x09cfe7c8,ai,ai_eval_destroyer_battle_effects,M,ai_eval_attack calls it when the side's battler is destroyed (0x09d1c99c); effects of the other battler: Attribute Bomb 0xec6, Spirit of the Six Samurai 0x1c82
+0x09cff044,ai,ai_eval_destroyer_graveyard_effects,M,ai_eval_attack calls it only when the destroyed card's destination is 0x0e; destroyer cards Chaos-End Master 0x1e9d, Red-Eyes Zombie Dragon 0x1eae, Goyo
+0x09d008c4,ai,ai_eval_destroyed_monster_battle_effects,M,Via 0x09d01288; destroyed monster's own effects: Zombie Mammoth 0x1ea6, Atomic Firefly 0x174e, Zoma 0x172f, Balloon Lizard 0x16fe, Doomkaiser 0x1ea8
+0x09d00f98,ai,ai_eval_destroyed_monster_graveyard_effects,M,Via 0x09d01288 when the destination word is 0x0e; Neos Wiseman 0x1e7d LP swing, Backfire 0x1762 (attribute bit 0x10), 0xf47 link added to +0x0e mask
+0x09d01288,ai,ai_eval_destroyed_monsters_effects,M,ai_eval_attack: per destroyed battler (0x09d1c99c or +0x0e bit) runs 0x09d008c4 and, for destination 0x0e, 0x09d00f98; non-zero sets result +0x06 = 1
+0x09d015b8,ai,ai_eval_battle_card_effects,M,12 KiB per-card chain after the destruction helpers in ai_eval_attack (Gonogo 0x1e21, Unknown Crusher 0x1e93, Neos Wiseman 0x1e7d); non-zero sets result +0x06
+0x09d050b0,ai,ai_eval_battle_damage_effects,M,Runs when the opponent's result +0x20 battle damage > 0: Iron Chain Dragon 0x1edb, Fushi No Tori 0x1506, Yamata 0x1501, Parshath 0x139f, Masked Sorcerer 0x1082
+0x09d05734,ai,ai_is_attack_trade_favorable,M,After both ai_attack_result_add_side_losses calls; compares best remaining sim attackers (+0x18 ATK) and damage sums; 1 raises result class +0x02 to >= 2
+# family gemini
+0x09d12730,ai,ai_sim_gemini_summon_slot,M,Temp link for the slot card, sets slot flag 0x4000 and position, Dark Valkyria 0x1db0 / Future Samurai 0x1d04 effects; reached from ai_eval_gemini_summon
+0x09d18b30,ai,ai_plan_battle_with_gemini_summon,M,Only caller ai_eval_gemini_summon; snapshot push, ai_sim_gemini_summon_slot, ai_plan_battle_with_tricks, pops; true if the plan uses the slot's attack entry
+# family link_class
+0x09bf65b8,duel_effects,duel_effects_link_returns_card_to_hand,M,Bounce cards Brionac 0x1d7c, Mist Wurm 0x1d7d, Abyss Soldier 0x1727, Giant Trunade 0x132e, Lady Ninja Yae 0x1754: true when ref is a link target
+0x09bf74bc,duel_effects,duel_effects_link_is_dice_card,H,Card list Skull Dice 0x12d0, Graceful Dice 0x12cf, Dice Jar 0x1530, Sixth Sense 0x1739, Fire Darts 0x1926, Agido 0x14f6, Roulette Barrel 0x15df
+# family link_destroy
+0x09bf2fbc,duel_effects,duel_effects_link_would_destroy_card,M,Destroy resolve handlers (destroy_target, destroy_all_matching ...) tested per target via call_handler_08_b; negate_activation if previous link card on field
+0x09bf45cc,duel_effects,duel_effects_link_can_destroy_card,M,Same destroy-handler classes as 0x09bf2fbc but only tests target count / count_valid_targets, else 0x09bf2fbc or ai_classify_resolve_kind
+# family list_builder
+0x09cdc69c,duel_effects,duel_effects_list_builder_revive_from_opponent_graveyard,M,Walks the opponent's graveyard (+0x55c), candidate_matches_filter(0x0e, 0x8010002) and can_special_summon_from_graveyard, add_candidate; query mode 0x09e29924
+# family list_filter
+0x09cd6224,duel_effects,duel_effects_list_filter_19ad_usable_spell,M,Register-passed candidate filter beside list_builder_19ad: duel_core_is_hand_spell_blocked == 0 and (context >= 0 or card_db_get_icon == 2)
+0x09cd711c,duel_effects,duel_effects_list_filter_1a7c_usable_spell,M,Register-passed candidate filter beside list_builder_1a7c: true when duel_core_is_hand_spell_blocked(card) == 0
+0x09cd76d4,duel_effects,duel_effects_list_filter_1af5_same_lv_family,M,Register-passed candidate filter beside list_builder_1af5: card_db_get_lv_family(card) equals the context value
+# family net
+0x09ccc634,duel_core,duel_core_net_answer_response_window,M,Caller duel_core_net_run_peer_link_requests; duel_core_offer_response_window on the top link, then duel_core_net_send_command_args 0x0e / 0x0c / 0x0f
+# family plan
+0x09d0e0b4,ai,ai_choose_best_attack,M,Caller ai_plan_simulate_attacks; ai_init_attack_result(0x09e27f90), ai_collect_attackers, ai_choose_attack_target per attacker, keeps ai_is_better_attack_result
+# family position
+0x09ceb448,ai,ai_choose_monster_position,M,Returns 1/0/-1 from opponent best attacker ATK vs own ATK/DEF and LP; 0x09d16ef0 stores it as slot +0x06 battle position (0 = Attack), -1 -> ATK<DEF
+0x09cec874,ai,ai_survives_attacks_with_monster,M,Opponent best/total attacker ATK minus this monster's ATK vs own LP; battle stoppers, Spirit Barrier 0x17fe, Sanctuary 0x175e, Clear Wall 0xec4; 0 = lethal
+0x09cecc54,ai,ai_check_monster_position_change,M,Callers ai_try_adjust_monster_position and ai_decide_optional_activation; per-card chain (Venom Swamp, spirits, plan entries, 0x09cec874) returning 0/1
+# family ritual
+0x09ccd218,duel_effects,duel_effects_get_ritual_level_total,M,Returns 0x09e28f64 (Level total still to cover in the Ritual states, summon.md); neighbours duel_effects_filter_ritual_* and can_ritual_summon_entry
+# family session_timer
+0x09be1740,duel_core,duel_core_get_duelist_timer_seconds,M,BOOT duel session 0x08836718 word [duel_core_map_side_to_duelist(side)] (+0x00..+0x0c turn timers, duel_core.md) returned as x/30+1 when > 0
+0x09be17a0,duel_core,duel_core_get_duelist_timer_value,M,Same session timer word as 0x09be1740 indexed by duel_core_map_side_to_duelist, returned +1 when > 0 (no /30 scaling)
+# family sim_battle
+0x09cfd5fc,ai,ai_combine_battle_destroy_flags,M,Only caller ai_sim_resolve_battle; merges three destroy bit sets (bits 1/2 per side) with a Doomcaliber Knight 0x1771 special case
+0x09d04914,ai,ai_sim_redirect_attack_to_slot,M,Copies slot B's 0x44-byte sim record over target A when B beats the attacker; used for Dreamsprite 0x148a, White Night Dragon 0x1caf, Amber Mammoth 0x1ba0
+# family sim_card
+0x09d0f66c,ai,ai_sim_apply_summon_effect,M,Recursive per-card chain attaching simulated effects: Iron Chain Dragon 0x1edb +200 per Iron Chain, 0x1ed6 x400, Black Rose Dragon 0x1eda, X-Saber Wayne 0x1e9b
+0x09d11480,ai,ai_sim_resolve_card_with_temp_link,M,Saves link 0x09e28cb4[0x09e28e38], writes card/side into it, sets 0x09e28f80 = -1, simulates choices and calls ai_sim_apply_summon_effect
+0x09d16ef0,ai,ai_sim_set_summoned_monster_position,M,ai_get_slot_stats_as_ai, per-card ATK fixes (Damage = Reptile 0x1bff, Gilford 0x1938), then slot +0x06 from summon mode flags or ai_choose_monster_position
+0x09d17310,ai,ai_sim_summon_card_to_field,M,Optional snapshot push, ai_sim_resolve_card_with_temp_link, ai_plan_prepare_attack_state, ai_sim_set_summoned_monster_position; returns the slot (0x09e03082)
+# family slot_mask_send
+0x09c0d310,duel_core,duel_core_can_send_slots_to_graveyard,M,Marks mask slots with flag bit 1, duel_effects_update_negated_slots, ANDs duel_core_can_send_slot_to_graveyard (0x09c004fc) over the mask, restores flags
+0x09c0dac8,duel_core,duel_core_can_return_slots_to_hand,M,Same mask/flag/restore pattern as 0x09c0d310 over duel_core_can_send_slot_to_hand (0x09c00504); caller duel_effects_target_filter
+# family slot_relation
+0x09c0a174,duel_core,duel_core_build_slot_relation_table,M,Fills u16[2][11]: 7 prohibited/locked, 6 zones locked by Seismic Shockwave 0x1aa9 / Mystical Cards 0x1dcf etc., else get_link_effect_kind, 0x100 if targeted
+# family stub
+0x09be159c,duel_core,duel_core_stub_noop_api_entry,M,Empty void function between the exported duel API entries duel_core_start_duel and duel_core_get_pending_action_result; value 3 (thunks)
+0x09c7da08,duel_effects,duel_effects_stub_return_0_resolve,M,Returns 0, no direct callers, placed among the duel_effects_resolve_1227 / _1231 handlers (table entry)
+# family summon
+0x09cf4028,ai,ai_get_tribute_reduction_card,M,Returns Fog King 0x1cec, Big Evolution Pill 0x1aa3 (race 9), Ancient Gear Castle 0x19b2 / Geartown 0x1e03 from summon_set_mask_ex modes 2/3
+0x09d18eb4,ai,ai_update_best_summon_candidate,M,Caller 0x09d1a160; per-card value of a summon candidate (Ancient Gear Knight 0x1c7e, Alien Hypno 0x1c84, King Pyron 0x1c23), stores +0x18 as best if larger
+0x09d19690,ai,ai_eval_hand_monster_summon_option,M,Hand entry + mode (0 plain, 1 tribute-reduced via ai_get_tribute_reduction_card, 2 Level >= 5): ai_choose_tributes, ai_plan_battle_with_summoned_monster
+# family summon_rule
+0x09c0c4ec,duel_core,duel_core_has_normal_summoned_this_turn,M,Player flag word +0x120 bit 17 (Normal Summon used, duel_core.md) or player slot 11 effect Ultimate Offering 0x12f3 / Cry Havoc! 0x1d35 / Gemini Summoner 0x1ca4
+# family targeting
+0x09ce8114,ai,ai_adjust_link_targeting_class,M,duel_effects_classify_link_targeting result overridden per card (0x1bda, 0x1b1e, Tail Swipe 0x1aa6, Orca 0x1708 ...); only caller ai_check_target_slot
+# family tribute_filter
+0x09cf26e0,ai,ai_filter_mask_by_race_attribute_pair,M,Neighbours ai_filter_mask_*, caller ai_choose_tribute_slot; keeps race 0x11 + attr bit 1 or race 3 + attr bit 2 depending on valuable spell/trap counts
+# family wrapper8
+0x09bf8988,duel_core,duel_core_call_get_active_card_timestamp,M,8-byte entry before duel_core_get_earliest_active_card_timestamp; shared decompiled body = minimum slot +0x38 timestamp of active copies of card on side
+0x09bfa76c,duel_core,duel_core_is_zone_usable_lenient,M,8-byte entry before duel_core_is_zone_usable; shared body ignores locks whose source has flag bit 8 (the lenient path, effect-helpers-predicates.md)
+0x09c004fc,duel_core,duel_core_can_send_slot_to_graveyard,M,8-byte wrapper beside can_send_slot_to_deck; 0 for tokens, Exodius/DMoC 0x1ce0/0x16f8, Quillbolt 0x1e15, banish redirect mask; 1 under Imperial Iron Wall
+0x09c00504,duel_core,duel_core_can_send_slot_to_hand,M,8-byte wrapper beside can_send_slot_to_deck; Exodius/DMoC, Quillbolt and Degenerate Circuit 0x1afc (monsters) give 0; caller filter_mist_valley_return_material
+0x09c0b7b8,duel_core,duel_core_call_get_attribute,M,8-byte entry before duel_core_get_attribute_mask; shared body is duel_core_get_attribute (DNA Transplant 0x171f, Attribute Chameleon 0xec8, Clear cards)
+0x09c0d4c4,duel_core,duel_core_call_graveyard_card_may_leave,M,8-byte entry before duel_core_graveyard_card_may_leave; shared body: Iron Wall / can_banish_from_graveyard, then Transmigration Break 0x1d36 gives 0

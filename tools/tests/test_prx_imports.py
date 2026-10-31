@@ -72,6 +72,22 @@ class PrxImportsTest(unittest.TestCase):
             [(prx_imports.Elf(provider, 0x09100000), "rel_field")])
         self.assertEqual((rows, unresolved), ([(0x08E9AD00, "world", "thunk_world_field_request")], 0))
 
+    def test_resolves_unexported_imports_from_the_libs_table(self):
+        import tempfile
+        boot = build([(".lib.ent", 0x200, library_entry(0, 0, 0, 0)), (".rodata", 0x100, bytes(16))])
+        mod_rodata = b"libsub\0" + bytes(9) + struct.pack("<2I", 0xDDDD, 0xEEEE)
+        module = build([(".lib.stub", 0x400, library_entry(0x100, 0, 2, 0x110, 0x300)),
+                        (".rodata", 0x100, mod_rodata)])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "game-libs.csv"
+            path.write_text("# comment\nlibrary,nid,group,name,confidence,basis\n"
+                            "libsub,0x0000dddd,ui,ui_sub_start,H,called once\n", encoding="utf-8")
+            libs = prx_imports.load_libs(path)
+        self.assertEqual(libs, {("libsub", 0xDDDD): ("ui_sub_start", "ui")})
+        rows, unresolved = prx_imports.stub_names(
+            prx_imports.Elf(boot, prx_imports.BOOT_BASE), prx_imports.Elf(module, 0x08E9AA00), {}, (), libs)
+        self.assertEqual((rows, unresolved), ([(0x08E9AD00, "ui", "thunk_ui_sub_start")], 1))
+
     def test_load_registry_prefixed_ids(self):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:

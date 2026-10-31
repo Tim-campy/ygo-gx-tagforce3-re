@@ -244,3 +244,27 @@ address,group,name
 0x090e4870,shop,shop_scroll_with_analog,M,pad +0x14 (analog) outside 0x40..0xc0 scrolls param_1 by 6 per unit through shop_scroll_by_delta
 0x090e48ec,shop,shop_draw_panel_frame,H,9-slice panel (4/5-px corners, stretched edges and centre) from atlas param_6
 0x090e4b9c,shop,shop_draw_button_help,M,panel with button labels: dictionary words from 0x090efbd4/0x090efbe0 shown per pad mask bits 0x1000/0x4000/...
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family font_px_wrappers
+0x090d2d8c,shop,shop_pack_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller shop_draw_pack_opening
+0x090de328,shop,shop_results_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller shop_draw_results_header
+0x090de93c,shop,shop_results_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; callers results row/group label
+0x090e0118,shop,shop_cost_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; next to shop_draw_cost_panel
+0x090e1fd4,shop,shop_speech_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; callers speech box draw/wrap
+0x090e41fc,shop,shop_menu_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller shop_draw_menu_item_box
+0x090e5200,shop,shop_help_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; caller shop_draw_button_help
+# family results_icons
+0x090e3124,shop,shop_draw_results_label_icon_a,M,sprite rect u = kind*0x11 (kind 4 special, v 0x80) from 0x090efb64; caller shop_draw_results_group_label
+0x090e31b8,shop,shop_draw_results_label_icon_b,M,sprite rect u = 0x33 + n*0x11 from 0x090efb70; caller shop_draw_results_group_label
+0x090e3d2c,shop,shop_draw_results_row_badges,M,up to three 12-byte badge records: icon atlas 0x090efba8 by kind, bar, number (shop_draw_number_plain); caller shop_draw_results_row
+# family shop_library
+0x090d8280,shop,shop_lib_start,H,libshop_rel export +0x9580: clears 0x1210 bytes at 0x090f9af0, heap 0x640000, mode nibble, shop_init_scene, shop_init_archive_state (function created)
+0x090d8330,shop,shop_lib_draw,H,libshop_rel export +0x9630: jump to shop_draw_scene (function created)
+0x090d8338,shop,shop_lib_shutdown_step,H,libshop_rel export +0x9638: waits for sounds, releases the clerk track, UI, resources, render state and heap in steps; 1 when done (function created)
+# family shop_matrix
+0x090d4b08,shop,shop_gum_scale_xyz,H,packs (x, y, z) into a vec3 and calls system_gum_scale; callers reveal effects
+0x090d4b4c,shop,shop_gum_translate_xyz,H,packs (x, y, z) into a vec3 and calls system_gum_translate; callers reveal effects and flare
+0x090d4ccc,shop,shop_get_cosine_eased_ratio,M,1 - clamp(t)/n, then n2 times cos(k*(1-x)) via system_fpu_cos; float result in f0 (lost by the decompiler)
+# family speech_box
+0x090e1ff0,shop,shop_set_speech_box_flags,M,stores the byte arg in 0x098abf34 and 0x098abf40; caller shop_reset_speech_box

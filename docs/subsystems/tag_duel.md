@@ -48,6 +48,10 @@ Basis and method: `system.md`, same section. 8 new `tag_duel` names, all reading
 | `0x09850838` (`rel_duel_draw`) | `tag_duel_get_side_partner_duelist` | Duelist ± 2. |
 | `0x08e9ba00` (`rel_duel_mgr`) | `tag_duel_handle_partner_swap` | In a tag set-up (`+0x192 == 2`): sets the new active duelist's kind (0 human, 1 CPU, 2 remote) and calls the draw module with the slot pairs. |
 
+## Round 2 of the 2026-10-31 naming
+
+Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 6 new `tag_duel` names in `rel_duel_draw`: the partner-switch UI mode (mode 10 of the duel UI mode table `0x098d1f5c`, `ui.md`).
+
 ## Open questions
 
 - ~~The high half of the waiting-area word `+0x14` (`u16 +0x16`) changes at every swap (seen in PPSSPP: `0xaa`, `0x57`, `0x23`, `0x12`, `0x81`); meaning unknown.~~ It is the first saved card reference (the first hand card's instance), written by the `memcpy` of step 3 above.

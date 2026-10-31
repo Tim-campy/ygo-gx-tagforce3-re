@@ -87,7 +87,7 @@ The following small functions were read in full (prototype, side effects and cal
 
 | Address | Function | Callers |
 | --- | --- | --- |
-| `0x08809cb0` | `system_fabsf` | `system_atanf`, `system_ieee754_asinf`, `system_ieee754_rem_pio2f`, `system_ieee754_atan2f`, `system_acosf` |
+| `0x08809cb0` | `system_fabsf` | `system_atanf`, `system_ieee754_asinf`, `system_ieee754_rem_pio2f`, `system_ieee754_atan2f`, `system_asinf` (was `system_acosf`) |
 | `0x0880a3a8` | `system_abs` | `ui_draw_card_art_flip_offscreen`, `ui_draw_card_flip_offscreen`, `system_pad_analog_outside_deadzone` |
 | `0x0880a48c` | `system_atoi` | `card_db_get_dictionary_word` |
 | `0x08812e7c` | `system_strtol` | `system_atoi` |
@@ -114,16 +114,36 @@ The following small functions were read in full (prototype, side effects and cal
 | `0x08828c3c` | `system_ge_get_current_layer` | the `system_ge_open_list_*`/`close_list_*` functions, `0x08830638`, `0x088306c0` |
 | `0x0882acd0`, `0x0882acfc` | `system_ge_write_tex_sync`, `system_ge_write_tex_flush` | `0x08830154`, `0x08837964`; `ui_draw_card_art_flip_offscreen`, `ui_draw_card_flip_offscreen`, `system_font_draw_text_fit_width`, `0x08830154` |
 | `0x0882caa8` | `system_movie_audio_queue_push` | `system_movie_decode_audio` |
-| `0x0882cf44` | `system_movie_reader_close` | `system_movie_create_player` |
-| `0x0882d344`, `0x0882d3b4`, `0x0882d3f8` | `system_movie_control_flags_create`, `_destroy`, `_clear` | `system_movie_create_player` |
+| `0x0882cf44` | `system_movie_reader_close` | `system_movie_play` |
+| `0x0882d344`, `0x0882d3b4`, `0x0882d3f8` | `system_movie_control_flags_create`, `_destroy`, `_clear` | `system_movie_play` |
 | `0x0882d434`, `0x0882d464` | `system_movie_wait_waitflag_bit0`, `_bit1` | `system_movie_display_show_next_frame`, `system_movie_display_thread`; `system_movie_flush_video` |
 
-### Findings to reconcile (from the round)
+### Findings to reconcile (from the round), settled on 2026-10-31 (round 2)
 
-- `0x08809fec` `system_acosf` calls only `0x0880830c`, which reads as fdlibm `__ieee754_asinf` (x·π/2 for |x| = 1, threshold `0x3f79999a`); the wrapper may be `asinf`. Recheck before renaming (M).
-- `system_movie_create_player` (`0x0882b964`) also destroys every queue, the display and the reader: it probably runs the whole playback (M).
-- `save_tick_frame_counter` (`0x088359f4`) also calls the per-frame audio update `0x0886d24c`; it is a general per-frame service.
-- Several `system_vfpu_*` names (for example `system_vfpu_vadd_q`) exist at two or three addresses; `0x0881a838` `sceVfpuMatrix4Zero` and `0x0881a818` `system_vfpu_vmidt_q` may be swapped.
+- `0x08809fec` `system_acosf` → **`system_asinf` (changed, H).** The wrapper calls only `system_ieee754_asinf` and, on a domain error, fills the `matherr` record with the name string at `0x088779ac`, which reads "asinf". Its callers `0x0881c258`/`0x0881c3b0` are VFPU helpers.
+- `system_movie_create_player` (`0x0882b964`) → **`system_movie_play` (changed, H).** It creates the sceMpeg player, starts the display, read and sound threads, runs `system_movie_flush_video` (the playback loop), waits for the threads, deletes them and frees everything; the return value is 1 when the playback was cut short (state 10). Its wrappers are now `system_call_movie_play` (`0x0882b95c`) and `system_movie_play_with_volume` (`0x0883debc`).
+- `save_tick_frame_counter` (`0x088359f4`) → **`system_run_frame_services` (changed, H; still documented).** Per main-loop iteration it advances the play-time counter at game state `+0xc` (`save.md`), calls `0x08835bf0(4)` while `0x08aa5698` is set, `audio_update_voice_queues` and `audio_update_frame`. The prototype in `re/documented.tsv` is renamed with it.
+- Duplicate `system_vfpu_*` names → **changed (M).** The second and third copies (`0x0881b508`–`0x0881b878`, `0x0881c5dc`, `0x0881c5f8`, `0x0881c630`) are byte-identical to the first ones at `0x08819970`–`0x08819cc0` and have no caller; they are now `<name>_b` / `_c`. `0x0881a838` `sceVfpuMatrix4Zero` (VFPU `vmzero.q`) and `0x0881a818` `system_vfpu_vmidt_q` (`vmidt.q`, identity) are **not** swapped: kept.
+
+## Round 2 of the 2026-10-31 naming (contradictions, imports, boundaries)
+
+### Game-library imports (`re/game-libs.csv`)
+
+`tools/prx_imports.py` left 47 stubs of `rel_story`, 32 of `rel_title`, 7 of `rel_deck` and 16 of `rel_duel_mgr` unresolved. The cause: those modules import libraries that neither `BOOT.BIN` nor a module given with `--provider` exports. Ten of them belong to sub-modules that are not loaded in Ghidra (`libcardalbum_rel`, `libcharalist_rel`, `libconv_machine_rel`, `libdeck_tutorial_rel`, `libduelrecord_rel`, `liblimitlist_rel`, `libpassword_rel`, `librecipe_viewer_rel`, `libselect_card_rel`, `libtutoriallist_rel`, plus `libtutorial_rel` and `libdeck_swap_rel`); `libshop_rel` is exported by `rel_shop`, which the registry refresh processes after `rel_story`, so its names were not available; and `rel_deck` imports one Sony NID that `BOOT.BIN` does not (`sceRtc` `0xe7c27d1b`, `sceRtcGetCurrentClockLocalTime`). The same staleness hit `rel_story`'s `libfield_rel` stubs once (they carried `thunk_FUN_…` names until the next refresh).
+
+`prx_imports.py` now looks unresolved imports up by (library, NID) in `re/game-libs.csv` (default: next to the registry; `--libs` overrides) and names the stub `thunk_<name>`. The table names 63 exports and one Sony NID from their call sites: the sub-modules share a `start(args)` / `update()` (non-zero = result) / `draw()` protocol, so `rel_story`'s 24 state functions (`dialogue.md`, "Sub-module states"), `rel_title`'s library states and `rel_deck`'s `deck_run_*` give the roles; exports without a caller keep a library-and-NID name (`ui_charalist_953239e8`). `rel_shop`'s three exports that Ghidra had no function for (`0x090d8280`, `0x090d8330`, `0x090d8338`) are created and named (`shop_lib_start`, `shop_lib_draw`, `shop_lib_shutdown_step`). The hand-made `ui_call_*`/`deck_call_*` rows of `rel_title` and `rel_deck` were removed, since the generated names replace them. Test: `tools/tests/test_prx_imports.py`.
+
+### Function boundaries
+
+Ghidra had 13,677 functions with a one-byte body (86 in `BOOT.BIN`, 1,768 in `rel_duel_eng`, the rest import stubs of the modules). `ApplyNames.java` created them on addresses where nothing had been disassembled (effect handlers reached only through tables, stubs), so the decompiler showed the real code but the registry size was 1. `tools/ghidra/FixOneByteBodies.java` (run once per program, not read-only) disassembles from each such entry and re-derives the body with `CreateFunctionCmd.fixupFunctionBody`; all 13,677 were repaired (145,184 bytes). `ApplyNames.java` now disassembles before it creates a function, so new ones get a real body. Remaining boundary observations from the reading packs, not changed: 8-byte entries that load an argument and jump into a neighbour's body (`rel_duel_eng` `0x09bf8988`, `0x09bfa76c`, `0x09c004fc`, `0x09c00504`, `0x09c0b7b8`, `0x09c0d4c4`, and the AI handler stubs that enter `0x09d76574`, `0x09d7e92c`, `0x09d6de24`; `BOOT.BIN` `0x08837578`, `0x08837950`, `0x0886f50c`): they are separate entry points sharing a body, which is how the compiler laid them out, and their names describe the entry; overlapping hand-written inflate code at `0x08817e70`/`0x08817f08`/`0x08817fa4`; and two functions whose decompilation is the tail of a neighbour (`0x0881697c`, `0x0886f520`), left unnamed. `ai_eval_attack` (`0x09d06188`, 17,700 bytes) itself is one correct function: its "truncated inner parts" were the helpers it calls, now named (`ai.md`).
+
+### Result, quality sample and what stays unnamed
+
+916 names were added or changed in this round (189 H, 727 M; 28 candidates were rejected as mere accessors of an unexplained global address, and 4 duplicates were dropped), and `prx_imports.py` named the remaining import stubs. The named share went from 92.45 % to 99.0 % (28,182 functions; 63 created: request polls, library exports, stubs). `card_effects.py --check` and `ai_tables.py --check --functions` still pass.
+
+Quality sample of the first round (seed 20261031, re-read against the current decompilation): 30 `duel_effects_<slot>_<card>` handlers re-derived from a freshly generated `card_effects.jsonl` (slot and card list identical in 30/30, bodies consistent with the slot role: step machines for `resolve`, booleans for `condition`, filters and candidate collectors), 10 thunks and import stubs re-resolved by NID or thunk target (10/10), and 40 names given by reading (40/40 consistent with the body; two, `ui_cmd_move_list_card` and the `chr1f` cut-in callback, can only be checked as far as the draw-command and character tables go). Error rate in the sample: 0/40 mechanical, 0/40 read. Outside the sample, reading the packs found 9 wrong names, all corrected: `system_acosf`, `audio_stop_track`, the two Datatron evaluators, `duel_core_request_pick_hand_cards`, `world_field_req_bind_ui`, and 8 `rel_duel_draw` `ui_stub_noop_*_text` functions that are lost tail calls to the font functions (`ui.md`).
+
+Still unnamed (281 registry rows, about 1 %): 52 own functions and the 229 thunks/stubs that point at them. They are kept unnamed because no H/M name exists: getters, setters and swaps of single globals whose meaning is unknown (`0x08823dac`, `0x0882ef28`, `0x0882ef3c`, `0x088359dc`/`e8`, `0x0883744c`/`58`, the 13 constant-address getters `0x0885bd4c`–`0x0885bddc`, `0x08850610`–`0x088525c4` in the net API, `0x08867f7c`, `0x0886d86c`, `rel_duel_draw` `0x098a3db8`, `0x098a6194`–`0x098a6a8c`, `rel_duel_eng` `0x09be4bd8`/`0x09be4bf4`); empty or constant stubs without a caller or context (`0x08817270`, `0x0882d338`, `0x08867b28`, `0x0886d8e4`, `0x09be5000`); code fragments that are the tail of a neighbour (`0x0880dc40`, `0x0886f520`); one function the decompiler fails on (`0x09be26f4`); and a few with unexplained mappings or no reader (`rel_field` `0x090cf0b8`, `0x090d0c80`, `0x098419b4`, `0x0985345c`, `0x0989ddb8`, `0x098a35a0`, `0x098a6d44`, `0x09be1dc4`, `0x09cdfbac`).
 
 ## Open questions
 

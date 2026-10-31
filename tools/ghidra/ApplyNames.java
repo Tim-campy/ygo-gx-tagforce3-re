@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Apply function names from a CSV with columns address,group,name (lines starting with # are skipped).
 // Each function goes into the Ghidra namespace named after its group, as CLAUDE.md requires; a missing
-// function is created first, and a row with an empty name only creates it. Usage (headless):
+// function is created first (after disassembling from its entry), and a row with an empty name only creates it.
+// Usage (headless):
 //   analyzeHeadless <projdir> <proj> -process BOOT.BIN -noanalysis -scriptPath tools/ghidra
 //       -postScript ApplyNames.java <names.csv>
 // @category TF3
@@ -34,6 +35,11 @@ public class ApplyNames extends GhidraScript {
 			Address address = toAddr(Long.parseUnsignedLong(f[0].replaceFirst("^0x", ""), 16));
 			Function function = getFunctionAt(address);
 			if (function == null) {
+				// Disassemble first: a function created on undecoded bytes gets a one-byte body
+				// (FixOneByteBodies.java repairs the ones created before this check).
+				if (getInstructionAt(address) == null) {
+					disassemble(address);
+				}
 				function = createFunction(address, null);
 				if (function != null) {
 					created++;

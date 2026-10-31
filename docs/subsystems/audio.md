@@ -23,8 +23,12 @@ Duel voice bank: `0x088419d4` returns 2 when the duel set-up byte `+0x192` is 2 
 - `rel_duel_draw` (15): cut-in voice tables and queue; `0x0987a2b0` plays a sound effect once when a counter reaches the requested frame (53 callers).
 - `rel_story` (12): story BGM.
 
+## Round 2 of the 2026-10-31 naming
+
+Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 87 new `audio` names (75 in `BOOT.BIN`). The stop selectors are now read: `audio_stop_sounds_by_selector` (`0x0886c31c`) takes `0xfdfb` all sounds, `0xfdfa` BGM, `0xfdf9` sound effects, `0xfdf8` voices, `0xfdf7` effects and voices, and the wrappers `0x08841908`–`0x08841974` are `audio_stop_sounds_{all,bgm,se,voice,se_and_voice}[_arg]`. Other families: banks (10), streams (8), sound 3D (5), BGM (5), mix presets (5), cues and notes (8). `rel_duel_mgr`: eight `duel_voice_lines` handlers matched to UI events through the jump table of `audio_voice_dispatch_ui_event` (5 phase banner, 26 card moved, 34 activation shown, 67 draw, 76 end of turn; 39 unknown).
+
 ## Open questions
 
 - Stream flags `+0xe0`–`+0xe3` (`0x08869ae8`–`0x08869d20`, set through `0x0886804c`) and the pause/resume candidates `0x0886a03c`, `0x0886a1c4`, `0x0886a454`, `0x0886a488`, `0x0886a5a4` are unnamed.
-- `0x088418f8` is documented as "stop the current track", but the list window calls it with `0x7a04` when the cursor cannot move, which reads like a sound effect (L).
-- `0x090dbc60` in `rel_shop` tests 15 sounds (`0x79f1`–`0x79ff`), more than the 5 clerk voice indices of `packs.md`.
+- ~~`0x088418f8` "stop the current track"~~: settled 2026-10-31. Its body is `audio_stop_sound(id, 0)`: it stops one sound id at once (no fade). The list window passes sound-effect ids and `audio_stop_duellist_voices` voice ids; it is now `audio_stop_sound_now` (H). The story `bgm_stop` path (`story.md`) uses it with a track id, which is the same call.
+- ~~`0x090dbc60` tests 15 sounds~~: settled 2026-10-31, no conflict. `shop_is_clerk_voice_playing` checks whether any of the current clerk's 15 voice lines is playing (`0x79f1`–`0x79ff`, or `0x79de`–`0x79ec` for the other clerk, bit 0 of `0x0973ad50`; status bits `0x21`). The per-pack voices of `packs.md` are lines 3–7 of that bank (`0x79f4 + v`, `0x79e1 + v`); the other ten lines are the clerk's general speech.

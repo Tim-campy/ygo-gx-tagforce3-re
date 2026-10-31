@@ -55,7 +55,7 @@ All of these were decompiled; signatures and one-line summaries are in `re/docum
 | `0x08832a04` | `card_db_on_cardinfo_loaded(arg, result) → 1` | H | Completion callback passed by `card_db_load_cardinfo`; stores 1 in the loaded flag `0x08926b48` that `card_db_bind_cardinfo` tests. |
 | `0x08832b80` | `card_db_is_valid(id) → 0xffff or 0` | M | `(Prop[index].word1 & 1) × 0xffff`. Every real record has an odd kind, so this is 0 only for record 0 (unused ids). Callers `0x0884d078`, `0x0884d1bc`, `0x08836e10`, `0x0885c660`. |
 | `0x08832bac` | `card_db_get_sort_position(id)` | H | `CARD_Sort[index]`. Caller `card_db_get_top_group`. |
-| `0x08832bdc` | `card_db_get_prop_bits22(id)` | H (code) | `(u16 at Prop+6 & 0x1ff) >> 6` = word 1 bits 22–24. The field is therefore 3 bits wide; its meaning is still open (`cardinfo.md`). |
+| `0x08832bdc` | `card_db_get_prop_bits22(id)` | H (code) | `(u16 at Prop+6 & 0x1ff) >> 6` = word 1 bits 22–24. The field is therefore 3 bits wide; the shop uses it as the card's rarity (M, `shop.md`, `cardinfo.md`). |
 | `0x08832c34` | `card_db_find_by_passcode(passcode) → id or −1` | H | Linear scan of ids `0xe88`–`0x1f39` with `card_db_get_passcode`; passcode 0 returns −1. |
 | `0x08832c94` | `card_db_get_dialog_string(n)` | H | `DLG_Text + DLG_Indx[n]`, no bounds check. Callers: the four name getters below and `card_db_get_genre_name`. |
 | `0x08832cb8` | `card_db_get_race_name(race)` | H | DLG `500 + race` (DLG 501 = Dragon … 522 = Divine-Beast, 523/524 = SPELL CARD/TRAP CARD in English); 0 → empty string `0x088a711c`. |
