@@ -59,7 +59,7 @@ Families of layout A (files counted over all languages and all archives that car
 | `recipe_name_<l>.bin` | 6 | 462 | Deck recipe names (`BOOT.BIN` archive, `deck.md`). |
 | `chr_name_<l>.bin` | 6 | 465 | Character names (`BOOT.BIN` archive). |
 | `chr_wordstbl_<l>.bin`, `chrcutin_*_wordstbl_<l>.bin`, `chrzakovN_wordstbl_<l>.bin` | 570 + 366 + 198 | 51–677 | Voice captions (`sound.md`, `voices.py`). |
-| `NN_message_res.bin` | 20 | 126–197 | `tutorial/tutorial_<l>.ehp` (no end offset; possibly unused set, `tutorial.md`). |
+| `NN_message_res.bin` | 20 | 126–197 | `tutorial/tutorial_<l>.ehp` (no end offset; legacy set the game does not load, `tutorial.md`). |
 | `DICT_<l>.bin` | 5 | 990–1000 | Card-description dictionary (`cardinfo.md`; 4-byte gap, no end offset). |
 
 ## Commands

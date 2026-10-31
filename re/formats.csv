@@ -65,6 +65,7 @@ scene_slot,ehscript scene slot state (BOOT.BIN 0x08920be4),system,documented,100
 ydq,Tutorial duel setup (.ydq; Shift-JIS INI text),duel_core,documented,
 tuto_cmd,Duel-tutorial script (tuto_cmd_NN.bin),duel_core,documented,
 tuto_text,Duel-tutorial text table (tuto_text_<l>.bin),duel_core,documented,
+tuto_legacy_cmd,Legacy tutorial script (tutorial/ NN_duel_command.bin; not loaded by the game),duel_core,named,
 voiceidchgtbl,Character voice change table (*_voiceidchgtbl.bin),audio,documented,
 chr_wordstbl,Cut-in voice captions (chr_wordstbl_<l>.bin),audio,named,
 boot_sound_tables,Sound bank offset and first-id tables (BOOT.BIN),audio,documented,

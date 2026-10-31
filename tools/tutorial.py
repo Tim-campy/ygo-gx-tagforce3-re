@@ -7,6 +7,7 @@ setups, tuto_cmd_NN.bin scripts, tuto_text_<l>.bin text) and the deck-building t
   tutorial.py <USRDIR>/d_tutorial/tutorial.ehp --check          structural checks over every member
   tutorial.py <USRDIR>/d_tutorial/tutorial.ehp [--only cmd_03]  readable listing, text resolved (--lang e)
   tutorial.py <USRDIR>/deck/tutorial.ehp [--check]              the same for the deck-building tutorial
+  tutorial.py <USRDIR>/tutorial/tutorial_*.ehp --check          the legacy set the game never loads
 
 Several archives may be given at once. `--cardinfo duelsys/cardinfo_eng.ehp` checks card ids against the
 card database and prints card names. The listing is game data: keep it under extracted/, never in git.
@@ -357,10 +358,25 @@ INPUT_KINDS = {0: "pick a hand card", 1: "menu: Summon", 2: "phase menu: pick ph
                13: "answer YES", 14: "pick a monster to Special Summon", 15: "pick Fusion Materials",
                16: "pick Tribute (list)", 17: "pick an opponent's card", 18: "open the phase menu",
                19: "extra deck: Activate"}
-DUEL_COMMANDS = {0x0A: "phase draw", 0x0B: "phase standby", 0x0C: "phase main", 0x0D: "phase battle",
-                 0x0E: "phase 4", 0x0F: "phase end", 0x27: "field cursor to location <a>", 0x29: "set slot flag bit",
-                 0x35: "equip", 0x39: "set slot param", 0x43: "place card on field", 0x56: "draw <b> cards",
-                 0x67: "turn limit reached"}
+# Duel-engine commands: duel_core_execute_command (rel_duel_eng 0x09dc0974) dispatches codes 0-0x68 through the
+# jump table at module +0x21f544 (bound sltiu 0x69); code 0 is the default case (nothing). Every code that the
+# tuto_cmd scripts or the .ydq loader post is listed, with the handler's effect (docs/formats/tutorial.md).
+ENGINE_COMMAND_LAST = 0x68
+DUEL_COMMANDS = {0x03: "end-of-turn cleanup", 0x04: "next turn (other side)",
+                 0x0A: "enter draw phase", 0x0B: "enter standby phase", 0x0C: "enter main phase 1",
+                 0x0D: "enter battle phase", 0x0E: "enter main phase 2", 0x0F: "enter end phase",
+                 0x21: "player flag bit <a> = <b>", 0x27: "field cursor to location <a> (card <b>)",
+                 0x29: "set slot flag bit", 0x2C: "card ref <b> to slot <a> as a trap monster (param <c>)",
+                 0x2D: "announce activation: slot <a>, card <b>, ref <c>", 0x34: "turn slot <a> face-up (<b>), reason <c>",
+                 0x35: "equip", 0x39: "set slot param", 0x43: "place card on field",
+                 0x44: "finalize summon: slot <a>, type bits <b>, tributes <c>", 0x56: "draw <b> cards",
+                 0x61: "show summon declaration: card <a>, position <b>, kind <c>", 0x67: "turn limit reached",
+                 0x68: "relay to UI event 0x42 (legacy tutorial record)"}
+# UI events (duel_core_post_ui_event, rel_duel_eng 0x09be1400) as seen by the tutorial's hook; wait_event and
+# on_event name them. 66 also stands for "menu closed" (rel_tutorial +0x38a8 checks rel_duel_draw for it).
+UI_EVENTS = {4: "action request", 5: "phase banner (side, phase)", 6: "turn change", 10: "attack selection",
+             13: "battle damage shown", 26: "card moved", 34: "activation shown", 46: "Fusion Summon",
+             54: "dialog or menu (kind, ...)", 55: "card list opened", 66: "menu closed / UI event 0x42"}
 
 
 def cmd_parse(blob):
@@ -410,6 +426,14 @@ def check_cmd(name, blob, text_count=None, resets=None):
             errors.append(f"{name} {offset:#x}: tutorial opcode {word & 0x3FFF} past the 21-entry table")
         if word & SCRIPT_FLAG and word & SIDE_FLAG:
             errors.append(f"{name} {offset:#x}: both flag bits set")
+        if not word & SCRIPT_FLAG:
+            code = word & 0x3FFF
+            if not 0 < code <= ENGINE_COMMAND_LAST:
+                errors.append(f"{name} {offset:#x}: duel-engine code {code:#x} has no handler (1-{ENGINE_COMMAND_LAST:#x})")
+            elif code not in DUEL_COMMANDS:
+                notes.append(f"{name} {offset:#x}: duel-engine code {code:#x} is not documented")
+        elif word & 0x3FFF in (14, 16) and a and a not in UI_EVENTS:
+            notes.append(f"{name} {offset:#x}: event {a} is not documented")
     refs = cmd_refs(records)
     if len(set(refs["labels"])) != len(refs["labels"]):
         errors.append(f"{name}: duplicate label")
@@ -451,6 +475,8 @@ def cmd_listing(records, text=None, names=str):
                 line += f"  [{names(value)}]"
         if op == 12:
             line += f"   ; {INPUT_KINDS.get(a, '?')}" + (f" [{names(b)}]" if b > 5 else "")
+        elif op in (14, 16) and a:
+            line += f"   ; {UI_EVENTS.get(a, '?')}"
         out.append(line)
     return out
 
@@ -505,7 +531,7 @@ def run_duel(members, args, known, names):
     text_count = min(counts) if counts else None
     resets = {int(m.group(1)) for n in members for m in [re.fullmatch(r"tuto_field_reset(\d+)\.ydq", n)] if m}
     used_text = []
-    fields = cmds = 0
+    fields = cmds = engine = 0
     for name in sorted(members):
         blob = members[name]
         if args.only and args.only not in name:
@@ -524,9 +550,92 @@ def run_duel(members, args, known, names):
             if not e:
                 records = cmd_parse(blob)
                 used_text += cmd_refs(records)["text"]
+                engine += sum(1 for r in records[:-1] if not r[1] & SCRIPT_FLAG)
                 out += [f"== {name}"] + cmd_listing(records, texts.get(args.lang), names) + [""]
     summary = (f"ok: {fields} duel setups, {cmds} scripts, {len(texts)} text tables of {text_count} lines; "
-               f"{len(used_text)} text references to {len(set(used_text))} lines")
+               f"{len(used_text)} text references to {len(set(used_text))} lines; {engine} duel-engine records")
+    return errors, notes, out, summary
+
+
+# ---------------------------------------------------------------------- legacy set: tutorial/tutorial_<l>.ehp
+
+# Not loaded by the game (docs/formats/tutorial.md, "The tutorial/ directory"). NN_duel_command.bin is a u16
+# record count followed by that many 8-byte records (u16 op, a, b, c) with no end record: raw duel-engine
+# commands, and tutorial steps wrapped in engine command 0x68 whose a & 0xff is the sub-operation.
+LEGACY_TUTORIAL_OP = 0x68
+LEGACY_MESSAGE_OP = 0  # 0x68 sub-operation that names a line of NN_message_res.bin in c
+
+
+def legacy_parse(blob):
+    """[(offset, word0, a, b, c)] of a legacy NN_duel_command.bin."""
+    if len(blob) < 2:
+        raise ValueError("shorter than the record count")
+    count, = struct.unpack_from("<H", blob, 0)
+    if 2 + RECORD.size * count != len(blob):
+        raise ValueError(f"record count {count} does not match the size {len(blob)}")
+    return [(2 + RECORD.size * i,) + RECORD.unpack_from(blob, 2 + RECORD.size * i) for i in range(count)]
+
+
+def legacy_message_count(blob):
+    """NN_message_res.bin is a headed string table (layout A, no end offset): u32 count first."""
+    count, table = struct.unpack_from("<II", blob, 0)
+    if table != 12:
+        raise ValueError("not a headed string table")
+    return count
+
+
+def check_legacy(name, blob, message_count=None):
+    try:
+        records = legacy_parse(blob)
+    except ValueError as error:
+        return [f"{name}: {error}"], []
+    errors = []
+    for offset, word, a, b, c in records:
+        code = word & 0x7FFF
+        if not 0 < code <= ENGINE_COMMAND_LAST:
+            errors.append(f"{name} {offset:#x}: duel-engine code {code:#x} has no handler")
+        if code == LEGACY_TUTORIAL_OP and a & 0xFF == LEGACY_MESSAGE_OP and message_count is not None \
+                and c >= message_count:
+            errors.append(f"{name} {offset:#x}: message {c} past the table ({message_count})")
+    return errors, records
+
+
+def run_legacy(members, args, known, names):
+    errors, notes, out = [], [], []
+    setups = scripts = total = wrapped = 0
+    for name in sorted(members):
+        blob = members[name]
+        if args.only and args.only not in name:
+            continue
+        if name.endswith(".txt"):
+            setups += 1
+            e, n = check_ydq(name, blob, known)
+            errors += e
+            notes += n
+            out += ydq_listing(name, parse_ydq(blob), names) + [""]
+        elif name.endswith("_duel_command.bin"):
+            scripts += 1
+            table = name.replace("_duel_command.bin", "_message_res.bin")
+            count = None
+            if table in members:
+                try:
+                    count = legacy_message_count(members[table])
+                except ValueError as error:
+                    errors.append(f"{table}: {error}")
+            else:
+                errors.append(f"{name}: no {table}")
+            e, records = check_legacy(name, blob, count)
+            errors += e
+            total += len(records)
+            wrapped += sum(1 for r in records if r[1] & 0x7FFF == LEGACY_TUTORIAL_OP)
+            out.append(f"== {name}")
+            for offset, word, a, b, c in records:
+                code = word & 0x7FFF
+                label = f"tutorial sub {a & 0xFF} ({a >> 8})" if code == LEGACY_TUTORIAL_OP else DUEL_COMMANDS.get(code, "")
+                out.append(f"{offset:04x}  duel {code:#04x} side {word >> 15}  {a} {b} {c}   ; {label}")
+            out.append("")
+    summary = (f"ok: legacy tutorial set (not loaded by the game): {setups} duel setups, {scripts} scripts of "
+               f"{total} records ({wrapped} wrapped in command 0x68)")
     return errors, notes, out, summary
 
 
@@ -559,7 +668,8 @@ def run_deck(members, args, known, names):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Read and check the duel and deck-building tutorial data.")
-    parser.add_argument("archives", type=Path, nargs="+", help="d_tutorial/tutorial.ehp and/or deck/tutorial.ehp")
+    parser.add_argument("archives", type=Path, nargs="+",
+                        help="d_tutorial/tutorial.ehp, deck/tutorial.ehp and/or tutorial/tutorial_*.ehp")
     parser.add_argument("--check", action="store_true", help="only run the structural checks")
     parser.add_argument("--notes", action="store_true", help="with --check, also print facts the game ignores")
     parser.add_argument("--lang", default="e", help="text language for the listing (e f g i j s)")
@@ -574,12 +684,14 @@ def main(argv=None):
     errors, notes, out, summaries = [], [], [], []
     for path in args.archives:
         members = dict(ehp.parse(path.read_bytes()))
-        if any(n.startswith("tuto_") for n in members):
+        if any(n.endswith("_field_set.txt") for n in members):
+            result = run_legacy(members, args, known, names)
+        elif any(n.startswith("tuto_") for n in members):
             result = run_duel(members, args, known, names)
         elif any(n.startswith("deck_tutorial") for n in members):
             result = run_deck(members, args, known, names)
         else:
-            errors.append(f"{path}: neither a duel- nor a deck-tutorial archive")
+            errors.append(f"{path}: not a duel-, deck- or legacy tutorial archive")
             continue
         errors += [f"{path.name}: {e}" for e in result[0]]
         notes += result[1]
