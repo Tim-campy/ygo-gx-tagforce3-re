@@ -59,20 +59,20 @@ There is no compression inside the EHP format itself. Compressed data appears as
 | Where | Count | gzip flags | Content |
 | --- | --- | --- | --- |
 | `.gz` members inside `duel/*.ehp` | 8,789 | `0x00` (no file name) | Always a `TGMT` file (8,701 `*.tmt.gz`, 88 `*.vtmt.gz`; see `tgm.md`). |
-| Loose `field/*.gz` files | 78 | `0x08` (`FNAME` set; it equals the file name without `.gz`) | Always an EHP archive. |
+| Loose `field/bustup/*.ehp.gz` files | 78 | `0x08` (`FNAME` set; it equals the file name without `.gz`) | Always an EHP archive. |
 
 Every stream decompresses with a valid CRC-32 and an `ISIZE` that matches the output length; the mean ratio is 0.51. The game inflates them with a statically linked copy of Sony's `libdeflt` (`docs/subsystems/sdk.md`). Recompressing byte-identically was not attempted (it depends on the deflate encoder and level and is not needed for extraction).
 
 ## Member types seen
 
-Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `field/*.gz`).
+Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `field/bustup/*.ehp.gz`).
 
 | Extension | First bytes | Count | Status |
 | --- | --- | --- | --- |
 | `.gim` | `MIG.` | 12,374 | Sony GIM texture; see `gim.md`. (10,117 of them are in the 531 loose `.ehp` files; an earlier version of this table counted only those.) |
 | `.gz` | `1F 8B` | 8,789 | gzip around `TGMT` (see above). |
 | `.bin` | various | 2,225 | Unknown; several unrelated formats share the extension. |
-| `.ehf` | `EHF` | 1,184 | 2D layout (converted Flash timeline) bound together with a `.tmf` of the same name; see `ehf.md`. (1,029 in the loose `.ehp` files, 155 in `field/*.gz`.) |
+| `.ehf` | `EHF` | 1,184 | 2D layout (converted Flash timeline) bound together with a `.tmf` of the same name; see `ehf.md`. (1,029 in the loose `.ehp` files, 155 in `field/bustup/*.ehp.gz`.) |
 | `.tmf`, `.tms`, `.tmt`, `.tma` | `TGM?` for `.tms`/`.tmt`/`.tma` | 1,832 | `.tms` mesh, `.tmt` node animation, `.tma` texture animation (`tgm.md`); `.tmf` per-texture flags of an `.ehf` layout (`ehf.md`). |
 | `.txt` | various | 534 | 425 are `*ptrs.txt` resource pointer lists; the rest are text, encoding not yet established. |
 | `.ydq` | — | 50 | Duel setup text for the tutorial; only in `d_tutorial/` (`tutorial.md`). |
