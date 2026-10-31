@@ -7,7 +7,7 @@ cip_cardh,cardh_<l>.cip DXT1 128x64 card atlas (GIM),card_db,reimplemented,14819
 cip_cardm,cardm_<l>.cip headerless DXT1 64x64 card face,card_db,reimplemented,7428096
 cip_card8,card8_a.cip index8 128x128 card art (GIM),card_db,reimplemented,66557952
 cip_cardj,cardj_a.cip masked 512x512 JPEG card art,card_db,verified,590188544
-gim,Sony GIM texture,field_3d,documented,
+gim,Sony GIM texture,field_3d,reimplemented,
 pmf,Sony PSMF movie,ui,named,
 snd_bank,SP sound bank chain (snd/psp_snddat.bin),audio,reimplemented,138645504
 ehf,EHF 2D layout (converted Flash timeline; paired with .tmf),ui,reimplemented,
@@ -156,3 +156,5 @@ file_request_ring,File thread request ring (BOOT.BIN 0x08920cb4; 32 x 0x60),cont
 root_path_table,Root path table (BOOT.BIN 0x0889fb24; 9 roots),container,named,
 heap_header,HOGE heap header and block list (system_heap_create),system,named,16
 psmf_movie,Sony PSMF movie (movie/*.pmf; AVC video + ATRAC3plus audio; 73 files),container,documented,
+strtbl,UI string table (u32 count / 12 / base; UTF-16LE; end offset),ui,reimplemented,
+strtbl_offset_list,Offset-list string table (pack_name_str / pack_explain_str),shop,reimplemented,

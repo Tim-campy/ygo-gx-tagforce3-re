@@ -92,13 +92,13 @@ These are the **exit cells** of each map (high): `world_field_load_map` (`rel_fi
 
 `field/always_<region>_<lang>.ehp` (region `usa bri ger fra ita spa`, language `eng ger fra ita spa`; the module names 31 of them, including an absent `always_jpn_jpn.ehp`; but the field module itself only uses the six-entry table at `rel_field` `+0x2f2bc`, indexed by `save_get_language()` (`0x090e135c`): `always_bri_<eng eng ger fra ita spa>.ehp`, so the other region variants are unused by this code. The `bri`/`usa`/… copies of one language are byte-identical in size.) holds the field UI textures and the `strTbl`-format tables below (`u32 count`, `u32 table offset` = 12, `u32 string base`, `count` `u32` offsets from the base, UTF-16LE NUL-terminated strings; the format of `deck.md`). `always_lang_<lang>.ehp` holds only the language-dependent members; `always_zone_<region>.ehp` two region-dependent textures; `always.ehp` the six `field_strtbl_<j e f g i s>.bin`.
 
-| Member | Resource id (`+0x2f578`) | Entries (English) | Content |
+| Member | Resource id (`+0x2f578`) | Offsets / strings (English) | Content |
 | --- | --- | --- | --- |
-| `field_strtbl.bin` | 4 | 130 | Field UI: acquisition messages, the item menu (Sandwich / Eat / Item / Give / Select Item), PDA menu names and help, calendar words (AM, PM, month names May–August, weekday abbreviations), the time-advance menu, status screen labels (Duel Points, Duelist Level, GX Medals, Team Name), the field command bar (Talk, Duel, Item, Map, Friends, PDA, Save, Advance Time) and refusals ("There's no one to talk to!"). |
-| `field_strtbl_item.bin` | 5 | 202 | Items: entry `k` (1–50) is the description and `50 + k` the name of item `k` (50 sandwiches, item 50 the golden-egg sandwich); entries 104–107 / 154–157 the same for four event items (101 + n / 151 + n). |
-| `field_strtbl_mapname.bin` | 7 | 57 | Place names shown in the field (short names 1–17, "Duel Academy - …" forms 18–22, dorm and room names 23–50, others 51–55). |
+| `field_strtbl.bin` | 4 | 130 / 129 | Field UI: acquisition messages, the item menu (Sandwich / Eat / Item / Give / Select Item), PDA menu names and help, calendar words (AM, PM, month names May–August, weekday abbreviations), the time-advance menu, status screen labels (Duel Points, Duelist Level, GX Medals, Team Name), the field command bar (Talk, Duel, Item, Map, Friends, PDA, Save, Advance Time) and refusals ("There's no one to talk to!"). |
+| `field_strtbl_item.bin` | 5 | 202 / 201 | Items: entry `k` (1–50) is the description and `50 + k` the name of item `k` (50 sandwiches, item 50 the golden-egg sandwich); entries 104–107 / 154–157 the same for four event items (101 + n / 151 + n). |
+| `field_strtbl_mapname.bin` | 7 | 57 / 56 | Place names shown in the field (short names 1–17, "Duel Academy - …" forms 18–22, dorm and room names 23–50, others 51–55). |
 | `event_name.bin` | 6 | — | Not in the English archive; loaded from `field/event` (resource directory `+0x2f77c`). |
-| `option_msg_<l>.bin` | — | — | Options screen text. |
+| `option_msg_<l>.bin` | — | 40 / 39 | Options screen text. |
 
 ## Open questions
 

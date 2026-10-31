@@ -22,6 +22,7 @@ The disc is unpacked in three stages; every leaf decoder below starts from the o
         +-- USRDIR/**/*.ehp, field/bustup/*.ehp.gz --ehp.py -r -z--> members (629 archives incl. 20 nested)
         |        |
         |        +-- .gim  .ehf/.tmf  .tms/.tmt(.gz)/.tma  .bin tables  .ydq  .hmp  .dat  ...
+        |        +-- .gim -> gim.py (PNG)   string-table .bin -> strtbl.py (JSON/TSV)
         +-- card/*.cip ------------------------------------------cip.py
         +-- snd/psp_snddat.bin ----------------------------------sound.py, voices.py
         +-- movie/*.pmf -----------------------------------------psmf.py (headers only)
@@ -134,10 +135,10 @@ Card effects are **code, not data**: native handlers in `gmodule/rel_duel_eng.pr
 | --- | --- |
 | Source | 14,098 GIM files: 12,374 members of top-level archives (10,117 in loose `.ehp`, 2,257 in the gzip-wrapped `field/bustup/*.ehp.gz`), 300 in nested archives, 34 in `BOOT.BIN` archives, 1,390 loose `.gim` (`field/`, `duel/`, `help/`, `minigame/`, `field/sdchr/`, `field/faceicon/`). |
 | Format docs | `docs/formats/gim.md` |
-| Tool / command | Decoder functions in `tools/cip.py` (`read_gim`, `decode_surface`, `unswizzle`, `write_png`), used by `tools/ehf.py render` and `tools/tgm.py obj` (which write the textures they need as PNG). |
-| Port output | PNG RGBA8 per image (and per frame / palette level where there are several). |
-| Verified | Index4/index8/RGBA8888/DXT1, swizzled and linear, all decode in the card-art, EHF and OBJ paths; formats seen are tabulated for all files. `gim` is `documented`. |
-| Gaps | **Missing tool**: there is no command that converts a loose `.gim` or an archive member to PNG, and no batch converter; multi-frame images (5) and multi-level palettes (201) are decoded only as frame/level 0. Needed: a `gim` CLI (`png <file|archive:member> [--frame] [--level]`, batch over a directory). Small task, blocking for asset conversion. |
+| Tool / command | `python3 -I tools/gim.py check <PSP_GAME>` (decode every plane, format histogram); `gim.py info <file or dir> [member]`; `gim.py png <file.gim \| archive> [member] [--frame N] [--clut N] -o extracted/gim/<name>.png`; batch: `gim.py batch <USRDIR> <SYSDIR>/BOOT.BIN -o extracted/gim [--first]`. Archives may be `.ehp`, `.ehp.gz` or an ELF with embedded archives; nested members as `inner.ehp/name.gim`. The shared decoders stay in `tools/cip.py` (also used by `ehf.py render`, `tgm.py obj`). |
+| Port output | PNG RGBA8 per image plane: `<path>/<stem>.png`, with `_f<frame>` for the 5 nine-frame images and `_c<level>` for the 201 images with several palette levels (alternative palettes, for example hair colours). |
+| Verified | Check run: `gim 14098, ok 14098, planes decoded 16050`, no index past its palette, `OK` (about one minute). Histogram: index8 swizzled 8,590 (palettes of 256, 160 or 15 entries), index4 swizzled 4,843, index4 linear 405, index8 linear 171, RGBA8888 swizzled 66, DXT1 23; every palette RGBA8888. Samples of each format inspected visually. `gim` is `reimplemented`. Tests: `tools/tests/test_gim.py` (synthetic GIMs: swizzle, nibble order, palette levels, frames, DXT1, errors, CLI). |
+| Gaps | Which palette level and frame a screen selects is code (per scene module). Order of planes when an image has both several levels and several frames is assumed frame-major (no such file on the disc). Not blocking. |
 
 ## 8. EHF 2D layouts (UI timelines) and TMF
 
@@ -183,7 +184,7 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | Tool / command | `python3 -I tools/world.py hmp <USRDIR>/field/map --check`; `world.py hmp <USRDIR>/field/map/bg_NN_MM.ehp --grid`; models with `tgm.py`, layouts with `ehf.py` |
 | Port output | Per map: scene (glTF-like), walk grid as JSON (width, height, origin, 0.5-unit cells, walkable flags, vertex heights), map id ↔ archive ↔ story location tables (§12). Sprites and icons as PNG. |
 | Verified | Check run: 31 grids, `failing: 0`. `hmp` `documented`. Tests: `tools/tests/test_world.py`. |
-| Gaps | Height interpolation inside a cell (VFPU code not read); island-map screen coordinates (`rel_field` `0x090f85b0`) and arrow navigation; `field/event/` and `field/mail/` contents not inspected; the GIM CLI of §7. |
+| Gaps | Height interpolation inside a cell (VFPU code not read); island-map screen coordinates (`rel_field` `0x090f85b0`) and arrow navigation; `field/event/` and `field/mail/` contents not inspected. Sprites and icons convert with `gim.py batch` (§7). |
 
 ## 12. World and field tables (in code)
 
@@ -223,11 +224,11 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | Item | Value |
 | --- | --- |
 | Source | `strTbl*.bin`, `*_strtbl_<l>.bin`, `*_msg_<l>.bin`, `ddstrtbl_<l>.bin`, `option_msg_<l>.bin`, `help_strtbl_*`, `pack_explain_str_<l>.bin`, `mini_result_<l>.bin`, `chr_wordstbl_<l>.bin`, `chr_name_<l>.bin` (BOOT.BIN archive) across `database/`, `deck/`, `duel/`, `field/`, `labo/`, `minigame/`, `shop/`, `title_menu/`. More than a thousand `.bin` members, most of them per-language copies (the census in `ehp.md` counts 2,225 `.bin` members of several formats). |
-| Format docs | The common layout is written down in `docs/formats/deck.md` (`u32 count`, `u32 table_offset` = 12, `u32 string_base`, `count` offsets, UTF-16LE NUL-terminated strings); field tables in `field-tables.md`; captions in `sound.md`. |
-| Tool / command | None generic. `tutorial.py`/`decks.py` read `strTbl` of the deck tutorial, `voices.py` reads `chr_wordstbl`. |
-| Port output | JSON per table and language: index → UTF-16 string, markup kept. |
-| Verified | Only the tables read by the tools above. |
-| Gaps | **Missing tool**: a generic string-table dumper with a `--check` over every `*.bin` that matches the layout, and a census of which `.bin` members do not. Which index each screen uses is code knowledge per scene module. Blocking for the UI text (small tool, large mapping effort). |
+| Format docs | `docs/formats/string-tables.md` (two layouts: headed `strtbl` with an end offset, and the `offset_list` of `pack_*_str`; the census of every `.bin`); field tables in `field-tables.md`; captions in `sound.md`. |
+| Tool / command | `python3 -I tools/strtbl.py check <PSP_GAME>`; `strtbl.py show <archive or .bin> [member] [-o extracted/strtbl/<name>.tsv]`; `strtbl.py dump <USRDIR> <SYSDIR>/BOOT.BIN -o extracted/strtbl` (one JSON per table: source, layout, strings). |
+| Port output | JSON per table and language: index → UTF-16 string, markup kept (`%s`, `%d`, line breaks). |
+| Verified | Check run: `.bin files 2273: string tables 1851 (191593 strings, 1846 rebuilt byte for byte), text in other layouts 26, other data 396`, `OK` (1,790 headed tables with end offset, 25 without, 36 offset lists; the five that do not rebuild are `DICT_<l>.bin` with their 4-byte gap). No text-like `.bin` is left unparsed. `strtbl` and `strtbl_offset_list` are `reimplemented`. Tests: `tools/tests/test_strtbl.py`. |
+| Gaps | Which index each screen uses is code knowledge per scene module (traced so far: field, recipe names, voice captions, deck tutorial). Blocking for the UI text only through that mapping, which belongs with the per-screen scene analysis (§8). |
 
 ## 16. Sound: music, effects and voices
 
@@ -279,7 +280,7 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | --- | --- |
 | Source | `minigame/<game>/` (blackjack, connection, dodge, quiz, result, reversi, throw, underground: EHP with nested archives, EHF, GIM, string tables, one `.hmp`), `labo/`, `database/`, `title/`, `title_menu/`, `menu/tga.ehp`, `main/msd_*.ehp`, `help/*.gim`, `umd_replace/`. |
 | Format docs | Containers and leaf formats as above (`ehp.md`, `ehf.md`, `gim.md`, `tgm.md`); modules in `docs/subsystems/modules.md` |
-| Tool / command | `ehp.py`, `ehf.py check/render`, `tgm.py`, and the GIM path of §7 |
+| Tool / command | `ehp.py`, `ehf.py check/render`, `tgm.py`, `gim.py` (§7), `strtbl.py` (§15) |
 | Port output | As §7–§9 and §15. |
 | Verified | All their layouts and models pass `ehf.py check` and `tgm.py check`. |
 | Gaps | Game logic of each minigame and the quiz data (`minigame/quiz/data.ehp`) are not analysed. Not in work packages 1–5; low priority. |
@@ -291,7 +292,8 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 - `python3 -I tools/ehp.py --verify` over all archives in one call failed on Windows with "Argument list too long" (shell limit, not a tool fault). Run once per file instead, it reported **609 files, 0 failing** (531 loose `.ehp` and the 78 `field/bustup/*.ehp.gz`; the 20 nested archives are inside them).
 - `python3 -I tools/modules.py list <SYSDIR>/BOOT.BIN <USRDIR>/gmodule <USRDIR>/module --check` passed; it identifies `module/libfont.prx` as an encrypted Sony module and does not decrypt it.
 - `python3 -I tools/progress.py --check`: `ok`.
-- All 28 test files under `tools/tests/` pass.
+- All 30 test files under `tools/tests/` pass (`test_gim.py` and `test_strtbl.py` added with the GIM and string-table tools).
+- `python3 -I tools/gim.py check <PSP_GAME>` and `python3 -I tools/strtbl.py check <PSP_GAME>`: `OK` (§7, §15).
 
 ## Coverage
 
@@ -305,7 +307,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | Card art (`.cip`) | complete | no | Batch mode for `cip.py png` (optional; the JPEG covers the port). |
 | Card effects data | partial | **yes** | Continue per effect family: name single-use handlers, resolve the 244 open compare chains, decode `engine_only` branches. |
 | Decks | complete | no | Owners of recipes 462–660 (needed for story opponents). |
-| GIM textures | partial | yes (tooling) | Add a GIM → PNG CLI with batch mode, frames and palette levels. |
+| GIM textures | complete | no | Map palette levels and frames to the screens that select them (scene code). |
 | EHF UI timelines | partial | yes | JSON timeline exporter; interpolation; who drives each layout (scene code). |
 | TGM models | partial | yes | glTF-like exporter with skeleton, skin weights and animation curves; confirm rotation interpolation in PPSSPP. |
 | Field-spell 3D backdrops | partial | yes | Document `duel/bg/fmagic*.ehp` in `tgm.md` or its own format page; find the loader in `rel_duel_draw`; camera tracks. |
@@ -313,7 +315,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | World and field tables | partial | yes | Add `world.py` commands for map/door/exit/island tables; decode the chapter table. |
 | Story and event scripts | partial | partly | Name the nine remaining opcodes; trace the field requests in PPSSPP. |
 | Tutorials | partial | no | Identify whether `tutorial/` is used; decode the remaining engine command codes. |
-| UI string tables | missing (tool) | yes | Generic string-table dumper with `--check`; map indices to screens. |
+| UI string tables | partial | yes (mapping) | Tool and census done; map table indices to screens with the scene analysis of the UI. |
 | Sound and voices | partial | yes (decoder) | Choose and document the ATRAC3/ATRAC3plus decode route; batch export; cue flags and loops. |
 | PSMF movies | partial | no | Specify and test the install-time demux/transcode route. |
 | AI tables | partial | partly | Name single-use handlers; PPSSPP trace of plan comparison. |
@@ -329,4 +331,3 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 - Whether `tutorial/tutorial_all.ehp` and `tutorial/tutorial_<l>.ehp` are used by any module (no file-name string was found in `BOOT.BIN` or `gmodule/`).
 - Whether the port reads assets from the user's ISO at first run (and converts them) or ships a converter tool; this decides whether the extractors must become a single "convert everything" command.
 - Whether `*ptrs.txt` bundles are needed at all once members are addressed by name.
-- How many `.bin` members follow the common string-table layout, and which ones are something else (the census in `ehp.md` lists 2,225 `.bin` members of several formats).

@@ -58,7 +58,7 @@ Note that memory order (main, side, extra) differs from file order (main, extra,
 
 ## Recipe names: `recipe_name_<l>.bin`
 
-A string table in the format also used by `strTbl` members: `u32 count`, `u32 table_offset` (12), `u32 string_base`, then `count` `u32` offsets relative to `string_base`; each string is UTF-16LE, NUL-terminated. All six languages have 463 entries. Name `i` belongs to recipe `i` for `i` < 462 ("Starting Deck", then `<character> 01`, `<character> 02`, …); entry 462 is empty and recipes 462–660 have no name. `deck_get_recipe_name(index)` (`0x0885c314`) first checks that `RCP<index>.ydc` exists, replaces the `x` in `"recipe_name_x.bin"` (`0x0891671c`) with the current language letter from `"jegfis"` (`0x08916708`, indexed by `0x08857b80()`), and returns string `index` via `0x08836ed0`.
+A string table in the format also used by `strTbl` members: `u32 count`, `u32 table_offset` (12), `u32 string_base`, then `count` `u32` offsets relative to `string_base`; each string is UTF-16LE, NUL-terminated. All six languages have 463 offsets: 462 names and the end offset of the string block (the end marker every `strTbl` carries, `string-tables.md`). Name `i` belongs to recipe `i` for `i` < 462 ("Starting Deck", then `<character> 01`, `<character> 02`, …); entry 462 reads as empty and recipes 462–660 have no name. `deck_get_recipe_name(index)` (`0x0885c314`) first checks that `RCP<index>.ydc` exists, replaces the `x` in `"recipe_name_x.bin"` (`0x0891671c`) with the current language letter from `"jegfis"` (`0x08916708`, indexed by `0x08857b80()`), and returns string `index` via `0x08836ed0`.
 
 ## Recipe owner table: `0x08915f28`
 

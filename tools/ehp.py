@@ -69,6 +69,74 @@ def unwrap(name, blob):
     return name, blob
 
 
+def is_archive(data):
+    return data[:4] == MAGIC and data[8:12] == TAG
+
+
+def embedded_archives(elf):
+    """Yield (file offset, bytes) for every EHP archive embedded in an ELF image (BOOT.BIN, modules).
+    Archives nested inside a found archive are not reported again (walk_blob reaches them as members)."""
+    pos = elf.find(MAGIC)
+    while pos >= 0:
+        step = 4
+        if elf[pos + 8:pos + 12] == TAG:
+            size = struct.unpack_from("<I", elf, pos + 4)[0]
+            if 0 < size and pos + size <= len(elf):
+                yield pos, elf[pos:pos + size]
+                step = size
+        pos = elf.find(MAGIC, pos + step)
+
+
+def walk_blob(label, data):
+    """Yield (label, bytes) for every leaf file of `data`: archive members recursively (`.gz` members
+    decompressed, names without `.gz`), archives embedded in an ELF (`label@0xOFFSET/...`), or `data` itself.
+    Member labels are `label/member` (nested: `label/inner.ehp/member`)."""
+    if data[:4] == b"\x7fELF":
+        found = False
+        for offset, archive in embedded_archives(data):
+            found = True
+            yield from walk_blob(f"{label}@{offset:#x}", archive)
+        if not found:
+            yield label, data
+    elif is_archive(data):
+        for name, blob in parse(data):
+            name, blob = unwrap(name, blob)
+            yield from walk_blob(f"{label}/{name}", blob)
+    else:
+        yield label, data
+
+
+def read_file(path):
+    """File bytes, gunzipped when the file is gzip-wrapped (field/bustup/*.ehp.gz)."""
+    data = Path(path).read_bytes()
+    if data[:2] == b"\x1f\x8b":
+        try:
+            return gzip.decompress(data)
+        except (OSError, EOFError):
+            pass
+    return data
+
+
+def walk_paths(paths):
+    """walk_blob() over files and directories (walked recursively, labels relative to the directory)."""
+    for path in map(Path, paths):
+        if path.is_dir():
+            for sub in sorted(p for p in path.rglob("*") if p.is_file()):
+                yield from walk_blob(sub.relative_to(path).as_posix(), read_file(sub))
+        else:
+            yield from walk_blob(path.name, read_file(path))
+
+
+def find_leaf(path, member, accept=lambda blob: True):
+    """Return (label, bytes) of the first leaf of `path` whose label ends with `/member` (case-insensitive;
+    `member` may name nested archives, `inner.ehp/x.gim`, with `/` or `:` as separator)."""
+    want = "/" + member.replace(":", "/").lower()
+    for label, blob in walk_blob(Path(path).name, read_file(path)):
+        if label.lower().endswith(want) and accept(blob):
+            return label, blob
+    raise KeyError(f"{member} not found in {path}")
+
+
 def extract(members, target, recursive, gunzip, depth=0):
     count = 0
     for name, blob in members:
