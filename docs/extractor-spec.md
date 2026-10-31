@@ -180,11 +180,11 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | Item | Value |
 | --- | --- |
 | Source | `field/map/bg_NN_MM.ehp` (31 maps: TGMS/TGMT/TGMA, GIM, one `.hmp` walk grid), `field/big_map/world_<period>.ehp` (island map, five lighting periods), `field/always*.ehp` (field UI per region/language, `field_strtbl*.bin`), `field/sdchr/*.gim` (172 loose character sprites), `field/faceicon/*.gim` (87), `field/bustup/*.ehp.gz` (78 bust-ups: EHF + GIM), `field/event/<l>/`, `field/mail/chr02.ehp`, `field/for_bread.ehp`. |
-| Format docs | `docs/formats/hmp.md`, `docs/formats/field-tables.md`, `docs/subsystems/world.md`; models and layouts per §7–§9 |
-| Tool / command | `python3 -I tools/world.py hmp <USRDIR>/field/map --check`; `world.py hmp <USRDIR>/field/map/bg_NN_MM.ehp --grid`; models with `tgm.py`, layouts with `ehf.py` |
-| Port output | Per map: scene (glTF-like), walk grid as JSON (width, height, origin, 0.5-unit cells, walkable flags, vertex heights), map id ↔ archive ↔ story location tables (§12). Sprites and icons as PNG. |
-| Verified | Check run: 31 grids, `failing: 0`. `hmp` `documented`. Tests: `tools/tests/test_world.py`. |
-| Gaps | Height interpolation inside a cell (VFPU code not read); island-map screen coordinates (`rel_field` `0x090f85b0`) and arrow navigation; `field/event/` and `field/mail/` contents not inspected. Sprites and icons convert with `gim.py batch` (§7). |
+| Format docs | `docs/formats/hmp.md`, `docs/formats/field-tables.md`, `docs/formats/field-maps.md`, `docs/subsystems/world.md`; models and layouts per §7–§9 |
+| Tool / command | `python3 -I tools/world.py hmp <USRDIR>/field/map --check`; `world.py hmp <USRDIR>/field/map/bg_NN_MM.ehp --grid`; `python3 -I tools/world.py locations <USRDIR> -o extracted/world/maps [--names]` (one JSON per map); models with `tgm.py`, textures with `gim.py`, island layouts with `ehf.py` |
+| Port output | Per map (`map_MM.json`): archive, mesh members with their masks, animations and resolved GIM textures, door meshes, lighting and sky gradient per light period, walk grid (columns, rows, origin, 0.5-unit cells as `#`/`.` rows, vertex heights), exits per location, doors, door cells, walk overrides, special cells, arrival rules, NPC spots and fixed positions, island area. Scene geometry itself via `tgm.py` (§9); sprites and icons as PNG (§7). |
+| Verified | Check runs: 31 grids `failing: 0`; `world.py tables --check` `failing: 0` (801/801 mesh textures resolve; arrival, spot and fixed cells walkable except one spot). Floor height rule implemented (`WalkGrid.floor_height`). `hmp` and `field_maps` `documented`. Tests: `tools/tests/test_world.py` (synthetic). Not yet seen in PPSSPP. |
+| Gaps | Which bm_parts.gim region and EHF layout each island area uses; what loads maps 37/38; scripted placements behind cells 10000/10001; `field/event/` and `field/mail/` contents not inspected. Sprites and icons convert with `gim.py batch` (§7). |
 
 ## 12. World and field tables (in code)
 
@@ -192,10 +192,10 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | --- | --- |
 | Source | `rel_field.prx` (map id → archive/mesh tables, door table `+0x25334`, island-map areas, field request table `+0x2df0c`), `rel_story.prx` (character table `+0x2245c`, NPC spot table `+0x2092c`, location selector and exit cells `+0x1f968`/`+0x1fb84`, calendar tables, partner chapter events `+0x2a10c`), `BOOT.BIN` character table `0x088aa510`. |
 | Format docs | `docs/formats/field-tables.md`, `docs/subsystems/world.md` |
-| Tool / command | `python3 -I tools/world.py chars <USRDIR>/gmodule/rel_story.prx [--check]`; `python3 -I tools/world.py spots <USRDIR>/gmodule/rel_story.prx` |
-| Port output | JSON: characters (event keys, pairing flags, gift tastes), NPC spots per location, map/door/exit tables, calendar rules. |
-| Verified | Check run: `world.py chars --check` `failing: 0`; `spots` lists spots per location. Calendar, gift points, DP and the weekly pairing were confirmed in PPSSPP (`docs/verification/results/2026-10-27-sessionC.md`); `story_calendar` is `verified`. |
-| Gaps | **Missing tool output** for the map, door, exit-cell and island-area tables (documented but only `chars`/`spots` have commands); the partner chapter table and fixed spots are `named` only; item counters and several field requests are open (`world.md`). |
+| Tool / command | `python3 -I tools/world.py chars <USRDIR>/gmodule/rel_story.prx [--check]`; `python3 -I tools/world.py spots <USRDIR>/gmodule/rel_story.prx`; `python3 -I tools/world.py tables <USRDIR> [--check] [--table NAME] -o extracted/world/tables.json` |
+| Port output | JSON (`tables`): maps (archive, meshes, debug name, place-name index, location, island area, lighting), light-mode colours, sky gradients, location → map, doors, door cells, walk overrides, special and marker-hidden cells, exit selector and groups, arrival rules, island areas/positions/cones/archives, NPC spots, fixed NPC positions, ambient sounds. Characters and calendar rules as before. |
+| Verified | Check run: `world.py chars --check` `failing: 0`; `spots` lists spots per location; `world.py tables <USRDIR> --check` `failing: 0` (32 maps, 22 doors, 39 exit groups, 29 selector records, 12 island areas; 446/513 exit cells walkable, the rest unreachable). Calendar, gift points, DP and the weekly pairing were confirmed in PPSSPP (`docs/verification/results/2026-10-27-sessionC.md`); `story_calendar` is `verified`. |
+| Gaps | The map, door, exit, island and fixed-spot tables now have JSON output (`tables`, `locations`); the exit selector's conditions are all zero on the disc, so their semantics are read from code only. Still open: the partner chapter table is `named` only; item counters and several field requests (`world.md`); PPSSPP checks of doors, arrival and the island cursor. |
 
 ## 13. Story, dialogue and event scripts
 
@@ -296,6 +296,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 - Audio and movie conversion (FFmpeg 7.1.1): `audio_convert.py --check` and `psmf.py --convert-check` pass (§16, §17); outputs of the trial conversions went to a scratch directory outside the repository.
 - `python3 -I tools/gim.py check <PSP_GAME>` and `python3 -I tools/strtbl.py check <PSP_GAME>`: `OK` (§7, §15).
 - `python3 -I tools/tables.py odds <USRDIR>/gmodule/rel_shop.prx --check --cardinfo <cardinfo_eng.ehp>` (added with the pack-draw analysis): `ok: 48 packs, rarity box 14/4/2 per 20, 245 cards per round of packs, draws replayed` (§3a); `story.py events --check` still passes with the new opcode names (§13).
+- `python3 -I tools/world.py tables <USRDIR> --check` and `world.py locations <USRDIR> -o <dir>` (added with the map tables, §11–§12): `failing: 0`, 32 map files written.
 
 ## Coverage
 
@@ -313,8 +314,8 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | EHF UI timelines | partial (exporter complete) | yes (scene code) | JSON exporter done; interpolation, `add` channel and `.tmf` bit 4 in PPSSPP; who drives each layout (scene code). |
 | TGM models | complete for geometry, skin and animation (glTF) | partly | Playback frame rate; layer texture-map types; unknown `-etc` tracks; `.vtmt`; textures from other archives. |
 | Field-spell 3D backdrops | complete for data (glTF + scene block) | partly | Find the loader and the loop/frame-rate settings in `rel_duel_draw`; check one backdrop in PPSSPP. |
-| Free-roam maps and field assets | partial | yes | Height interpolation; inspect `field/event/` and `field/mail/`; reuse the TGM/GIM exporters. |
-| World and field tables | partial | yes | Add `world.py` commands for map/door/exit/island tables; decode the chapter table. |
+| Free-roam maps and field assets | partial (per-map export complete) | partly (scene export via TGM) | Per-map JSON with grid, heights rule, exits, doors and art references done; inspect `field/event/` and `field/mail/`; island-area sprite regions; geometry through the TGM exporter. |
+| World and field tables | partial (map/door/exit/island export complete) | no (for maps); yes (chapter table) | Decode the partner chapter table; PPSSPP check of arrival cells and door locks. |
 | Story and event scripts | partial | no | Trace the field requests and the lower-confidence opcodes in PPSSPP. |
 | Tutorials | partial | no | Identify whether `tutorial/` is used; decode the remaining engine command codes. |
 | UI string tables | partial | yes (mapping) | Tool and census done; map table indices to screens with the scene analysis of the UI. |

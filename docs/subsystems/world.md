@@ -4,21 +4,21 @@ How the Duel Academy free roam is put together: maps and their files, exits, cha
 
 Modules (`docs/subsystems/modules.md`): `rel_field` (scene 5, base `0x090ced00`) draws and runs the field and serves 33 requests from `rel_story`; `rel_story` (scene 2, base `0x08e9aa00`) owns the calendar, the story state and the event bytecode (`docs/formats/story.md`); `rel_shop` (scene 7, base `0x090ced00`) is the card shop. Persistent state lives in the save state block (`save_get_state()`, `docs/formats/save.md`).
 
-Formats: `docs/formats/hmp.md` (walk grid), `docs/formats/field-tables.md` (map ids, archives, doors, exit cells, field string tables). Tool: `tools/world.py hmp`.
+Formats: `docs/formats/hmp.md` (walk grid and floor height), `docs/formats/field-tables.md` (map ids, archives, doors, exit cells, field string tables), `docs/formats/field-maps.md` (per-map data: location ↔ map, lighting, door behaviour, door cells, walk overrides, arrival cells, NPC positions, island map, and the per-location JSON export). Tools: `tools/world.py hmp`, `tables`, `locations`.
 
 ## Maps
 
 - A map is one archive `field/map/bg_NN_MM.ehp`: mesh, animations, textures and the walk grid `.hmp`. The field module knows 32 maps by **field map id** `M` (1–42, sparse) and converts it to an index 0–31 (`world_map_id_to_index`, `rel_field` `0x090d1144`) that selects the archive name and meshes (`field-tables.md`).
-- Story scripts name places by **story location** `L` 1–29 (`scene_map`, opcode 50158); `rel_story`'s selector table maps `L` to `M`. Confirmed on data: with this mapping 99% of the scripted start and NPC cells are walkable cells of the right grid.
+- Story scripts name places by **story location** `L` 1–30 (`scene_map`, opcode 50158); `world_location_to_map_id` (`rel_story` `0x08e9ecfc`) maps `L` to `M` (`field-maps.md`). Confirmed on data: with this mapping 1,214 of 1,218 scripted start and NPC cells are walkable cells of the right grid. (The exit selector at `+0x1f968` gives the exit-group key, which differs from `M` for locations 27–29.)
 - **Movement** is on a 0.5-unit grid (`.hmp`): one byte per cell, 1 walkable. Positions in scripts are cell indices; the field centres them (`x·0.5 + 0.25`).
-- **Doors** (`rel_field` `+0x25334`) are animated meshes with a target map id; only the classroom, the store and the Slifer dorm outside (its eight room doors and the dining hall) have them. **Exit cells** (`rel_story` `+0x1fb84`) are cells at the map border or room door; stepping on one ends the walk with field action 0 (see "Field actions"). **Door cells** are hard-coded in `world_get_door_cell_target` (`rel_field` `0x090d9cc8`): on the Slifer dorm outside (`M` 12 and 37) cells `(15, 24)` → `M` 13, `(15, 20)` → 14, `(15, 16)` and `(15, 12)` → 40, `(13, 24)` → 17, `(13, 20)` → 18, `(13, 16)` → 19, `(13, 12)` → 20, `(13, 6)` → 21 (dining hall); on the special hall (`M` 36) `(9, 0)` and `(10, 0)` → 39. They end the walk with action 17 and the target map; `rel_story` converts it to a location with `world_map_id_to_location` and reloads (high, code).
+- **Doors** (`rel_field` `+0x25334`) are animated meshes (sliding or hinged, opened within 0.75 units of the player, locked at midnight on the dorm outside except rooms 204 and the dining hall; `world_update_doors`, `field-maps.md`) with a target map id; only the classroom, the store and the Slifer dorm outside (its eight room doors and the dining hall) have them. **Exit cells** (`rel_story` `+0x1fb84`) are cells at the map border or room door; stepping on one ends the walk with field action 0 (see "Field actions"). **Door cells** are hard-coded in `world_get_door_cell_target` (`rel_field` `0x090d9cc8`): on the Slifer dorm outside (`M` 12 and 37) cells `(15, 24)` → `M` 13, `(15, 20)` → 14, `(15, 16)` and `(15, 12)` → 40, `(13, 24)` → 17, `(13, 20)` → 18, `(13, 16)` → 19, `(13, 12)` → 20, `(13, 6)` → 21 (dining hall); on the special hall (`M` 36) `(9, 0)` and `(10, 0)` → 39. They end the walk with action 17 and the target map; `rel_story` converts it to a location with `world_map_id_to_location` and reloads (high, code).
 - **Island map** (`field/big_map/world_<period>.ehp`, five variants: morning, day, sunset, night, midnight; field resources 2–6 at `rel_field` `+0x2ee3c`): the travel screen with arrows (`bm_arrow11–14.ehf`). See "Island map" below.
 
 ## Island map (travel)
 
 Flow (`rel_story` state machine `world_story_state_step`, `0x08ea0154`, state variable `0x08ecd978`): an exit cell outside a dorm room leads to state 7 (`0x08ea2568`), which **advances the time by one slot** (`world_change_time(2)`) and goes to state 1 (`0x08ea1bf4`): field request 0 (scene set-up) and `world_open_island_map` (`0x08ea1888`); state 2 (`world_poll_island_map`, `0x08ea1cb8`) waits on field request 29, which returns `{cancelled, M}`. On a choice the location becomes `world_map_id_to_location(M)` and state 3 loads it; on cancel state 12 (high, code).
 
-`world_open_island_map` sends field request 2 with `{current M, list pointer, list count, …, highlighted M}`: the current place, the place of the partner's next chapter event (`world_get_next_chapter_event`, only at story sub-stage 2 when the points are at the cap and the slot is < 7, else −1), and a list that holds `M` 2 (the classroom) in slots 3 and 4 only (presumably "class in session"; low). The field side (`world_island_map_open`, `rel_field` `0x090e3854`) picks the archive by the light period (period 0–4 → resource 2–6: confirms the period/archive order, high) and works with **12 island areas**:
+`world_open_island_map` sends field request 2 with `{current M, list pointer, list count, …, highlighted M}`: the current place, the place of the partner's next chapter event (`world_get_next_chapter_event`, only at story sub-stage 2 when the points are at the cap and the slot is < 7, else −1), and a list of **disabled destinations** that holds `M` 2 (the classroom) in slots 3 and 4 only: listed areas (or building sub-points) are not drawn and the cursor skips them (`world_island_map_open`, `world_island_map_navigate`; medium for the reading that the classroom is closed during those slots). The field side (`world_island_map_open`, `rel_field` `0x090e3854`) picks the archive by the light period (period 0–4 → resource 2–6: confirms the period/archive order, high) and works with **12 island areas**:
 
 | Area | Destination `M` | Place |
 | --- | --- | --- |
@@ -35,7 +35,7 @@ Flow (`rel_story` state machine `world_story_state_step`, `0x08ea0154`, state va
 | 10 | 31 | Beach |
 | 11 | 32 | Laboratory |
 
-`world_island_area_of_map` (`0x090e47d0`) maps `M` → `(area, sub-point)` and `world_island_area_to_map` (`0x090e4710`) back; the result of the menu is `world_island_area_to_map(area, sub-point)`. Area screen positions are `u32` pairs at `rel_field` `0x090f85b0` (8 bytes per area). Maps 36–42 (special hall, laboratory 2, bridge…) and the second dorm versions are not reachable from the island map; story scripts move the player there (high for the tables, code).
+`world_island_area_of_map` (`0x090e47d0`) maps `M` → `(area, sub-point)` and `world_island_area_to_map` (`0x090e4710`) back; the result of the menu is `world_island_area_to_map(area, sub-point)`. Area screen positions are `i32` pairs at `rel_field` `0x090f85b0` (8 bytes per area, pixels on the 480 × 272 screen); the cursor moves to the nearest enabled area within a 45°, then 60°, then 75° cone of the input direction (`field-maps.md`, "Island map"). Maps 36–42 (special hall, laboratory 2, bridge…) and the second dorm versions are not reachable from the island map; story scripts move the player there (high for the tables, code).
 
 ## Field actions
 
@@ -174,6 +174,8 @@ Prototype, purpose, side effects and callers of the functions listed in `re/docu
 
 **Verified in PPSSPP (2026-10-27, [`results/2026-10-27-sessionC.md`](../verification/results/2026-10-27-sessionC.md))**: `world_update_calendar`, `world_advance_time_slot`, `world_advance_to_next_day` and `world_change_time` (C1, C2: the logged modes and the weekly call of `world_assign_daily_spots`), `world_assign_daily_spots` and `world_update_npc_positions` (C2: weekly order, neighbouring spots, record fields equal to the spot entries, `+0x58` equal to the day index), `world_give_item_to_partner` and `world_change_char_points` (C3), `save_add_dp` (C4). `world_pick_sandwich_seller`, `world_get_weekday` and `world_check_new_day` ran in that session but their results (system flag 4, return values) were not read, so they stay `documented`.
 
+The map, exit, door, walkability and island functions (`rel_field`: `world_map_id_to_index`, `world_map_id_to_name_index`, `world_field_load_map`, `world_is_exit_cell`, `world_get_door_cell_target`, `world_get_lab_special_cell`, `world_is_cell_walkable`, `world_sample_floor_height`, `world_update_doors`, `world_island_area_of_map`, `world_island_area_to_map`, `world_island_map_open`; `rel_story`: `world_location_to_map_id`, `world_map_id_to_location`, `world_select_exit_group`, `world_get_exit_cells`, `world_send_exit_cells`, `world_place_player_on_arrival`, `world_get_fixed_npc_spot`) are documented in `re/documented-rel_field.tsv` and `re/documented-rel_story.tsv`; their behaviour is described in `docs/formats/field-maps.md` and `docs/formats/hmp.md` (static, not yet traced).
+
 ## Key functions
 
 Registry names (`re/names.csv`, `re/names-rel_field.csv`, `re/names-rel_story.csv`); evidence above.
@@ -232,6 +234,17 @@ Registry names (`re/names.csv`, `re/names-rel_field.csv`, `re/names-rel_story.cs
 | `rel_field 0x090e3854`, `0x090e47d0`, `0x090e4710` | island map set-up, map → area, area → map | H |
 | `0x08855ae0` / `0x08855b54` | `save_set_golden_egg_flag()` / `save_set_all_sandwiches_flag()` (`+0x1c0e9` bits 1 / 2) | H (code) |
 | `0x0885aeb0` / `0x0885b8fc` | `world_get_character_category(char)` (`+0x08`) / `world_character_can_duel(char)` | H (code) |
+| `rel_field 0x090d93b0`, `0x090d9948` | `world_is_cell_walkable(x, y, mode)` (code overrides, then the grid byte), `world_sample_floor_height(x, z, pos)` (triangle split) | H (documented) |
+| `rel_field 0x090d934c`, `0x090d9358`, `0x090d9384` | walk grid, its vertices, its cells | H |
+| `rel_field 0x090d1270`, `0x090d616c` | `world_map_id_to_name_index(M)`, `world_show_location_name()` | H / M |
+| `rel_field 0x090d4850`, `0x090d4c64`, `0x090dafc8` | light mode per map and period, light colour, sky gradient | M |
+| `rel_field 0x090da588`, `0x090da548`, `0x090da8a8`, `0x090dab48` | door update (documented), door object init, sliding / hinged door animation | H |
+| `rel_field 0x090d1df4`, `0x090dd8dc`, `0x090e27c0`, `0x090e282c`, `0x090e1cf0` | player collision, partner free-cell search, cell occupancy get/set, pick-up at a cell | M |
+| `rel_field 0x090d9e78`, `0x090dc0d8` | marker-hidden cells (maps 21, 27; low for the meaning), forest ambient sound | L / M |
+| `rel_field 0x090e3614`, `0x090e3c58`, `0x090e4b7c`, `0x090e52d0` | island map step, cursor navigation, building sub-menu, area drawing | M |
+| `rel_field 0x090d8494`, `0x090de430`, `0x090de378`, `0x090d0c74` | request 1 (event flag) and request 0 (scene set-up) handlers, scene parameters `0x0910c624`, field context `0x091057f0` | H (code) |
+| `rel_story 0x08ea1830`, `0x08ea51e4`, `0x08ea0730`, `0x08eab35c` | send the event flag (request 1), driver event flag, send the scene set-up (request 0), its calendar words | H (code) |
+| `rel_story 0x08ea56f0`, `0x08ea5718`, `0x08ea5728`, `0x08ea5738`, `0x08ea5700` | field state: previous location, player x / z / direction, set player position | H |
 
 ## Save fields found here
 
@@ -255,7 +268,7 @@ Additions to `docs/formats/save.md` (offsets in the game state / `DATA0`):
 
 ## Open questions
 
-- The meaning of the field result codes 7 and 9–15 (other game modes) and of the island-map list (classroom marked in slots 3–4).
+- The meaning of the field result codes 7 and 9–15 (other game modes). (The island-map list is the set of disabled destinations, `field-maps.md`.)
 - Where the item menu's counts live: the counters at field state `+0x94` are only decremented in `rel_story`; the field module's Item menu (and the event items 101–104, bandanna, barrette, hat, autograph) was not read. PPSSPP (Session C): buying a sandwich and giving or eating it never writes them (an eaten sandwich gives a card at once); what the menu counts is still open.
 - Which driver result queues `(301, 8/9/10/11, …)` (duel win/loss, events) and the exact role of the story flags 21–29 in `world_driver_next_event`.
 - The character-table bytes `+0x44..+0x74` in `BOOT.BIN` (no caller found; not gifts).

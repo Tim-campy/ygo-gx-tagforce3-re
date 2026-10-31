@@ -108,3 +108,12 @@ address,group,name
 0x08ea9110,dialogue,dialogue_op_duel_target_by_partner
 0x08ea9198,dialogue,dialogue_op_duel_target_tag
 0x08ea4d9c,world,world_get_duel_target
+0x08ea1830,world,world_send_event_mode
+0x08ea51e4,world,world_get_driver_event_flag
+0x08ea56f0,world,world_get_previous_location
+0x08ea5718,world,world_get_player_x
+0x08ea5728,world,world_get_player_z
+0x08ea5738,world,world_get_player_direction
+0x08ea5700,world,world_set_player_position
+0x08ea0730,world,world_send_scene_setup
+0x08eab35c,world,world_fill_scene_calendar_params
