@@ -2,7 +2,7 @@
 
 Status: `documented` (layout, lengths, consumers, order semantics). The per-card handlers themselves are not documented here; see `docs/subsystems/ai.md`. Addresses are runtime addresses with the module loaded at `0x09be1400`; file offset = address − `0x09be1400` + `0x54` (single `PT_LOAD` segment). Pointers stored in the file are module offsets (add the base).
 
-Tool: `tools/ai_tables.py` lists the tables (`list`), gives per card the tables that know it (`cards`), sorts the handlers into behaviour classes by name (`classes`) and checks the layout against the code (`--check`). Its output is game data: keep it under `extracted/`.
+Tool: `tools/ai_tables.py` lists the tables (`list`), gives per card the tables that know it (`cards`), sorts the handlers into behaviour classes by name (`classes`), reports per card every handler with its family and class (`handlers`, families in `docs/subsystems/ai.md`) and checks the layout against the code (`--check`); with `--functions` the check also verifies the handler names (every handler named, a per-card name `ai_handler_<stem>_<card id>…` lists exactly the cards whose entries use the handler, a variant extends a named shared handler). Its output is game data: keep it under `extracted/`.
 
 Basis: Ghidra decompilation of every function that references the range `0x09dfd200`–`0x09e00900` (reference listing over the range, then reading each referencing function), plus a byte-level scan of the data. Nothing here was traced in PPSSPP yet.
 
@@ -89,4 +89,4 @@ Three lists of `u16` card ids sit right before T1. They have no handler column; 
 - What `BOOT 0x0885ff3c` and `BOOT 0x0885fef0` test (gates for A-in-B and for B in response windows); probably card-kind predicates.
 - Meaning of the timing-event codes 2, `0x12` and `0x1b` that select the T1 subset, R1 (with `0x13` attack declared) and R3 (`0x14` is the start of the Damage Step).
 - Why 18 engine-supported card ids have no cardinfo record (cut cards, Japanese-only cards).
-- Handler semantics: the 77 handlers shared by ≥ 3 entries are named and classified (`docs/subsystems/ai-helpers.md`, `ai_tables.py classes`); the 600 single-use handlers remain.
+- Handler semantics: the 77 handlers shared by ≥ 3 entries are named and classified (`docs/subsystems/ai-helpers.md`); the 600 single-use handlers are named by family (`docs/subsystems/ai.md`, `ai_tables.py handlers`). Each member's constants are still read from its decompilation.

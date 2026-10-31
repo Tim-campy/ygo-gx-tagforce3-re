@@ -85,6 +85,44 @@ Handlers are small per-card predicates, many shared: `ai_cond_always` `0x09d6b6b
 
 So the effect knowledge for the AI is: which cards it knows (table membership), when to use them (handler), and where (table). Cards absent from every table are never activated voluntarily by the CPU (hypothesis, M: no other path to `ai_activate_from_table` was found besides `0x09d41050`/`0x09d30af8`, which use the same tables).
 
+### Per-card handler families
+
+Besides the 77 shared handlers of `ai-helpers.md`, the tables point to **600 single-use handlers** (665 entries: 543 serve one card, sometimes in two tables, and 57 serve two cards). Every one of them is now named by family, `ai_handler_<stem>_<card id>[_<card id>][_<tables>]`: the ids are the cards whose entries use the handler (4 lower-case hex digits; the tables say which cards these are), and a table suffix (`_t3`, `_b`) separates two handlers of one card. `ai_tables.py handlers` reports per card which handlers it has and their family, and `--check --functions …` verifies that each per-card name lists exactly the cards that use it (`docs/formats/ai-tables.md`).
+
+Basis: Ghidra decompilation of all 677 handlers (read-only project, one headless run of a list decompiler), then a rule-based classifier over each handler's callees (registry names) and the globals it reads; about 60 handlers of all families were read in full to write the descriptions below and to check that the rule picks the decision that dominates the code. The rule tests the features in this order and the first match wins: (1) calls a named shared handler or `ai_cond_*` → **variant** of that handler (stem = the shared name; an `ai_handler_*` callee wins over an `ai_cond_*` one); (2) reads the timing-event queue `0x09e28f98`/`0x09e28fa0` → event; (3) in a chain table (T1–T3, R1–R3) and reads the link argument or calls a threat query (`ai_is_card_threatened_*`, `duel_effects_get_link_target`, `ai_classify_resolve_kind`, `0x09bf2fbc`, `0x09bf3c34`) → link; (4) draw, LP, discard, cost, candidate, summon queries, in that order; (5) battle queries; (6) target queries (with `ai_get_battle_dominance` → target_dom); (7) dominance, copy limit, field spell, Graveyard, phase/turn words, the committed shortcut, other duel-core counts (board), nothing called (state). Confidence: M for the family of a member (the rule is mechanical and a handler often combines two tests), L for any member's exact semantics until it is read.
+
+| Family | Stem | Handlers | Entries | Tables | What decides | Example (read in full) |
+| --- | --- | --- | --- | --- | --- | --- |
+| variant | shared handler's stem | 83 | 96 | T1 43, T3 35, B 17, C 1 | A shared handler's test plus a card-specific condition (usually `shared(...) && extra`). Stems: `counter_harmful_link` 22, `draw_if_safe` 15, `can_discard` 9, `has_target` 7, `can_choose_candidate` 6, `revive_monster` 4, `gain_lp` 3, `special_summon` 3, `no_active_copy`, `has_candidate`, `opponent_has_target` 2 each, 8 others 1 each | `0x09d1f5f0`: `ai_handler_counter_harmful_link` and the link's card is not `0x19cb` |
+| event | `react_to_event` | 3 | 4 | T1 | Walks the queued timing events | `0x09d1f358`: refuse while a summon event (codes 6–8) of the AI's own side is queued |
+| link | `respond_to_link` | 28 | 35 | T3 30, T1 4, T2 1 | Reads the link it answers: owner, response mode `0x09e0307c`, the link's card or targets | `0x09d27d40`: no link → yes; mode 1 → only own-side links whose resolve kind is non-zero |
+| draw | `check_draw` | 14 | 15 | B 6, T1 5, A 3, T3 1 | `ai_would_deck_out`, hand limit | `0x09d1f9a4`: in the opponent's End Phase, if drawing 5 does not deck out |
+| lp | `check_lp` | 39 | 44 | B 19, T1 15, others | LP estimates (`ai_estimate_lp_change`, `ai_eval_damage_effect`), LP thresholds | `0x09d2d694`: opponent LP ≤ 1,000 × valid targets |
+| discard | `check_discard` | 20 | 23 | B 19, D 3, E 1 | `ai_choose_discard` finds a hand card to give up | `0x09d800dc`: best attacker ATK ≥ 2,000 and a discard exists |
+| cost | `check_cost` | 30 | 33 | B 22, others | Cost/hand choosers (`ai_choose_cost_*`, `ai_choose_hand_card_*`) | `0x09d70ac0`: ≥ 2 own monsters and a hand card can be chosen |
+| candidate | `check_candidates` | 48 | 53 | B 34, D 11, others | Enough acceptable candidates for a search/revive/recover | `0x09d216a4`: opponent's End Phase and ≥ 3 acceptable candidates |
+| summon | `check_summon` | 20 | 21 | B 14, others | Free zones, Normal Summon available, summon simulation | `0x09d79a98`: Neo-Spacians in the Graveyard fill the free zones, or a lethal threat |
+| battle | `check_battle` | 66 | 72 | B 48, D 17, E 3, T1 3, G 1 | Battle phase possible, attackers, the battle plan | `0x09d6d728`: the controller can enter battle and this monster can attack now |
+| target | `check_targets` | 60 | 64 | B 38, D 9, T1 7, others | Target mask or a chosen target, often weighed by ATK | `0x09d1dd00`: the opponent's highest original-ATK target must have ATK ≥ the opponent's LP |
+| target_dom | `check_targets_by_dominance` | 17 | 20 | B 13, others | A target choice gated by the battle dominance | `0x09d83abc` |
+| dominance | `check_dominance` | 24 | 28 | B 10, D 8, T1 6, others | Dominance only | `0x09d7e2cc`: dominance < 1 |
+| limit | `check_copies` | 22 | 24 | A 6, B 7, G 7, C 3, E 1 | `ai_is_card_count_below` with other limits | `0x09d6ba44`: fewer than 2 copies on both sides |
+| field | `check_field_spell` | 11 | 11 | A 8, B 3 | Field-spell zone | `0x09d72098` |
+| graveyard | `check_graveyard` | 11 | 12 | B 5, T1 4, others | Graveyard counts | `0x09d703fc`: opponent has ≥ 2 Graveyard monsters (≥ 1 when committed) |
+| phase | `check_phase` | 18 | 19 | T1 18, T2 1 | Turn player `0x09e2d1d8` and phase `0x09e2d1e8` only | `0x09d1d230`: not the controller's turn |
+| committed | `check_committed` | 12 | 12 | D 5, B 4, G 2, A 1 | `ai_is_normal_spell_in_graveyard` shortcut plus own counts | `0x09d6fd3c` |
+| board | `check_board` | 60 | 64 | T1 25, B 19, others | Named-card, monster, counter, hand counts | `0x09d21384`: card `0x1817` active on the own side |
+| state | `check_rule_state` | 14 | 15 | T1 8, others | Rule flags, link fields or event codes, no call | `0x09d2f0dc`: the ctx event code is 3 |
+
+Shape facts that a port needs (H, from the decompilation):
+
+- Signature `int handler(ctx, arg)`: `ctx` is the 24-byte link built for the card (`chain.md`), `arg` the link being answered in a response window (0 outside one). Results ≥ 1 accept, 0 or −1 refuse; no decompiled single-use handler has a literal `return 2` (L: a computed 2 was not searched for), so the "≥ 2 for hand cards" threshold of `ai_evaluate_activation` probably makes those hand cards refuse under that flag.
+- Recurring idioms: "own side" `ctx +2 bit 0`; "controller" that bit xor `ctx +3 bit 6`; "opponent's End Phase" = turn player ≠ own side and phase 5 (the usual timing of T1 cards that act at the end of the opponent's turn); event code `(u16 ctx +2 & 0xfff) >> 6`.
+- Some handlers share one body: `0x09d70070`, `0x09d70084`, `0x09d70098`, `0x09d700ac` load a different constant (the most cards the effect may use: 1, or −1 for no limit) and fall into common code; Ghidra gives them a 1-byte body. They are separate table pointers and are named separately. `0x09d6b90c` (`ai_handler_check_targets_1668`) is a Ghidra thunk of `0x09ce9b54` (accept when the record's target mask, filtered by `ai_filter_target_mask`, is non-empty); the registry lists it as `thunk_…`, which `ai_tables.py` strips.
+- 17 handlers write the AI scratch word `0x09e03068` (for example the number of cards to send for +500 ATK each in the body above), which the activation code reads afterwards; the handler is therefore not always side-effect free.
+
+Porting: a family is a template (its dominant query); the member adds constants (card ids, thresholds) and at most one or two extra tests. The registry names point at the template, the decompilation of each member gives the constants.
+
 ## Simulation and scoring
 
 ### State snapshots
@@ -93,11 +131,30 @@ The AI tests moves on the real duel state. `ai_simulate_attack`, `ai_plan_battle
 
 ### Battle plan
 
-A plan is a `0x2e4`-byte record: the working plan at `0x09e276e4` and one saved per side at `0x09e279c8 + side × 0x2e4` (H for the copies). `+0x00`: five per-monster attack entries (`0x09d1c8e0(plan, i)`); `+0x08` `int` plan value returned by `ai_get_plan_value` (non-zero when the plan deals damage or wins a battle, hypothesis M); `+0x0c`, `+0x10`, `+0x14`, `+0x1c`, `+0x1e` are compared by `ai_compare_plans`; `+0x146` a flag read by the battle check; `0x09e2782a` is the chosen attacker slot + 1.
+A plan is a `0x2e4`-byte record: the working plan at `0x09e276e4` and one saved per side at `0x09e279c8 + side × 0x2e4` (H for the copies). Its header is written by `ai_plan_init` (`0x09d0eeb8`) and `ai_plan_simulate_attacks` (`0x09d1329c`); "own" is the planning side (H for the writes, M for the meanings):
+
+| Offset | Type | Meaning |
+| --- | --- | --- |
+| `+0x00` | u16 | Own monsters destroyed in the simulated battles |
+| `+0x02` | u16 | Opponent monsters destroyed |
+| `+0x04` | u16 | Own monsters left (`duel_core_count_monsters`) |
+| `+0x06` | u16 | Opponent monsters left |
+| `+0x08` | int | Plan value: total damage the planned attacks deal (sum of the battle evaluator's two damage words per attack); returned by `ai_get_plan_value` |
+| `+0x0c` | int | Secondary score: sum of the evaluator's per-attack word `0x09e27fb8[defender]` (meaning open) |
+| `+0x10` / `+0x14` | int | Own / opponent LP after the attacks (start: the player blocks' LP) |
+| `+0x18` | s16 | Battle dominance after the attacks (`ai_eval_battle_dominance(side, 0, 1)`) |
+| `+0x1a` | u16 | Slot mask of monsters with special attack rules (`ai_plan_prepare_attack_state`) |
+| `+0x1c` / `+0x1e` | s16 | Own / opponent deck size after the attacks (cards milled by battle subtracted) |
+| `+0x20` | u16 | Combat-trick card the plan assumes (0 = none): `ai_plan_battle_with_tricks` passes the trick list entry `0x09d1cb10(i)` through `ai_build_battle_plan` to `ai_plan_init` |
+| `+0x22` | u16 | 1 when the attacks win the duel (opponent LP < 1, or deck < 1 while it had cards) |
+| `+0x24` | 5 × 32 bytes | Per-monster attack entries: `+0x02` attacks planned, `+0x04` destroyed an opposing monster, `+0x06`, `+0x0a` flags of that destruction, `+0x08` the attacker was destroyed, `+0x0c` cannot attack (Defense Position or `0x09d3996c`), `+0x0e` target (5 = direct / none), `+0x14` mask of slots destroyed, `+0x18` damage, `+0x1c` evaluator score |
+| `+0xc4` | 4 × 32 bytes | Extra entries (`+0x00` = the slot, `0xffff` = unused). `ai_plan_get_attack_entry(plan, slot)` (`0x09d1c8e0`) returns `plan + 0x24 + 32 × slot`, or the extra entry of that slot when bit 29 of the turn player's slot flags word (`+0x10`) is set (H for the address computation; "monster with an additional attack" is a hypothesis, L) |
+
+`0x09e2782a` (plan `+0x146`) is the chosen attacker slot + 1, also read by the battle check.
 
 - `ai_plan_battle(side, mode, flag)` (`0x09d16568`): `mode = -1` full plan for the turn player, `-2` hypothetical (forces phase 2), `≥ 0` a given monster. Calls `ai_plan_battle_with_tricks`, then evaluates the result (`0x09d0afd0`) and, if the opponent is the turn player's AI side, also plans the opponent's best reply with Alligator's Sword-style checks (`0x09cfca08`).
 - `ai_plan_battle_with_tricks` (`0x09d15b58`): builds the base plan (`ai_build_battle_plan` `0x09d1586c` → `0x09d0eeb8`, `0x09d12a24`, `0x09d1329c`), then replays it once for each **combat trick** listed at `0x09e27ff8` (up to 8 card ids, filled by `ai_analyze_board` with Battle Fusion, Shield & Sword and Limiter Removal when they can be used) and keeps the better plan (`ai_compare_plans` mask `0x1e`, `0x10` for Limiter Removal).
-- `ai_compare_plans(a, b)` (`0x09d36d4c`): lexicographic comparison; bits `0x10`, `0x08` (`+6` u16 smaller), `0x04` (`+0x14` int larger), `0x02` (`+0x0c` int smaller). Field meanings open.
+- `ai_compare_plans(a, b)` (`0x09d36d4c`): not a lexicographic order but a mask of independent criteria in which `a` beats `b`; the caller keeps `a` when `mask & wanted ≠ 0`. Exact logic (H, from the disassembly) and field meanings (M) are in "Decision pipeline" below.
 - `ai_choose_attack_target(side, slot, …)` (`0x09d0ca3c`): tries the direct attack (target 5) and each opposing monster, starting at a random slot (`duel_core_random(5)`), skipping targets already flagged in `0x09e27ff4`, scoring with `0x09d06188` (17,700-byte battle evaluator) and keeping the best by `0x09d0c2e4`.
 
 ### Battle dominance
@@ -112,9 +169,55 @@ A plan is a `0x2e4`-byte record: the working plan at `0x09e276e4` and one saved 
 
 `ai_choose_target_by_card(ctx, ctx2, card, slot_mask, mandatory)` (`0x09d608d4`, 16 KiB, H): two generic pre-checks (`0x09d605c8`, `0x09d60760`), then a compare chain of 131 card ids with dedicated choosers, then generic fallbacks. Returns `side | slot << 8` or −1. Generic pickers (H): `ai_pick_monster_by_stats(side, mask, atk_sign, def_sign)` (`0x09d4a5c0`, best/worst ATK or DEF, +1 for monsters that can attack) and `ai_pick_slot_by_score(side, mask, score_fn)` (`0x09d4a9cc`); both shuffle the candidates first, so ties break randomly. `ai_choose_target_as_controller` (`0x09d64b18`) runs the chooser with the view side set to the card's controller; `ai_decide` (`0x09d649ec`) tries the mandatory then the optional variant and applies the choice (`0x09cbed3c`).
 
+## Decision pipeline (reimplementation spec)
+
+Every CPU decision runs through the same pipeline. Confidence per step; "H" steps are read from the code (decompilation, disassembly where noted), "M" steps have a clear code basis but one uncertain reading, "L" steps are structural only. Nothing here has been traced in PPSSPP.
+
+1. **Hand-off (H).** A phase handler or prompt sees `0x09e02998[side] == 1` and calls an AI wrapper instead of the human UI; the wrapper calls `ai_push_context(side, view, replan)` and stores the answer where the human answer would go (`0x09e2d248` for prompts). Nested AI questions push further frames.
+2. **View (M).** `ai_analyze_board(view)` rebuilds the per-side block `0x09e28008 + side × 0x30c`: cached battle dominance (`+0` simulated, `+2` plain), slack `+4`, rule flags `+8`, and the table of 32 **interest records** at `+0x0c` (24 bytes each, built by `ai_board_note_card_interests` `0x09d8fc24` and `ai_board_note_combo_interests` `0x09d91d30`, compare chains on the cards the side holds, through `ai_board_add_interest_record`; the record is a card id at `+4` plus flag bytes, merged by equality with a u16 weight at `+0`). Face-down opposing cards are replaced by stand-ins (`ai_mask_hidden_card_id`, H). The interest records are read by the handlers' "wanted card" tests (meaning of the flag bytes L).
+3. **Battle plan (H for the sequence).** `ai_replan_turn_player()` → `ai_plan_battle(turn player, −1, 1)`:
+   1. Push a snapshot (depth `0x09e27fee` ≤ 10): `0xc14` bytes from `0x09e29914` and `0x2de4` bytes from `0x09e2a528` into slot n (`0x09dff93c + n × 0x39f8`, player part at `0x09e00550 + n × 0x39f8`); then `0x09d0e7b4(0)` and `duel_effects_update_negated_slots(1)`.
+   2. `ai_plan_battle_with_tricks(side, mode, 0, flag, mode == −2)`: build the base plan with `ai_build_battle_plan`, save it (header, `0x09e27708` attack entries, `0x09e277a8` extra entries, `0x09e27828` state) as *best*; then for each combat trick `t` in the list read by `0x09d1cb10(i)` (filled by `ai_analyze_board` from Battle Fusion, Shield & Sword, Limiter Removal … that can be used): restore the snapshot, rebuild the plan with `t` as `+0x20`, compute `m = ai_compare_plans(new, best)` and keep the new plan when `m & mask ≠ 0` with `mask = 0x10` for Limiter Removal (`0x1409`) and `0x1e` otherwise.
+   3. `ai_build_battle_plan(side, mode, from, trick, flag, full)`: `ai_plan_init`; if own LP (`+0x10`) > 0, own deck (`+0x1c`) ≥ 0 and `duel_core_can_enter_battle_phase(side)`: `ai_plan_prepare_attack_state` (attack restrictions per card), set the phase word `0x09e2d1e8` to 3 (Battle Phase; old value pushed on a 4-entry stack `0x09e27fe4`), `ai_plan_simulate_attacks(side, mode)`, restore the phase.
+   4. `ai_plan_simulate_attacks` (M): for each attacker, `ai_choose_attack_target` (`0x09d0ca3c`) tries the direct attack (target 5) when allowed, then each opposing monster starting from a random slot (`duel_core_random(5)`), skipping targets flagged in `0x09e27ff4`; each candidate is pre-checked (`0x09d0a6ac`), evaluated by `ai_eval_attack(side, slot, target, mode, &result)` (68-byte result) and kept when `ai_is_better_attack_result(side, result, best, flag)`; the chosen attack is applied to the simulated board (destroyed monsters removed with `ai_sim_clear_slot_card`, LP and deck counts reduced, counters `+0`/`+2` incremented), and the header is finished with the monster counts, `+0x08` total damage, `+0x0c` total score and `+0x18` the new dominance.
+   5. `0x09d0afd0(side, −1, mode)` reviews the plan (opposing lock cards such as `0x1eaf`, `0x1842`); the outer loop repeats steps 1–4 until it returns non-zero (H for the loop, L for the purpose). An accepted full plan (`mode = −1`) is copied to `0x09e279c8 + side × 0x2e4` and `0x09e27ff0 = 1` (plan valid; `ai_get_plan_value` re-plans when it is 0).
+   6. When `side` is the AI side, the opponent's reply is planned the same way from the AI's plan (`ai_build_battle_plan(opponent, 1, ai_plan, 0, 1, 1)`, LP and deck counts taken crosswise) with the view switched to the opponent, and saved in the opponent's slot (H for the calls, M for "reply").
+   7. Pop the snapshots and rebuild the view (`ai_analyze_board(view)`).
+4. **Scoring a card (H).** The main-phase steps and the response windows walk the priority tables in order; for each entry whose card is available, `ai_evaluate_activation(entry, ctx, arg, commit)` applies the locks and the LP guard (`ai_estimate_lp_change`: refuse a cost that kills, accept at once an effect that wins) and calls the handler; ≥ 1 accepts (≥ 2 for hand cards under `0x09e28010 & 0x100`). The first accepted entry is activated; the step is then re-run. Handlers score with the shared queries (`ai-helpers.md`) and the plan (`ai_get_plan_value`, `ai_get_planned_attacker`, `ai_compare_plans`).
+5. **Summons (M).** `ai_choose_normal_summon` simulates each hand monster on the board (`0x09d177e0`: plan with the monster added) and ranks by the tier of `ai_rate_summon_candidate` (5 beats the Tributes, 4 beats the opponent's best, 3 card-specific bonus, 2 beats the previous best, 1 summonable), ties by ATK/DEF.
+6. **Targets and choices (H).** `ai_choose_target_by_card` (per-card compare chain, generic pickers with random tie-breaks); hidden-card stand-ins; expected stats of cards off the field from `ai_estimate_card_atk` / `ai_estimate_card_def`.
+7. **Plan comparison (H for the logic, M for the field meanings).** `ai_compare_plans(a, b)` exactly:
+
+   ```c
+   uint ai_compare_plans(plan *a, plan *b) {
+       if (a->own_lp <= 0 && b->opp_lp > 0) return 0;      // +0x10, +0x14
+       if (a->own_deck <= 0 && b->opp_deck > 0) return 0;  // +0x1c, +0x1e (s16)
+       uint m = 0;
+       if ((a->opp_lp <= 0 && b->own_lp > 0) || (a->opp_deck <= 0 && b->own_deck > 0)) m |= 0x10;  // a wins
+       if (a->opp_monsters < b->opp_monsters) m |= 0x08;   // +0x06 (u16)
+       if (a->opp_lp < b->opp_lp) m |= 0x04;
+       if (a->score > b->score) m |= 0x02;                  // +0x0c
+       return m;
+   }
+   ```
+
+   The guards compare `a`'s own values with `b`'s opponent values (and the 0x10 test `a`'s opponent with `b`'s own). Read literally, "a loses and b does not win → not better" and "a wins and b does not lose → better". Whether this crossing is intended or a slip in the original source is open; a port should keep it until a trace shows otherwise. Callers combine the bits with a mask, so the order is not lexicographic: with `0x1e` a trick plan that leaves one more opposing monster but deals more damage is still taken.
+
+### PPSSPP checks for the plan comparison
+
+These confirm step 3 and step 7 (breakpoints on runtime addresses; `rel_duel_eng` must be loaded at `0x09be1400`):
+
+1. **Header meanings.** Break at `ai_compare_plans` `0x09d36d4c` during a CPU battle phase with a combat trick in the CPU's hand (Limiter Removal or Shield & Sword). Dump 0x28 bytes at `a0` and `a1`; expect `+0x10`/`+0x14` = the two players' LP minus the planned damage, `+0x1c`/`+0x1e` the deck sizes, `+0x20` the trick card id in `a0` (0 in the base plan). Log `v0` at `0x09d36e00`.
+2. **Mask use.** In the same run, step out to `0x09d15b58`'s caller site after `ai_compare_plans` and check that the new plan replaces the saved one exactly when `v0 & 0x1e` (or `& 0x10` for `0x1409`) is non-zero, then compare with the trick the CPU actually activates.
+3. **The crossed guards.** Prepare a board where the trick plan makes the CPU lose (own LP ≤ 0) while the base plan leaves the opponent alive; confirm `v0 = 0`. Then a board where the trick plan wins and the base plan does not: expect bit `0x10`.
+4. **Plan value.** Break at the return of `ai_plan_simulate_attacks` (`0x09d1329c`, `jr ra`) and of `ai_get_plan_value` `0x09d16a84`; compare `v0` with the battle damage actually dealt in the following Battle Phase (`+0x08` should equal it when the CPU follows the plan).
+5. **Snapshots.** Watch `0x09e27fee` (depth) and the LP word `0x09e2a528` across `ai_plan_battle` `0x09d16568`: the depth returns to its entry value and the LP are unchanged after the call.
+6. **Target choice.** Break at `ai_is_better_attack_result` `0x09d0c2e4` and log which target index wins; compare with the attack the CPU declares (`0x09e2863c` attacker slot, the target of the battle command).
+7. **Interest records.** After `ai_analyze_board`, dump `0x09e28014 + side × 0x30c` (32 × 24 bytes) with a known combo card in hand (for example a card that `ai_board_note_card_interests` tests, such as `0x1c31`) to read the record layout.
+
 ## Board view (what the AI knows)
 
-`ai_analyze_board(view_side)` (`0x09d91fe8`, M) rebuilds, for both sides, a 0x30c-byte block at `0x09e28008 + side × 0x30c`: dominance values, `+4` a slack value (`0x80 − x`, or `2 −` the hand size under Summon Limit), `+8` flags (`0x09e28010`: bits for "opponent cannot draw", Necrovalley, King Tiger Wanghu, Cocoon Veil-like slots, By Order of the Emperor, Witch Doctor of Sparta, Dark Cure, Thunder King Rai-Oh, Sanguine Swamp …), and a 0x300-byte known-card table filled by `0x09d8fc24` from the 11 field slots, the hand and the extra deck. **The opponent's hand is only registered for cards that are revealed** (`0x09c038a8`); the AI's own hand is always registered (M: the branch is clear, the meaning of `0x09c038a8` is inferred). Global rule flags go into `0x09e03070` (Kotodama, Remove Brainwashing, Gaap the Divine Soldier). The AI context: `0x09e02ff8` AI side, `0x09e02ffa` view side, stack of 8-byte frames at `0x09e03028` with depth `0x09e03026` (`ai_push_context`).
+`ai_analyze_board(view_side)` (`0x09d91fe8`, M) rebuilds, for both sides, a 0x30c-byte block at `0x09e28008 + side × 0x30c`: dominance values, `+4` a slack value (`0x80 − x`, or `2 −` the hand size under Summon Limit), `+8` flags (`0x09e28010`: bits for "opponent cannot draw", Necrovalley, King Tiger Wanghu, Cocoon Veil-like slots, By Order of the Emperor, Witch Doctor of Sparta, Dark Cure, Thunder King Rai-Oh, Sanguine Swamp …), and at `+0x0c` a table of 32 interest records (24 bytes each, `ai_board_add_interest_record`) filled by `ai_board_note_card_interests` (`0x09d8fc24`, a compare chain on each card of the 11 field slots, the hand and the extra deck) and `ai_board_note_combo_interests` (`0x09d91d30`). **The opponent's hand is only registered for cards that are revealed** (`0x09c038a8`); the AI's own hand is always registered (M: the branch is clear, the meaning of `0x09c038a8` is inferred). Global rule flags go into `0x09e03070` (Kotodama, Remove Brainwashing, Gaap the Divine Soldier). The AI context: `0x09e02ff8` AI side, `0x09e02ffa` view side, stack of 8-byte frames at `0x09e03028` with depth `0x09e03026` (`ai_push_context`).
 
 ## Randomness
 
@@ -135,8 +238,12 @@ A plan is a `0x2e4`-byte record: the working plan at `0x09e276e4` and one saved 
 | `0x09d16afc` | `ai_replan_turn_player()` | H | `0x09e27ff0 = 0; ai_plan_battle(turn side, -1, 1)`. |
 | `0x09d16568` | `ai_plan_battle(side, mode, flag)` | M | See "Battle plan". |
 | `0x09d15b58` | `ai_plan_battle_with_tricks(…)` | M | Loops over `0x09e27ff8`, compares with `ai_compare_plans`. |
-| `0x09d1586c` | `ai_build_battle_plan(…)` | L | Clears attack flags, calls the plan builders. |
-| `0x09d36d4c` | `ai_compare_plans(a, b) → mask` | M | 19 callers. |
+| `0x09d1586c` | `ai_build_battle_plan(side, mode, from, trick, flag, full)` | M | `ai_plan_init`, then (LP, deck and Battle Phase allow it) `ai_plan_prepare_attack_state` and `ai_plan_simulate_attacks` with the phase forced to 3. |
+| `0x09d0eeb8` | `ai_plan_init(side, full, from_plan, trick)` | H | Plan header and attack entries reset (table "Battle plan"). |
+| `0x09d12a24` | `ai_plan_prepare_attack_state(side, …)` | L | `duel_core_init_battle_phase_attack_state`, per-card attack rules, mask `+0x1a`. |
+| `0x09d1329c` | `ai_plan_simulate_attacks(side, mode) → damage` | M | Writes the header fields `+0x00`–`+0x18`; returns `+0x08`. |
+| `0x09d06188`, `0x09d0c2e4` | `ai_eval_attack`, `ai_is_better_attack_result` | M/L | 68-byte attack result record; comparator of two results. |
+| `0x09d36d4c` | `ai_compare_plans(a, b) → mask` | H | Exact logic in "Decision pipeline"; 19 callers. |
 | `0x09d16a84` | `ai_get_plan_value(side)` | M | Plans if needed, returns plan `+0x08`; 23 callers. |
 | `0x09d16c4c` | `ai_simulate_attack(side, slot, …)` | M | Snapshot, `ai_choose_attack_target`, restore. |
 | `0x09d0ca3c` | `ai_choose_attack_target(side, slot, …)` | M | Direct attack then 5 targets from a random start. |
@@ -162,6 +269,13 @@ A plan is a `0x2e4`-byte record: the working plan at `0x09e276e4` and one saved 
 | `0x09d4a5c0`, `0x09d4a9cc` | generic pickers | H | Shuffle then best by stat or callback. |
 | `0x09d6b6b8`, `0x09d6b6c0`, `0x09d6ba6c` | `ai_cond_always`, `ai_cond_never`, `ai_cond_has_target` | H/H/M | Shared handlers. |
 | `0x09dca4ac` | `duel_core_random(n)` | H | LCG above. |
+| `0x09ce536c`, `0x09ce9c64`, `0x09ce767c`, `0x09ce9da0` | `ai_estimate_card_atk(side, location, card, mode)`, `ai_estimate_off_field_atk(side, card)`, `ai_estimate_card_def`, `ai_estimate_off_field_def` | H/H/M/M | Expected ATK (DEF) of a card, with ~100 per-card cases and field-spell bonuses; the DEF pair has the same entry shape (first call `card_db_get_def`) and was not read in full. |
+| `0x09d8fb44`, `0x09d8fc24`, `0x09d91d30` | `ai_board_add_interest_record`, `ai_board_note_card_interests`, `ai_board_note_combo_interests` | H/M/L | Interest records of the board view. |
+| `0x09d3ba48` | `ai_find_candidate_index_by_card(card)` | H | First unselected, unvetoed candidate of that card. |
+| `0x09cf5d94`, `0x09cf5f64`, `0x09cf5e40` | `ai_get_best_visible_battle_stat`, `ai_find_best_monster_slot`, `ai_get_best_monster_value` | H | Best monster by visible ATK/DEF. |
+| `0x09d48908` | `ai_simulate_candidate_pick(ctx, side)` | M | Builds the candidate list (kind 6) and returns the index the AI would pick, or −1. |
+| `0x09d37b70`, `0x09d6ba50` | `ai_get_effective_hand_limit`, `ai_can_controller_enter_battle` | H | Small queries used by the handler families. |
+| `0x09dc9d24`, `0x09dc9ce8`, `0x09dca314` | `duel_core_get_candidate_count`, `…_entry`, `…_selection` | H | Candidate list at `0x09e29920`/`0x09e29928`, per-candidate state `0x09e2a128`. |
 | `0x09cc0cdc`, `0x09cc0bd8`, `0x09d9ddfc`, `0x09d649ec` | `duel_effects_choose_targets`, `…_ui`, `ai_choose_targets`, `ai_decide` | H/H/M/M | Earlier entry point (target choice in effect slot `+0x14`). |
 
 ### Documented signatures
@@ -175,13 +289,19 @@ The following are recorded in `re/documented-duel_eng.tsv` (purpose, side effect
 - `ai_push_context(int side, int view, int replan)`: pushes a frame, may rebuild the view and plan; 28 callers.
 - `duel_core_random(int n) → int`: advances x.
 - `ai_cond_always()`, `ai_cond_never()`: constant 1 / 0; referenced only from the tables.
+- `ai_compare_plans(void *a, void *b) → uint`, `ai_plan_init(int side, int full, void *from_plan, int trick)`: logic in "Decision pipeline"; the second writes the working plan `0x09e276e4` and sets `0x09e27ff2` when `full`.
+- `ai_estimate_card_atk(int side, int location, uint card, uint mode) → int`, `ai_estimate_off_field_atk(int side, uint card) → int`: pure; 33 and 45 callers (choosers, vetoes, per-card handlers).
+- `ai_find_candidate_index_by_card(uint card) → int`, `ai_board_add_interest_record(int side, void *record, int weight) → int` (writes the side's interest table), `ai_get_best_visible_battle_stat(int side)`, `ai_find_best_monster_slot(...)`, `ai_get_best_monster_value(...)`, `ai_get_effective_hand_limit(int side)`, `ai_can_controller_enter_battle(void *ctx)`: pure apart from the noted write; callers in `re/documented-duel_eng.tsv`.
+- `duel_core_get_candidate_count()`, `duel_core_get_candidate_entry(int i)`, `duel_core_get_candidate_selection(int i)`: pure accessors of the candidate list.
 
 ## Open questions
 
-- Meaning of the plan fields compared by `ai_compare_plans` and of the plan value `+0x08` (trace a CPU battle phase in PPSSPP with a breakpoint on `0x09d36d4c`).
-- The 12 KiB yes/no evaluator `0x09d95f5c` and the 17,700-byte battle evaluator `0x09d06188` are only skimmed.
+- Plan comparison: the logic and the header writes are read (see "Decision pipeline"); still open are the meaning of `+0x0c` (the evaluator word `0x09e27fb8`), whether the crossed guards of `ai_compare_plans` are intended, and the role of the plan review `0x09d0afd0`. Confirm with the PPSSPP checks listed above.
+- The interest records at `0x09e28014`: layout of the flag bytes `+6`..`+0x17` and which handlers read them.
+- The attack comparator `ai_is_better_attack_result` (`0x09d0c2e4`): the decompilation loses several assignments; the criteria order (result class `+2`, destroyed counts, damage sums) needs the disassembly or a trace.
+- The 12 KiB yes/no evaluator `0x09d95f5c` and the 17,700-byte attack evaluator `ai_eval_attack` (`0x09d06188`, 68-byte result record) are only skimmed.
 - Exact meaning of steps 3–5 and of `0x09d94740`, `0x09d899a8`, `0x09d8c79c` in the main loop.
 - Whether `0x09c038a8` is "card revealed" (the no-cheating claim for the opponent's hand); confirm at run time.
 - Who reads the character-table bytes `+0x44`–`+0x74` (`BOOT 0x0885b4ac`, `0x0885b4fc`, `0x0885b56c`, `0x0885b5dc`); if a module outside the current Ghidra project passes them to the duel, the "no personality" finding must be revised.
 - `0x09e02cb0`, `0x09e02cb4` setters: set by the duel manager, meaning unknown.
-- The priority tables are exported and checked (`docs/formats/ai-tables.md`, `tools/ai_tables.py`). The shared handlers are named and classified (`ai-helpers.md`); 600 single-use handlers remain unnamed. The gates `BOOT 0x0885ff3c` / `0x0885fef0` are the spell / monster predicates (`effect-helpers-deck.md`). `0x09e28fa0` is the timing-event queue (`battle.md`), so R1–R3 are selected by the first queued event code (R1 `0x12`/`0x13`, R2 `0x14` start of the Damage Step, R3 `0x1b`); the meaning of `0x12` and `0x1b` is open.
+- The priority tables are exported and checked (`docs/formats/ai-tables.md`, `tools/ai_tables.py`). The shared handlers are named and classified (`ai-helpers.md`) and the 600 single-use handlers are named by family ("Per-card handler families"); their individual constants are read from the decompilation, not documented one by one. The gates `BOOT 0x0885ff3c` / `0x0885fef0` are the spell / monster predicates (`effect-helpers-deck.md`). `0x09e28fa0` is the timing-event queue (`battle.md`), so R1–R3 are selected by the first queued event code (R1 `0x12`/`0x13`, R2 `0x14` start of the Damage Step, R3 `0x1b`); the meaning of `0x12` and `0x1b` is open.

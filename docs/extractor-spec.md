@@ -116,7 +116,7 @@ Card effects are **code, not data**: native handlers in `gmodule/rel_duel_eng.pr
 | Tool / command | Joined spec: `python3 -I tools/card_effects.py <USRDIR>/gmodule/rel_duel_eng.prx <USRDIR>/duelsys/cardinfo_eng.ehp --boot <SYSDIR>/BOOT.BIN --draw <USRDIR>/gmodule/rel_duel_draw.prx -o extracted/card_effects` (and `--check`). Components, each with `-o DIR` and `--check`: `effect_classify.py`, `effect_params.py`, `stat_mods.py`, `search_filters.py` (`list -o file.csv`), `card_refs.py` (`list -o DIR`, `describe`), `family_split.py`, `fusion.py`, `ai_tables.py`. |
 | Port output | `card_effects.jsonl` (one JSON object per card id: identity, effect records and slot handlers with categories, target-filter words, draw counts, compare-chain values, ATK/DEF modifiers, fusion/ritual, tokens, search filters, engine references, refined per-card categories, each with source and confidence) and `card_effects.csv` (one summary row per card). Plus the rule documents above for the engine itself. |
 | Verified | Check run, all `ok`: `effect_classify` 2,600 records, resolve slot categorised for 2,549 (98.0 %; 99.5 % of records with a resolve handler); `effect_params`, `stat_mods`, `fusion` ok; `card_refs` best descriptive confidence H 154 / M 124 / L 34 cards; `search_filters` 686 records (11 cut by limits, 10 ids without a cardinfo record); `family_split` sample precision 83 % → 96 % on 48 records; `card_effects` 915 resolve slots examined, 394 refined, `ok`. Formats `effect_tables`, `effect_lists`, `card_effect_spec`, `card_refs`, `search_filter_word`, `family_split` are `documented`; `chain_link` and `chain_state` `verified` in PPSSPP. Tests: `test_card_effects`, `test_effect_classify`, `test_effect_params`, `test_stat_mods`, `test_search_filters`, `test_card_refs`, `test_family_split`. |
-| Gaps | The spec says *which* engine behaviour a card uses and with which numbers, not a complete executable description: 600 single-use AI handlers and many single-use resolve handlers are unnamed; 244 of 306 compare chains are unresolved; the conditional branches behind `engine_only` cards (273 released effect cards with no table record) are tagged, not decoded; the run-time rule that picks among several records of one card is open. **Blocking**: this is the largest remaining piece of the port; it is a reverse-engineering task per effect family, not an extractor task. |
+| Gaps | The spec says *which* engine behaviour a card uses and with which numbers, not a complete executable description: the 600 single-use AI handlers are named by family only (their constants are not extracted) and many single-use resolve handlers are unnamed; 244 of 306 compare chains are unresolved; the conditional branches behind `engine_only` cards (273 released effect cards with no table record) are tagged, not decoded; the run-time rule that picks among several records of one card is open. **Blocking**: this is the largest remaining piece of the port; it is a reverse-engineering task per effect family, not an extractor task. |
 
 ## 6. Decks
 
@@ -258,10 +258,10 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | --- | --- |
 | Source | `rel_duel_eng.prx` `0x09dfd2dc`–`0x09e00800`: eleven `(u32 card id, u32 handler)` tables and three u16 card-id lists, lengths fixed in code. |
 | Format docs | `docs/formats/ai-tables.md`, `docs/subsystems/ai.md`, `docs/subsystems/ai-helpers.md` |
-| Tool / command | `python3 -I tools/ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx list\|cards\|classes [--cardinfo …] [--functions re/functions.csv] [-o out.csv]`; `--check` |
-| Port output | CSV/JSON: table key (T1–T3, A–H, R1–R3) → ordered card ids → handler and behaviour class. Order is priority. The handler logic is code (re-implemented from `ai-helpers.md`). |
+| Tool / command | `python3 -I tools/ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx list\|cards\|classes\|handlers [--cardinfo …] [--functions re/functions.csv --functions re/names-duel_eng.csv] [-o out.csv]`; `--check [--functions …]` (with names: every handler named, per-card names match the table users) |
+| Port output | CSV/JSON: table key (T1–T3, A–H, R1–R3) → ordered card ids → handler, family and behaviour class (`handlers`: one row per card and handler). Order is priority. The handler logic is code (re-implemented from `ai-helpers.md` and the family templates of `ai.md`). |
 | Verified | Check run: `ok`, 18 card ids without a cardinfo record (cut cards), u16 lists R1 143 / R2 36 / R3 1. `ai_priority_tables` `documented`. Tests: `tools/tests/test_ai_tables.py`. |
-| Gaps | 600 single-use handlers unnamed; plan-comparison fields; the two large evaluators only skimmed. Partly blocking for faithful CPU behaviour; a port can start from the 77 classified shared handlers (63.6 % of entries). |
+| Gaps | The 600 single-use handlers are named by family (`ai_tables.py handlers`), not decoded one by one; the plan comparison is read statically (`ai.md`, "Decision pipeline") but not traced; the two large evaluators are only skimmed. Partly blocking for faithful CPU behaviour; a port can start from the 77 classified shared handlers (63.6 % of entries) and the family templates. |
 
 ## 19. Save data
 
@@ -323,7 +323,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | UI string tables | partial (tables mapped to scenes) | no | Tool, census and scene map done (97 % of tables, 332 index requests with table and constant index); trace the runtime-selected tables in PPSSPP. |
 | Sound and voices | complete for decoding (FFmpeg at install time, PS-ADPCM native, loops in JSON) | no | Cue flags, envelope bytes and the play call (PPSSPP trace); whether the SFX loops are used. |
 | PSMF movies | complete for conversion (own audio demux + FFmpeg) | no | Choose the 3DS playback format; the port's installer re-encodes the MP4 to it. |
-| AI tables | partial | partly | Name single-use handlers; PPSSPP trace of plan comparison. |
+| AI tables | partial | partly | PPSSPP trace of the plan comparison (checks in `ai.md`); decode the per-card handlers' constants family by family. |
 | Save data | partial | no (new games) / yes (import) | Map the remaining regions with differential saves; extend `save.py`. |
 | Minigames and other screens | partial | no | Out of work packages 1–5; analyse when the port reaches them. |
 
