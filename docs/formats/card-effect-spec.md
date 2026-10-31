@@ -376,5 +376,5 @@ On the disc there are 3,483 generated rows (2,825 from 124 `unresolved` chains w
 - What the generic field and equip fallback handlers (`0x09c74ba4`, `0x09c748a8`) do beyond the stat modifiers.
 - Why 47 engine-supported ids have no `cardinfo` record (cut cards, Japanese-only cards).
 - For each `engine_only` card, what the branch selected by its id does beyond the function's rule (the semantic tags of `card-refs.md` say which rule; the conditional branches are decoded only in `engine_branches`).
-- The meaning of the per-card values of the `expression` and `unresolved` chains whose cases call unnamed AI helpers (`0x09ce536c`, `0x09d3ba48`, `0x09d8fb44`), and of the generated `engine_branches` rows: they give the register or call the case sets, not what the shared tail does with it.
+- The meaning of the per-card values of the `expression` and `unresolved` chains whose cases call AI helpers (`ai_estimate_card_atk` `0x09ce536c`, `ai_find_candidate_index_by_card` `0x09d3ba48`, `ai_board_add_interest_record` `0x09d8fb44`, now named and documented in `docs/subsystems/ai.md`), and of the generated `engine_branches` rows: they give the register or call the case sets, not what the shared tail does with it.
 - The 4,559 `path_limit` cases: a loop-aware evaluator (summarising a loop over field slots instead of forking on each iteration) would resolve most of them.

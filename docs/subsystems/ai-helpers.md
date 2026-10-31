@@ -163,27 +163,27 @@ Every handler used by at least three table entries now has a name (77 handlers i
 
 ## Taxonomy and coverage
 
-`tools/ai_tables.py <prx> classes --functions re/functions.csv --functions re/names-duel_eng.csv --summary` sorts every handler by its name (regexes in `CLASSES`, first match wins, on the name without its `ai_handler_`/`ai_cond_` prefix) and counts table entries (pair tables + u16 lists = 1,828 entries, 677 handlers). Result with the names of this pass:
+`tools/ai_tables.py <prx> classes --functions re/functions.csv --functions re/names-duel_eng.csv --summary` sorts every handler by its name (regexes in `CLASSES`, first match wins, on the name without its `ai_handler_`/`ai_cond_` prefix; a per-card name takes the class of its family or, for a variant, of the shared handler it extends) and counts table entries (pair tables + u16 lists = 1,828 entries, 677 handlers). Result now that every handler is named (the 77 shared ones of this document and the 600 per-card ones of `ai.md`, "Per-card handler families"):
 
-| Class | Meaning | Handlers | Entries | Share |
-| --- | --- | --- | --- | --- |
-| constant | always / never | 2 | 188 | 10.3 % |
-| event | reacts to a queued timing event | 3 | 182 | 10.0 % |
-| chain | responds to a chain link (threat, negation, use before loss) | 12 | 91 | 5.0 % |
-| lp | LP thresholds (burn, LP gain, damage prevention) | 7 | 57 | 3.1 % |
-| battle | battle dominance, attackers, battle plan | 11 | 48 | 2.6 % |
-| summon | summon and equip enablers | 8 | 192 | 10.5 % |
-| removal | removal or control change gated by value | 9 | 30 | 1.6 % |
-| target | target availability | 5 | 135 | 7.4 % |
-| limit | copies already active, once per turn | 4 | 73 | 4.0 % |
-| phase | phase / turn timing | 2 | 6 | 0.3 % |
-| resources | hand, deck, candidates, costs | 10 | 117 | 6.4 % |
-| board | other board-state checks (field zone, monsters present) | 4 | 44 | 2.4 % |
-| unnamed | single- or two-entry bespoke handlers | 600 | 665 | 36.4 % |
+| Class | Meaning | Handlers | Entries | Share | Of which shared (handlers / entries) |
+| --- | --- | --- | --- | --- | --- |
+| constant | always / never | 2 | 188 | 10.3 % | 2 / 188 |
+| event | reacts to a queued timing event | 6 | 186 | 10.2 % | 3 / 182 |
+| chain | responds to a chain link (threat, negation, use before loss) | 62 | 151 | 8.3 % | 12 / 91 |
+| lp | LP thresholds (burn, LP gain, damage prevention) | 51 | 106 | 5.8 % | 7 / 57 |
+| battle | battle dominance, attackers, battle plan | 101 | 148 | 8.1 % | 11 / 48 |
+| summon | summon and equip enablers | 37 | 224 | 12.3 % | 8 / 192 |
+| removal | removal or control change gated by value | 26 | 50 | 2.7 % | 9 / 30 |
+| target | target availability | 74 | 210 | 11.5 % | 5 / 135 |
+| limit | copies already active, once per turn | 30 | 102 | 5.6 % | 4 / 73 |
+| phase | phase / turn timing | 20 | 25 | 1.4 % | 2 / 6 |
+| resources | hand, deck, Graveyard, candidates, costs | 167 | 292 | 16.0 % | 10 / 117 |
+| board | other board-state checks (field zone, monsters present) | 75 | 119 | 6.5 % | 4 / 44 |
+| state | rule flags, ctx fields, committed activations | 26 | 27 | 1.5 % | 0 / 0 |
 
-Reading: **63.6 % of all table entries are covered by 77 named handlers**, the other 600 handlers serve one or two entries each. The classes are not exclusive in behaviour: almost every handler starts with a target or resource test, and the battle/dominance test (`ai_get_battle_dominance`, 86 handlers) is the most common second condition. The name-driven class is the *dominant* decision, which is what a port needs to choose an implementation. Among the 600 unnamed handlers, 19 more call nothing (constant or ctx-only tests, 23 entries), so a further pass on the unnamed set by callee pattern would quickly grow the "constant" class.
+Reading: **63.6 % of all table entries are covered by the 77 shared handlers**; the 600 per-card handlers serve the other 36.4 % with one or two entries each and are grouped into 19 families plus 83 variants of shared handlers (`ai.md`). The classes are not exclusive in behaviour: almost every handler starts with a target or resource test, and the battle/dominance test (`ai_get_battle_dominance`, 86 handlers) is the most common second condition. The name-driven class is the *dominant* decision, which is what a port needs to choose an implementation.
 
-Porting note: the shared vocabulary above is small (about 60 queries). A reimplementation can express every named handler as a predicate over these queries, and treat the 600 bespoke ones as per-card predicates written against the same vocabulary.
+Porting note: the shared vocabulary above is small (about 60 queries, plus the expected-stat estimates `ai_estimate_card_atk` / `ai_estimate_card_def` and the best-monster queries `ai_find_best_monster_slot` / `ai_get_best_monster_value` named with the families). A reimplementation can express every named handler as a predicate over these queries, and the per-card ones as family templates with the member's constants.
 
 ## Open questions
 

@@ -9,12 +9,16 @@ their lengths are constants in the code that walks them, and --check verifies th
 
   ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx list  [--cardinfo cardinfo_eng.ehp] [--functions re/functions.csv] [-o out.csv]
   ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx cards [--cardinfo ...] [-o out.csv]
-  ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx --check [--cardinfo ...]
+  ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx --check [--cardinfo ...] [--functions ...]
   ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx classes --functions re/functions.csv [--functions re/names-duel_eng.csv]
                [--summary] [-o out.csv]
+  ai_tables.py <USRDIR>/gmodule/rel_duel_eng.prx handlers --functions ... [--cardinfo ...] [--summary] [-o out.csv]
 
 `classes` sorts the handlers into behaviour classes by their registry names (docs/subsystems/ai-helpers.md,
-"Taxonomy"); --functions may be given several times (registry or names CSV, later files win).
+"Taxonomy"); --functions may be given several times (registry or names CSV, later files win). `handlers` gives,
+per card, every AI handler its entries use with the handler's family (docs/subsystems/ai.md, "Per-card handler
+families"), class and table positions. With --functions, --check also checks the handler names: every handler
+is named, a per-card name lists exactly the cards that use the handler, a variant extends a named shared handler.
 
 Addresses are runtime addresses with the module at 0x09be1400 (file offset = address - base + 0x54 for the
 game's single PT_LOAD segment); pointers stored in the file are module offsets. The output is game data:
@@ -283,15 +287,85 @@ CLASSES = [
     ("limit", "copies already active, once per turn", r"active_cop|count_below|once_per_turn|applied"),
     ("phase", "phase / turn timing", r"standby|end_phase"),
     ("resources", "hand, deck, candidates and costs", r"draw|discard|candidate|hand|cost|deck|tribute|recycle"),
-    ("board", "other board-state checks", r"monster|field_spell|zone|face_up"),
+    ("board", "other board-state checks", r"monster|field_spell|zone|face_up|board"),
+    ("state", "rule flags, turn state and committed activations", r"rule_state|committed"),
 ]
 DEFAULT_NAME = re.compile(r"^(FUN_|thunk_FUN_|LAB_|SUB_)|^$")
 
+# Families of the single-use (per-card) handlers (docs/subsystems/ai.md, "Per-card handler families"). A per-card
+# handler is named ai_handler_<stem>_<card id>[_<card id>][_<tables>]: the ids are the cards whose table entries
+# use it (4 lower-case hex digits each), the optional last part tells two handlers of one card apart by their
+# tables. The stem is either a family stem below (a bespoke predicate whose dominant query decides the family) or
+# the stem of the shared handler it extends (family "variant"). key, stem, behaviour class, description.
+FAMILIES = [
+    ("event", "react_to_event", "event", "reads the queued timing events (0x09e28f98 / 0x09e28fa0)"),
+    ("link", "respond_to_link", "chain", "chain-table handler that reads the link it answers or a threat query"),
+    ("draw", "check_draw", "resources", "deck-out and hand-limit checks for draw effects"),
+    ("lp", "check_lp", "lp", "LP estimates, burn, LP gain or LP thresholds"),
+    ("discard", "check_discard", "resources", "a discard cost can be paid without losing a needed card"),
+    ("cost", "check_cost", "resources", "a Tribute/send/hand cost can be chosen"),
+    ("candidate", "check_candidates", "resources", "enough acceptable candidates (search, revive, recover)"),
+    ("summon", "check_summon", "summon", "free monster zones, Normal Summon still available, summon simulation"),
+    ("battle", "check_battle", "battle", "battle phase, attackers, the battle plan"),
+    ("target", "check_targets", "target", "target mask or a chosen target"),
+    ("target_dom", "check_targets_by_dominance", "removal", "target choice gated by the battle dominance"),
+    ("dominance", "check_dominance", "battle", "battle dominance without a target query"),
+    ("limit", "check_copies", "limit", "copies already active or on the chain"),
+    ("field", "check_field_spell", "board", "field-spell zone state"),
+    ("graveyard", "check_graveyard", "resources", "Graveyard contents"),
+    ("phase", "check_phase", "phase", "turn player and phase only"),
+    ("committed", "check_committed", "state", "the committed-activation shortcut (ai_is_normal_spell_in_graveyard)"),
+    ("board", "check_board", "board", "other board counts (named cards, monsters, counters, hand size)"),
+    ("state", "check_rule_state", "state", "rule flags, link fields or event codes only, no helper call"),
+]
+PER_CARD = re.compile(r"^ai_handler_(?P<stem>[a-z0-9_]+?)(?P<ids>(?:_[0-9a-f]{4})+)(?:_(?P<tables>[a-z0-9]+))?$")
 
-def handler_class(name):
+
+FAMILY_STEMS = {stem for _, stem, _, _ in FAMILIES}
+
+
+def per_card_name(name, known=None):
+    """(stem, [card ids]) of a per-card handler name, or None.
+
+    The ids must be card ids (3720-7993). A stem that is not a family stem must be the stem of a shared handler
+    (ai_handler_<stem> or ai_cond_<stem>); with `known` (the set of registry names) that is checked, which keeps
+    shared names such as ai_handler_burn_at_least_1000 from being read as per-card."""
+    m = PER_CARD.match(re.sub(r"^thunk_", "", name or ""))  # Ghidra shows a thunk handler as thunk_<name>
+    if not m:
+        return None
+    ids =[int(x, 16) for x in m["ids"][1:].split("_")]
+    if not all(FIRST_CARD <= c <= LAST_CARD for c in ids):
+        return None
+    if m["stem"] not in FAMILY_STEMS and known is not None and not {f"ai_handler_{m['stem']}",
+                                                                      f"ai_cond_{m['stem']}"} & known:
+        return None
+    return m["stem"], ids
+
+
+def handler_family(name, known=None):
+    """Family key of a handler name: a FAMILIES key, "variant" (per-card refinement of a shared handler),
+    "shared" (a named handler that is not per-card) or "unnamed". `known` as in per_card_name."""
+    if not name or DEFAULT_NAME.search(name):
+        return "unnamed"
+    pc = per_card_name(name, known)
+    if not pc:
+        return "shared"
+    for key, stem, _, _ in FAMILIES:
+        if pc[0] == stem:
+            return key
+    return "variant"
+
+
+def handler_class(name, known=None):
     """Behaviour class key of a handler name: a CLASSES key, "unnamed" or "other"."""
     if not name or DEFAULT_NAME.search(name):
         return "unnamed"
+    pc = per_card_name(name, known)
+    if pc:
+        for _, stem, cls, _ in FAMILIES:
+            if pc[0] == stem:
+                return cls
+        name = "ai_handler_" + pc[0]  # a variant takes the class of the shared handler it extends
     stem = re.sub(r"^ai_(handler_|cond_)?", "", name)  # "handler" must not match "hand"
     for key, _, pattern in CLASSES:
         if re.search(pattern, name if key == "constant" else stem):
@@ -302,6 +376,7 @@ def handler_class(name):
 def class_rows(module, functions=None):
     """One row per distinct handler (pair tables and u16 lists): address, name, class, entries, tables."""
     functions = functions or {}
+    known = set(functions.values())
     per = collections.defaultdict(collections.Counter)
     for key, _, _, _, _, handler in entries(module):
         if handler:
@@ -311,10 +386,73 @@ def class_rows(module, functions=None):
     rows = []
     for handler, tables in sorted(per.items(), key=lambda kv: (-sum(kv[1].values()), kv[0])):
         name = functions.get(handler, "")
-        rows.append({"handler": f"{handler:#010x}", "name": name, "class": handler_class(name),
+        rows.append({"handler": f"{handler:#010x}", "name": name, "class": handler_class(name, known),
                      "entries": sum(tables.values()),
                      "tables": " ".join(f"{k}:{n}" for k, n in sorted(tables.items()))})
     return rows
+
+
+def handler_users(module):
+    """handler address -> {card id: [table:index, ...]} over the pair tables and the u16 lists."""
+    users = collections.defaultdict(lambda: collections.defaultdict(list))
+    for key, _, i, _, cid, handler in entries(module):
+        if handler:
+            users[handler][cid].append(f"{key}:{i}")
+    for key, i, _, cid, handler in list_entries(module):
+        users[handler][cid].append(f"{key}:{i}")
+    return users
+
+
+def handler_rows(module, cards=None, functions=None):
+    """One row per (card, handler) pair: the AI handlers each card has, with family and behaviour class."""
+    cards, functions = cards or {}, functions or {}
+    known = set(functions.values())
+    rows = []
+    for handler, per in handler_users(module).items():
+        name = functions.get(handler, "")
+        for cid, where in per.items():
+            rows.append({"card_id": f"{cid:#06x}", "card": cards.get(cid, ""), "handler": f"{handler:#010x}",
+                         "handler_name": name, "family": handler_family(name, known),
+                         "class": handler_class(name, known),
+                         "shared_by": len(per), "tables": " ".join(where)})
+    rows.sort(key=lambda r: (r["card_id"], r["tables"]))
+    return rows
+
+
+def check_names(module, functions):
+    """Registry checks of the handler names: every handler named; a per-card name lists exactly the cards whose
+    entries use the handler; a variant extends a shared handler that exists. Returns a list of problems."""
+    problems = []
+    known = set(functions.values())
+    for handler, per in sorted(handler_users(module).items()):
+        name = functions.get(handler, "")
+        if handler_family(name, known) == "unnamed":
+            problems.append(f"handler {handler:#010x} ({len(per)} cards) has no name")
+            continue
+        pc = per_card_name(name, known)
+        if not pc:
+            loose = per_card_name(name)  # per-card grammar, but the stem is neither a family nor a shared handler
+            if loose and set(loose[1]) == set(per):
+                problems.append(f"{name} ({handler:#010x}) extends ai_handler_{loose[0]} / ai_cond_{loose[0]}, "
+                                f"which is not named")
+            continue
+        if set(pc[1]) != set(per):
+            problems.append(f"{name} ({handler:#010x}) names cards {' '.join(f'{c:#x}' for c in pc[1])}, "
+                            f"used by {' '.join(f'{c:#x}' for c in sorted(per))}")
+    return problems
+
+
+def family_summary(rows):
+    """Lines: per family, handlers and (card, handler) pairs."""
+    handlers, pairs = collections.defaultdict(set), collections.Counter()
+    for r in rows:
+        handlers[r["family"]].add(r["handler"])
+        pairs[r["family"]] += 1
+    order = ["shared", "variant"] + [k for k, _, _, _ in FAMILIES] + ["unnamed"]
+    lines = [f"{'family':12} {'handlers':>8} {'cards':>6}"]
+    lines += [f"{k:12} {len(handlers[k]):8} {pairs[k]:6}" for k in order if handlers[k]]
+    lines.append(f"{'total':12} {len(set().union(*handlers.values())):8} {sum(pairs.values()):6}")
+    return lines
 
 
 def class_summary(rows):
@@ -378,18 +516,22 @@ def write_csv(rows, out):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="List and check the duel AI priority tables of rel_duel_eng.prx.")
     parser.add_argument("prx", type=Path, help="gmodule/rel_duel_eng.prx")
-    parser.add_argument("command", nargs="?", choices=("list", "cards", "check", "classes"), default="list")
+    parser.add_argument("command", nargs="?", choices=("list", "cards", "check", "classes", "handlers"),
+                        default="list")
     parser.add_argument("--check", action="store_true", help="same as the check command")
     parser.add_argument("--cardinfo", type=Path, help="duelsys/cardinfo_eng.ehp: card names (and id check)")
     parser.add_argument("--functions", type=Path, action="append",
                         help="re/functions.csv or a names CSV: handler names (repeatable; later files win)")
-    parser.add_argument("--summary", action="store_true", help="classes: print the per-class totals only")
+    parser.add_argument("--summary", action="store_true", help="classes / handlers: print the per-class / per-family totals only")
     parser.add_argument("-o", "--output", type=Path, help="CSV file (keep it under extracted/)")
     args = parser.parse_args(argv)
     module = Module(args.prx.read_bytes())
     cards = load_cardinfo(args.cardinfo) if args.cardinfo else None
+    functions = None
+    for path in args.functions or ():
+        functions = load_functions(path, functions)
     if args.check or args.command == "check":
-        problems = check(module)
+        problems = check(module) + (check_names(module, functions) if functions else [])
         for p in problems:
             print("problem:", p, file=sys.stderr)
         if problems:
@@ -397,19 +539,25 @@ def main(argv=None):
             return 1
         for line in summary(module):
             print(line)
+        if functions:
+            families = collections.Counter(handler_family(functions.get(h, ""), set(functions.values())) for h in handler_users(module))
+            print(f"handler names: {sum(families.values())} handlers; "
+                  + ", ".join(f"{k} {n}" for k, n in families.most_common()))
         if cards:
             missing = missing_cards(module, set(cards))
             print(f"cardinfo: {len(missing)} card ids ({sum(missing.values())} entries) have no record "
                   f"(not in the released card list): {' '.join(f'{c:#x}' for c in sorted(missing))}")
         print("ok")
         return 0
-    functions = None
-    for path in args.functions or ():
-        functions = load_functions(path, functions)
     if args.command == "classes":
         rows = class_rows(module, functions)
         if args.summary:
             print("\n".join(class_summary(rows)))
+            return 0
+    elif args.command == "handlers":
+        rows = handler_rows(module, cards, functions)
+        if args.summary:
+            print("\n".join(family_summary(rows)))
             return 0
     elif args.command == "list":
         rows = list_rows(module, cards, functions)

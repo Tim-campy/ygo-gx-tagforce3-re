@@ -148,6 +148,51 @@ class AiTablesTest(unittest.TestCase):
         self.assertTrue(lines[1].startswith("constant") and "1648" in lines[1], lines)
         self.assertTrue(lines[-1].startswith("total") and lines[-1].split()[1:] == ["4", "1828"], lines)
 
+    def test_per_card_names_and_families(self):
+        known = {"ai_handler_counter_harmful_link", "ai_cond_has_target", "ai_handler_burn_at_least_1000"}
+        self.assertEqual(at.per_card_name("ai_handler_check_battle_1ce5"), ("check_battle", [0x1CE5]))
+        self.assertEqual(at.per_card_name("ai_handler_counter_harmful_link_1a24_1a25_t3", known),
+                         ("counter_harmful_link", [0x1A24, 0x1A25]))
+        self.assertIsNone(at.per_card_name("ai_handler_burn_at_least_1000", known))  # shared, "1000" is no id
+        self.assertIsNone(at.per_card_name("ai_handler_chain_fizzle_by_face_down"))  # 0xface is no card id
+        self.assertEqual(at.per_card_name("thunk_ai_handler_check_targets_1668"), ("check_targets", [0x1668]))
+        cases = {"ai_handler_check_battle_1ce5": ("battle", "battle"),
+                 "ai_handler_respond_to_link_1330_12d0": ("link", "chain"),
+                 "ai_handler_check_rule_state_1803": ("state", "state"),
+                 "ai_handler_has_target_17fc": ("variant", "target"),
+                 "ai_handler_counter_harmful_link_1b05": ("variant", "chain"),
+                 "ai_handler_burn_at_least_1000": ("shared", "lp"),
+                 "ai_cond_always": ("shared", "constant"), "FUN_09d1d0c4": ("unnamed", "unnamed")}
+        for name, (family, cls) in cases.items():
+            self.assertEqual((at.handler_family(name, known), at.handler_class(name, known)), (family, cls), name)
+
+    def test_handler_rows_and_name_check(self):
+        first_t1, first_b = 0x1000, 0x1000 + 345 + 2 + 181 + 105  # card ids of T1[0] and B[0] in the image
+        img = build()
+        img.put(0x09DFD448, first_t1, 0x09D30000 - BASE)  # T1[0] gets its own handler
+        img.put(0x09DFE848, first_b, 0x09D30000 - BASE)  # and so does B[0]
+        module = at.Module(img.elf())
+        names = {HANDLER: "ai_cond_always", 0x09D22924: "ai_handler_on_attack_declared_event",
+                 0x09D262C8: "ai_handler_on_damage_step_event", 0x09D27348: "ai_handler_check_rule_state_1803",
+                 0x09D30000: f"ai_handler_check_lp_{first_t1:04x}_{first_b:04x}"}
+        rows = at.handler_rows(module, {first_t1: "First"}, names)
+        own = [r for r in rows if r["handler"] == "0x09d30000"]
+        self.assertEqual([(r["card_id"], r["family"], r["class"], r["shared_by"], r["tables"]) for r in own],
+                         [("0x1000", "lp", "lp", 2, "T1:0"), (f"{first_b:#06x}", "lp", "lp", 2, "B:0")])
+        self.assertEqual(own[0]["card"], "First")
+        # R3's single id is 0x1100 in the image, not 0x1803; the check reports the mismatch
+        problems = at.check_names(module, names)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("ai_handler_check_rule_state_1803", problems[0])
+        names[0x09D27348] = "ai_handler_check_rule_state_1100"
+        self.assertEqual(at.check_names(module, names), [])
+        names[0x09D30000] = f"ai_handler_mystery_test_{first_t1:04x}_{first_b:04x}"  # stem of no shared handler
+        self.assertTrue(any("ai_handler_mystery_test" in p for p in at.check_names(module, names)))
+        del names[HANDLER]
+        self.assertTrue(any("0x09d6b6b8" in p and "no name" in p for p in at.check_names(module, names)))
+        lines = at.family_summary(at.handler_rows(module, None, names))
+        self.assertTrue(lines[-1].startswith("total"), lines)
+
     def test_load_functions_formats(self):
         with tempfile.TemporaryDirectory() as tmp:
             reg, names = Path(tmp) / "functions.csv", Path(tmp) / "names.csv"
