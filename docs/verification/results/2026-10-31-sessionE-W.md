@@ -41,3 +41,23 @@ All four agree exactly, including the per-door rule of location 6 (the arrival c
 - Slot 7 (light period 4): room 101 did not open and its cell could not be entered; room 204 and the dining hall opened and led in (`door_open kind=0` and `kind=1`, a hinged door). The maintainer confirmed every outcome as expected.
 - `world_get_door_cell_target` (`0x090d9cc8`) runs **every frame** with the player's current cell (the log follows the walk cell by cell), not only on a door cell. Note for later checks: **PPSSPP reads numbers in breakpoint conditions as hexadecimal**, so the condition `a0 == 13 || a0 == 15` matched x = 19 and 21 (`0x13`, `0x15`), not 13 and 15; the door-cell part of the log is therefore not the intended filter, and it does not affect the open/closed results.
 - The partner's location remark `queue (1, 2, 6)` and `queue (301, 11, 1)` were queued on map entries.
+
+## E13. Chapter stage and step: pass for steps 1–3 (stage advance still to observe)
+
+Named memory edit **E-X1** (savestate `E13-pre`, Monday slot 2, emulation paused): partner points `u16` at `S + 0x0fe52` (`0x08ab561a`) `0x00dc` (220) → `0x03de` (990). Read before: stage/step `S + 0x1a270` = `01 01`, talk-pending word `S + 0x1a394` = 0.
+
+| Moment | Log | Stage, step |
+| --- | --- | --- |
+| Map entries before the edit | `try_chapter pts=0xdc loc=0x10/0x03 stage=1`, no queue | 1, 1 |
+| Sandwich given | `points char=2 delta=+20` (990 + 20 clamped) | 1, 1 |
+| End of day, then map entry (location 14) | `try_chapter pts=0x3e8 loc=0x0e stage=1` → `queue (201, 1, 1)`, `advance_step`, write of byte `+0x01` from `0x08eab41c` | **1, 2** |
+| Map entry at location 6 | `try_chapter pts=1000 loc=6`, no queue | 1, 2 |
+| Map entry at the highlighted location 23 (the island map showed it) | `queue (201, 1, 2)`, `advance_step` | 1, 3 |
+| Step-2 record | `queue (201, 1, 21)` twice (the record's continuation), then the chapter duel | 1, 3 |
+| Back from the duel (won; `dp_add +0x5e9` = 1,513 DP from `rel_story` `0x08ea33e8`) | `queue (201, 1, 3)` at once, `advance_step` | **1, 4** |
+
+- The points reached 1,000 through the game's own `world_change_char_points` (delta +20 clamped at the stage-1 cap), and `try_chapter` received 1,000 from then on; below the cap it queued nothing.
+- Keys `(201, 1, 1)`, `(201, 1, 2)`, `(201, 1, 3)` are Jaden's row (key 201), stage 1, steps 1–3, as `chapter-table.md` predicts; step 2 needed the highlighted location; step 3 was queued right after the duel.
+- Not yet observed: the stage-closing `advance_stage` (expected `(2, 1)`).
+- **Caution for later sessions:** during the duel, `rel_duel_mgr` occupies `rel_story`'s base `0x08e9aa00`, so the `rel_story` execute breakpoints fired on unrelated duel code every frame (`advance_stage` thousands of times, `try_chapter` and `queue` with garbage arguments). Those lines are ignored here; disable `rel_story` breakpoints before a duel.
+- Music: event starts logged `bgm_fade 0x258` (600 ms, `ra 0x08ea23f4`/`0x08ea3a28`) and `0x64` (100 ms, `ra 0x08e9b4a8`): `bgm_fade` takes the fade time in ms at every call site (E10).
