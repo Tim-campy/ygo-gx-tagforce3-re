@@ -50,9 +50,9 @@ snd_at3_wave,ATRAC3/ATRAC3plus RIFF wave in a sound bank (fmt/fact/smpl; decoder
 psmf_audio_stream,PSMF private stream 1 ATRAC3plus track (payload header; 8-byte frame headers; PTS lead),container,reimplemented,
 story_text,Story text tables EveI/EveL SysMsgI/SysMsgL,dialogue,verified,
 story_bytecode,Event bytecode EveB/EveBI (records and text references),dialogue,reimplemented,390950
-save_data,DATA0 save buffer (0x20000 bytes),save,documented,131072
-save_decks,Save deck slots (147 x 0x16c),save,documented,0x16c
-save_collection,Save card collection (3554 x 4 bytes),save,documented,14216
+save_data,DATA0 save buffer: game state 0x1c0ec bytes + zero tail; gap-free offset map in tools/save.py,save,reimplemented,131072
+save_decks,Save deck slots (game state +0x48c8; 127 x 0x16c),save,reimplemented,0x16c
+save_collection,Save card collection (game state +0x11ba4; 3600 x 4 bytes; 3554 used),save,reimplemented,14400
 target_filter_flags,Target filter flag bits (rel_duel_eng.prx),duel_effects,documented,
 effect_param_chains,Per-card parameter compare chains (rel_duel_eng.prx),duel_effects,reimplemented,
 tmf,TMF per-texture flag bytes of an EHF layout,ui,documented,
@@ -149,10 +149,10 @@ ai_main_steps,AI main-phase step table (rel_duel_eng 0x09e01ba4),ai,named,
 ai_candidate_stack,AI candidate card stack (0x09e03004; depth 0x09e03024),ai,named,32
 ai_combat_tricks,AI combat trick list (0x09e27ff8; up to 8 card ids),ai,named,
 save_settings,Save settings bits (game state +0xfe04),save,documented,
-save_character_records,Save character records (game state +0xfe0c; 143 x 0x18),save,named,24
+save_character_records,Save character records (game state +0xfe0c; 143 x 0x18),save,documented,24
 save_pack_records,Save pack records (game state +0x16604; 48 x 0x2a),save,documented,42
 save_player_profile,Player profile: name / team / level / EXP / DP (game state +0xfd5c-0xfdff),save,documented,164
-save_duel_record,Duel-record block (game state +0x10f10),save,named,
+save_duel_record,Duel-record block: totals / streaks / 143 per-character records (game state +0x10f10; 0x494 bytes),save,documented,1172
 save_partner_word,Partner word (game state +0x16e12),save,named,2
 story_block,Story block (game state +0x16e14),world,named,
 story_field_save_block,Field save block: stage / chapter step / flags / pairing order (story block +0x345c),world,named,168
@@ -171,3 +171,12 @@ tgm_etc_scene,TGMT -etc scene block (leading tracks: camera lens; fog/ambient/4 
 tgm_model_instance,Runtime TGM model instance (BOOT.BIN 0x0882fa94: meshes/animations/frame/matrices/group mask),field_3d,named,
 tgm_vtmt,.vtmt voice node animation (9 nodes; role unknown),field_3d,named,
 ui_resource_table,UI resource record {u32 id; void *cache; char *member format} looked up by id (rel_deck 0x08ebd84c and siblings; docs/subsystems/ui.md),ui,named,12
+save_header,Save header: version / frame counter / OpenPSID (game state +0x0; 0x20 bytes),save,documented,32
+save_stored_decks,Stored deck records (game state +0x20; 50 x 0x174),save,documented,372
+save_recipe_table,Recipe unlock table (game state +0x10b74; 462 x u16),save,documented,924
+save_record_table,Record table: record values / new bits / duel-bonus states (game state +0x113a4; 0x800 bytes),save,named,2048
+save_flag_bytes,Per-index flag bytes: gallery / card milestones / pack first purchase (game state +0x153e4; 3600 bytes),save,named,3600
+save_card_list,Card list with per-entry states (game state +0x161f4; 2 + 99 x 2 + 99 x 2 bytes),save,named,398
+save_progress_bytes,Monotonic progress bytes (game state +0x16de4; 38 bytes),save,named,38
+save_picture_bits,Picture-seen bit array (game state +0x1b0fc),save,documented,12
+save_minigame_blocks,Minigame blocks and high scores (game state +0x1be0c-0x1bf0b; record table +0xa0),save,named,256

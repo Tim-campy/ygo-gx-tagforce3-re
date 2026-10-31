@@ -56,7 +56,7 @@ Observations (see also "Who uses which recipe" below): 611 of 661 main decks lis
 | `0xa2` | 2 × 15 | extra deck ids |
 | `0xc0` | | end |
 
-Note that memory order (main, side, extra) differs from file order (main, extra, side). Confidence high (store offsets read from `0x0885c43c`–`0x0885c4f8`). The deck slots in the game state use the same struct at slot `+0x50` (`deck_get_slot_cards`, `deck_copy_slot_cards` copies `0xc0` bytes; `save.md`).
+Note that memory order (main, side, extra) differs from file order (main, extra, side). Confidence high (store offsets read from `0x0885c43c`–`0x0885c4f8`). The deck slots in the game state (`0x48c8 + 0x16c·s`) use the same struct at slot `+0x4c` (`deck_get_slot_cards`, `deck_copy_slot_cards` copies `0xc0` bytes; `save.md`).
 
 ## Recipe names: `recipe_name_<l>.bin`
 

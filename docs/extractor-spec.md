@@ -269,10 +269,10 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | --- | --- |
 | Source | `PSP/SAVEDATA/ULES011830001/DATA0` (131,072-byte game-state copy), written **unencrypted by PPSSPP** with `EncryptSave = False`. Retail saves are encrypted by the PSP save layer and are not decrypted (`CLAUDE.md`). |
 | Format docs | `docs/formats/save.md`, save fields in `docs/subsystems/world.md` |
-| Tool / command | `python3 -I tools/save.py decks <DATA0> [--cardinfo …] [-o …]`; `save.py collection <DATA0> [-o …]`; `save.py <DATA0> --check` |
+| Tool / command | `python3 -I tools/save.py decks <DATA0> [--cardinfo …] [-o …]`; `save.py collection <DATA0> [-o …]`; `save.py json <DATA0> -o <scratch>.json` (every mapped region decoded); `save.py map` (the offset map as CSV); `save.py <DATA0> --check`; `save.py --check` (map only: gap-free from 0 to 0x20000) |
 | Port output | An importer from a plaintext `DATA0` into the port's own save: decks (127 slots), card collection (copies, flags, limit status), player profile and DP, story block. The port's save format itself is a port decision. |
-| Verified | Check run (save `extracted/saves/v1`): `ok: 126 non-empty deck slots, 54 cards owned`. DP, calendar and partner word confirmed in PPSSPP (session C). `save_data`, `save_decks`, `save_collection`, `save_player_profile` `documented`. Tests: `tools/tests/test_save.py`. |
-| Gaps | Character records, pack records, duel records, much of the story block are `named` only; `save.py` exports only decks and collection. Not blocking if the port starts new games; blocking for save import. |
+| Verified | Check run (save `extracted/saves/v1`): `ok: 126 non-empty deck slots, 54 cards owned`; map check: `ok: map covers 0x20000 bytes; - 4850, H 98363, L 769, M 27090`. The game copies `0x1c0ec` state bytes (`save_get_state_size`); the rest of the buffer is never read. DP, calendar and partner word confirmed in PPSSPP (session C). `save_data`, `save_decks`, `save_collection` `reimplemented` (decoded by `save.py`); header, stored decks, recipes, duel record, character records, settings, packs, profile `documented`. Tests: `tools/tests/test_save.py` (synthetic data). |
+| Gaps | Every byte is in the map; 4,850 bytes in five regions have unknown content (`0x4` 8, `0x1b108` 3,332, `0x1bf18` 116, record table `+0x292` 1,390, story block `+0x3524` 4), all zero in the analysed save. Medium/low meanings (record values, duel bonuses, minigame index mapping, card list, edit block, progress bytes, story cycle) need the 16 differential-save experiments of `save.md`. Not blocking for new games; an importer can copy the known regions and ignore the unknown ones. |
 
 ## 20. Minigames and other screens
 
@@ -324,7 +324,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | Sound and voices | complete for decoding (FFmpeg at install time, PS-ADPCM native, loops in JSON) | no | Cue flags, envelope bytes and the play call (PPSSPP trace); whether the SFX loops are used. |
 | PSMF movies | complete for conversion (own audio demux + FFmpeg) | no | Choose the 3DS playback format; the port's installer re-encodes the MP4 to it. |
 | AI tables | partial | partly | PPSSPP trace of the plan comparison (checks in `ai.md`); decode the per-card handlers' constants family by family. |
-| Save data | partial | no (new games) / yes (import) | Map the remaining regions with differential saves; extend `save.py`. |
+| Save data | complete map (4,850 bytes unknown content) | no (new games) / partly (import) | Run the differential-save experiments in `save.md` to confirm the medium/low regions and name the unknown ones. |
 | Minigames and other screens | partial | no | Out of work packages 1–5; analyse when the port reaches them. |
 
 ## Open questions
