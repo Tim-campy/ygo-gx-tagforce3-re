@@ -53,9 +53,11 @@ ci = _load("re_cardinfo", "cardinfo.py")
 cr = _load("re_card_refs", "card_refs.py")
 fs = _load("re_family_split", "family_split.py")
 
-SCHEMA = 4  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
+SCHEMA = 5  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
 #             3 = 2 plus slots.resolve.categories_refined / .refinement (tools/family_split.py);
-#             4 = 3 plus effects[].inert, spec_basis and the engine-mapped `full` rule
+#             4 = 3 plus effects[].inert, spec_basis and the engine-mapped `full` rule;
+#             5 = 4 plus the symbolic chain cases (params.chains[].method/values/expression/reason/own, kinds
+#                 conditional/expression/behaviour, classes expression/behaviour) and engine_branches[]
 FIRST_CARD, LAST_CARD = ep.FIRST_CARD, ep.LAST_CARD
 
 # Token table read by duel_effects_find_token_entry (0x09befee0, 68 bytes): 46 records of four u16
@@ -125,6 +127,8 @@ SOURCES = {
     "engine_refs": "card-id immediates used as card ids in engine code via tools/card_refs.py",
     "family_split": "per-card branches of family-shared resolve handlers and the LP chain via tools/family_split.py",
     "fallback_effect": "icon fallback of duel_effects_find_record to S/T records 0-2 (placeholder id 0xe74)",
+    "engine_branches": "branches read in the decompilation (tools/engine_branches.csv) and own code of behaviour "
+                       "compare-chain cases (effect_params.resolve_chain)",
 }
 CONFIDENCE = {
     "identity": "high", "lists": "high", "target_filter": "high", "filter_calls": "medium", "fusion": "high",
@@ -229,27 +233,83 @@ def chain_label(fn, registry):
     return (name, "medium") if not ec.DEFAULT_NAME.match(name) else (f"chain_{fn:08x}", "low")
 
 
+class RegistryNames:
+    """Mapping-like view of the registry for effect_params.render: meaningful names only."""
+
+    def __init__(self, registry):
+        self.registry = registry
+
+    def get(self, address, default=None):
+        name = self.registry.name(address)
+        return default if not name or ec.DEFAULT_NAME.match(name) else name
+
+
 def all_chain_cases(module, functions, users, registry):
-    """Cases of every compare chain (>= 8 card-id tests) of effect_params, with class, label and confidence."""
-    rows, param_cases = ep.compare_chains(module, functions, users)
+    """Cases of every compare chain (>= 8 card-id tests) of effect_params, resolved by the symbolic evaluator
+    (effect_params.resolve_chain), with class, label and confidence. Returns (cases, chain rows)."""
+    names = RegistryNames(registry)
+    rows, results = ep.chain_results(module, functions, users, names=names)
     out = []
     for r in rows:
         fn = int(r["function"], 16)
         label, conf = chain_label(fn, registry)
-        if r["class"] == "parameter":
-            cases = [c for c in param_cases if c["function"] == r["function"]]
-        else:
-            cases = [{"function": r["function"], "card_id": f"{cid:#x}",
-                      "kind": "constant" if v is not None else "computed",
-                      "value": "" if v is None else ep.signed(v), "target": f"{b.target:#010x}"}
-                     for cid, v, b in ep.analyse_chain(module, fn, ep.function_end(functions, fn))]
-        for c in cases:
-            out.append({**c, "class": r["class"], "label": label, "confidence": conf})
+        for res in results[fn]:
+            c = ep.case_row(fn, res, names)
+            if r["class"] == "behaviour":
+                c["kind"], c["value"], c["expression"], c["values"] = "behaviour", "", "", ""
+            out.append({**c, "class": r["class"], "label": label, "confidence": conf,
+                        "own_varies": r["own_varies"]})
+    return out, rows
+
+
+BRANCH_FIELDS = ("card_id", "function", "when", "effect", "amount", "condition", "confidence", "basis")
+BRANCH_CONFIDENCE = {"H": "high", "M": "medium", "L": "low"}
+
+
+def load_engine_branches(path):
+    """Rows of tools/engine_branches.csv (branches read in the decompilation) as engine_branches entries:
+    ([{card_id: int, function, when, effect, amount, condition, confidence, basis, source: "read"}], problems)."""
+    rows, problems = [], []
+    if not path or not Path(path).exists():
+        return rows, problems
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        missing = [k for k in BRANCH_FIELDS if k not in (reader.fieldnames or [])]
+        if missing:
+            return rows, [f"{Path(path).name} lacks the column(s) {' '.join(missing)}"]
+        for n, r in enumerate(reader, 2):
+            try:
+                cid, fn = int(r["card_id"], 16), int(r["function"], 16)
+            except ValueError:
+                problems.append(f"line {n}: card_id/function is not hex")
+                continue
+            if r["confidence"] not in BRANCH_CONFIDENCE:
+                problems.append(f"line {n}: confidence {r['confidence']!r} is not H/M/L")
+            if not r["effect"]:
+                problems.append(f"line {n}: empty effect")
+            rows.append({"card_id": cid, "function": f"{fn:#010x}", **{k: r[k] for k in BRANCH_FIELDS[2:]},
+                         "source": "read"})
+    return rows, problems
+
+
+def generated_branches(cases):
+    """engine_branches entries generated from compare-chain cases whose per-card part is behaviour, not a return
+    value: every case with own code (a join state or a call) of a `behaviour` chain, and of an `unresolved` chain
+    whose cases' own code differs (own_varies). `amount` is effect_params.case_summary of the case's own code,
+    `when` is empty (the chain's timing is not decoded), confidence L."""
+    out = []
+    for c in cases:
+        if not c.get("own") or not (c["class"] == "behaviour" or (c["class"] == "unresolved" and c.get("own_varies"))):
+            continue
+        out.append({"card_id": int(c["card_id"], 16), "function": c["function"], "when": "",
+                    "effect": f"chain_case:{c['label']}", "amount": c["own"], "condition": "",
+                    "confidence": "L", "basis": f"compare-chain case at {c['target']} (effect_params.resolve_chain)",
+                    "source": "chain"})
     return out
 
 
 def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_path=None, depth=3,
-            search=None, draw_path=None):
+            search=None, draw_path=None, branches_path=HERE / "engine_branches.csv"):
     """Run every source tool and return (sources dict for build_specs, problems)."""
     info = ci.CardInfo(cardinfo_bytes, "E")
     cards = {}
@@ -311,7 +371,7 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
     lists = [(name, index, cid, h, registry.name(h) if h else "") for name, index, cid, h in ep.list_records(module)
              if name in OWN_LISTS]
     draws = {int(r["card_id"], 16): r for r in ep.draw_counts(module)}
-    cases = all_chain_cases(module, functions, users, registry)
+    cases, chain_rows = all_chain_cases(module, functions, users, registry)
     starts, names = cr.load_registry(functions_path)
     engine_refs = cr.all_refs(prx_bytes, starts, names, Path(boot_path).read_bytes() if boot_path else None,
                               Path(draw_path).read_bytes() if draw_path else None)
@@ -328,8 +388,11 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
         "rituals": [(r.index, r.monster, r.spell, r.level) for r in fu.rituals(fmod)],
         "ai": ai, "tokens": tokens, "search_filters": search_filters, "search_note": search_note,
         "ai_missing": set(ait.missing_cards(amod, set(cards))),
-        "engine_refs": engine_refs,
+        "engine_refs": engine_refs, "chain_rows": chain_rows,
     }
+    read_rows, branch_problems = load_engine_branches(branches_path)
+    problems += [f"engine_branches: {p}" for p in branch_problems]
+    sources["engine_branches"] = read_rows + generated_branches(cases)
     return sources, problems
 
 
@@ -431,10 +494,23 @@ def build_specs(src):
         label, conf = (r["label"], r["confidence"]) if "label" in r else \
             PARAM_CHAINS.get(fn, (f"chain_{fn:08x}", "low"))
         constant = r["kind"] == "constant"
-        spec(int(r["card_id"], 16))["params"].setdefault("chains", []).append(
-            {"label": label, "function": r["function"], "kind": r["kind"], "value": r["value"] if constant else None,
-             "confidence": conf if constant else "low" if conf == "low" else "medium",
-             "class": r.get("class", "parameter")})
+        entry = {"label": label, "function": r["function"], "kind": r["kind"],
+                 "value": r["value"] if constant else None,
+                 "confidence": conf if constant and r.get("method", "straight") == "straight" else
+                 "low" if conf == "low" else "medium",
+                 "class": r.get("class", "parameter")}
+        for k in ("method", "expression", "reason", "own"):  # schema 5, present only when non-empty
+            if r.get(k):
+                entry[k] = r[k]
+        if r.get("values"):
+            entry["values"] = r["values"].split(" | ")
+        spec(int(r["card_id"], 16))["params"].setdefault("chains", []).append(entry)
+    for b in src.get("engine_branches", ()):
+        ident = specs[b["card_id"]]["identity"] if b["card_id"] in specs else None
+        if b["source"] == "chain" and ident and ident["kind"] in NO_TEXT_KINDS:
+            continue  # a card without effect text: the case is another card's reference to it, not its behaviour
+        if b["card_id"] in specs:  # engine branches never add ids
+            specs[b["card_id"]].setdefault("engine_branches", []).append({k: v for k, v in b.items() if k != "card_id"})
     for r in src["stat_mods"]:
         spec(int(r["card_id"], 16))["params"].setdefault("stat_mods", []).append(
             {k: r[k] for k in ("section", "function_name", "use", "address", "values", "helper", "calls")})
@@ -576,6 +652,8 @@ def field_keys(s):
         keys.append("engine_refs")
     if any("refinement" in e["slots"].get("resolve", {}) for e in s["effects"]):
         keys.append("family_split")
+    if s.get("engine_branches"):
+        keys.append("engine_branches")
     return keys
 
 
@@ -594,6 +672,9 @@ def field_confidence(s):
             levels = {e["slots"]["resolve"]["refinement"]["confidence"] for e in s["effects"]
                       if "refinement" in e["slots"].get("resolve", {})}
             out[k] = "high" if levels == {"high"} else "medium"
+        elif k == "engine_branches":
+            levels = {BRANCH_CONFIDENCE.get(b["confidence"], "low") for b in s["engine_branches"]}
+            out[k] = "high" if levels == {"high"} else "low" if levels == {"low"} else "medium"
         elif k == "engine_refs":
             strong = strong_engine_refs(s)
             idlike = any(o.startswith(cr.ID_OPERANDS) for g in strong for o in g["operands"]) or \
@@ -717,6 +798,25 @@ def join_report(src, specs):
                  f"({sum(len(set(r['categories']) - set(r['categories_refined'])) for r in changed)} labels removed); "
                  f"split confidence high {split['high']}, medium {split['medium']}")
     lines.append(f"search filters: {src.get('search_note', '')}; {len(src['search_filters'])} cards")
+    chain_rows = src.get("chain_rows", [])
+    if chain_rows:
+        cls = collections.Counter(r["class"] for r in chain_rows)
+        plain = collections.Counter(r["plain_class"] for r in chain_rows)
+        kinds = collections.Counter(c["kind"] for c in src["chain_cases"])
+        lines.append(f"compare chains: {len(chain_rows)}; class " + ", ".join(
+            f"{k} {cls[k]}" for k in ep.CHAIN_CLASSES) + " (plain evaluator: " + ", ".join(
+            f"{k} {plain[k]}" for k in ("parameter", "predicate", "mixed", "unresolved")) + ")")
+        lines.append("chain cases: " + ", ".join(f"{k} {n}" for k, n in kinds.most_common()) + "; failures " + ", ".join(
+            f"{k} {n}" for k, n in collections.Counter(c["reason"] for c in src["chain_cases"]
+                                                       if c["kind"] == "computed" and c["reason"]).most_common()))
+    branches = src.get("engine_branches", [])
+    if branches:
+        by = collections.Counter(b["source"] for s in specs.values() for b in s.get("engine_branches", ()))
+        unknown = sorted({b["card_id"] for b in branches if b["source"] == "read" and b["card_id"] not in cards})
+        if unknown:
+            problems.append("engine_branches.csv names ids without a cardinfo record: " + " ".join(hx(c) for c in unknown))
+        lines.append(f"engine branches: {by['read']} read rows, {by['chain']} generated from chain cases; "
+                     f"{sum(1 for s in specs.values() if s.get('engine_branches'))} cards")
     return problems, lines
 
 
@@ -724,7 +824,7 @@ STATUSES = ("full", "partial", "engine_only", "missing", "vanilla", "unreleased"
 CSV_FIELDS = ["card_id", "name", "kind", "released", "spec_status", "effect_records", "tables", "fallback", "resolve_categories",
               "target_filters", "draw_count", "lp_cost", "chains", "stat_mod_sections", "fusion_role", "ai_tables",
               "tokens", "search_filters", "effects_confidence", "engine_ref_functions", "engine_ref_groups",
-              "resolve_categories_refined", "spec_basis"]
+              "resolve_categories_refined", "spec_basis", "engine_branches"]
 
 
 def csv_row(s):
@@ -752,7 +852,8 @@ def csv_row(s):
             "resolve_categories_refined": " ".join(sorted({
                 c for e in s["effects"] for c in e["slots"].get("resolve", {}).get(
                     "categories_refined", e["slots"].get("resolve", {}).get("categories", []))})),
-            "spec_basis": s.get("spec_basis", "")}
+            "spec_basis": s.get("spec_basis", ""),
+            "engine_branches": len(s.get("engine_branches", ()))}
 
 
 def write_outputs(out_dir, specs, meta):
@@ -781,13 +882,15 @@ def main(argv=None):
     parser.add_argument("--categories", type=Path, default=HERE / "effect_categories.csv")
     parser.add_argument("--depth", type=int, default=3, help="call levels for the categories (default 3)")
     parser.add_argument("--search-filters", type=Path, help="CSV with a card_id column (instead of the tool)")
+    parser.add_argument("--branches", type=Path, default=HERE / "engine_branches.csv",
+                        help="decoded engine branches (default tools/engine_branches.csv)")
     args = parser.parse_args(argv)
     if not args.check and not args.out:
         parser.error("-o/--out is required unless --check is given")
     data = args.prx.read_bytes()
     search = load_search_filters(data, args.search_filters)
     src, problems = extract(data, args.cardinfo.read_bytes(), args.functions, args.categories,
-                            args.boot, args.depth, search, args.draw)
+                            args.boot, args.depth, search, args.draw, args.branches)
     specs = build_specs(src)
     join_problems, lines = join_report(src, specs)
     problems += join_problems

@@ -394,6 +394,18 @@ Rows added for named functions that had none: `duel_core_apply_battle_damage`, t
 
 Result (disc, `--boot --draw`): full 2,707 -> 2,748, partial 66 -> 46, engine_only 42 -> 21; no card moved back. Precision, judged against the card texts (read locally, not copied): all 41 cards that changed status were read; 40 had only correct tags with every clause located; one phrase (the `arg` row of the stat functions, "counts its copies or links") was too narrow for Cyber Blader and was reworded before the commit.
 
+### Fourth round: compare-chain functions named from their resolved cases
+
+`effect_params.resolve_chain` (`card-effect-spec.md`, "Compare chains") turns the cases of most compare chains into values, expressions or join states, and these are readable without the decompiler. The functions below were named from those cases, their table slots and their callees. The four activation-step handlers are listed in `chain.md`, "Activation step". (D) marks a function documented in `re/documented-duel_eng.tsv`.
+
+| Address | Name | Evidence | Callers | Conf. |
+| --- | --- | --- | --- | --- |
+| `0x09c34e2c` | `duel_effects_filter_spell_target_by_card` (D) | Slot `+08` of 6 S/T and 2 M1 records. Per-source predicates after `duel_effects_target_filter`: Plant-Type, Type 13 (Fragrance Storm); counter `0x0f` ≥ 1 (Detonator Circle A); counter `0x12` ≥ 4 (Diamond-Dust Cyclone); a linked Flint `0x1842` (Flint Missile); a Ritual or Fusion monster (Ritual Sealing, Anti-Fusion Device). 6 of 6 judged cases match the text | slot `+08`, `0x09d57c6c` | H |
+| `0x09c38800` | `duel_effects_filter_slot_target_by_card` (D) | Slot `+08` of 38 records. Per-source predicates on the slot's monster: Machine-Type 7 (Factory of 100 Machines), Fiend-Type 3 (Infernal Gainer), Level 8 (Lineage of Destruction), the named Thunder card for Makiu, Iron Chain monsters, not a token | slot `+08`, `0x09c3acc8`, `0x09c3fd74` | M |
+| `0x09cee284` | `ai_check_card_condition` | 209-case chain of AI conditions per card. Callees: `ai_has_card_in_hand_or_field`, `ai_count_acceptable_candidates`, `duel_core_count_active_card_on_side`. The cases test what the effect needs: a Zombie in the Graveyard for Zombie Mammoth, another Beast for Sea Koala, a Dragon in the hand for Spirit Ryu, Umi for The Legendary Fisherman | AI functions `0x09cee118`, `0x09d18eb4`, `0x09d40300` ... | M |
+
+The large unnamed chains left are AI functions whose cases call unnamed helpers: `0x09d8fc24` (146 cases, under `ai_analyze_board`), `0x09d440d8` (240 cases, under `ai_simulate_candidate_choice`) and `0x09cf1998` (55 cases, `0x09ce536c(_, -1, id, 1) < 1301`). Naming `0x09ce536c` and `0x09d3ba48` would make their cases readable.
+
 ## Open questions
 
 - Prompt-request kind 7 (`0x09c14284`) and the meaning of UI events 3 (command 7) and `0x2a` (mode 9 picks). Kinds 4 and 8 are Great Shogun Shien's substitute and Advanced Dark's Deck pick (third round).

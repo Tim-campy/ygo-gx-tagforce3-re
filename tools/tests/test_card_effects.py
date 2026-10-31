@@ -431,5 +431,76 @@ class EngineMapped(unittest.TestCase):
         self.assertFalse(ce.is_return_zero_stub(module, 0x300))  # no code there
 
 
+class EngineBranches(unittest.TestCase):
+    CSV = ("card_id,function,when,effect,amount,condition,confidence,basis\n"
+           "0x1001,0x09dc5a4c,battle,battle_damage_multiply,x2,direct attack,H,battle.md\n")
+
+    def write(self, tmp, text):
+        path = Path(tmp) / "engine_branches.csv"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_load_and_problems(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows, problems = ce.load_engine_branches(self.write(tmp, self.CSV))
+            self.assertEqual(problems, [])
+            self.assertEqual(rows, [{"card_id": MAT, "function": "0x09dc5a4c", "when": "battle",
+                                     "effect": "battle_damage_multiply", "amount": "x2", "condition": "direct attack",
+                                     "confidence": "H", "basis": "battle.md", "source": "read"}])
+            _, problems = ce.load_engine_branches(self.write(tmp, self.CSV.replace(",H,", ",X,")))
+            self.assertEqual(len(problems), 1)
+            _, problems = ce.load_engine_branches(self.write(tmp, "card_id,function\n0x1,0x2\n"))
+            self.assertIn("lacks the column", problems[0])
+        self.assertEqual(ce.load_engine_branches(Path("no/such/file.csv")), ([], []))
+
+    def test_generated_rows(self):
+        base = {"function": "0x09c4b050", "target": "0x09c4b100", "label": "chain_09c4b050", "own": "a1=2 at 0x09c4b6a0"}
+        cases = [{**base, "card_id": "0x1001", "class": "behaviour"},
+                 {**base, "card_id": "0x1300", "class": "unresolved", "own_varies": 1},
+                 {**base, "card_id": "0x1200", "class": "unresolved", "own_varies": 0},
+                 {**base, "card_id": "0x12ec", "class": "parameter", "own_varies": 1},
+                 {**base, "card_id": "0x1400", "class": "behaviour", "own": ""}]
+        rows = ce.generated_branches(cases)
+        self.assertEqual([r["card_id"] for r in rows], [MAT, BARE])
+        self.assertEqual((rows[0]["effect"], rows[0]["amount"], rows[0]["confidence"], rows[0]["source"]),
+                         ("chain_case:chain_09c4b050", "a1=2 at 0x09c4b6a0", "L", "chain"))
+
+    def test_joined_into_spec(self):
+        read = {"card_id": MAT, "function": "0x09dc5a4c", "when": "battle", "effect": "battle_damage_set",
+                "amount": "1000", "condition": "", "confidence": "H", "basis": "battle.md", "source": "read"}
+        gen = {**read, "effect": "chain_case:x", "confidence": "L", "source": "chain"}
+        specs = ce.build_specs(sources(engine_branches=[read, gen, {**gen, "card_id": NORMAL}, {**read, "card_id": 0x7777}]))
+        mat = specs[MAT]
+        self.assertEqual([b["source"] for b in mat["engine_branches"]], ["read", "chain"])
+        self.assertNotIn("card_id", mat["engine_branches"][0])
+        self.assertEqual(mat["confidence"]["engine_branches"], "medium")
+        self.assertIn("engine_branches", mat["sources"])
+        self.assertNotIn("engine_branches", specs[NORMAL])  # vanilla: a generated row is another card's reference
+        self.assertNotIn(0x7777, specs)  # engine branches never add ids
+        self.assertEqual(ce.csv_row(mat)["engine_branches"], 2)
+        self.assertEqual(mat["spec_status"], ce.build_specs(sources())[MAT]["spec_status"])  # status rules unchanged
+        _, lines = ce.join_report(sources(engine_branches=[read, gen]), specs)
+        self.assertTrue(any(line.startswith("engine branches: 1 read rows, 1 generated") for line in lines))
+
+    def test_schema5_chain_fields(self):
+        cases = [{"function": "0x09abcdef", "card_id": "0x1001", "kind": "conditional", "value": "", "values": "1 | 2",
+                  "method": "paths", "reason": "", "own": "a1=1 at 0x09abce00", "expression": "",
+                  "class": "expression", "label": "chain_09abcdef", "confidence": "medium"},
+                 {"function": "0x09abcdef", "card_id": "0x1300", "kind": "constant", "value": 7, "method": "paths",
+                  "class": "parameter", "label": "lp_cost", "confidence": "high"},
+                 {"function": "0x09abcdef", "card_id": "0x1400", "kind": "expression", "value": "",
+                  "expression": "helper(arg0, 5)", "method": "paths", "class": "expression",
+                  "label": "chain_09abcdef", "confidence": "low"}]
+        specs = ce.build_specs(sources(chain_cases=cases))
+        c = specs[MAT]["params"]["chains"][0]
+        self.assertEqual((c["kind"], c["values"], c["own"], c["confidence"]), ("conditional", ["1", "2"],
+                                                                               "a1=1 at 0x09abce00", "medium"))
+        self.assertNotIn("reason", c)
+        bare = specs[BARE]["params"]["chains"][0]
+        self.assertEqual((bare["value"], bare["confidence"]), (7, "medium"))  # paths constants are at most medium
+        self.assertEqual(specs[EQUIP]["params"]["chains"][0]["expression"], "helper(arg0, 5)")
+        self.assertEqual(ce.SCHEMA, 5)
+
+
 if __name__ == "__main__":
     unittest.main()

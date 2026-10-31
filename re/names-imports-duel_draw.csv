@@ -1048,7 +1048,7 @@ address,group,name
 0x098bb94c,,thunk_FUN_09cfabec
 0x098bb954,,thunk_FUN_09ceb448
 0x098bb95c,,thunk_FUN_09cecc54
-0x098bb964,,thunk_FUN_09cee284
+0x098bb964,ai,thunk_ai_check_card_condition
 0x098bb96c,,thunk_FUN_09cee118
 0x098bb974,,thunk_FUN_09d1a7fc
 0x098bb97c,,thunk_FUN_09d1a820

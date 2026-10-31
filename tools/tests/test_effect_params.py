@@ -192,5 +192,143 @@ class EffectParamsTest(unittest.TestCase):
                 self.assertTrue((out / f"{name}.csv").exists())
 
 
+def sw(rt, base, off):
+    return itype(0x2B, base, rt, off)
+
+
+def lw(rt, base, off):
+    return itype(0x23, base, rt, off)
+
+
+def lbu(rt, base, off):
+    return itype(0x24, base, rt, off)
+
+
+A1, T0, T1, T2, T3, S1, V1 = 5, 8, 9, 10, 11, 17, 3
+CHAIN = 0x09C50000
+LEAF, NONLEAF, SIDE, VOID_CALLER = 0x09C50400, 0x09C50440, 0x09C50480, 0x09C504C0
+
+
+def build_chain():
+    """A synthetic compare chain on u16[arg0] (kept in s0) with one case per evaluator extension:
+
+    0x1301 / 0x1302  a1 = 5 / 2, then a tail shared by both that calls SIDE and returns 1 (join states)
+    0x1303           returns 1 or 2 depending on u8[arg0+3] (conditional)
+    0x1304           returns LEAF(3) = 3 * 2 through mult/mflo (leaf helper inlined), with a stack-slot read
+    0x1305           returns NONLEAF(9) (call expression)
+    0x1306           re-tests u16[arg0] (through s1) against 0x1306 (bound to the case's id: constant 4, not 4 or 5)
+    VOID_CALLER calls CHAIN and overwrites v0 before reading it."""
+    img = Image()
+    epi = [lw(RA, SP, 12), JR_RA, addiu(SP, SP, 16)]
+    code = [addiu(SP, SP, -16), sw(RA, SP, 12), addiu(T0, ZERO, 7), sw(T0, SP, 8), lhu(S0, A0, 0),
+            addu(S1, A0, ZERO)]
+    cases = []
+    pc = CHAIN + 4 * len(code)
+    for cid in range(0x1301, 0x1307):
+        code += [addiu(V1, ZERO, cid), 0, 0]  # branch filled in below
+        cases.append((cid, pc + 4))
+        pc += 12
+    ret0 = pc + 8
+    code += [branch(4, ZERO, ZERO, pc, ret0), 0, addiu(V0, ZERO, 0)] + epi
+    pc = CHAIN + 4 * len(code)
+    bodies = {}
+    tail = pc + 0x200 - 0x40  # placed later
+    blocks = {
+        0x1301: [addiu(A1, ZERO, 5), "j_tail", 0],
+        0x1302: [addiu(A1, ZERO, 2), "j_tail", 0],
+        0x1303: [lbu(T1, A0, 3), "beq_t1_skip", addiu(V0, ZERO, 1), addiu(V0, ZERO, 2)] + epi,
+        0x1304: [lw(A1, SP, 8), addiu(A0, ZERO, 3), jump(3, LEAF), 0] + epi,
+        0x1305: [addiu(A0, ZERO, 9), jump(3, NONLEAF), 0] + epi,
+        0x1306: [lhu(T2, S1, 0), addiu(T3, ZERO, 0x1306), "beq_t2_t3_skip", addiu(V0, ZERO, 4),
+                 addiu(V0, ZERO, 5)] + epi,
+    }
+    for cid, words in blocks.items():
+        bodies[cid] = pc
+        out = []
+        for k, w in enumerate(words):
+            here = pc + 4 * k
+            if w == "j_tail":
+                w = branch(4, ZERO, ZERO, here, tail)
+            elif w == "beq_t1_skip":
+                w = branch(4, T1, ZERO, here, here + 12)  # taken: skip `v0 = 2`, land on the epilogue
+            elif w == "beq_t2_t3_skip":
+                w = branch(4, T2, T3, here, here + 12)
+            out.append(w)
+        img.put(pc, *out)
+        pc += 4 * len(out)
+    img.put(CHAIN, *code)
+    for cid, at in cases:
+        img.put(at, branch(4, S0, V1, at, bodies[cid]), 0)
+    img.put(tail, jump(3, SIDE), 0, addiu(V0, ZERO, 1), *epi)
+    img.put(LEAF, addiu(T0, ZERO, 2), A0 << 21 | T0 << 16 | 0x18, V0 << 11 | 0x12, JR_RA, 0)
+    img.put(NONLEAF, addiu(SP, SP, -8), sw(RA, SP, 4), jump(3, SIDE), 0, lw(RA, SP, 4), JR_RA, addiu(SP, SP, 8))
+    img.put(SIDE, JR_RA, 0)
+    img.put(VOID_CALLER, addiu(SP, SP, -8), sw(RA, SP, 4), jump(3, CHAIN), 0, addiu(V0, ZERO, 0), lw(RA, SP, 4),
+            JR_RA, addiu(SP, SP, 8))
+    return img.elf()
+
+
+class SymbolicEvaluatorTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.module = ep.Module(build_chain())
+        cls.functions = [CHAIN, LEAF, NONLEAF, SIDE, VOID_CALLER, VOID_CALLER + 0x40]
+        cls.results = {r["card_id"]: r for r in ep.resolve_chain(cls.module, CHAIN, LEAF, cls.functions)}
+
+    def test_join_states(self):
+        for cid, a1 in ((0x1301, 5), (0x1302, 2)):
+            r = self.results[cid]
+            self.assertEqual(r["kind"], "constant")  # the shared tail returns 1
+            self.assertEqual(r["method"], "paths")   # the plain evaluator stops at the call
+            self.assertEqual([state for _, state in r["join"]], [{"a1": a1}])
+            self.assertTrue(ep.case_summary(dict(r, kind="computed")).startswith(f"a1={a1} at 0x"))
+        plain = {cid: v for cid, v, _ in ep.analyse_chain(self.module, CHAIN, LEAF)}
+        self.assertIsNone(plain[0x1301])
+
+    def test_conditional(self):
+        r = self.results[0x1303]
+        self.assertEqual((r["kind"], r["values"]), ("conditional", [1, 2]))
+
+    def test_leaf_inlined_with_mult_and_stack(self):
+        r = self.results[0x1304]
+        self.assertEqual((r["kind"], r["value"]), ("constant", 6))
+        self.assertEqual(r["calls"], [(LEAF, (3, 7, ("reg", "a2"), ("reg", "a3")), 6)])
+
+    def test_call_expression(self):
+        r = self.results[0x1305]
+        self.assertEqual(r["kind"], "expression")
+        self.assertEqual(ep.render(r["value"]), f"fn_{NONLEAF:08x}(9)")
+        self.assertEqual(ep.render(r["value"], {NONLEAF: "helper"}), "helper(9)")
+
+    def test_id_binding(self):
+        self.assertEqual((self.results[0x1306]["kind"], self.results[0x1306]["value"]), ("constant", 4))
+
+    def test_classes(self):
+        res = list(self.results.values())
+        self.assertTrue(ep.own_varies(res))
+        self.assertEqual(ep.chain_class(res, None), "parameter")  # constants 1, 1, 6, 4 of 6 cases
+        self.assertEqual(ep.chain_class(res, False), "behaviour")
+        returns = ep.returns_value(self.module, self.functions)
+        self.assertIs(returns[CHAIN], False)
+        self.assertIs(returns[SIDE], True)  # NONLEAF returns SIDE's v0 to its own caller
+
+    def test_render_forms(self):
+        x = ("load", ("arg", 0), 2, 2, False)
+        self.assertEqual(ep.render(x), "u16[arg0+0x2]")
+        self.assertEqual(ep.render(("op", "<u", 0, x, )), "(u16[arg0+0x2] != 0)")
+        self.assertEqual(ep.render(("op", "^", ("op", "<", x, 2), 1)), "!(u16[arg0+0x2] < 2)")
+        self.assertEqual(ep.render(("op", "*", x, 300)), "(u16[arg0+0x2] * 300)")
+        self.assertTrue(ep.grounded(x))
+        self.assertFalse(ep.grounded(("op", "+", ("reg", "s3"), 1)))
+
+    def test_unmodelled_and_jump_table_fail(self):
+        img = Image()
+        a = 0x09C40000
+        img.put(a, 2 << 21 | 8, 0)  # jr v0
+        ev = ep.SymbolicEvaluator(ep.Module(img.elf()))
+        with self.assertRaises(ep.EvalFail):
+            ev.paths(a, {})
+
+
 if __name__ == "__main__":
     unittest.main()

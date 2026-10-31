@@ -11,6 +11,7 @@ output directory (game data: keep them under extracted/, never in git):
   draw_counts.csv          duel_effects_get_draw_count: card id -> constant, or the computed cases
   compare_chains.csv       every function that is a chain of `if (id == K)` tests, with statistics
   chain_cases.csv          the per-card cases of the chains classified as parameter chains
+  chain_results.csv        every case of every compare chain, as resolved by the symbolic evaluator
 
   effect_params.py <USRDIR>/gmodule/rel_duel_eng.prx -o extracted/effect_params [--cardinfo <cardinfo_eng.ehp>]
   effect_params.py <USRDIR>/gmodule/rel_duel_eng.prx --check
@@ -288,6 +289,700 @@ def evaluate(module, start, regs=None, delay=None, limit=200):
     return None
 
 
+# ---------------------------------------------------------------------------------------------- symbolic evaluator
+#
+# `evaluate` above gives up at the first value it does not know. The symbolic evaluator below keeps going: an
+# unknown value becomes an expression over named inputs, every undecidable branch forks the path, calls clobber
+# the caller-saved registers and leave a call expression in v0, and stack slots are modelled. A case then
+# evaluates to a constant, a set of constants (conditional), one expression, or a join state: the live registers
+# that the case's own code sets before it reaches code shared with other cases (docs/formats/card-effect-spec.md,
+# "Compare chains"). Expressions are nested tuples:
+#
+#   int                              a constant (32-bit, unsigned representation)
+#   ("arg", n)                       argument register a<n> at function entry
+#   ("reg", name)                    a register whose value at the case entry is not known
+#   ("sp", delta)                    the stack pointer at entry + delta
+#   ("load", base, off, size, sgn)   memory read of size bytes at base + off
+#   ("call", target, args)           result of a call; args are the a0-a3 expressions
+#   ("op", sym, a, b)                arithmetic; b is None for unary forms
+
+ARG_REGS = (4, 5, 6, 7)
+CALL_CLOBBER = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 24, 25)
+SIGNED_LOAD = {0x20: True, 0x21: True, 0x23: False, 0x24: False, 0x25: False}
+LEAF_INLINE_SIZE = 256  # bytes: a call to a leaf helper (no calls of its own) at most this long is evaluated
+
+
+class EvalFail(Exception):
+    """A path cannot be followed: jump table, indirect call, unmodelled instruction, path or step limit."""
+
+
+def _isint(v):
+    return type(v) is int
+
+
+def _op(sym, a, b=None):
+    if sym == "+" and _isint(b) and type(a) is tuple and a[0] == "sp":
+        return ("sp", a[1] + signed(b & 0xFFFFFFFF))
+    return ("op", sym, a, b)
+
+
+def reads(i):
+    """Registers an instruction reads (for liveness)."""
+    if i.w == 0:
+        return ()
+    if i.op == 0:
+        if i.fn in (0, 2, 3):
+            return (i.rt,)
+        if i.fn in (8, 9):
+            return (i.rs,)
+        if i.fn in (0x10, 0x12):
+            return ()
+        return (i.rs, i.rt)
+    if i.op in (2, 3):
+        return ()
+    if i.op in (4, 5, 0x14, 0x15) or i.kind == "store":
+        return (i.rs, i.rt)
+    if i.op == 0x1F and i.fn == 0x20:
+        return (i.rt,)
+    if i.op == 0x1F and i.fn == 4:
+        return (i.rs, i.rt)
+    if i.op == 0x0F:
+        return ()
+    return (i.rs,)
+
+
+def grounded(v):
+    """True when no leaf of the expression is an unknown register (call arguments excepted)."""
+    if _isint(v):
+        return True
+    k = v[0]
+    if k == "reg":
+        return False
+    if k in ("arg", "sp", "call"):
+        return True
+    if k == "load":
+        return grounded(v[1])
+    return grounded(v[2]) and (v[3] is None or v[1] in ("ext", "ins") or grounded(v[3]))
+
+
+def render(v, names=None, depth=0):
+    """Text form of an expression: `arg0`, `u16[arg0+0x2]`, `duel_core_count_monsters(arg0, 1)`, `(x * 300)`."""
+    if _isint(v):
+        s = signed(v)
+        return str(s) if -0x10000 < s < 0x10000 else f"{v:#010x}"
+    if depth > 6:
+        return "..."
+    k = v[0]
+    if k == "arg":
+        return f"arg{v[1]}"
+    if k == "reg":
+        return f"?{v[1]}"
+    if k == "sp":
+        return f"sp{v[1]:+#x}"
+    if k == "load":
+        base = f"{v[1]:#010x}" if _isint(v[1]) else render(v[1], names, depth + 1)
+        return f"{'s' if v[4] else 'u'}{8 * v[3]}[{base}{v[2]:+#x}]"
+    if k == "call":
+        name = (names or {}).get(v[1]) or f"fn_{v[1]:08x}"
+        args = [render(a, names, depth + 1) if grounded(a) else "_" for a in v[2]]
+        while args and args[-1] == "_":
+            args.pop()
+        return f"{name}({', '.join(args)})"
+    sym, a, b = v[1], v[2], v[3]
+    if sym == "<u" and a == 0:  # sltu rd, zero, x
+        return f"({render(b, names, depth + 1)} != 0)"
+    if sym == "<u" and b == 1:  # sltiu rd, x, 1
+        return f"({render(a, names, depth + 1)} == 0)"
+    if sym == "^" and b == 1 and type(a) is tuple and a[0] == "op" and a[1] in ("<", "<u"):
+        return f"!{render(a, names, depth + 1)}"
+    if b is None:
+        return f"{sym}({render(a, names, depth + 1)})"
+    if isinstance(b, tuple) and sym in ("ext", "ins"):
+        return f"{sym}({render(a, names, depth + 1)}, {', '.join(map(str, b))})"
+    if sym in ("max", "min", "movz", "movn", "*hi"):
+        return f"{sym}({render(a, names, depth + 1)}, {render(b, names, depth + 1)})"
+    rb = render(b, names, depth + 1) if not _isint(b) or sym not in ("&", "|", "^") else f"{b:#x}"
+    return f"({render(a, names, depth + 1)} {sym} {rb})"
+
+
+class SymbolicEvaluator:
+    """Path-exploring evaluator of MIPS code with symbolic values (see the comment above)."""
+
+    def __init__(self, module, functions=None, max_paths=16, max_steps=400):
+        self.m, self.max_paths, self.max_steps = module, max_paths, max_steps
+        self.functions = functions or []
+        self._insn, self._inline, self._leaf = {}, {}, {}
+
+    def insn(self, pc):
+        i = self._insn.get(pc)
+        if i is None:
+            i = self._insn[pc] = insn(self.m, pc)
+        return i
+
+    @staticmethod
+    def get(regs, r):
+        if r == 0:
+            return 0
+        v = regs.get(r)
+        return v if v is not None else ("reg", REG[r])
+
+    # -- instruction semantics
+
+    def _alu(self, i, regs):
+        k = i.kind
+        s, t = self.get(regs, i.rs), self.get(regs, i.rt)
+        if k == "lui":
+            return (i.imm << 16) & 0xFFFFFFFF
+        ints = {}
+        if _isint(s):
+            ints[i.rs] = s
+        if _isint(t):
+            ints[i.rt] = t
+        v = _alu(i, ints)
+        if v is not None:
+            return v
+        if k in ("addu", "or", "xor", "subu") and t == 0:
+            return s
+        if k in ("addu", "or") and s == 0:
+            return t
+        if k in ("addiu", "addi", "ori", "xori") and i.imm == 0:
+            return s
+        if k in ("addiu", "addi"):
+            return _op("+", s, i.simm & 0xFFFFFFFF)
+        if k in ("ori", "andi", "xori"):
+            return _op({"ori": "|", "andi": "&", "xori": "^"}[k], s, i.imm)
+        if k in ("slti", "sltiu"):
+            return _op("<" if k == "slti" else "<u", s, i.simm & 0xFFFFFFFF)
+        if k in ("sll", "srl", "sra"):
+            return _op({"sll": "<<", "srl": ">>", "sra": ">>s"}[k], t, i.sa)
+        sym = {"addu": "+", "subu": "-", "and": "&", "or": "|", "xor": "^", "nor": "nor", "slt": "<",
+               "sltu": "<u"}.get(k)
+        if sym:
+            return _op(sym, s, t)
+        raise EvalFail("unmodelled")
+
+    def _special(self, i, st):
+        """Allegrex forms outside the basic decoder: mult/div and hi/lo, variable shifts, movz/movn, min/max,
+        ext/ins, seb/seh; FPU loads and stores have no GPR effect. Returns True when handled."""
+        regs = st["regs"]
+        if i.op == 0:
+            fn, s, t = i.fn, self.get(regs, i.rs), self.get(regs, i.rt)
+            if fn in (0x18, 0x19):
+                if _isint(s) and _isint(t):
+                    p = signed(s) * signed(t) if fn == 0x18 else s * t
+                    st["lo"], st["hi"] = p & 0xFFFFFFFF, (p >> 32) & 0xFFFFFFFF
+                else:
+                    st["lo"], st["hi"] = _op("*", s, t), _op("*hi", s, t)
+                return True
+            if fn in (0x1A, 0x1B):
+                if _isint(s) and _isint(t) and t:
+                    a, b = (signed(s), signed(t)) if fn == 0x1A else (s, t)
+                    q = int(a / b) if fn == 0x1A else a // b
+                    st["lo"], st["hi"] = q & 0xFFFFFFFF, (a - q * b) & 0xFFFFFFFF
+                else:
+                    st["lo"], st["hi"] = _op("/", s, t), _op("%", s, t)
+                return True
+            if fn in (0x10, 0x12):
+                if i.rd:
+                    name = "hi" if fn == 0x10 else "lo"
+                    regs[i.rd] = st.get(name, ("reg", name))
+                return True
+            if fn in (4, 6, 7):
+                if _isint(s) and _isint(t):
+                    n = s & 31
+                    v = (t << n) & 0xFFFFFFFF if fn == 4 else t >> n if fn == 6 else (signed(t) >> n) & 0xFFFFFFFF
+                else:
+                    v = _op({4: "<<", 6: ">>", 7: ">>s"}[fn], t, s)
+                if i.rd:
+                    regs[i.rd] = v
+                return True
+            if fn in (0x0A, 0x0B):
+                if _isint(t):
+                    if (t == 0) == (fn == 0x0A) and i.rd:
+                        regs[i.rd] = s
+                elif i.rd:
+                    regs[i.rd] = _op("movz" if fn == 0x0A else "movn", s, t)
+                return True
+            if fn in (0x2C, 0x2D):
+                if _isint(s) and _isint(t):
+                    v = (max if fn == 0x2C else min)(signed(s), signed(t)) & 0xFFFFFFFF
+                else:
+                    v = _op("max" if fn == 0x2C else "min", s, t)
+                if i.rd:
+                    regs[i.rd] = v
+                return True
+            return False
+        if i.op == 0x1F:
+            s = self.get(regs, i.rs)
+            if i.fn == 0:
+                pos, size = i.sa, i.rd + 1
+                v = (s >> pos) & ((1 << size) - 1) if _isint(s) else _op("ext", s, (pos, size))
+                if i.rt:
+                    regs[i.rt] = v
+                return True
+            if i.fn == 4:
+                pos, size = i.sa, i.rd + 1 - i.sa
+                t = self.get(regs, i.rt)
+                if _isint(s) and _isint(t) and size > 0:
+                    mask = ((1 << size) - 1) << pos
+                    v = (t & ~mask | (s << pos) & mask) & 0xFFFFFFFF
+                else:
+                    v = _op("ins", t, (pos, size))
+                if i.rt:
+                    regs[i.rt] = v
+                return True
+            if i.fn == 0x20 and i.sa in (0x10, 0x18):
+                t, bits = self.get(regs, i.rt), 8 if i.sa == 0x10 else 16
+                if _isint(t):
+                    v = t & ((1 << bits) - 1)
+                    v = (v - (1 << bits) if v >> (bits - 1) else v) & 0xFFFFFFFF
+                else:
+                    v = _op("seb" if bits == 8 else "seh", t)
+                if i.rd:
+                    regs[i.rd] = v
+                return True
+            return False
+        return i.op in (0x31, 0x35, 0x39, 0x3D)
+
+    def apply(self, i, st):
+        regs = st["regs"]
+        k = i.kind
+        if k == "nop":
+            return
+        if k == "store":
+            base = self.get(regs, i.rs)
+            if type(base) is tuple and base[0] == "sp":
+                st["stack"] = dict(st["stack"])
+                st["stack"][base[1] + i.simm] = self.get(regs, i.rt)
+            return
+        if k == "load":
+            base = self.get(regs, i.rs)
+            if i.rt:
+                if type(base) is tuple and base[0] == "sp":
+                    regs[i.rt] = st["stack"].get(base[1] + i.simm, ("reg", REG[i.rt]))
+                else:
+                    regs[i.rt] = ("load", base, i.simm, LOAD_SIZE[i.op], SIGNED_LOAD[i.op])
+            return
+        if k in ("jal", "jalr", "j", "jr") or i.is_branch:
+            raise EvalFail("branch_in_delay")
+        if self._special(i, st):
+            return
+        w = i.writes
+        if w is None:
+            raise EvalFail("unmodelled")
+        v = self._alu(i, regs)
+        if w:
+            regs[w] = v
+
+    def _is_leaf(self, target):
+        leaf = self._leaf.get(target)
+        if leaf is None:
+            end = function_end(self.functions, target) if self.functions else target + LEAF_INLINE_SIZE
+            leaf = end - target <= LEAF_INLINE_SIZE and not any(
+                self.insn(pc).op == 3 or self.insn(pc).kind == "jalr" for pc in range(target, end, 4))
+            self._leaf[target] = leaf
+        return leaf
+
+    def call(self, target, st):
+        """A jal: a leaf helper of the module evaluated on the argument values when every path returns one
+        constant (inlined); otherwise v0 becomes a call expression."""
+        regs = st["regs"]
+        args = tuple(self.get(regs, r) for r in ARG_REGS)
+        result = None
+        if self.m.base <= target < TEXT_END and self._is_leaf(target):
+            key = (target, args)
+            if key not in self._inline:
+                self._inline[key] = None
+                try:
+                    outs = self.paths(target, {r: args[n] for n, r in enumerate(ARG_REGS)}, top=False)
+                    vals = {o["v0"] for o in outs}
+                    if len(vals) == 1 and _isint(next(iter(vals))):
+                        self._inline[key] = next(iter(vals))
+                except EvalFail:
+                    pass
+            result = self._inline[key]
+        for r in CALL_CLOBBER:
+            regs.pop(r, None)
+        regs[V0] = result if result is not None else ("call", target, args)
+        regs[3] = ("reg", "v1")
+        st["calls"] = st["calls"] + [(target, args, result)]
+
+    def decide(self, i, st):
+        regs = st["regs"]
+        s, t = self.get(regs, i.rs), self.get(regs, i.rt)
+        ints = {}
+        if _isint(s):
+            ints[i.rs] = s
+        if _isint(t):
+            ints[i.rt] = t
+        taken = _branch_taken(i, ints)
+        if taken is not None or i.op not in (4, 5, 0x14, 0x15):
+            return taken
+        if s == t:
+            return i.op in (4, 0x14)
+        for x, y in ((s, t), (t, s)):  # the chain's card-id expression, bound to the case's card
+            if _isint(y) and x in st["bind"]:
+                return (st["bind"][x] == y) == (i.op in (4, 0x14))
+        return None
+
+    def paths(self, start, regs, delay=None, bind=None, stack=None, stop=None, top=True):
+        """Every path from `start` to `jr ra` (or to an address in `stop`, not counting `start` itself).
+        Returns a list of {"v0", "regs", "calls", "end"} (end: None for a return, else the stop address).
+        Raises EvalFail when a path cannot be followed."""
+        st0 = {"regs": dict(regs), "calls": [], "bind": bind or {}, "stack": dict(stack or {})}
+        st0["regs"].setdefault(SP, ("sp", 0))
+        if delay is not None:
+            self.apply(delay, st0)
+        todo, outs, forks, steps = [(start, st0)], [], 1, 0
+        max_steps = self.max_steps if top else 120
+        max_paths = self.max_paths if top else 8
+        while todo:
+            pc, st = todo.pop()
+            first = True
+            while True:
+                steps += 1
+                if steps > max_steps:
+                    raise EvalFail("step_limit")
+                if stop and not first and pc in stop:
+                    outs.append({"v0": None, "regs": st["regs"], "calls": st["calls"], "end": pc})
+                    break
+                first = False
+                i = self.insn(pc)
+                if i.kind == "jr":
+                    if i.rs != RA:
+                        raise EvalFail("jump_table")
+                    nxt = self.insn(pc + 4)
+                    if nxt.writes not in (None, SP):
+                        self.apply(nxt, st)
+                    outs.append({"v0": st["regs"].get(V0, ("reg", "v0")), "regs": st["regs"], "calls": st["calls"],
+                                 "end": None})
+                    break
+                if i.kind == "jalr":
+                    raise EvalFail("indirect_call")
+                if i.op == 3:
+                    self.apply(self.insn(pc + 4), st)
+                    self.call(i.target, st)
+                    pc += 8
+                    continue
+                if i.op == 2 or i.is_branch:
+                    taken = True if i.op == 2 else self.decide(i, st)
+                    nxt = self.insn(pc + 4)
+                    if taken is None:
+                        forks += 1
+                        if forks > max_paths:
+                            raise EvalFail("path_limit")
+                        other = {"regs": dict(st["regs"]), "calls": st["calls"], "bind": st["bind"],
+                                 "stack": st["stack"]}
+                        if not i.likely:
+                            self.apply(nxt, other)
+                        todo.append((pc + 8, other))
+                        taken = True
+                    if taken or not i.likely:
+                        self.apply(nxt, st)
+                    pc = i.target if taken else pc + 8
+                    continue
+                self.apply(i, st)
+                pc += 4
+        return outs
+
+    # -- liveness and reach (for join states)
+
+    def live(self, pc, limit=40, walks=6):
+        """Registers that code from `pc` reads before writing them (forward walks along both branch ways)."""
+        out, todo, done = set(), [(pc, frozenset(), 0)], 0
+        while todo and done < walks:
+            pc, killed, n = todo.pop()
+            done += 1
+            killed = set(killed)
+            while n < limit:
+                n += 1
+                i = self.insn(pc)
+                for r in reads(i):
+                    if r and r not in killed:
+                        out.add(r)
+                if i.kind == "jr":
+                    if i.rs == RA:
+                        if V0 not in killed:
+                            out.add(V0)
+                    break
+                if i.op == 3:
+                    nxt = self.insn(pc + 4)
+                    out.update(r for r in reads(nxt) if r and r not in killed)
+                    if nxt.writes:
+                        killed.add(nxt.writes)
+                    out.update(r for r in ARG_REGS if r not in killed)
+                    killed.update(CALL_CLOBBER)
+                    pc += 8
+                    continue
+                if i.op == 2 or i.is_branch:
+                    nxt = self.insn(pc + 4)
+                    out.update(r for r in reads(nxt) if r and r not in killed)
+                    if nxt.writes:
+                        killed.add(nxt.writes)
+                    if i.op != 2 and not (i.op == 4 and i.rs == i.rt):
+                        todo.append((pc + 8, frozenset(killed), n))
+                    pc = i.target
+                    continue
+                if i.writes:
+                    killed.add(i.writes)
+                pc += 4
+        return out
+
+    def reach(self, start, delay_pc=None, limit=48):
+        """Addresses reachable from `start` within `limit` instructions (both branch ways, over calls)."""
+        seen, todo = set(), [start]
+        while todo and len(seen) < 4 * limit:
+            pc = todo.pop()
+            for _ in range(limit):
+                if pc in seen:
+                    break
+                seen.add(pc)
+                i = self.insn(pc)
+                if i.kind == "jr":
+                    break
+                if i.op == 2 or i.is_branch:
+                    if i.op != 2 and not (i.op == 4 and i.rs == i.rt):
+                        todo.append(pc + 8)
+                    pc = i.target
+                    continue
+                pc += 8 if i.op == 3 else 4
+        return seen
+
+
+def _written(ev, start, end):
+    """Registers and stack slots written in [start, end)."""
+    regs, slots = set(), set()
+    for pc in range(start, end, 4):
+        i = ev.insn(pc)
+        if i.writes:
+            regs.add(i.writes)
+        if i.op == 0 and i.fn in (0x10, 0x12, 0x0A, 0x0B, 0x2C, 0x2D, 4, 6, 7):
+            regs.add(i.rd)
+        if i.op == 0x1F:
+            regs.add(i.rt if i.fn in (0, 4) else i.rd)
+        if i.op == 3:
+            regs.update(CALL_CLOBBER)
+        if i.kind == "store" and i.rs == SP:
+            slots.add(i.simm)
+    return regs, slots
+
+
+def chain_entry_state(ev, start, first, end):
+    """Registers and stack slots that hold the same value at every case: the prologue [start, first) run
+    straight (branches not followed), restricted to registers and slots not written again in [first, end)."""
+    st = {"regs": {r: ("arg", n) for n, r in enumerate(ARG_REGS)}, "calls": [], "bind": {}, "stack": {}}
+    st["regs"][SP] = ("sp", 0)
+    for r in range(16, 24):
+        st["regs"][r] = ("reg", REG[r])
+    st["regs"][30] = ("reg", "fp")
+    pc = start
+    while pc < first:
+        i = ev.insn(pc)
+        try:
+            if i.op == 3:
+                ev.apply(ev.insn(pc + 4), st)
+                for r in CALL_CLOBBER:
+                    st["regs"].pop(r, None)
+                st["regs"][V0] = ("call", i.target, ())
+                pc += 8
+                continue
+            if i.op == 2 or i.is_branch or i.kind in ("jr", "jalr"):
+                if not i.likely and i.kind not in ("jr", "jalr"):
+                    ev.apply(ev.insn(pc + 4), st)
+                pc += 8
+                continue
+            ev.apply(i, st)
+        except EvalFail:
+            if i.writes:
+                st["regs"].pop(i.writes, None)
+        pc += 4
+    regs, slots = _written(ev, first, end)
+    sp = st["regs"].get(SP)
+    sp_delta = sp[1] if type(sp) is tuple and sp[0] == "sp" else None
+    stack = {} if sp_delta is None else {off: v for off, v in st["stack"].items() if off - sp_delta not in slots}
+    # sp is kept: after the prologue only the epilogues (after the last use of the frame) move it
+    return {r: v for r, v in st["regs"].items() if r not in regs or r == SP}, stack
+
+
+def _id_expression(ev, stable, stack, branch, k_reg):
+    """The expression the case's branch compares with the card id, when it can be named from the stable state:
+    the register itself, or its last writer in the few instructions before the branch."""
+    r = branch.rs if branch.rt == k_reg else branch.rt
+    if r in stable:
+        return stable[r], r
+    for back in range(1, 10):
+        pc = branch.pc - 4 * back
+        i = ev.insn(pc)
+        if i.op in (2, 3) or i.kind in ("jr", "jalr"):
+            break
+        if i.writes != r:
+            continue
+        st = {"regs": dict(stable), "calls": [], "bind": {}, "stack": dict(stack)}
+        try:
+            srcs = set(reads(i))
+            for q in range(pc - 12, pc, 4):
+                j = ev.insn(q)
+                if j.writes in srcs and j.writes not in stable and not j.is_branch and j.op not in (2, 3):
+                    ev.apply(j, st)
+            ev.apply(i, st)
+        except EvalFail:
+            return None, r
+        v = st["regs"].get(r)
+        return (v if v is not None and not _isint(v) and grounded(v) else None), r
+    return None, r
+
+
+def resolve_chain(module, start, end, functions=None, evaluator=None):
+    """Per-case results of a compare chain with the symbolic evaluator. One dict per card id (first test wins):
+
+      card_id, target, kind ("constant", "conditional", "expression" or "computed"), value (int, or the
+      expression tuple for "expression"), values (sorted distinct outcomes of a conditional), method
+      ("straight": the plain evaluator already gives it; "paths": the symbolic evaluator), reason (why a
+      computed case failed: jump_table, indirect_call, path_limit, step_limit, unmodelled, unknown_input,
+      v0_not_set), join (list of (address, {register: value}) states where the case's own code meets code
+      shared with other cases; only live registers that the case changed, grounded values) and calls
+      ((target, args, inlined result) in the case's own code)."""
+    ev = evaluator or SymbolicEvaluator(module, functions)
+    cases = list(chain_cases(module, start, end))
+    if not cases:
+        return []
+    stable, stack = chain_entry_state(ev, start, cases[0][0], end)
+    targets = {}
+    for _, cid, b in cases:
+        targets.setdefault(b.target, b)
+    count = collections.Counter()
+    for t in targets:
+        count.update(ev.reach(t))
+    shared = {pc for pc, n in count.items() if n >= 2}
+    out, seen = [], set()
+    for li_pc, cid, b in cases:
+        if cid in seen:
+            continue
+        seen.add(cid)
+        k_reg = ev.insn(li_pc).rt
+        expr, id_reg = _id_expression(ev, stable, stack, b, k_reg)
+        regs = dict(stable)
+        regs[k_reg] = regs[id_reg] = cid
+        bind = {expr: cid} if expr is not None else {}
+        delay = ev.insn(b.pc + 4)
+        res = {"card_id": cid, "target": b.target, "kind": "computed", "value": None, "values": [],
+               "method": "", "reason": "", "join": [], "calls": []}
+        straight = case_value(module, b)
+        try:
+            outs = ev.paths(b.target, regs, delay, bind, stack)
+            vals = []
+            for o in outs:
+                v = o["v0"]
+                if v not in vals:
+                    vals.append(v)
+            if any(v == ("reg", "v0") for v in vals):
+                res["reason"] = "v0_not_set"
+            elif not all(grounded(v) for v in vals):
+                res["reason"] = "unknown_input"
+            elif len(vals) == 1:
+                res["kind"], res["value"] = ("constant" if _isint(vals[0]) else "expression"), vals[0]
+            else:
+                res["kind"] = "conditional"
+                res["values"] = sorted(vals, key=lambda v: (not _isint(v), signed(v) if _isint(v) else render(v)))
+        except EvalFail as error:
+            res["reason"] = error.args[0]
+        if res["kind"] == "constant":
+            res["method"] = "straight" if straight is not None else "paths"
+        elif res["kind"] != "computed":
+            res["method"] = "paths"
+        try:
+            own = ev.paths(b.target, regs, delay, bind, stack, stop=shared)
+            joins, calls = [], []
+            for o in own:
+                state = {}
+                if o["end"] is not None:
+                    for r in sorted(ev.live(o["end"])):
+                        v = o["regs"].get(r)
+                        if v is not None and v != regs.get(r) and r != SP and grounded(v) and \
+                                not (_isint(v) and v > 0xFFFF and not v & 0xFFFF):  # skip `lui` address halves
+                            state[REG[r]] = v
+                j = (o["end"], state)
+                if j not in joins:
+                    joins.append(j)
+                for c in o["calls"]:
+                    if c not in calls:
+                        calls.append(c)
+            res["join"], res["calls"] = joins, calls
+        except EvalFail:
+            pass
+        out.append(res)
+    return out
+
+
+def case_summary(res, names=None):
+    """One-line text of a resolved case: the value, or the join state and the calls of its own code."""
+    if res["kind"] in ("constant", "expression"):
+        return render(res["value"], names)
+    if res["kind"] == "conditional":
+        return "one of " + ", ".join(render(v, names) for v in res["values"])
+    parts = []
+    for end, state in res["join"]:
+        if state:
+            parts.append(", ".join(f"{r}={render(v, names)}" for r, v in state.items())
+                         + (f" at {end:#010x}" if end is not None else ""))
+    for target, args, result in res["calls"]:
+        if result is None:
+            parts.append("calls " + render(("call", target, args), names))
+    return "; ".join(dict.fromkeys(parts))
+
+
+def returns_value(module, functions):
+    """Function -> True when some direct caller reads v0 after `jal f` before writing it, False when it has
+    direct callers and none does. Functions without direct callers are absent (unknown)."""
+    used = {}
+    ev = SymbolicEvaluator(module, functions)
+    for pc in range(module.base, TEXT_END, 4):
+        i = insn(module, pc)
+        if i.op != 3 or not module.base <= i.target < TEXT_END or used.get(i.target):
+            continue
+        # v0 live after the call (read, or returned by `jr ra`) on some path of the liveness walk
+        used[i.target] = V0 in ev.live(pc + 8, limit=48, walks=8)
+    return used
+
+
+CHAIN_CLASSES = ("parameter", "predicate", "mixed", "expression", "behaviour", "unresolved")
+
+
+def own_key(res):
+    """Hashable form of a case's own code (join states and non-inlined calls); None when it has none."""
+    joins = tuple((e, tuple(s.items())) for e, s in res["join"] if s)
+    calls = tuple(c for c in res["calls"] if c[2] is None)
+    return (joins, calls) if joins or calls else None
+
+
+def own_varies(results):
+    """The cases' own code differs between cases (at least two distinct non-empty own-code keys)."""
+    return len({k for k in map(own_key, results) if k is not None}) >= 2
+
+
+def chain_class(results, returns=None):
+    """Class of a compare chain from its resolved cases (docs/formats/card-effect-spec.md, "Compare chains").
+
+    behaviour: no direct caller reads the return value (`returns` False) and at least half the cases have own
+    code (a join state or a call); parameter / predicate / mixed: at least half the cases constant, with the
+    rules of schema 4; expression: at least half the cases resolve to a value (constant, conditional or
+    expression); else unresolved."""
+    n = len(results)
+    if not n:
+        return "unresolved"
+    if returns is False:
+        return "behaviour" if sum(own_key(r) is not None for r in results) >= n / 2 else "unresolved"
+    values = collections.Counter(signed(r["value"]) for r in results if r["kind"] == "constant")
+    constant = sum(values.values())
+    if constant >= n / 2:
+        if len(values) >= 2 and not set(values) <= {0, 1}:
+            return "parameter"
+        return "predicate" if set(values) <= {0, 1} else "mixed"
+    if sum(r["kind"] != "computed" for r in results) >= n / 2:
+        return "expression"
+    return "unresolved"
+
+
 def summarize(module, start, ctx_regs, delay=None, limit=96):
     """Mechanical summary of the code reachable from `start` (both ways at each branch, until `jr ra`):
     the context fields, globals and functions it reads or calls."""
@@ -538,8 +1233,23 @@ def draw_counts(module):
     return rows
 
 
-def compare_chains(module, functions, users, min_cases=8):
-    """Every function with at least `min_cases` card-id tests, with statistics and callers."""
+def plain_class(cases):
+    """The schema-4 class of a chain from the plain evaluator's (card id, value, branch) cases."""
+    values = collections.Counter(signed(v) for _, v, _ in cases if v is not None)
+    constant = sum(values.values())
+    if constant < len(cases) / 2:
+        return "unresolved"
+    if len(values) >= 2 and not set(values) <= {0, 1}:
+        return "parameter"
+    return "predicate" if set(values) <= {0, 1} else "mixed"
+
+
+def chain_results(module, functions, users, min_cases=8, names=None):
+    """(rows, {function: resolve_chain results}) for every function with at least `min_cases` card-id tests.
+
+    `class` is chain_class() of the symbolic results; `plain_class` is the schema-4 class from the plain
+    evaluator, kept for comparison. `names` (address -> name) only labels the call expressions of the
+    `failures` column."""
     callers = collections.defaultdict(set)
     for pc in range(module.base, TEXT_END, 4):
         i = insn(module, pc)
@@ -547,7 +1257,9 @@ def compare_chains(module, functions, users, min_cases=8):
             f = containing(functions, pc)
             if f is not None:
                 callers[i.target].add(f)
-    rows, cases_out = [], []
+    returns = returns_value(module, functions)
+    ev = SymbolicEvaluator(module, functions)
+    rows, results = [], {}
     for start in functions:
         if start >= TEXT_END:
             continue
@@ -555,26 +1267,50 @@ def compare_chains(module, functions, users, min_cases=8):
         ids = {cid for _, cid, _ in chain_cases(module, start, end)}
         if len(ids) < min_cases:
             continue
-        cases = analyse_chain(module, start, end)
-        values = collections.Counter(signed(v) for _, v, _ in cases if v is not None)
-        constant = sum(values.values())
-        parameter = constant >= len(cases) / 2 and len(values) >= 2 and not set(values) <= {0, 1}
+        res = resolve_chain(module, start, end, functions, ev)
+        results[start] = res
+        values = collections.Counter(signed(r["value"]) for r in res if r["kind"] == "constant")
+        kinds = collections.Counter(r["kind"] for r in res)
         cs = sorted(callers.get(start, ()))
         handler_callers = [c for c in cs if c in users]
-        rows.append({"function": f"{start:#010x}", "size": end - start, "cases": len(cases),
-                     "constant_cases": constant, "distinct_values": len(values),
+        rows.append({"function": f"{start:#010x}", "size": end - start, "cases": len(res),
+                     "constant_cases": kinds["constant"], "distinct_values": len(values),
                      "values": " ".join(f"{v}x{n}" for v, n in sorted(values.items())),
-                     "class": "parameter" if parameter else "unresolved" if constant < len(cases) / 2 else
-                     "predicate" if set(values) <= {0, 1} else "mixed",
-                     "density": round(12 * len(cases) / max(1, end - start), 2),
+                     "class": chain_class(res, returns.get(start)),
+                     "plain_class": plain_class(analyse_chain(module, start, end)),
+                     "conditional_cases": kinds["conditional"], "expression_cases": kinds["expression"],
+                     "computed_cases": kinds["computed"],
+                     "own_code_cases": sum(own_key(r) is not None for r in res), "own_varies": int(own_varies(res)),
+                     "returns_value": {True: "yes", False: "no"}.get(returns.get(start), "unknown"),
+                     "failures": " ".join(f"{k}x{n}" for k, n in collections.Counter(
+                         r["reason"] for r in res if r["reason"]).most_common()),
+                     "density": round(12 * len(res) / max(1, end - start), 2),
                      "callers": " ".join(f"{c:#010x}" for c in cs[:12]) + (" ..." if len(cs) > 12 else ""),
                      "caller_count": len(cs), "handler_callers": len(handler_callers),
                      "handler_cards": sum(len(users[c]) for c in handler_callers)})
-        if parameter:
-            for cid, v, b in cases:
-                cases_out.append({"function": f"{start:#010x}", "card_id": f"{cid:#x}",
-                                  "kind": "constant" if v is not None else "computed",
-                                  "value": "" if v is None else signed(v), "target": f"{b.target:#010x}"})
+    return rows, results
+
+
+def case_row(function, res, names=None):
+    """Flat CSV/JSON form of one resolve_chain result."""
+    v = res["value"]
+    return {"function": f"{function:#010x}", "card_id": f"{res['card_id']:#x}", "kind": res["kind"],
+            "value": signed(v) if res["kind"] == "constant" else "",
+            "expression": render(v, names) if res["kind"] == "expression" else "",
+            "values": " | ".join(render(x, names) for x in res["values"]),
+            "method": res["method"], "reason": res["reason"],
+            "own": case_summary(dict(res, kind="computed"), names), "target": f"{res['target']:#010x}"}
+
+
+def compare_chains(module, functions, users, min_cases=8, names=None):
+    """Every function with at least `min_cases` card-id tests, with statistics and callers, and the per-card
+    cases of the parameter chains."""
+    rows, results = chain_results(module, functions, users, min_cases, names)
+    cases_out = []
+    for r in rows:
+        if r["class"] == "parameter":
+            fn = int(r["function"], 16)
+            cases_out += [case_row(fn, x, names) for x in results[fn]]
     return rows, cases_out
 
 
@@ -658,7 +1394,11 @@ def main(argv=None):
     filters = target_filters(module)
     calls = target_filter_calls(module, functions, users)
     draws = draw_counts(module)
-    chains, cases = compare_chains(module, functions, users)
+    chains, results = chain_results(module, functions, users)
+    classes = {int(r["function"], 16): r["class"] for r in chains}
+    cases = [case_row(fn, x) for fn, res in results.items() if classes[fn] == "parameter" for x in res]
+    write_csv(args.out / "chain_results.csv", [{**case_row(fn, x), "class": classes[fn]}
+                                               for fn, res in results.items() for x in res], names)
     write_csv(args.out / "target_filters.csv", filters, names)
     write_csv(args.out / "target_filter_calls.csv", calls)
     write_csv(args.out / "draw_counts.csv", draws, names)
