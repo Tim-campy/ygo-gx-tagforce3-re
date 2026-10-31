@@ -182,10 +182,16 @@ A `u16` count (< 100), 99 `u16` card ids and 99 `u16` states (1–3). Written by
 | Bits | Meaning | Accessors |
 | --- | --- | --- |
 | byte 0 bits 0–2 | Language: 0 Japanese, 1 English, 2 German, 3 French, 4 Italian, 5 Spanish (the order of the letters `jegfis` that `deck_get_recipe_name` indexes with it; `card_db_load_cardinfo` builds the archive name from the same index). | `save_get_language` `0x08857b80` (23 callers), `save_set_language` `0x08857ba4` (callers `save_init_new_game`, `0x08836adc`; also calls `0x088373c8`) |
-| byte 0 bit 3, bits 4–5, bits 6–7 | Option fields, meaning unknown. | `0x08857860`/`0x088578c0`, `0x088577b4`/`0x0885778c`, `0x088576e4`/`0x088576bc` |
-| byte 1 bits 0–2, bits 3–4; byte 2 bits 1–2 | Option fields, meaning unknown. | `0x0885774c`/`0x08857728`, `0x08857aac`/`0x08857af0`, `0x08857b18`/`0x08857b58` |
-| byte 1 bits 5–7, byte 2 bits 0, 3, 4 | Six on/off options 0–5. | `save_set_option_flag` `0x088578f0`, `save_get_option_flag` `0x08857a00` |
-| bytes 3–7 | One 4-bit value per byte (`settings[3 + n]`, low nibble). | `0x088577f8` (set) / `0x08857834` (get); `0x08841724`/`0x088416f8` |
+| byte 0 bit 3 | **Tutorial** (1 on). | `0x08857860`/`0x088578c0` |
+| byte 0 bits 4–5 | **Message speed**: 0 slow, 1 normal, 2 fast. | `0x088577b4`/`0x0885778c` |
+| byte 0 bits 6–7 | Option field, meaning unknown (0 in every save read). | `0x088576e4`/`0x088576bc` |
+| byte 1 bits 0–2 | Option field, meaning unknown (0 in every save read). | `0x0885774c`/`0x08857728` |
+| byte 1 bits 3–4 | **Card animation**: 1 normal, 2 fast, 3 very fast (0 presumably slow). | `0x08857aac`/`0x08857af0` |
+| byte 2 bits 1–2 | **Auto chain dialog**: 0 default, 1 all, 2 manual. | `0x08857b18`/`0x08857b58` |
+| byte 1 bits 5–7, byte 2 bits 0, 3, 4 | Six on/off options: 0 = **Duel effects** (byte 1 bit 5), 1 = unknown (byte 1 bit 6, never set), 2 = **Activation confirm** (byte 1 bit 7), 3 = **Auto draw** (byte 2 bit 0), 4 = **Card placement manual** (byte 2 bit 3; 0 = auto), 5 = **Destiny draw** (byte 2 bit 4). | `save_set_option_flag` `0x088578f0`, `save_get_option_flag` `0x08857a00` |
+| bytes 3–7 | One 4-bit value per byte (`settings[3 + n]`, low nibble): byte 3 **BGM volume**, byte 4 **SE volume** (stored as the shown value − 1: 13 on screen = 12), byte 5 a third volume (12, not shown on the options screen), bytes 6–7 unused (0). | `0x088577f8` (set) / `0x08857834` (get); `0x08841724`/`0x088416f8` |
+
+The option meanings were verified in PPSSPP by changing one option at a time on the title options screen and reading the eight bytes after each change (`docs/verification/results/2026-10-31-sessionE-T.md`, E5 and E5b; high). The defaults written by `save_reset_options` therefore mean: tutorial on, duel effects, activation confirm and destiny draw on, auto draw off, card placement auto.
 
 `save_reset_options` (`0x0885442c`, callers `system_init_game_globals` and `save_init_new_game`) writes the defaults: options 0, 2, 5 on, 3, 4 off; byte 0 bit 3 set; `0x08841724(n, 12)` for n = 0–2 (presumably three volumes, 12 each in the analysed save); and the 12 words of minigame block 3 (`0x1be18`) from `save_get_minigame_block_3`.
 

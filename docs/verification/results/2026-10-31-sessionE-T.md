@@ -45,3 +45,21 @@ Modes 8 and `0x16` are the SDK savedata modes `SIZES` (free-space check) and `GE
 - Diff of `E5-a`/`E5-b` (eleven options changed: Tutorial on→off, Message speed slow→normal, BGM 13→14, SE 13→14, Card animation normal→fast, Duel effects on→off, Destiny draw on→off, Activation confirm on→off, Auto chain dialog default→all, Card placement auto→manual, Auto draw off→on): only the frame counter `+0x0c` and the **settings `0x0fe04`–`0x0fe08`** changed: `09 a8 10 0c 0c → 11 10 0b 0d 0d`.
   - Byte 3 and byte 4: `0x0c → 0x0d` = **BGM and SE volume**, stored as shown value − 1 (high).
   - Byte 0 bit 3 1→0; byte 0 bits 4–5 0→1; byte 1 bits 3–4 1→2; options 0, 2, 5 on→off; options 3, 4 off→on; byte 2 bits 1–2 0→1. Which menu entry owns which field needs one option per save (follow-up E5b).
+
+## E5b. One option at a time: pass
+
+Settings at `S + 0x0fe04` (`0x08ab559c`, `r = 1`), read after each single change on the title options screen. Start `11 10 0b 0d 0d 0c 00 00`.
+
+| Change | Bytes after | Field |
+| --- | --- | --- |
+| Tutorial off → on | `19 10 0b …` | byte 0 bit 3 |
+| Message speed normal → fast | `29 10 0b …` | byte 0 bits 4–5: 1 → 2 |
+| Card animation fast → very fast | `29 18 0b …` | byte 1 bits 3–4: 2 → 3 |
+| Duel effects off → on | `29 38 0b …` | byte 1 bit 5 (option 0) |
+| Destiny draw off → on | `29 38 1b …` | byte 2 bit 4 (option 5) |
+| Activation confirm off → on | `29 b8 1b …` | byte 1 bit 7 (option 2) |
+| Auto chain dialog all → manual | `29 b8 1d …` | byte 2 bits 1–2: 1 → 2 |
+| Card placement manual → auto | `29 b8 15 …` | byte 2 bit 3 (option 4; 1 = manual) |
+| Auto draw on → off | `29 b8 14 …` | byte 2 bit 0 (option 3) |
+
+Every change wrote exactly one field, and the E5 diff (eleven changes at once) is explained field by field by this mapping. Byte 5 (`0x0c`) is a third volume not on the screen; byte 0 bits 6–7, byte 1 bits 0–2 and option 1 never changed. `save.md`, "Settings", updated.
