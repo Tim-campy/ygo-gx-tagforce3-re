@@ -87,6 +87,28 @@ def embedded_archives(elf):
         pos = elf.find(MAGIC, pos + step)
 
 
+def is_elf(data):
+    return data[:4] == b"\x7fELF"
+
+
+def elf_module_offset(elf, file_offset):
+    """Module-relative address of a file offset, from the PT_LOAD segment that holds it (BOOT.BIN and the
+    gmodules have one segment at p_vaddr 0, so this is file offset - p_offset); None if no segment does."""
+    phoff, = struct.unpack_from("<I", elf, 0x1C)
+    entsize, count = struct.unpack_from("<HH", elf, 0x2A)
+    for k in range(count):
+        p_type, p_offset, p_vaddr, _, p_filesz = struct.unpack_from("<5I", elf, phoff + k * entsize)
+        if p_type == 1 and p_offset <= file_offset < p_offset + p_filesz:
+            return file_offset - p_offset + p_vaddr
+    return None
+
+
+def embedded_report(elf):
+    """[(file offset, module offset, archive bytes, members)] for every archive embedded in an ELF."""
+    return [(offset, elf_module_offset(elf, offset), archive, parse(archive))
+            for offset, archive in embedded_archives(elf)]
+
+
 def walk_blob(label, data):
     """Yield (label, bytes) for every leaf file of `data`: archive members recursively (`.gz` members
     decompressed, names without `.gz`), archives embedded in an ELF (`label@0xOFFSET/...`), or `data` itself.
@@ -152,13 +174,54 @@ def extract(members, target, recursive, gunzip, depth=0):
     return count
 
 
+def handle_elf(path, data, args):
+    """List, extract, verify or check the archives embedded in an ELF image; returns the failure count."""
+    found = embedded_report(data)
+    if not found:
+        print(f"error: {path}: no embedded EHP archive", file=sys.stderr)
+        return 1
+    failures = 0
+    rebuilt = [build(members) == archive for _, _, archive, members in found]
+    if args.check:
+        failures = rebuilt.count(False)
+        if failures:
+            for (offset, _, _, _), same in zip(found, rebuilt):
+                if not same:
+                    print(f"DIFF {path}@{offset:#x}")
+        else:
+            print(f"ok: {path.name}: {len(found)} embedded archives, {sum(len(m) for *_, m in found)} members, "
+                  f"all rebuild byte for byte")
+        return failures
+    for (offset, module, archive, members), same in zip(found, rebuilt):
+        where = f"{path}@{offset:#x}"
+        if module is not None:
+            where += f" (+{module:#x}" + (f", {args.base + module:#010x})" if args.base else ")")
+        if args.verify:
+            failures += not same
+            print(f"{'ok  ' if same else 'DIFF'} {where}")
+        elif args.extract:
+            count = extract(members, args.extract / f"{path.name}@{offset:#x}.d", args.recursive, args.gunzip)
+            print(f"{where}: {count} files")
+        else:
+            print(f"{where}: {len(archive)} bytes, {len(members)} members")
+            for name, blob in members:
+                print(f"  {len(blob):>10}  {blob[:4].hex()}  {name}")
+    return failures
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="List, extract or verify EHP archives.")
-    parser.add_argument("archives", type=Path, nargs="+", help=".ehp files (a .gz-wrapped EHP is accepted)")
-    parser.add_argument("-x", "--extract", type=Path, metavar="DIR", help="extract each archive into DIR/<name>.d")
+    parser.add_argument("archives", type=Path, nargs="+",
+                        help=".ehp files (a .gz-wrapped EHP is accepted), or ELF images (BOOT.BIN, gmodule/*.prx) "
+                             "whose embedded archives are handled one by one")
+    parser.add_argument("-x", "--extract", type=Path, metavar="DIR",
+                        help="extract each archive into DIR/<name>.d (embedded: DIR/<elf>@0x<offset>.d)")
     parser.add_argument("-r", "--recursive", action="store_true", help="also unpack nested EHP members")
     parser.add_argument("-z", "--gunzip", action="store_true", help="decompress .gz members while extracting")
     parser.add_argument("--verify", action="store_true", help="rebuild each archive and compare it byte for byte")
+    parser.add_argument("--check", action="store_true", help="like --verify, one summary line per file")
+    parser.add_argument("--base", type=lambda text: int(text, 16), default=0,
+                        help="runtime base of an ELF input, hex, to print archive addresses (BOOT.BIN: 08804000)")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -169,8 +232,15 @@ def main(argv=None):
             data = path.read_bytes()
             if data[:2] == b"\x1f\x8b":
                 data = gzip.decompress(data)
+            if is_elf(data):
+                failures += handle_elf(path, data, args)
+                continue
             members = parse(data)
-            if args.verify:
+            if args.check:
+                same = build(members) == data
+                failures += not same
+                print(f"ok: {path.name}: {len(members)} members, rebuilds byte for byte" if same else f"DIFF {path}")
+            elif args.verify:
                 same = build(members) == data
                 failures += not same
                 print(f"{'ok  ' if same else 'DIFF'} {path}")

@@ -64,6 +64,10 @@ address,group,name
 0x0885cd2c,deck,deck_select_owner_variant
 0x0885ccfc,deck,deck_get_owner_current_recipe
 0x0885ce3c,deck,deck_compare_owner_key
+0x08836358,deck,duel_setup_load_decks
+0x088367bc,deck,deck_is_player_deck_recipe
+0x0885c528,deck,deck_get_recipe_card_list
+0x0885600c,save,save_get_stored_deck
 0x0883db1c,card_db,card_db_is_cpj_file
 0x0883db04,card_db,card_db_is_cpm_file
 0x0883d658,card_db,card_db_on_cip_slot_read

@@ -1236,14 +1236,14 @@ id,name,group,status,size
 0x08835ebc,FUN_08835ebc,,,584
 0x08836104,FUN_08836104,,,584
 0x0883634c,FUN_0883634c,,,12
-0x08836358,FUN_08836358,,,900
+0x08836358,duel_setup_load_decks,deck,named,900
 0x088366dc,FUN_088366dc,,,60
 0x08836718,FUN_08836718,,,12
 0x08836724,FUN_08836724,,,16
 0x08836734,FUN_08836734,,,20
 0x08836748,thunk_world_get_character_category,world,,8
 0x08836750,FUN_08836750,,,108
-0x088367bc,FUN_088367bc,,,548
+0x088367bc,deck_is_player_deck_recipe,deck,named,548
 0x088369e0,FUN_088369e0,,,20
 0x088369f4,FUN_088369f4,,,24
 0x08836a0c,FUN_08836a0c,,,20
@@ -1940,7 +1940,7 @@ id,name,group,status,size
 0x08855d98,FUN_08855d98,,,68
 0x08855ddc,FUN_08855ddc,,,44
 0x08855e08,save_get_level_exp_threshold,save,,516
-0x0885600c,FUN_0885600c,,,64
+0x0885600c,save_get_stored_deck,save,named,64
 0x0885604c,FUN_0885604c,,,52
 0x08856080,FUN_08856080,,,100
 0x088560e4,save_get_card_record,save,documented,120
@@ -2215,7 +2215,7 @@ id,name,group,status,size
 0x0885c2dc,deck_get_recipe_level,deck,documented,56
 0x0885c314,deck_get_recipe_name,deck,documented,200
 0x0885c3dc,deck_load_recipe,deck,documented,332
-0x0885c528,FUN_0885c528,,,312
+0x0885c528,deck_get_recipe_card_list,deck,named,312
 0x0885c660,FUN_0885c660,,,968
 0x0885ca28,FUN_0885ca28,,,532
 0x0885cc3c,deck_get_owner_recipe_count,deck,documented,68

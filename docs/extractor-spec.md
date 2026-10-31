@@ -56,10 +56,10 @@ Note: on Windows a single `ehp.py` call over every archive of the disc exceeds t
 | --- | --- |
 | Source | Almost every `USRDIR` directory: 531 loose `.ehp`, 78 gzip-wrapped archives `field/bustup/*.ehp.gz` (called `field/*.gz` in `ehp.md`; each wraps one EHP), 20 EHP members nested in `minigame/` archives, 6 archives embedded in `BOOT.BIN` `.data` (`0x088b2f90`, `0x088cc480`, `0x088d77e0`, `0x088ff0d0`, `0x089029b0`, `0x08911580`). Inside `duel/*.ehp`, 8,789 `.gz` members (always TGMT). |
 | Format docs | `docs/formats/ehp.md` (layout, case-insensitive name order, bind handlers, `*ptrs.txt`) |
-| Tool / command | `python3 -I tools/ehp.py <archive…>` (list: size, magic, name), `-x DIR` (extract to `DIR/<name>.d`), `-r` (nested), `-z` (gunzip `.gz` members and `.gz` archives), `--verify` (rebuild and compare byte for byte) |
+| Tool / command | `python3 -I tools/ehp.py <archive…>` (list: size, magic, name), `-x DIR` (extract to `DIR/<name>.d`), `-r` (nested), `-z` (gunzip `.gz` members and `.gz` archives), `--verify` (rebuild and compare byte for byte), `--check` (the same, one summary line per file). An ELF image is accepted in place of an archive: `ehp.py <SYSDIR>/BOOT.BIN --base 08804000 [-x DIR] [--check]` lists, extracts (`DIR/BOOT.BIN@0x<offset>.d`) or checks each embedded archive. |
 | Port output | Plain member files in a directory per archive. The port does not need the EHP container itself; it needs the members by `(archive path, member name)`. `*ptrs.txt` lists (425) are resource bundles (offsets of whole members), which a port that converts data offline can replace by member names. |
-| Verified | `ehp` and `gzip_member` are `verified`: the layout rebuilds all 629 archives byte for byte. Check run: `--verify` once per file over every `.ehp` and `.ehp.gz` under `<USRDIR>`: 609 files, 0 failing. Tests: `tools/tests/test_ehp.py`. |
-| Gaps | The runtime extension-handler table (`0x0892191c`/`0x08921940`) is not mapped; `ehp.py` cannot extract the six archives embedded in `BOOT.BIN` directly (`ehf.py` and `decks.py` find them by scanning the ELF). |
+| Verified | `ehp` and `gzip_member` are `verified`: the layout rebuilds all 629 archives byte for byte. Check run: `--verify` once per file over every `.ehp` and `.ehp.gz` under `<USRDIR>`: 609 files, 0 failing; `ehp.py <SYSDIR>/BOOT.BIN --check`: `ok: BOOT.BIN: 6 embedded archives, 721 members, all rebuild byte for byte` (none of the 36 `gmodule/*.prx` embeds an archive). Tests: `tools/tests/test_ehp.py`. |
+| Gaps | The runtime extension-handler table (`0x0892191c`/`0x08921940`) is not mapped. |
 
 ## 3. Card database
 
@@ -67,10 +67,10 @@ Note: on Windows a single `ehp.py` call over every archive of the disc exceeds t
 | --- | --- |
 | Source | `<USRDIR>/duelsys/cardinfo_<lang>.ehp` (5 languages, 14 members each): `CARD_Prop`, `CARD_Pass`, `CARD_IntID`, `CARD_Genre`, `CARD_Sort`, `CARD_Top`, `CARD_SamePict` (shared); `CARD_Indx_<L>`, `CARD_Name_<L>`, `CARD_Desc_<L>`, `CARD_Huff_<L>`, `DICT_<L>`, `DLG_Indx_<L>`, `DLG_Text_<L>` (per language). |
 | Format docs | `docs/formats/cardinfo.md`, `docs/subsystems/card_db.md` |
-| Tool / command | `python3 -I tools/cardinfo.py <USRDIR>/duelsys/cardinfo_<lang>.ehp [--format csv\|json] -o extracted/cards_<lang>.csv`; `--check` for the structural checks |
+| Tool / command | `python3 -I tools/cardinfo.py <USRDIR>/duelsys/cardinfo_<lang>.ehp [--format csv\|json] -o extracted/cards_<lang>.csv`; `--check` for the structural checks; `--dialog [--format csv\|json] -o extracted/dlg_<lang>.csv` dumps the `DLG_Text` duel prompts (`number`, `offset`, `text`), `--dialog --check` checks their layout |
 | Port output | One table per language, keyed by card **id** (3720–7993; record index via `CARD_IntID`): ATK, DEF, kind, attribute, Level, spell/trap icon, Type, passcode, name and fully expanded description (Huffman + dictionary + `%c` card-name references), genre bits, sort rank, artwork count. JSON is the natural target. Duel prompts (`DLG_Text`) are a second string table per language. |
-| Verified | Check run: `ok: 3553 cards` in all five languages. Names, descriptions, passcodes, id map, sort and alphabet table are `verified` in `re/formats.csv` (cross-checked against ygotfToolkit, `docs/PRIOR_ART.md`). Tests: `tools/tests/test_cardinfo.py`. |
-| Gaps | `CARD_Prop` word 1 bits 22–24 unknown; who sets genre bits 0 and 38 at run time; descriptions longer than the 0x77a-byte buffer. None blocks the port. The export has no dedicated `DLG_Text` dump command (`dlg_text` is `documented`). |
+| Verified | Check run: `ok: 3553 cards` in all five languages; `--dialog --check`: `ok: 802 DLG strings (158 empty, …)` in all five (English: 402 with `$C` escapes, 84 with `%s`/`%d`, 59,232 bytes). Names, descriptions, passcodes, id map, sort and alphabet table are `verified` in `re/formats.csv` (cross-checked against ygotfToolkit, `docs/PRIOR_ART.md`). Tests: `tools/tests/test_cardinfo.py`. |
+| Gaps | `CARD_Prop` word 1 bits 22–24 unknown; who sets genre bits 0 and 38 at run time; descriptions longer than the 0x77a-byte buffer. None blocks the port. |
 
 ### 3a. Booster packs and forbidden/limited list
 
@@ -124,10 +124,10 @@ Card effects are **code, not data**: native handlers in `gmodule/rel_duel_eng.pr
 | --- | --- |
 | Source | 661 recipes `RCP000.ydc`–`RCP660.ydc` and `recipe_name_<l>.bin` in the EHP embedded in `BOOT.BIN` at `0x088d77e0`; owner, level and variant tables in `BOOT.BIN` (`0x08915f28`, `0x089143f0`, `0x08916730`); `deck/all_<l>.ehp` (`sameCardTbl.dat`, `fileTbl.dat`, `cis_all.gim`); `deck/tutorial.ehp` (deck-building tutorial). |
 | Format docs | `docs/formats/deck.md`, `docs/subsystems/deck.md` |
-| Tool / command | `python3 -I tools/decks.py recipes <SYSDIR>/BOOT.BIN [--lang e] [-o …] [--check] [--cardinfo …]`; `decks.py samecard <USRDIR>/deck/all_e.ehp`; `decks.py tutorial <USRDIR>/deck/tutorial.ehp`; readable tutorial listing: `python3 -I tools/tutorial.py <USRDIR>/deck/tutorial.ehp` |
+| Tool / command | `python3 -I tools/decks.py recipes <SYSDIR>/BOOT.BIN [--lang e] [-o …] [--check] [--cardinfo …]`; `decks.py owners <SYSDIR>/BOOT.BIN [--story <USRDIR>/script/story_scr_b.ehp] [-o owners.json] [--check]` (owner, evidence, confidence and game use of every recipe 0–660, rules in `deck.md`); `decks.py samecard <USRDIR>/deck/all_e.ehp`; `decks.py tutorial <USRDIR>/deck/tutorial.ehp`; readable tutorial listing: `python3 -I tools/tutorial.py <USRDIR>/deck/tutorial.ehp` |
 | Port output | JSON per recipe: main/extra/side card ids, name per language, owner character and variant; alternative-artwork table; tutorial script as instruction list. |
-| Verified | Check run: `ok: 661 recipes (27078 main, 926 extra, 65 side cards), 126 owners covering 462 recipes, 6 name tables`; `ok: 49 alternative artworks for 38 cards; fileTbl has 3502 slots`; `ok: 5 scripts, 732 instructions, 224 string references`. `ydc_recipe` is `verified` (round-trip). Tests: `tools/tests/test_decks.py`. |
-| Gaps | Owners of recipes 462–660; meaning of the recipe level; owner-variant selection argument. The opponents of the story need these links (see also §15); medium priority. |
+| Verified | Check run: `ok: 661 recipes (27078 main, 926 extra, 65 side cards), 126 owners covering 462 recipes, 6 name tables`; `ok: 49 alternative artworks for 38 cards; fileTbl has 3502 slots`; `ok: 5 scripts, 732 instructions, 224 string references`; `owners --check` with `--story`: `ok: 661 of 661 recipes have an owner: 462 from the owner table (high); 199 unnamed (462-660) by draft block: 129 decks, 122 resembling a deck of the same owner (medium 111, low 18), 70 placeholders (low); no unnamed recipe is loaded by the game; set-up codes 462-466; 93 story duel opponents, all in the owner table`. `ydc_recipe` is `verified` (round-trip). Tests: `tools/tests/test_decks.py`. |
+| Gaps | Recipes 462–660 are never loaded (set-up codes 462–466, draft blocks of owners 87–126: owners from layout and similarity, medium/low), so the story's opponents only need recipes 0–461 through the owner table. Still open: the `stage` argument and mode of the owner-variant selection, the per-recipe card list's purpose, and the recipe level beyond the underground draw; low priority. |
 
 ## 7. GIM textures
 
@@ -292,6 +292,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 - `python3 -I tools/ehp.py --verify` over all archives in one call failed on Windows with "Argument list too long" (shell limit, not a tool fault). Run once per file instead, it reported **609 files, 0 failing** (531 loose `.ehp` and the 78 `field/bustup/*.ehp.gz`; the 20 nested archives are inside them).
 - `python3 -I tools/modules.py list <SYSDIR>/BOOT.BIN <USRDIR>/gmodule <USRDIR>/module --check` passed; it identifies `module/libfont.prx` as an encrypted Sony module and does not decrypt it.
 - `python3 -I tools/progress.py --check`: `ok`.
+- Added with the deck-owner work: `decks.py owners --check` (§6), `cardinfo.py --dialog --check` for all five languages (§3) and `ehp.py <SYSDIR>/BOOT.BIN --check` (§2) pass; their dumps were written to a scratch directory outside the repository.
 - All 32 test files under `tools/tests/` pass (`test_gim.py` and `test_strtbl.py` added with the GIM and string-table tools, `test_audio_convert.py` with the audio conversion).
 - Audio and movie conversion (FFmpeg 7.1.1): `audio_convert.py --check` and `psmf.py --convert-check` pass (§16, §17); outputs of the trial conversions went to a scratch directory outside the repository.
 - `python3 -I tools/gim.py check <PSP_GAME>` and `python3 -I tools/strtbl.py check <PSP_GAME>`: `OK` (§7, §15).
@@ -303,13 +304,13 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | Asset class | Status | Blocking for the port? | Next step |
 | --- | --- | --- | --- |
 | Disc layout and file index | complete | no | Optional cross-check with a second ISO extractor. |
-| EHP archives and gzip | complete | no | Extract the six `BOOT.BIN`-embedded archives with `ehp.py` directly (today only via `ehf.py`/`decks.py`). |
-| Card database (`cardinfo`) | complete | no | Add a `DLG_Text` dump; close the small field questions. |
+| EHP archives and gzip | complete | no | Map the runtime extension-handler table (optional). |
+| Card database (`cardinfo`) | complete | no | Close the small field questions (word 1 bits 22–24, run-time genre bits). |
 | Packs and limit list | complete (data and draw) | no | Map pack names and art; PPSSPP trace of one purchase. |
 | Fusion and ritual recipes | complete | no | PPSSPP check of overlapping-material ties. |
 | Card art (`.cip`) | complete | no | Batch mode for `cip.py png` (optional; the JPEG covers the port). |
 | Card effects data | partial | **yes** | Continue per effect family: name single-use handlers, resolve the 244 open compare chains, decode `engine_only` branches. |
-| Decks | complete | no | Owners of recipes 462–660 (needed for story opponents). |
+| Decks | complete | no | `stage`/mode of `deck_select_owner_variant`; trace one story duel set-up in PPSSPP to confirm the set-up codes. |
 | GIM textures | complete | no | Map palette levels and frames to the screens that select them (scene code). |
 | EHF UI timelines | partial (exporter complete) | yes (scene code) | JSON exporter done; interpolation, `add` channel and `.tmf` bit 4 in PPSSPP; who drives each layout (scene code). |
 | TGM models | complete for geometry, skin and animation (glTF) | partly | Playback frame rate; layer texture-map types; unknown `-etc` tracks; `.vtmt`; textures from other archives. |

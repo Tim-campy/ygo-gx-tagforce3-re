@@ -52,6 +52,17 @@ Functions in `BOOT.BIN` (base `0x08804000`), all in the `container` group; evide
 
 Six archives are embedded in `BOOT.BIN`'s `.data` and bound at start-up by `0x08835c68` (`0x088b2f90`, `0x088cc480`, `0x088d77e0`, `0x088ff0d0`, `0x089029b0`, `0x08911580`); for example `loading.ehf` and `RCP_%03d.ydc` are looked up in them.
 
+| Address | File offset | Size | Members | First member |
+| --- | --- | --- | --- | --- |
+| `0x088b2f90` | `0xaefe4` | 103,664 | 5 | `buttom_icon1.gim` |
+| `0x088cc480` | `0xc84d4` | 45,920 | 31 | `loading.ehf` |
+| `0x088d77e0` | `0xd3834` | 162,032 | 667 | `RCP000.ydc` (`deck.md`) |
+| `0x088ff0d0` | `0xfb124` | 14,560 | 6 | `sysmsg_e.bin` |
+| `0x089029b0` | `0xfea04` | 60,368 | 6 | `chr_name_e.bin` |
+| `0x08911580` | `0x10d5d4` | 11,888 | 6 | `pack_name_str_e.bin` |
+
+`tools/ehp.py` accepts an ELF image in place of an archive and handles each embedded archive (found by scanning for the `EHP\x03` + `NOT ` header whose size fits the file; nested archives are not reported twice): `ehp.py <SYSDIR>/BOOT.BIN --base 08804000` lists them with file offset, module offset and address, `-x DIR` extracts each into `DIR/BOOT.BIN@0x<offset>.d`, `--verify` and `--check` rebuild each byte for byte. The module offset comes from the ELF's `PT_LOAD` segment (`BOOT.BIN`: file offset − `0x54`). On the disc `--check` prints `ok: BOOT.BIN: 6 embedded archives, 721 members, all rebuild byte for byte`; none of the 36 `gmodule/*.prx` embeds an archive.
+
 ## Compression
 
 There is no compression inside the EHP format itself. Compressed data appears as ordinary gzip (RFC 1952, deflate, method 8):

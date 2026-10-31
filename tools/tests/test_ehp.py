@@ -43,6 +43,37 @@ class EhpTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ehp.parse(SAMPLE + b"\0" * 16)
 
+    def test_embedded_in_elf(self):
+        # A minimal ELF: header with one PT_LOAD program header (p_offset 0x54, p_vaddr 0), then data that
+        # holds two archives, the way BOOT.BIN carries its six.
+        first = ehp.build([("a.bin", b"first")])
+        second = ehp.build([("RCP000.ydc", b"\1" * 20), ("b.bin", b"")])
+        body = b"\0" * 12 + first + b"EHP\x03junk" + second
+        header = bytearray(0x54)
+        header[:4] = b"\x7fELF"
+        struct.pack_into("<I", header, 0x1C, 0x34)  # e_phoff
+        struct.pack_into("<HH", header, 0x2A, 0x20, 1)  # e_phentsize, e_phnum
+        struct.pack_into("<5I", header, 0x34, 1, 0x54, 0, 0, len(body))
+        elf = bytes(header) + body
+        report = ehp.embedded_report(elf)
+        self.assertEqual([(offset, module) for offset, module, _, _ in report],
+                         [(0x54 + 12, 12), (0x54 + 12 + len(first) + 8, 12 + len(first) + 8)])
+        self.assertEqual([len(members) for *_, members in report], [1, 2])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "BOOT.BIN"
+            path.write_bytes(elf)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(ehp.main([str(path), "--check"]), 0)
+                self.assertEqual(ehp.main([str(path), "--base", "08804000"]), 0)
+                self.assertEqual(ehp.main([str(path), "-x", str(Path(tmp) / "out")]), 0)
+            self.assertIn("ok: BOOT.BIN: 2 embedded archives, 3 members", out.getvalue())
+            self.assertIn("(+0xc, 0x0880400c)", out.getvalue())
+            self.assertEqual((Path(tmp) / "out" / f"BOOT.BIN@{0x54 + 12:#x}.d" / "a.bin").read_bytes(), b"first")
+            path.write_bytes(bytes(header) + b"\0" * len(body))
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(ehp.main([str(path), "--check"]), 1)  # no archive at all
+
     def test_extract_recursive_gunzip(self):
         inner = ehp.build([("model.tmt.gz", gzip.compress(b"TGMT body"))])
         archive = ehp.build([("pack.ehp", inner), ("note.txt", b"hi")])

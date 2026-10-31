@@ -11,9 +11,11 @@ import argparse
 import csv
 import importlib.util
 import json
+import re
 import struct
 import sys
 import unicodedata
+from collections import Counter
 from pathlib import Path
 
 SPEC = importlib.util.spec_from_file_location("re_ehp", Path(__file__).resolve().parent / "ehp.py")
@@ -70,6 +72,54 @@ def utf16z(data, offset):
     return data[offset:end].decode("utf-16-le")
 
 
+DLG_ALIGN = 4  # every DLG_Text string starts on a 4-byte boundary; the gap after its NUL is zero padding
+DLG_COLOUR = re.compile(r"\$C[0-9]")
+
+
+def dialog_strings(indx, text):
+    """DLG_Indx (u32 byte offsets) + DLG_Text (NUL-terminated UTF-16LE pool): [(number, offset, string)]."""
+    if len(indx) % 4:
+        raise ValueError("DLG_Indx is not a whole number of u32 offsets")
+    return [(number, offset, utf16z(text, offset))
+            for number, offset in enumerate(struct.unpack(f"<{len(indx) // 4}I", indx))]
+
+
+def dialog_check(indx, text):
+    """Layout checks of DLG_Indx/DLG_Text as card_db_get_dialog_string (0x08832c94) reads them; returns
+    (problems, counts). The game does no bounds check, so every offset must be a valid string start."""
+    problems = []
+    offsets = struct.unpack(f"<{len(indx) // 4}I", indx) if len(indx) % 4 == 0 else ()
+    if not offsets:
+        return ["DLG_Indx is empty or not a whole number of u32 offsets"], {}
+    if offsets[0] != 0:
+        problems.append("DLG_Indx: the first string does not start at offset 0")
+    counts = Counter()
+    for number, offset in enumerate(offsets):
+        following = offsets[number + 1] if number + 1 < len(offsets) else len(text)
+        if offset % DLG_ALIGN or following <= offset:
+            problems.append(f"DLG {number}: offset {offset:#x} not aligned or not ascending")
+            continue
+        end = offset
+        while end + 1 < following and text[end:end + 2] != b"\0\0":
+            end += 2
+        if text[end:end + 2] != b"\0\0":
+            problems.append(f"DLG {number}: no NUL before the next string")
+            continue
+        if any(text[end + 2:following]) or following - (end + 2) >= DLG_ALIGN:
+            problems.append(f"DLG {number}: bytes after the NUL are not alignment padding")
+        try:
+            string = text[offset:end].decode("utf-16-le")
+        except UnicodeDecodeError as error:
+            problems.append(f"DLG {number}: {error}")
+            continue
+        counts["empty"] += not string
+        counts["colour"] += bool(DLG_COLOUR.search(string))
+        counts["format"] += bool(re.search(r"%[sd]", string))
+        if string.count("$") != len(DLG_COLOUR.findall(string)):
+            problems.append(f"DLG {number}: '$' not followed by C and a digit")
+    return problems, counts
+
+
 class CardInfo:
     def __init__(self, archive_bytes, suffix):
         members = dict(ehp.parse(archive_bytes))
@@ -91,9 +141,9 @@ class CardInfo:
         self.genre = members.get("CARD_Genre.bin")
         self.sort = members.get(f"CARD_Sort_{suffix}.bin")
         self.top = members.get(f"CARD_Top_{suffix}.bin")
-        dlg_indx, dlg_text = members.get(f"DLG_Indx_{suffix}.bin"), members.get(f"DLG_Text_{suffix}.bin")
-        self.dialog = ([utf16z(dlg_text, offset) for offset in struct.unpack(f"<{len(dlg_indx) // 4}I", dlg_indx)]
-                       if dlg_indx and dlg_text else [])
+        self.dlg_indx, self.dlg_text = members.get(f"DLG_Indx_{suffix}.bin"), members.get(f"DLG_Text_{suffix}.bin")
+        self.dialog = ([string for _, _, string in dialog_strings(self.dlg_indx, self.dlg_text)]
+                       if self.dlg_indx and self.dlg_text else [])
 
     # ------------------------------------------------------------------ genres and sorting
 
@@ -276,6 +326,8 @@ def main(argv=None):
     parser.add_argument("--format", choices=("csv", "json"), default="csv")
     parser.add_argument("-o", "--output", type=Path, help="write here instead of stdout (keep it out of git)")
     parser.add_argument("--check", action="store_true", help="only run the structural checks")
+    parser.add_argument("--dialog", action="store_true",
+                        help="the DLG_Indx/DLG_Text duel prompts instead of the cards (number, offset, text)")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -284,11 +336,24 @@ def main(argv=None):
     if language not in LANG_SUFFIX:
         parser.error(f"cannot tell the language from {args.archive.name}")
     info = CardInfo(args.archive.read_bytes(), LANG_SUFFIX[language])
-    if args.check:
+    if args.dialog:
+        if not (info.dlg_indx and info.dlg_text):
+            print(f"no DLG_Indx_{LANG_SUFFIX[language]}/DLG_Text_{LANG_SUFFIX[language]} members")
+            return 1
+        if args.check:
+            problems, counts = dialog_check(info.dlg_indx, info.dlg_text)
+            print("\n".join(problems[:20]) if problems else
+                  f"ok: {len(info.dialog)} DLG strings ({counts['empty']} empty, {counts['colour']} with $C colour "
+                  f"escapes, {counts['format']} with %s/%d), {len(info.dlg_text)} bytes")
+            return 1 if problems else 0
+        rows = [{"number": n, "offset": offset, "text": s}
+                for n, offset, s in dialog_strings(info.dlg_indx, info.dlg_text)]
+    if args.check and not args.dialog:
         problems = info.check()
         print("\n".join(problems[:20]) if problems else f"ok: {info.count - 1} cards")
         return 1 if problems else 0
-    rows = list(info.records())
+    if not args.dialog:
+        rows = list(info.records())
     out = open(args.output, "w", encoding="utf-8", newline="") if args.output else sys.stdout
     try:
         if args.format == "json":
