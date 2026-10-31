@@ -47,11 +47,123 @@ In `rel_duel_draw` (base `0x0983fb00`, `re/names-duel_draw.csv`):
 | `0x0985b44c` | `field_3d_sample_track_rgb(tracks, first, frame) → u32` | H | Three tracks × 255, packed as `R | G<<8 | B<<16`. |
 | `0x09842900` | `field_3d_update_visibility_mask(cutin, inst)` | M | Builds a 32-bit mask from tracks 10–41 (bit set when the value is 0), merges overrides `+0x184/+0x188`, calls `field_3d_set_group_mask`. |
 
-Runtime model instance (`tgm_model_instance` in `re/formats.csv`, partial, named): `+0x00` TGMS, `+0x0C` node
+Runtime model instance (`tgm_model_instance` in `re/formats.csv`, partial, named): `+0x00` TGMS, `+0x04`
+animation list, `+0x08` its count, `+0x1C` current animation index, `+0x24` previous index, `+0x0C` node
 world matrices (64 bytes per bone), `+0x10` skin matrices, `+0x14` TGMT, `+0x18` previous TGMT (cross-fade),
 `+0x20` frame (f32), `+0x28` previous frame, `+0x2C` animated material copies (0xA4 per TGMA entry), `+0x30`
 animated texture copies (0x28 each), `+0x34` TGMA, `+0x38` TGMA frame, `+0x3C` flags (bit 0 cross-fade, bit 1
 loop), `+0x54` draw state, `+0x64` visibility group mask.
+
+Instance helpers in `BOOT.BIN` read at the same time (2026-10-31, capstone; `re/names.csv`):
+
+| Address | Name | Conf. | Evidence |
+| --- | --- | --- | --- |
+| `0x0882f3f4` | `field_3d_create_model_instance(tms, arg) → inst` | M | Binds the TGMS (`field_3d_bind_tms`), allocates through function pointers, clears, sets up matrices; on failure calls `field_3d_destroy_model_instance`. |
+| `0x0882f89c` | `field_3d_destroy_model_instance(inst)` | M | Seven frees through the allocator's function pointers. |
+| `0x0882fa2c` | `field_3d_set_animation(inst, tmt)` | H | `tmt` ≠ 0: a one-entry animation list (`+0x04` = `&inst+0x14`, count `+0x08` = 1), `field_3d_set_tgmt_data`, frame `+0x20` = 0, index `+0x1C` = 0; `tmt` = 0 clears the list and sets index −1. |
+| `0x0882f97c` | `field_3d_play_animation(inst, index, flags) → 0 or −1` | H | Takes entry `index` of the list `+0x04` (bounds `+0x08`); with flags bit 0 saves the current TGMT/index/frame to `+0x18`/`+0x24`/`+0x28` (cross-fade source); stores `flags` in `+0x3C` (bit 1 = loop), sets the TGMT, index `+0x1C`, frame `+0x20` = 0. |
+| `0x0882fa88` | `field_3d_set_tma(inst, tma)` | H | `+0x34` = `tma`, TGMA frame `+0x38` = 0. |
+| `0x0882ff6c` | `field_3d_get_frame(inst) → f32` | H | `inst+0x20`, or −1.0 without an instance. |
+
+The `step*` argument of `field_3d_update_model` is a small record, not a bare float: `+0` the frame step
+(f32), and for cut-ins `+4` a per-node callback (`0x09842c20`), `+8`/`+0xC` its context
+(`field_3d_update_cutin` builds it at `sp+0x30`; the backdrop passes only the step, the other words zero).
+
+## Frame timing and playback rate (2026-10-31, read with capstone; high)
+
+The game runs one main-loop iteration per displayed frame and caps it at 30 frames per second:
+
+- `system_main` (`0x08833734`) loops: `system_scene_run_slice`, `save_tick_frame_counter`,
+  `system_scene_run_frame` (`0x0881d24c`, calls the current frame callback from the handler table
+  `0x08920c48`: 12 bytes per entry = id, frame callback, leave callback; current index at `0x08920ca8`;
+  `system_scene_set_frame_callback(id, cb, leave)` `0x0881d2d0` runs the old leave callback and stores
+  the new pair), `0x08850e68`, `system_end_frame` (`0x0881d21c`
+  → `system_display_flip` `0x08822d10`), `system_check_soft_reset`.
+- `system_init_core` (`0x0881d1a8`) passes 30 to `system_display_init(…, fps)` (`0x08822bd4`) when the
+  boot configuration word `+0x18` (at `0x088a0154 + 0x18`) is 30, else 60. On this disc the word is
+  `0x1e` = 30. `system_display_init` stores it in the timing record `0x089229b4` (`+0` frame counter,
+  `+4` frame rate), which `system_get_frame_timing` (`0x08822e20`) returns.
+- `system_display_flip` (`0x08822d10`): when the rate is 30 it waits for one extra vertical blank if fewer
+  than two have passed since the last flip (`sceDisplayGetVcount` against `0x089229bc`), then always waits
+  for the next one (`sceDisplayWaitVblankStartCB`) and increments the frame counter `+0`. That is two
+  vblanks per frame: 59.94 / 2 = **29.97 frames per second**, fewer when a frame's work takes longer
+  than two vblanks (no catch-up: the next frame then waits only one vblank).
+- Nothing changes the rate later: the setter `system_set_frame_rate` (`0x08822e2c`) has no caller in
+  `BOOT.BIN` and none in any of the 34 game modules (scan of every import stub; the getter is only read).
+
+Every model update in a duel uses a hard-coded time step of 1/30 s and multiplies it by that rate:
+
+- `ui_run_duel_draw_frame` (`0x0989cf94`, the per-frame body of the duel presentation, reached through
+  the frame callback `0x0989cee0` → `0x0989c60c` that `rel_duel_draw` installs with
+  `system_scene_set_frame_callback` `0x0881d2d0`) calls `ui_update_duel_scene(dt)` (`0x0985a980`) and the
+  cut-in task `0x09840e24(dt)`, both with `dt` = the float at `0x098c5f5c` = 0.0333333 (1/30).
+- `field_3d_backdrop_update(dt)` (`0x0985ac5c`) and `field_3d_update_cutin(cutin, dt)` (`0x09841ee4`)
+  compute `step = dt × timing.fps` = (1/30) × 30 = **1.0** and pass it to `field_3d_update_model`. The
+  cut-in's step is zeroed only when `0x09842e84` returns 0; in this build it always returns 1.
+
+Result: **one animation frame per game frame, nominally 30 animation frames per second (exactly
+29.97 Hz when the game holds its frame rate; slower, not skipped, when it drops)**, for field backdrops
+and cut-in characters alike; the TGMA texture animation advances by the same step. Confidence high for
+the code path (every value is a constant or a write traced to one site); the effective rate under load is
+the PPSSPP check F10. The loop length of a looping animation is `frame_count − 1` frames, so a 301-frame
+backdrop (`fmagic3720`) repeats every 300 / 30 = 10 s.
+
+Loop flags as set by the callers (`field_3d_play_animation` call sites in `rel_duel_draw`): the backdrop
+plays animation 0 with flags 2 (loop, no cross-fade, `0x0985ae5c`); the other four sites, including the
+cut-in (`0x09842158`), pass 0 (play once, clamp at `frame_count`). The cut-in sets `+0x174` = 1 in a
+tick where the integer frame advanced or reached the loop length.
+
+Both updaters also keep elapsed seconds (`slot+0x1C`, cut-in `+0x54`, `+= dt`) and hand
+`trunc(seconds × fps)` to a per-frame event hook (backdrop: `field_3d_backdrop_frame_hook` `0x0985c488`,
+empty in this build; cut-in: `0x09842728`).
+
+## Field-spell backdrop manager (`rel_duel_draw`, 2026-10-31; names in `re/names-duel_draw.csv`)
+
+Request path: an engine message reaches `rel_duel_draw` through `rel_duel_mgr` (calls of its import of
+`ui_dispatch_draw_command` at `0x08e9b0fc`, `0x08e9d984`, `0x08eab0c0`, …). `ui_dispatch_draw_command`
+(`0x09899364`, exported) sorts the 75-entry command table `0x098d0180` (12 bytes: id, argument count,
+handler) once with `qsort`, binary-searches the id and calls the handler. **Command 7, one argument** is
+`field_3d_cmd_set_backdrop` (`0x09899cdc`) → `field_3d_backdrop_request(id)`. Which engine event sends
+command 7 with which id (activation, destruction of the field spell) is not traced yet.
+
+Manager record `0x098e69a0` (`0x220` bytes, cleared by `field_3d_backdrop_init` `0x0985a9d8`): two slots
+of `0x28` bytes at `+0x00` and `+0x28` (double buffering for the change-over), `+0x50` current slot,
+`+0x54` pending id (−1 = none), `+0x58` scene override flag, `+0x60` scene record filled by
+`field_3d_apply_scene_etc`, `+0x1B0` exit-done flag, `+0x1B4` enter-done flag, `+0x1C0` view matrix,
+`+0x200`–`+0x20C` field of view, aspect, near, far.
+
+Slot: `+0x00` id (card id; 0 = default; −1 = empty), `+0x04` TGMS, `+0x08` TGMT, `+0x0C` TGMA,
+`+0x10` `-etc` TGMT, `+0x14` state, `+0x18` model instance, `+0x1C` elapsed seconds (f32), `+0x20`
+"start extras" flag, `+0x24` extra-effect handle (−1 = none).
+
+| Address | Name | Conf. | Evidence |
+| --- | --- | --- | --- |
+| `0x0985a9d8` | `field_3d_backdrop_init()` | H | Clears the record, pending id −1, slot 0 = id 0 in state 1: **every duel starts by loading `fmagic0000`**. Both extra handles −1. Called from the duel draw init `0x0985a838`. |
+| `0x0985aa54` | `field_3d_backdrop_term()` | H | Per slot with an instance: stop extras, destroy the instance; clears the record. |
+| `0x0985af40` | `field_3d_backdrop_request(id) → 1` | H | If the other slot is busy, or the current one is not in state 3, the id is kept in `+0x54` and retried from state 0. Otherwise other slot = `id`, state 1 (load); current slot state 4 (leave); `+0x1B0` = 0; `field_3d_start_backdrop_transition(1, id, field_3d_backdrop_on_exit_done, 0)`. Callers: command 7, `0x09876e08` (an effect animation that requests id 5788 once its time passes 360), the debug field selector `0x098a1460` (steps through card ids whose `card_db_get_icon` is 2 = Field), and state 0. |
+| `0x0985ac5c` | `field_3d_backdrop_update(dt)` | H | Per slot, with an instance: frame hook, `field_3d_update_model(inst, {dt × fps})`, `+0x1C += dt`. State machine: **1** waits for `field_3d_get_backdrop_archive(id)` and an idle other slot, reads the members, `field_3d_create_model_instance(tms, 0)`, `field_3d_set_animation(tmt)`, `field_3d_set_tma(tma)`, time 0, extras flag 1, state 2, current slot = this one, `+0x1B4` = 0, `field_3d_start_backdrop_transition(0, id, field_3d_backdrop_on_enter_done, 0)`, `field_3d_play_animation(inst, 0, 2)` (**loop**), one update with step 0 (pose frame 0). **2** → 3 when `+0x1B4` is set. **3** steady. **4** when `+0x1B0` is set: stop extras, destroy the instance, `field_3d_release_backdrop_archive(id)`, slot emptied (id −1, state 0). **0** issues a pending request. Called by `ui_update_duel_scene` `0x0985a980` when `0x0989cc4c(1, −1)` is non-zero. |
+| `0x0985aadc` | `field_3d_backdrop_draw()` | M | Sets a perspective of 0.38397 rad (22°) / aspect 1.7647 / near 0.1 / far 10 and default lights, then `field_3d_backdrop_draw_slot(current)` and `(other)`. |
+| `0x0985b0f4` | `field_3d_backdrop_draw_slot(index)` | H | Draws in states 2, 3 and 4 (4 until `+0x1B0`); in state 2, once, `field_3d_backdrop_start_extra`. For display lists 1 and 2: `field_3d_backdrop_set_scene(dl, slot.etc, mgr+0x58, field_3d_get_frame(inst))`, then `field_3d_draw_model(inst, {1, 2, …})`. **The `-etc` scene (camera, fog, lights) is sampled at the model's own frame**, so it loops with the node animation. |
+| `0x0985b284` | `field_3d_backdrop_set_scene(dl, etc, override, frame)` | H | `etc` ≠ 0 and no override: `field_3d_apply_scene_etc(mgr+0x60, etc, frame)`; else the default scene `0x0985ba50`. Then projection (`fov`, 1.7647, near, far), view matrix, fog, ambient and four lights into the display list. |
+| `0x0985c324` / `0x0985c448` | `field_3d_backdrop_start_extra(slot, id)` / `…_stop_extra(slot)` | M | For eight card ids (4899, 4933, 4934, 4937, 5791, 6759, 6823, 7164) starts a card-specific effect task (`0x0987aee0`, `0x0987b450`, …), handle in `+0x24`; stop ends it (`0x09878644`). |
+| `0x0987a56c` | `field_3d_start_backdrop_transition(dir, id, done_cb, arg)` | M | Creates the change-over task `0x0987a604` (special variant `0x0987ad08` for id 5788); the task calls `done_cb` at the end. |
+| `0x0985c2b0`, `0x0985c2c0` | `field_3d_backdrop_on_enter_done`, `…_on_exit_done` | H | Set `+0x1B4` / `+0x1B0` = 1 (exit also sets up display list 3). |
+| `0x0985afe4` | `field_3d_backdrop_get_current_id()` | H | Id of the current slot. Callers `0x098a1238`, `0x098a1db0` (debug selector). |
+| `0x0989f5c0` | `field_3d_get_backdrop_archive(id) → archive or 0` | H | Two archive slots of `0x18` bytes at `0x09adcf20` (`+0` id, `+4` buffer, `+8` in use, `+0xC` loaded, `+0x10`, `+0x14` release pending), buffers of `0x80000` bytes at `0x09adcf50 + slot << 19`. Returns the loaded buffer; else claims a slot, `sprintf("duel/bg/fmagic%04d.ehp", id)`, **if `container_get_file_size(3, path)` ≤ 0 uses `fmagic0000`** (`sprintf` with 0), and starts `container_load_file(3, path, buffer, 0x80000, field_3d_on_backdrop_archive_loaded, slot)`; returns 0 while loading. |
+| `0x098a00f8` | `field_3d_on_backdrop_archive_loaded(slot, size)` | H | Size ≥ `0x80000` → reloads `duel/bg/fmagic0000.ehp`; else `container_ehp_bind_with_callback(0, buffer)` and `container_ehp_find_member("filelist-ptrs.txt")`; a missing list or a zero first entry → reloads `fmagic0000`; else loaded. Honours a pending release. |
+| `0x0989f7cc` | `field_3d_get_backdrop_members(id, &tms, &tmt, &tma, &etc) → 1/0` | H | The first four entries of `filelist-ptrs.txt`. All 54 archives that have the list hold exactly (`.tms`, `.tmt`, `.tma`, `-etc.tmt`, terminator) in that order. |
+| `0x0989f734` | `field_3d_release_backdrop_archive(id)` | H | Frees the archive slot, or marks it release-pending while it is still loading. |
+
+Consequences for the port:
+
+- `fmagic0000` is the default backdrop: the initial id is 0, and any id without an archive, with an
+  archive of `0x80000` bytes or more, or without `filelist-ptrs.txt` falls back to it (high).
+- `fmagic05.ehp` cannot be shown by this loader: it has no `filelist-ptrs.txt` and is 562,576 bytes
+  (above `0x80000`). Its member names appear only in the duel object table at `0x098d0960` (entry id
+  `0x10001`, read by `0x0989eb08`…`0x0989edfc`, next to `field-duelsheet01` and `field_card-yamahuda01`
+  of `duel/basic*.ehp`), whose archive does not contain them (low: probably an unused leftover).
+- A field change is a cross-over: the new archive loads into the second slot while the old backdrop is
+  still drawn; the old one leaves when its exit transition finishes, the new one is drawn from state 2.
 
 ## Model formats
 
@@ -68,10 +180,12 @@ Export for the port: `tgm.py gltf` (glTF 2.0 + side JSON, `tools/tgm_gltf.py`), 
 
 ## Open questions
 
-- Call rate of `field_3d_update_model` per user (frames per second of backdrops and cut-ins).
+- Answered 2026-10-31 (static, high): `field_3d_update_model` advances 1.0 frame per game frame for backdrops and cut-ins, at a game rate capped at 29.97 per second ("Frame timing and playback rate"); the backdrop loops (flags 2), the cut-in plays once (flags 0). Still to confirm in PPSSPP (F10): the effective rate during a duel, which may drop under load.
+- Answered 2026-10-31: the loader of `duel/bg/fmagic<id>.ehp` and the caller of `field_3d_apply_scene_etc` ("Field-spell backdrop manager").
+- Which engine event emits draw command 7 and with which id (field spell resolved, field spell leaves the field: presumably 0, low); trace from `rel_duel_eng` or with a PPSSPP breakpoint on `0x09899cdc`.
+- What the eight card-specific extras (`field_3d_backdrop_start_extra`) draw, and the change-over task `0x0987a604` (duration, fade or wipe).
 - Texture-mapping callbacks `0x0882ef50` / `0x0882f050` (layer types 1/2).
-- How the group mask `inst+0x64` reaches the draw hook (`hook+0x10`); which code sets the loop and cross-fade flags for backdrops and cut-ins.
+- How the group mask `inst+0x64` reaches the draw hook (`hook+0x10`).
 - The unread `-etc` tracks (84-track 13–19, 42-track 4–9) and the purpose of `.vtmt`.
-- Which code loads `duel/bg/fmagic<id>.ehp` and drives `field_3d_apply_scene_etc`.
 - Role of `.tmf` (with `.ehf`, covered separately).
 - The remaining open fields listed in `docs/formats/tgm.md`.

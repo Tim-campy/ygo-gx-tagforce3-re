@@ -445,3 +445,17 @@ address,group,name
 0x08856db0,deck,deck_get_slot_key_cards
 0x088540dc,save,save_init_partner_decks
 0x08854188,save,save_init_character
+0x0881d1a8,system,system_init_core
+0x0881d21c,system,system_end_frame
+0x0881d24c,system,system_scene_run_frame
+0x0881d2d0,system,system_scene_set_frame_callback
+0x08822bd4,system,system_display_init
+0x08822d10,system,system_display_flip
+0x08822e20,system,system_get_frame_timing
+0x08822e2c,system,system_set_frame_rate
+0x0882f3f4,field_3d,field_3d_create_model_instance
+0x0882f89c,field_3d,field_3d_destroy_model_instance
+0x0882f97c,field_3d,field_3d_play_animation
+0x0882fa2c,field_3d,field_3d_set_animation
+0x0882fa88,field_3d,field_3d_set_tma
+0x0882ff6c,field_3d,field_3d_get_frame

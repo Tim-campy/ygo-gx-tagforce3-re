@@ -37,7 +37,12 @@ gim = _load("gim")
 
 SCHEMA = "tf3-tgm-scene"
 SCHEMA_VERSION = 1
-DEFAULT_FPS = 30.0  # assumption: one animation frame per update call; the update rate is not established
+# One animation frame per game frame: duel updaters pass step = (1/30 s) x frame rate 30 = 1.0 to
+# field_3d_update_model, and the main loop is capped at two vblanks (29.97 Hz). Basis: rel_duel_draw
+# 0x0985ac5c / 0x09841ee4, BOOT.BIN 0x08822d10 (docs/subsystems/field_3d.md, "Frame timing").
+DEFAULT_FPS = 30.0
+FPS_NOTE = ("game: one frame per game frame at a 30 Hz cap (29.97 Hz NTSC), static analysis of "
+            "rel_duel_draw 0x0985ac5c / 0x09841ee4 and BOOT.BIN 0x08822d10; slower when the game drops frames")
 ASPECT = 480.0 / 272.0  # rel_duel_draw +0x86490 (perspective aspect used with the -etc camera)
 MM_PER_INCH = 25.4  # rel_duel_draw +0x86494 / +0x85184 hold 0.03937 = 1 / 25.4
 LINEAR_EPS = 1e-5
@@ -505,7 +510,7 @@ def convert(tms, members=None, animations=(), etc=None, tma=None, fps=DEFAULT_FP
     gl = Gltf()
     members = members or {}
     side = {"format": SCHEMA, "version": SCHEMA_VERSION, "source": source or {}, "fps": fps,
-            "fps_note": "assumed; the game advances one frame per update call (BOOT.BIN 0x0882fa94)",
+            "fps_note": FPS_NOTE if fps == DEFAULT_FPS else "user-chosen rate (--fps); " + FPS_NOTE,
             "model": {}, "animations": [], "texture_animation": None, "unknown": []}
     stats = Counter()
     images = {}

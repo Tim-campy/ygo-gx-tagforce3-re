@@ -824,11 +824,15 @@ These are the seven checks of `docs/subsystems/ai.md`, "PPSSPP checks for the pl
 
 #### F10. Playback rate of the 3D backdrop animation
 
-- **Hypothesis**: `field_3d_update_model(inst, step*)` (`BOOT.BIN` `0x0882fa94`) advances an instance's frame by `*step` (1.0 when `step` is null) per call; the number of calls per second (30, 60 or variable) is not established; the exporter assumes 30 (`docs/formats/tgm.md`, "Playback", "Open questions"; high for the code, unknown for the rate).
-- **Breakpoints**: `0x0882fa94`, Log only, `tgm_upd inst={a0} step={a1} fc={[S+0x0c]} ra={ra}`; enable for about 5 s, then disable (it runs for every animated model every frame).
-- **Steps**: activate a field spell so that its backdrop (`duel/bg/fmagic%04d.ehp`) animates. Enable the log for 5 s with PPSSPP at 100 % speed and the FPS counter on. If `step` is non-zero, read the float at that address once. *(optional)* Repeat the same 5-second log on a free-roam map and in the shop's pack screen.
-- **Record**: per distinct `inst`: number of calls and the first and last `fc`; `step` (null or the float); the `ra` (backdrop, cut-in, HUD); the FPS shown.
-- **Expected**: one call per instance per frame-counter tick, with a null step (1.0) or a constant float; the backdrop rate is then E7's main-loop rate × step (30 or 60 per second). Report each `ra` group separately, since the step may differ per user.
+- **Hypothesis** (static, 2026-10-31, `docs/subsystems/field_3d.md`, "Frame timing and playback rate" and "Field-spell backdrop manager"; high for the code, the effective rate under load unknown): the frame rate word `[0x089229b8]` is 30 for the whole run (set once by `system_display_init` `0x08822bd4`; the setter `0x08822e2c` has no caller); `system_display_flip` (`0x08822d10`) holds each frame for at least two vblanks (29.97 Hz); `field_3d_backdrop_update(dt)` (`rel_duel_draw` `0x0985ac5c`) gets `dt` = 1/30 (`[0x098c5f5c]`) and calls `field_3d_update_model` (`BOOT.BIN` `0x0882fa94`) from `0x0985ad50` with `[a1]` = `dt × 30` = 1.0; the cut-in does the same from `0x09841f84` (`field_3d_update_cutin` `0x09841ee4`). The backdrop plays with flags 2 (loop) from `0x0985ae5c`; it is loaded by `field_3d_get_backdrop_archive` (`0x0989f5c0`), requested through draw command 7 (`field_3d_cmd_set_backdrop` `0x09899cdc` → `field_3d_backdrop_request` `0x0985af40`).
+- **Breakpoints**:
+  - `0x0882fa94`, Log only, `tgm_upd inst={a0} step={[a1]} frame={[a0+0x20]} fc={[0x089229b4]} ra={ra}` (`[a1]` read as a float; if the logger cannot, log `a1` and read the float once by hand). Enable for about 5 s, then disable (it runs for every animated model every frame).
+  - `0x08822d10` (`system_display_flip`), Log only, `flip fc={[0x089229b4]} fps={[0x089229b8]}`, same 5 s window.
+  - `0x0985af40` (`field_3d_backdrop_request`), Log only, `bg_req id={a0} ra={ra}`; and `0x09899cdc` (command 7), Log only, `cmd7 id={a0} ra={ra}`. Leave these on for the whole duel.
+  - *(optional)* `0x0989f5c0`, Log only, `bg_get id={a0}` (one line per frame while loading).
+- **Steps**: start a duel (the log should show `bg_req`/`bg_get` for id 0 at the start: `fmagic0000`). Activate a field spell (record the `cmd7` / `bg_req` ids and `ra`). When its backdrop animates, enable the two 5-s logs with PPSSPP at 100 % speed and the FPS counter on. Then destroy or replace the field spell (record the `cmd7` id). *(optional)* Repeat the 5-second log on a free-roam map and in the shop's pack screen.
+- **Record**: per distinct `inst`: number of calls, first and last `frame`, `step`, `ra` group (`0x0985ad58` backdrop, `0x09841f8c` cut-in, others); number of `flip` lines and `fps`; the FPS shown; the `cmd7` ids on activation and on leaving.
+- **Expected**: `fps` = 30 in every `flip` line; about 150 `flip` lines in 5 s (fewer if the game drops frames); one `tgm_upd` per backdrop instance per `flip`, `step` = 1.0, `frame` rising by 1 per call and wrapping to a small value after `frame_count − 1` (300 for `fmagic3720`); the backdrop rate is then 29.97 frames per second. `cmd7` on activation carries the card id of the field spell; on leaving, presumably 0 (default backdrop; low). Report each `ra` group separately.
 
 ### Block F-4: around duels in free roam (differential saves 3, 4, 5)
 
@@ -866,7 +870,7 @@ Run D2 exactly as written in Session D (staging with S1, Card Destruction `0x12d
 | F7 interest records | | `0x1c31`-related record | | |
 | F8 *(optional)* guard cases | | formula | | edits listed |
 | F9 `ddstrtbl` member names, reader pcs | | `_idx`/`_body` read in `rel_duel_draw` | | dict names |
-| F10 calls per tick per instance, step, FPS | | 1 per tick, step 1.0? | | per `ra` group |
+| F10 calls per flip per instance, step, fps word, cmd7 ids | | 1 per flip, step 1.0, fps 30, ≈150 flips / 5 s | | per `ra` group; id on leaving |
 | F11 win / loss / tag win changed offsets | | as listed in `save.md` | | opponent ids |
 | F12 (D2) queued `N`, chain / queue after the sort | | `N` / 16 / `N − 16` | | trigger kinds |
 | F12 (D2) sides of links 1–16 | | turn player's first | | |

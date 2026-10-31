@@ -36,6 +36,13 @@ The game manages its own heaps with a 16-byte header tagged `"HOGE"` (`0x45474f4
 | Address | Name | Conf. | Evidence |
 | --- | --- | --- | --- |
 | `0x08833734` | `system_main` | H | Called from `0x0885f570`. Registers `EXIT_CALLBACK` and `POWER_CALLBACK`, activates the UMD, `container_build_file_index(0x23000)`, `0x0881d1a8` (file thread, module registry), registers the game module table `0x0889fea4`, `system_load_audio_modules`, `system_init_game_globals`, `system_font_init(0, 1)`, `system_scene_init("rel_title", 2, 0)`; then loops forever: `system_rand_shifted`, power tick, `system_scene_run_slice` and per-frame services (`0x088359f4`, `0x0881d24c`, `0x08850e68`, `0x0881d21c`, `system_check_soft_reset`). |
+| `0x0881d1a8` | `system_init_core(config)` | H | `system_display_init(config+0x14, config+0x18 == 30 ? 30 : 60)`, file thread, module registry. Config `0x088a0154`, whose `+0x18` is 30. Caller `system_main`. Details in `field_3d.md`, "Frame timing". |
+| `0x08822bd4` | `system_display_init(arg, fps)` | M | Frame counter `0x089229b4` = 0, frame rate `0x089229b8` = `fps`; GE and display set-up. |
+| `0x08822d10` | `system_display_flip()` | H | At 30: an extra `sceDisplayWaitVblankStartCB` when fewer than two vblanks passed since the last flip; then one more wait; increments the frame counter. Two vblanks per frame = 29.97 Hz. Via `system_end_frame` (`0x0881d21c`), once per main-loop iteration. |
+| `0x08822e20` | `system_get_frame_timing() → {frame counter, fps}` | H | Returns `0x089229b4`. 26 callers in `BOOT.BIN` and many in the modules; all only read. |
+| `0x08822e2c` | `system_set_frame_rate(fps)` | H | Writes `0x089229b8`. No caller in `BOOT.BIN` or any module: the rate stays 30. |
+| `0x0881d24c` | `system_scene_run_frame()` | H | Calls the frame callback of the current handler entry (`0x08920c48`, 12 bytes: id, frame, leave). |
+| `0x0881d2d0` | `system_scene_set_frame_callback(id, frame_cb, leave_cb)` | M | Runs the old leave callback, stores the new entry. |
 | `0x08833688` | `system_exit_callback` | H | Registered with `sceKernelRegisterExitCallback`; calls `0x0882b8c0`, then `sceKernelExitGame`. |
 | `0x088336b0` | `system_power_callback` | H | Registered with `scePowerRegisterCallback`; stores the power flags at `0x08ac24bc` (`0x08835984`). |
 | `0x088336d0` | `system_check_soft_reset` | M | Pad word `+0x24` of `0x088284b8()` containing `0x309` (SELECT, START, L, R) plus two zero checks triggers `sceKernelLoadExec("disc0:/PSP_GAME/SYSDIR/BOOT.BIN")`. That `0x088284b8` returns the pad state is inferred from the bit mask. |

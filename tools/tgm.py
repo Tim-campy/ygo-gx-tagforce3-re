@@ -913,7 +913,7 @@ def main(argv=None):
     gl.add_argument("--tmt", action="append", default=[], help="extra TGMT member (repeatable; an -etc file "
                                                                  "replaces the camera; the first one gives the rest pose)")
     gl.add_argument("--all-tmt", action="store_true", help="also every TGMT whose node count matches the skeleton")
-    gl.add_argument("--fps", type=float, default=30.0, help="frames per second for glTF times (default 30, assumed)")
+    gl.add_argument("--fps", type=float, default=30.0, help="frames per second for glTF times (default 30: one frame per game frame, see docs/formats/tgm.md)")
     gl.add_argument("--flip-winding", action="store_true", help="reverse the triangle winding")
     gl.add_argument("--check", action="store_true", help="convert and validate every model and animation")
     gl.add_argument("-v", "--verbose", action="store_true")

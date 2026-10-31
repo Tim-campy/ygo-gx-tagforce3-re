@@ -155,6 +155,15 @@ class ConvertTest(unittest.TestCase):
         self.assertEqual(stats["triangles"], 3)  # strip of 4 (2 triangles) + 1 triangle
         json.dumps(doc), json.dumps(side)
 
+    def test_default_fps_is_the_game_rate(self):
+        self.assertEqual(conv.DEFAULT_FPS, 30.0)  # one frame per game frame at the 30 Hz cap
+        _, _, _, side, _ = self.convert()
+        self.assertEqual(side["fps"], 30.0)
+        self.assertEqual(side["fps_note"], conv.FPS_NOTE)
+        _, _, _, side, _ = self.convert(fps=60.0)
+        self.assertEqual(side["fps"], 60.0)
+        self.assertTrue(side["fps_note"].startswith("user-chosen"))
+
     def test_animation_matches_game_sampler(self):
         doc, binary, _, side, _ = self.convert(fps=30.0)
         frames = [0, 3.3, 10, 12.5, 15, 17.25, 20, 25]

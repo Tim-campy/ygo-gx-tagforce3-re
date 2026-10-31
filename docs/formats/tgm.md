@@ -259,8 +259,14 @@ so the last key, which equals the first in looping files, is not shown twice; ot
 one, translation and scale blended linearly and rotation by slerp, with weight `frame × r` where
 `r = 1/frame_count` for animations shorter than 10 frames and 0.1 otherwise (table at `0x08878c60`);
 the blend ends when the weight reaches 1. Then the skin matrices are computed (above) and the TGMA is
-applied with its own frame counter (`+0x38`), which always wraps at the TGMA frame count. The wall-clock
-rate of these calls is not established (the exporter assumes 30 frames per second; `--fps` changes it).
+applied with its own frame counter (`+0x38`), which always wraps at the TGMA frame count.
+
+Rate (2026-10-31, static, high; `field_3d.md`, "Frame timing and playback rate"): in duels the step is
+`(1/30 s) × 30` = 1.0 per game frame for backdrops (`field_3d_backdrop_update` `0x0985ac5c`) and cut-ins
+(`field_3d_update_cutin` `0x09841ee4`), and the game frame is capped at two vblanks (29.97 Hz;
+`system_display_flip` `0x08822d10`, rate 30 set once at boot). So one TGMT/TGMA frame = 1/30 s nominally
+(1001/30000 s exactly), slower when the game drops frames. The backdrop plays with the loop flag
+(`frame_count − 1` frames per cycle); the cut-in plays once and clamps. Runtime confirmation: PPSSPP F10.
 
 ### Scene block of `-etc` files (flag 2)
 
@@ -342,7 +348,7 @@ python3 -I tools/tgm.py gltf <archive> --member cutin-chara-base.tms --all-tmt -
 python3 -I tools/tgm.py gltf --check <USRDIR>    # convert and validate everything in memory, write nothing
 ```
 
-Options: `--fps` (default 30, an assumption), `--flip-winding`, `-v`. Pairing: the same-stem `.tmt`
+Options: `--fps` (default 30: one frame per game frame at the game's 30 Hz cap, see "Playback"; 29.97 for exact NTSC timing), `--flip-winding`, `-v`. Pairing: the same-stem `.tmt`
 (node count = bone count), `-etc.tmt` and `.tma`, or the four-entry `<anim>-ptrs.txt` bundle that names
 the mesh; `--tmt` adds members (an `-etc` file replaces the camera; the first node animation gives the
 rest pose); `--all-tmt` adds every non-camera TGMT whose node count matches.
@@ -405,8 +411,8 @@ Validation beyond the check:
 Confidence of the decoded fields: high for geometry, skin, node animation (tracks, Bézier, slerp,
 defaults, s16 scale), TGMA application, material flags and layer state that map to named GE commands, and
 the camera; medium for the mapping of GE render state to glTF PBR, the light directions, the visibility
-hand-over and the root-matrix hypothesis; low/unknown as listed below. Timing in seconds is an
-assumption (`--fps`).
+hand-over and the root-matrix hypothesis; low/unknown as listed below. Timing in seconds follows the
+code (30 frames per second, high statically; not yet measured in PPSSPP).
 
 ## Tool
 
@@ -426,8 +432,9 @@ not applied. Keep exports out of git.
 
 ## Open questions
 
-- The wall-clock rate of `field_3d_update_model` calls (30 or 60 per second, or a variable step) for each
-  user (backdrops, cut-ins, field UI); needs a PPSSPP trace of the step argument.
+- Answered statically 2026-10-31: backdrops and cut-ins advance one frame per game frame at 30 Hz
+  (above). Open: the effective rate under load (PPSSPP F10) and the step used outside duels (free-roam
+  maps, shop, album: their modules read the same frame-rate word, not yet traced).
 - What texture-mapping types 1/2 do exactly (`0x0882ef50` / `0x0882f050` emit GE texture-map mode and
   light-source state; environment or projection mapping?) and how the second (`EQUAL` depth) layer blends.
 - Texture bytes `+0x08`/`+0x09` (`01 01`) and the reader of TGMS header `0x30`.
