@@ -53,11 +53,13 @@ ci = _load("re_cardinfo", "cardinfo.py")
 cr = _load("re_card_refs", "card_refs.py")
 fs = _load("re_family_split", "family_split.py")
 
-SCHEMA = 5  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
+SCHEMA = 6  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
 #             3 = 2 plus slots.resolve.categories_refined / .refinement (tools/family_split.py);
 #             4 = 3 plus effects[].inert, spec_basis and the engine-mapped `full` rule;
 #             5 = 4 plus the symbolic chain cases (params.chains[].method/values/expression/reason/own, kinds
 #                 conditional/expression/behaviour, classes expression/behaviour) and engine_branches[]
+#             6 = 5 plus loop summaries: chain-case kind and class `iteration`, method `loops`, loop results in
+#                 expressions (count_of/sum_of/last/any_of/at_exit) and generated rows for iteration cases
 FIRST_CARD, LAST_CARD = ep.FIRST_CARD, ep.LAST_CARD
 
 # Token table read by duel_effects_find_token_entry (0x09befee0, 68 bytes): 46 records of four u16
@@ -299,10 +301,17 @@ def generated_branches(cases):
     `when` is empty (the chain's timing is not decoded), confidence L."""
     out = []
     for c in cases:
-        if not c.get("own") or not (c["class"] == "behaviour" or (c["class"] == "unresolved" and c.get("own_varies"))):
+        if c.get("kind") == "iteration":  # one iteration of a loop around the chain (schema 6)
+            effects = [v for v in c["values"].split(" | ") if v and not v.endswith(": no change")]
+            if not effects:
+                continue
+            amount = "; ".join(["per iteration " + " | ".join(effects)] + ([c["own"]] if c.get("own") else []))
+        elif not c.get("own") or not (c["class"] == "behaviour" or (c["class"] == "unresolved" and c.get("own_varies"))):
             continue
+        else:
+            amount = c["own"]
         out.append({"card_id": int(c["card_id"], 16), "function": c["function"], "when": "",
-                    "effect": f"chain_case:{c['label']}", "amount": c["own"], "condition": "",
+                    "effect": f"chain_case:{c['label']}", "amount": amount, "condition": "",
                     "confidence": "L", "basis": f"compare-chain case at {c['target']} (effect_params.resolve_chain)",
                     "source": "chain"})
     return out

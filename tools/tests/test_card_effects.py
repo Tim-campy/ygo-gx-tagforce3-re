@@ -459,9 +459,14 @@ class EngineBranches(unittest.TestCase):
                  {**base, "card_id": "0x1300", "class": "unresolved", "own_varies": 1},
                  {**base, "card_id": "0x1200", "class": "unresolved", "own_varies": 0},
                  {**base, "card_id": "0x12ec", "class": "parameter", "own_varies": 1},
-                 {**base, "card_id": "0x1400", "class": "behaviour", "own": ""}]
+                 {**base, "card_id": "0x1400", "class": "behaviour", "own": ""},
+                 {**base, "card_id": "0x1500", "class": "iteration", "kind": "iteration", "own": "",
+                  "values": "next: s2=(?s2 + 1)"},
+                 {**base, "card_id": "0x1501", "class": "iteration", "kind": "iteration", "own": "",
+                  "values": "next: no change"}]
         rows = ce.generated_branches(cases)
-        self.assertEqual([r["card_id"] for r in rows], [MAT, BARE])
+        self.assertEqual([r["card_id"] for r in rows], [MAT, BARE, 0x1500])
+        self.assertEqual(rows[2]["amount"], "per iteration next: s2=(?s2 + 1)")
         self.assertEqual((rows[0]["effect"], rows[0]["amount"], rows[0]["confidence"], rows[0]["source"]),
                          ("chain_case:chain_09c4b050", "a1=2 at 0x09c4b6a0", "L", "chain"))
 
@@ -499,7 +504,7 @@ class EngineBranches(unittest.TestCase):
         bare = specs[BARE]["params"]["chains"][0]
         self.assertEqual((bare["value"], bare["confidence"]), (7, "medium"))  # paths constants are at most medium
         self.assertEqual(specs[EQUIP]["params"]["chains"][0]["expression"], "helper(arg0, 5)")
-        self.assertEqual(ce.SCHEMA, 5)
+        self.assertEqual(ce.SCHEMA, 6)
 
 
 if __name__ == "__main__":

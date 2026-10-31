@@ -406,6 +406,72 @@ Result (disc, `--boot --draw`): full 2,707 -> 2,748, partial 66 -> 46, engine_on
 
 The large unnamed chains left are AI functions whose cases call unnamed helpers: `0x09d8fc24` (146 cases, under `ai_analyze_board`), `0x09d440d8` (240 cases, under `ai_simulate_candidate_choice`) and `0x09cf1998` (55 cases, `0x09ce536c(_, -1, id, 1) < 1301`). Naming `0x09ce536c` and `0x09d3ba48` would make their cases readable.
 
+### Fifth round: the cards left `partial` and `engine_only`
+
+Every card that was still `partial` (46) or `engine_only` (21) was taken apart with a blocker listing (unnamed functions, groups with only L tags, records without an `effect` category, unnamed list handlers). The blocking functions were decompiled `-readOnly` in Ghidra, named from the code, and semantic rows were added or raised only where every card branch of the function was read. The status rules are unchanged. (D) marks a function documented in `re/documented-duel_eng.tsv`.
+
+Record slot handlers. These records reach only `meta` categories (`set_value`, `set_flag`, `reveal`, `select_ui`) or none, so their cards stay `partial`: the behaviour is a state that engine code reads later. Naming them documents the per-card part; it does not complete the record.
+
+| Address | Name | Evidence | Record | Conf. |
+| --- | --- | --- | --- | --- |
+| `0x09c5737c` | `duel_effects_cond_graveyard_has_arcana_force_level` (D) | Graveyard list `+0x55c` (count `+0x53c`); Arcana Force of Level 5-6 / 1-4 / 7+ for `0xe94` / `0xe93` / `0xe92` | The Sky Lord S/T 4 (condition) | M |
+| `0x09cc31e0` | `duel_effects_choose_declared_type` (D) | `duel_core_request_declare_type`, then `duel_core_post_set_slot_value` with the declared Type | Declaration of Rebirth, DNA Surgery, The Regulation of Tribe (target choice) | H |
+| `0x09cc73fc` | `duel_effects_choose_declared_attribute` (D) | `duel_core_request_declare_attribute_ex`, then the slot value | DNA Transplant (target choice) | H |
+| `0x09c7d4a4` | `duel_effects_resolve_set_turn_countdown` (D) | Slot value = turn + 1, + 2 on the controller's turn | Hourglass of Courage M1 60 | M |
+| `0x09c80bb4` | `duel_effects_resolve_reveal_opponent_hand_card` (D) | Hint `0xf4`, hand selection, `duel_core_post_reveal_card` | The Inexperienced Spy | H |
+| `0x09c59bbc`, `0x09c5f284` | `duel_effects_cond_opponent_hand_not_empty`, `duel_effects_cond_opponent_deck_not_empty` (D) | Opponent's hand count `+0x534` / Deck count `+0x538` | The Inexperienced Spy, Ancient Telescope | H |
+| `0x09c811c0` | `duel_effects_resolve_view_opponent_deck_top` (D) | `duel_core_open_card_list(side, 5, card)` | Ancient Telescope | M |
+| `0x09c5b99c`, `0x09c5b9e8` | `duel_effects_cond_opponent_draw_event`, `duel_effects_cond_own_discard_event` (D) | Link event `0x1a` by the other side outside a Draw Phase draw; event `0x1e` by the own side | Appropriate, Forced Requisition | M |
+| `0x09c5ba24` | `duel_effects_cond_opponent_lp_at_most_3000` (D) | Opponent LP `< 0xbb9` | Minor Goblin Official | H |
+| `0x09c84ea8` | `duel_effects_resolve_skip_opponent_draw` (D) | `duel_core_post_set_player_flag(opponent, 0)` | Time Seal, Fenrir | M |
+| `0x09c84fa8` | `duel_effects_resolve_reveal_opponent_hand` (D) | `duel_core_post_set_hand_reveal(opponent)`, message `0x3c` | The Eye of Truth | H |
+| `0x09c5c8fc` | `duel_effects_cond_umi_on_field` (D) | Field spell id `0x09e2bbc8` is `0x10f4` or `0x150b` | Tornado Wall | H |
+| `0x09c8ca84`, `0x09c5e268` | `duel_effects_resolve_life_absorbing_machine`, `duel_effects_cond_life_absorbing_machine_record` | `duel_core_find_slot_marker(side, 0xb, ...)`; the player's record list holds `0x14c0` | Life Absorbing Machine | M |
+| `0x09c6062c` | `duel_effects_cond_both_fewer_than_three_monsters` (D) | `duel_core_count_monsters(0) < 3` and `(1) < 3` | Narrow Pass | H |
+| `0x09c683a4` | `duel_effects_cond_controls_required_card` (D) | Per-card required card (`0x1760`, `0x1765` -> `0x173c` ...) with `duel_core_count_named_cards_on_side` | Talisman of Trap Sealing, Talisman of Spell Sealing | H |
+| `0x09c681d4` | `duel_effects_cond_boss_rush` | Slot effect marker of the card, then `duel_effects_can_special_summon_candidate_b` | Boss Rush | M |
+| `0x09c6d5cc` | `duel_effects_cond_no_other_copy` (D) | `duel_core_count_named_cards_except` = 0 | Field Barrier | H |
+| `0x09c6dc14` | `duel_effects_cond_damage_reptile` | Link event `0xf` on its side, once per turn, `duel_effects_can_special_summon_candidate_b` | Damage = Reptile | M |
+
+List handlers (L1 builders of `0x09dec554` and one L4 End Phase handler):
+
+| Address | Name | Evidence | Conf. |
+| --- | --- | --- | --- |
+| `0x09cd321c` | `duel_effects_build_named_card_candidates` (D) | Deck, Graveyard and hand cards with the name that the source names (per-card table), filter `0x802` | H |
+| `0x09cd08a0` | `duel_effects_build_deck_archetype_1f_candidates` (D) | Deck cards of archetype `0x1f` | H |
+| `0x09cd1ed4`, `0x09cd1cb0` | `duel_effects_build_graveyard_same_attribute_candidates`, `duel_effects_build_graveyard_same_type_candidates` (D) | Graveyard filter Attribute `<< 24` or Type `<< 27` of the source | H |
+| `0x09cd384c` | `duel_effects_build_graveyard_spell_candidates` (D) | Graveyard Spell Cards (zone `0xe`) | H |
+| `0x09cdb7f4` | `duel_effects_build_barbaros_ur_banish_candidates` | Machine and Beast-Warrior monsters in the hand, on the field and in the Graveyard that can be banished | M |
+| `0x09cd13cc` | `duel_effects_build_opponent_deck_top_spell_trap_candidates` (D) | Spell and Trap Cards in the top 5 of the opponent's Deck (zone `0xd`) | M |
+| `0x09ddbbec` | `duel_core_end_phase_queue_card_triggers` (D) | L4: queues the field trigger (kind 5) of an active copy, sets slot flag `0x1b`; caller `duel_core_step_end_phase` | M |
+
+Engine functions:
+
+| Address | Name | Evidence | Callers | Conf. |
+| --- | --- | --- | --- | --- |
+| `0x09bf5b40` | `duel_effects_get_link_affected_sides` | Side mask of a link (1 own, 2 opponent, 3 both) from its targets and a per-card list (Zombie World, Advanced Dark, Declaration of Rebirth: 3) | `duel_effects_is_negated_on_resolution`, `ai_is_activation_blocked` | M |
+| `0x09ddef8c` | `duel_core_clear_slot_effect_markers` (D) | Removes the key's marker, slot flag `0xe`, marker `0x1419` and the own markers of `0x1cfe` / `0x1ad5` / `0x183b`, and the links | pointer | M |
+| `0x09ccdfec` | `duel_effects_get_ritual_monster_for_spell` (D) | n-th Ritual Monster of a Ritual Spell from table `0x09dec4d4`; by Attribute for Earth Chant (5) and Contract with the Abyss (2) | AI functions | H |
+| `0x09da0800` | `duel_core_can_tribute_summon_with_gear_castle` (D) | Ancient Gear Castle counters as Tributes; Zombie (race 2) required while Zombie World is active; one Tribute fewer with `0x1e03` | `duel_core_get_summon_set_mask_ex` | M |
+| `0x09da53b8`, `0x09da63c8` | `duel_core_filter_gear_castle_tribute` (D), `duel_core_summon_step_gear_castle_tribute` | Tribute filter (`0x800`) and `summon_prepare` step that offers Ancient Gear Castle (prompt `0xfa`) and tributes it | `duel_core_summon_prepare` | M |
+| `0x09dcc1e0` | `duel_effects_get_default_target_side` (D) | Side the target prompt opens on; equip spells used on enemy monsters flip it | `duel_effects_choose_targets_ui` (pointer) | M |
+| `0x09be5eb8` | `duel_core_detach_effects_of_moved_card` | Detaches the effect records whose source is the moved card (per-card lists; Elemental Hero Necroshade's summon record) | the card-move commands | M |
+| `0x09c1b224` | `duel_core_apply_destroyed_by_battle_rules` | Per destroying card: markers (Greed Quasar's Level, the Horus LV count, Sword Hunter) or its trigger | `duel_core_send_field_card_body` | M |
+| `0x09be7d90` | `duel_core_count_links_of_slot_card` (D) | `duel_core_count_links` with the slot's card as source | `duel_effects_is_disabled_at_activation`, `duel_effects_is_monster_effect_negated_by_card` | H |
+| `0x09cdcebc` | `duel_core_mark_face_up_copies` (D) | Slot value b on every face-up copy of a card (Solemn Wishes after a draw) | draw, LP gain, damage, send functions | H |
+
+Semantic rows raised from L after reading every card branch: `duel_effects_can_target_slot` (`target_rule`), `duel_effects_can_destroy_slot` (`immunity`), `duel_core_can_banish` / `_from_graveyard` (`banish_rule`, H), `duel_core_is_gemini_effect_enabled` (`gemini_rule`, H), `duel_effects_is_valid_ritual_tribute` (`ritual_rule`). Rows added for one callee or kind of a function whose other rows stay L: `duel_core_summon_step_flip` (Goblin Fan), `duel_core_draw_cards_ex` and `duel_core_can_draw` (Solemn Wishes, Protector of the Sanctuary), `duel_effects_get_lp_cost` (Spell Economics), `duel_core_is_effect_active` (Raptinus), `duel_effects_resolve_ritual_summon` (`cmp`), the four Summon functions that test Light of Intervention, and the functions named above. `tools/engine_branches.csv` gained 18 rows for the branches read (Goblin Fan's Level limit, Spell Economics' LP cost 0, Ritual Raven's whole Tribute, Earth Chant / Contract with the Abyss Attributes, Zombie World's race 2, the conditions of Minor Goblin Official, Narrow Pass, Tornado Wall and the Talismans).
+
+Result (disc, `--boot --draw`): full 2,748 -> 2,770, partial 46 -> 36, engine_only 21 -> 9; no card moved back. Precision, judged against the card texts (read locally, not copied): all 22 cards that moved to `full` were read; every descriptive tag agrees with its text and every clause is located.
+
+What still blocks the 45 cards:
+
+- 24 cards have a live record that reaches only `meta` categories or none (the record handlers above, plus `duel_effects_filter_monster_target_b`-only records of Thousand Energy and Triangle Power). They need an `effect` category for state-setting records, which is a change of the category model, not a name.
+- 5 fallback spells: Contract with the Abyss and Earth Chant (no ritual-table entry; by rule partial), Broken Bamboo Sword (no stat modifier and no engine test), Advanced Dark and Rainbow Veil (groups with only L tags in `duel_core_apply_phase_start_attack_rules` and `duel_core_battle_step_damage_calc`, untagged equip and negation functions).
+- Groups with only L tags in functions with many card branches that were not all read: `duel_core_summon_step_normal` (Nuvia, Ancient Gear Castle), `duel_core_send_hand_card` (Makyura), `duel_core_add_counters` and three untagged position functions (Worm Gurus), the Fusion rules of `card_db` (Chimeratech Fortress Dragon, Skullking), `duel_core_get_turn_count` / `duel_core_update_pumpking` (Pumpking).
+- Unnamed: `0x09c8396c` and `0x09da930c` (Light of Intervention; a 1,548-byte resolve handler and a summon step), `0x09c29bd4` (Makyura), `0x09dad6cc` (4,904 bytes, the summon trigger collector: Ancient Gear Castle, Worm Gurus), BOOT `0x0885fe2c` (Skullking), and presentation functions of rel_duel_draw (`0x0989bd78` Exodia, `0x09867a20` Rare Metal Dragon, `0x0988a188` Nuvia, `0x098a1440` Lorelei).
+- No effect-bearing engine group at all (only name aliases or archetype tests): Cyber Harpie Lady, Convulsion of Nature, Proto-Cyber Dragon, Elemental Hero Neos Alius, and Infinite Dismissal (an L4 list only).
+
 ## Open questions
 
 - Prompt-request kind 7 (`0x09c14284`) and the meaning of UI events 3 (command 7) and `0x2a` (mode 9 picks). Kinds 4 and 8 are Great Shogun Shien's substitute and Advanced Dark's Deck pick (third round).
@@ -421,5 +487,7 @@ The large unnamed chains left are AI functions whose cases call unnamed helpers:
 - `duel_core_check_duel_condition` / `duel_core_was_card_used_in_duel`: which game feature the condition index at `+0x290` belongs to (duel bonuses or story challenges), and what sets the bit set `0x09e02f24`.
 - `duel_core_is_destruction_substitute`: the BOOT list `0x08861d2c` and card `0x1f0d` (unreleased) are not identified.
 - Resolved for the battle functions (third round). Still L: `duel_core_summon_step_flip`, `duel_effects_can_target_slot`, `duel_effects_can_destroy_slot`, `duel_core_draw_cards_ex` / `duel_core_can_draw`, `duel_effects_get_lp_cost`, the Ritual helpers, `duel_core_can_banish*`, `duel_core_is_gemini_effect_enabled`; they hold the remaining L-only cards.
-- Unnamed blockers left (one or two cards each): `0x09bf5b40` (2,680 bytes, negation on resolution), `0x09dcc1e0` (per-card default side of a target prompt), `0x09ddef8c` (removes a monster's acquired markers: Goblin Attack Force, Greed Quasar), `0x09c1b224`, `0x09c29bd4` (Makyura's player marker when sent to the Graveyard), `0x09be5eb8` (detaches location effects on a move), `0x09c8396c` / `0x09da930c`, `0x09da0800`, `0x09dad6cc`, `0x09ccdfec`; in rel_duel_draw the presentation functions `0x0984d970`, `0x0989bd78`, `0x09867a20`, `0x0988a188`, `0x098a1440` (card-id-keyed tasks and info panels; no rule), and in BOOT `0x0885fe2c`.
+- Unnamed blockers left after the fifth round: `0x09c8396c` / `0x09da930c` (Light of Intervention), `0x09c29bd4` (Makyura), `0x09dad6cc` (summon trigger collector), BOOT `0x0885fe2c`, and the rel_duel_draw presentation functions `0x0989bd78`, `0x09867a20`, `0x0988a188`, `0x098a1440` (card-id-keyed tasks and info panels; no rule).
 - `duel_core_begin_select_tributes`: the meaning of its arguments `a`/`b` and of selection state 8 outside Ritual and Tribute selections.
+- Records that only set state (slot values, player flags, hand reveal) reach no `effect` category: whether `set_value`, `set_flag` and `reveal` should count as effects when they are the whole resolve of a record (fifth round).
+- `duel_effects_get_link_affected_sides`: which bit is the own side when a link targets both, and why some cards return 0 regardless of targets.

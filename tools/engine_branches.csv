@@ -26,3 +26,21 @@ card_id,function,when,effect,amount,condition,confidence,basis
 0x16bf,0x09ce096c,rule_check,destroy_self,,in face-up Defense Position,H,duel_core_check_defense_position_destruction
 0x1343,0x09cde3e0,rule_check,destroy_duplicate_names,,a face-up monster shares its name with another face-up monster,M,duel_effects_apply_unique_name_rule
 0x182d,0x09c28074,battle_damage,atk_gain_marker,marker kind 3,direct attack damage by it (the +1000 itself is applied by the marker reader),M,battle.md: duel_core_apply_battle_damage
+0x1255,0x09dafc90,card_moved,destroy_summoned,Level 2 or lower,a monster is Flip Summoned while the card is active (summon step 0x16),M,effect-helpers-misc.md (fifth round): duel_core_summon_step_flip
+0x178b,0x09c0d920,continuous,draw_lock,opponent,the draw is not a Draw Phase draw (0x09e2d1e8 != 0),M,effect-helpers-misc.md (fifth round): duel_core_can_draw
+0x1405,0x09c28f44,continuous,mark_face_up_copies,slot value b = 1,its controller draws,M,effect-helpers-misc.md (fifth round): duel_core_draw_cards_ex calls duel_core_mark_face_up_copies
+0x17a3,0x09c41400,continuous,lp_cost_set,0,link kind 0 on its controller's side,M,effect-helpers-misc.md (fifth round): duel_effects_get_lp_cost
+0x1c14,0x09ccc718,activation,whole_ritual_tribute,1 card,the Ritual Monster has the Attribute of 0x1c14,H,effect-helpers-misc.md (fifth round): duel_effects_is_valid_ritual_tribute
+0x1716,0x09ccd224,activation,ritual_monster_by_attribute,EARTH (5),any Ritual Monster of the Attribute,H,effect-helpers-misc.md (fifth round): duel_effects_can_ritual_summon_entry
+0x1698,0x09ccd224,activation,ritual_monster_by_attribute,DARK (2),any Ritual Monster of the Attribute,H,effect-helpers-misc.md (fifth round): duel_effects_can_ritual_summon_entry
+0x135d,0x09db2ae0,continuous,summon_face_up,face_up = 1,every Special Summon while the card is active,M,effect-helpers-misc.md (fifth round): duel_core_special_summon_impl
+0x1eb1,0x09da0800,continuous,tribute_summon_type,Zombie (race 2),Tribute Summons while the card is active,M,effect-helpers-misc.md (fifth round): duel_core_can_tribute_summon_with_gear_castle
+0x1355,0x09c5ba24,activation,lp_condition,3000,the opponent's LP are 3000 or less (< 3001),H,effect-helpers-misc.md (fifth round): duel_effects_cond_opponent_lp_at_most_3000
+0x15a9,0x09c6062c,activation,monster_count_condition,fewer than 3,each player controls fewer than 3 monsters,H,effect-helpers-misc.md (fifth round): duel_effects_cond_both_fewer_than_three_monsters
+0x13f7,0x09c5c8fc,activation,field_condition,0x10f4 or 0x150b,the active field spell id (0x09e2bbc8),H,effect-helpers-misc.md (fifth round): duel_effects_cond_umi_on_field
+0x1760,0x09c683a4,activation,required_card,0x173c,controls the named card,H,effect-helpers-misc.md (fifth round): duel_effects_cond_controls_required_card
+0x1765,0x09c683a4,activation,required_card,0x173c,controls the named card,H,effect-helpers-misc.md (fifth round): duel_effects_cond_controls_required_card
+0x0e92,0x09c5737c,activation,graveyard_condition,Level 7 or more,an Arcana Force monster of the Level range in its controller's Graveyard,M,effect-helpers-misc.md (fifth round): duel_effects_cond_graveyard_has_arcana_force_level
+0x120e,0x09c7d4a4,activation,turn_countdown,current turn + 1 or + 2,the slot value of its monster (+2 when it is the controller's turn),M,effect-helpers-misc.md (fifth round): duel_effects_resolve_set_turn_countdown
+0x1378,0x09c84ea8,activation,player_flag,opponent flag 0,the opponent's player flag 0 is set (skips the next draw),M,effect-helpers-misc.md (fifth round): duel_effects_resolve_skip_opponent_draw
+0x137b,0x09c84fa8,activation,hand_reveal,opponent,the opponent's hand stays revealed (command 0x53) with message 0x3c,H,effect-helpers-misc.md (fifth round): duel_effects_resolve_reveal_opponent_hand
