@@ -44,6 +44,8 @@ deck_tutorial_script,deck_tutorialNN.bin tutorial bytecode,deck,documented,
 effect_lists,8-byte (card id + handler) effect lists (rel_duel_eng.prx),duel_effects,documented,
 snd_cue,Sound bank cue entry,audio,documented,32
 snd_adpcm_layer,PS-ADPCM layer/sample/envelope records,audio,documented,
+snd_at3_wave,ATRAC3/ATRAC3plus RIFF wave in a sound bank (fmt/fact/smpl; decoder delay; converted by audio_convert.py),audio,reimplemented,
+psmf_audio_stream,PSMF private stream 1 ATRAC3plus track (payload header; 8-byte frame headers; PTS lead),container,reimplemented,
 story_text,Story text tables EveI/EveL SysMsgI/SysMsgL,dialogue,verified,
 story_bytecode,Event bytecode EveB/EveBI (records and text references),dialogue,reimplemented,390950
 save_data,DATA0 save buffer (0x20000 bytes),save,documented,131072
@@ -156,7 +158,7 @@ shop_opponent_list,Opponent list of the pack rules (rel_shop 0x090ef208; 104 ent
 file_request_ring,File thread request ring (BOOT.BIN 0x08920cb4; 32 x 0x60),container,named,96
 root_path_table,Root path table (BOOT.BIN 0x0889fb24; 9 roots),container,named,
 heap_header,HOGE heap header and block list (system_heap_create),system,named,16
-psmf_movie,Sony PSMF movie (movie/*.pmf; AVC video + ATRAC3plus audio; 73 files),container,documented,
+psmf_movie,Sony PSMF movie (movie/*.pmf; AVC video + ATRAC3plus audio; 73 files; converted by psmf.py --convert),container,reimplemented,
 strtbl,UI string table (u32 count / 12 / base; UTF-16LE; end offset),ui,reimplemented,
 strtbl_offset_list,Offset-list string table (pack_name_str / pack_explain_str),shop,reimplemented,
 tgm_etc_scene,TGMT -etc scene block (leading tracks: camera lens; fog/ambient/4 lights or 32 visibility groups),field_3d,documented,

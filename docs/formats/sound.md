@@ -1,6 +1,6 @@
 # Sound banks (`snd/psp_snddat.bin`)
 
-Status: `reimplemented`. `tools/sound.py` walks the whole file, and `--check` passes on the reference disc: 728 banks, 30,779 cues, 18,608 distinct RIFF waves and 107 PS-ADPCM cues. It exports one cue at a time (`--export BANK:CUE`): a RIFF wave as `.at3`, a PS-ADPCM layer decoded to a 16-bit PCM `.wav`. Field meanings marked as hypotheses below are not verified in PPSSPP. Exports go under `extracted/` and are never committed.
+Status: `reimplemented`. `tools/sound.py` walks the whole file, and `--check` passes on the reference disc: 728 banks, 30,779 cues, 18,608 distinct RIFF waves and 107 PS-ADPCM cues. It exports one cue at a time (`--export BANK:CUE`): a RIFF wave as `.at3`, a PS-ADPCM layer decoded to a 16-bit PCM `.wav`. `tools/audio_convert.py` converts the whole file to WAV/OGG/FLAC with FFmpeg and checks every stream (see "Decoding to PCM"). Field meanings marked as hypotheses below are not verified in PPSSPP. Exports go under `extracted/` and are never committed.
 
 `PSP_GAME/USRDIR/snd/psp_snddat.bin` (138,645,504 bytes) is the only file in `snd/`. `BOOT.BIN` holds the strings `disc0:/PSP_GAME/USRDIR/snd/` (file offset `0x9bb38`) and `psp_snddat.bin` (`0x9d640`). It imports `sceAtrac3plus` (`0x6f04c`) and `sceSasCore` (`0x6f070`), and names `libatrac3plus.prx` and `sc_sascore.prx`. The waves are ATRAC3/ATRAC3plus (decoded with libatrac3plus), and the ADPCM layers use sceSas pitch units (see below). So the game plays this file with both libraries. That last point is an inference from imports and data: no call site was traced.
 
@@ -59,6 +59,53 @@ Each wave is a `u32` length followed by that many bytes of a standard RIFF/WAVE 
 | `0x0270` | ATRAC3 | 32 | 55 | 45 | 192 |
 
 All waves are 44,100 Hz. Chunks: `fmt `, `fact`, `data`, plus `smpl` in 58 waves. Such a wave is what PSP tools call an `.at3` file, so the exporter writes it unchanged.
+
+Codec details (all from `tools/audio_convert.py --survey`; byte layouts checked on every wave):
+
+| Codec | Channels | Block (bytes) | Samples per block | Bitrate (bit/s) | Waves |
+| --- | --- | --- | --- | --- | --- |
+| ATRAC3plus | 1 | 192 | 2048 | 33,075 | 18,443 |
+| ATRAC3plus | 1 | 280 | 2048 | 48,234 | 12 |
+| ATRAC3plus | 2 | 280 | 2048 | 48,234 | 19 |
+| ATRAC3plus | 2 | 376 | 2048 | 64,772 | 34 |
+| ATRAC3 | 1 | 192 | 1024 | 66,150 | 55 |
+| ATRAC3 | 2 | 192 | 1024 | 66,150 | 45 |
+
+- **ATRAC3plus `fmt `** (52 bytes): `WAVE_FORMAT_EXTENSIBLE` (`0xFFFE`), channels, 44,100, average bytes per second (block × 44,100 / 2048), block align, bits 0, cbSize 34, `0x0800` (samples per block, in the "valid bits" slot), channel mask (1 mono, 3 stereo), the sub-format GUID `E923AABF-CB58-4471-A119-FFFA01E4CE62`, `u16` 1, then a **big-endian 16-bit codec word** and 8 zero bytes. The codec word is the one OMA headers and the PSMF frame headers use: bits 0–9 = block / 8 − 1, bits 10–12 = channels, bits 13–15 = rate index (1 = 44,100 Hz). Disc values: `0x2417` (mono 192), `0x2422`/`0x2822` (280), `0x282E` (stereo 376).
+- **ATRAC3 `fmt `** (32 bytes): tag `0x0270`, cbSize 14 and 14 bytes of ATRAC3 extra data (`u16` 1, `u32` `0x0800` mono or `0x1000` stereo, coding-mode words), passed to the decoder unchanged.
+- **`fact`** (8 bytes in every wave): `u32 sample_count`, `u32 first_sample_offset`. The offset is 2048 (ATRAC3plus) or 1024 (ATRAC3) in 18,550 waves; the other 58 have other values (2,077–4,088 in the music banks).
+- **`smpl`**: one loop each (36-byte header, one 24-byte loop record: start, end). The values count from `first_sample_offset`: output sample = stored value − offset, end inclusive. Basis: several music loops start exactly at the offset and every music loop that runs to the end stops at offset + sample_count − 1 (bank 2: offset 3,496, samples 3,227,880, loop end 3,231,375). 47 of the 48 music waves have a loop (all but bank 20), plus 5 ATRAC3plus and 6 ATRAC3 effect waves in banks 714–723. Bank 47 loops on a middle part (loop end before the last sample). Whether the game uses the effect loops is not known.
+
+## Decoding to PCM (install-time conversion)
+
+No ATRAC decoder is written for the project. The RIFF waves are complete `.at3` files that **FFmpeg** reads as they are (`wav` demuxer, `atrac3` and `atrac3p` decoders; checked with FFmpeg 7.1.1), so the conversion is a step the port's installer runs on the user's own disc, never a converted copy that the project distributes.
+
+`tools/audio_convert.py` does this step:
+
+```
+python3 -I tools/audio_convert.py <USRDIR>/snd/psp_snddat.bin --survey              # codec census, no decoding
+python3 -I tools/audio_convert.py <USRDIR>/snd/psp_snddat.bin --check [--jobs 12]   # decode all, write nothing
+python3 -I tools/audio_convert.py <USRDIR>/snd/psp_snddat.bin -o <scratch>/snd [--format wav|ogg|flac] [--bank N ...]
+```
+
+For each distinct stream of a bank (a RIFF wave shared by several cues is decoded once):
+
+1. Pipe the stored RIFF bytes into `ffmpeg -f wav -i pipe:0 -f s16le pipe:1` (FFmpeg on PATH or `--ffmpeg`).
+2. Check the decoded length: exactly `frames × samples per frame` (2048 for ATRAC3plus, 1024 for ATRAC3).
+3. Trim: drop `first_sample_offset + decoder delay` samples, keep `sample_count`. The decoder delay is **368** samples for ATRAC3plus and **69** for ATRAC3. Basis: with these values the number of stored frames equals ⌈(offset + delay + sample_count) / frame size⌉ for all 18,608 waves, while with no delay the count would not match for 3,472 waves (high confidence); PPSSPP's sceAtrac emulation skips the same amounts (`0x170` / `0x45`).
+4. PS-ADPCM layers are decoded natively (`sound.decode_adpcm`, no FFmpeg). Their loop is taken from the frame flags: the first frame with flag bit 2 starts it, the frame with the end bit (bit 0) and bit 1 ends it (end = last sample of that frame).
+5. Write `snd_<bank>_<first cue>[_<layer>].<wav|ogg|flac>`. OGG Vorbis (quality 6) and FLAC are encoded by a second `ffmpeg` call; OGG files get `LOOPSTART` / `LOOPLENGTH` tags.
+6. Write `snd_<bank>.json`: label, and per cue the volume, pan, flags, duration, the 24-byte envelope records (ADPCM, hex) and per stream codec, channels, rate, bitrate, block align, sample count, file name and `loop` (`{start, end}` in output samples, or `null`).
+
+`--check` runs steps 1–4 for every stream and also compares each trimmed length with the duration of every cue that uses it (within 2 ms) and each loop with the stream length. Result on the reference disc, about 3 minutes with 12 jobs:
+
+```
+ok: 728 banks, 18716 streams decoded: ATRAC3 100 (2.6 min), ATRAC3plus 18508 (478.2 min), PS-ADPCM 108 (0.7 min)
+```
+
+(18,716 = 18,608 RIFF waves + 108 distinct ADPCM samples; the 111 layers share three.) FFmpeg prints "non monotonically increasing dts" warnings for ATRAC3plus in WAV when it writes to a muxer; they do not affect the decoded samples (the decoded length is checked) and the tool runs it with `-loglevel fatal`.
+
+Tests on synthetic data only: `tools/tests/test_audio_convert.py` (the RIFF wrapper bytes, the codec word, trimming, loops, a bank converted with a stub in place of FFmpeg).
 
 ## PS-ADPCM layers (only in 15 banks)
 
@@ -172,4 +219,4 @@ Its `sound` command (read-only, run on the maintainer's image on 2026-10-25):
 - The play call itself: which `BOOT.BIN` function takes a global sound id (candidates around `0x08826458`/`0x088265ac`, called from `0x08841514`–`0x0884155c`), and how a bank gets loaded.
 - How the duel chooses among the three banks of a voice set, and which voice ids the duel uses for the 52-cue generic-student sets.
 - Banks 709–711 (28, 19 and 19 cues) and the extra small-bank groups without a voice set: which characters or scenes use them.
-- Whether the `smpl` chunks in 58 waves carry loop points that the game uses for music.
+- The `smpl` loops are decoded and carried over (see "Decoding to PCM"); still open: whether the game also loops the 11 effect waves that have one, and how the player passes loop points to sceAtrac (`sceAtracSetLoopNum` call sites).

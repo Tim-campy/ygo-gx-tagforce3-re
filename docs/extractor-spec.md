@@ -24,8 +24,8 @@ The disc is unpacked in three stages; every leaf decoder below starts from the o
         |        +-- .gim  .ehf/.tmf  .tms/.tmt(.gz)/.tma  .bin tables  .ydq  .hmp  .dat  ...
         |        +-- .gim -> gim.py (PNG)   string-table .bin -> strtbl.py (JSON/TSV)
         +-- card/*.cip ------------------------------------------cip.py
-        +-- snd/psp_snddat.bin ----------------------------------sound.py, voices.py
-        +-- movie/*.pmf -----------------------------------------psmf.py (headers only)
+        +-- snd/psp_snddat.bin ----------------------------------sound.py, voices.py; audio_convert.py (+FFmpeg: WAV/OGG/FLAC)
+        +-- movie/*.pmf -----------------------------------------psmf.py (check; --convert +FFmpeg: MP4/MKV/WAV)
         +-- SYSDIR/BOOT.BIN, USRDIR/gmodule/*.prx (plain ELF) ---tables in code: tables.py, decks.py, fusion.py,
                                                                  ai_tables.py, effect_*.py, world.py, ...
 ```
@@ -236,10 +236,10 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | --- | --- |
 | Source | `<USRDIR>/snd/psp_snddat.bin`: 728 `SP` banks chained without a directory (banks 0–47 music, 48–711 voices, 712–727 effects, medium confidence by content). Voice routing: `BOOT.BIN` character and sound-id tables, `rel_charalist.prx` voice-test table, `*_voiceidchgtbl.bin` and `chr_wordstbl_<l>.bin` in `database/charalist.ehp` and `duel/cutin_*.ehp`. |
 | Format docs | `docs/formats/sound.md` |
-| Tool / command | `python3 -I tools/sound.py <USRDIR>/snd/psp_snddat.bin [--bank N] [--check]`; export: `sound.py <…> --export BANK:CUE -o extracted/snd/<file>`; voices: `python3 -I tools/voices.py <PSP_GAME> --check`, `voices.py <PSP_GAME> [--language e] -o extracted/voices.csv` |
-| Port output | WAV (16-bit PCM) per cue; for ATRAC3/ATRAC3plus (18,608 waves) the tool writes the RIFF wave unchanged as `.at3`, which a decoder must turn into PCM at install time. Cue metadata (volume, pan, pitch, envelope, loop flags) as JSON; voice table CSV: (character, voice id) → bank, cue, caption. |
-| Verified | Check run: `ok: 728 banks, 30779 cues, 18608 distinct RIFF waves, 107 ADPCM cues`; `voices --check` `ok: 97 voice tables, 728 banks, 134 voice-test items` (two notes). `snd_bank` `reimplemented`; PS-ADPCM decoded to WAV by the tool. Tests: `tools/tests/test_sound.py`, `tools/tests/test_voices.py`. |
-| Gaps | **ATRAC3/ATRAC3plus decoding is external**: there is no standard-library decoder; the spec must name one (for example FFmpeg's `atrac3`/`atrac3p`, run by the maintainer) and the export is one cue per call (no batch mode). Cue flags and envelope bytes 8–11, loop points in 58 `smpl` chunks, the play call and bank loading, which banks the duel uses for a voice set. Blocking for audio (decoder choice), not for the format. |
+| Tool / command | `python3 -I tools/sound.py <USRDIR>/snd/psp_snddat.bin [--bank N] [--check]`; export: `sound.py <…> --export BANK:CUE -o extracted/snd/<file>`; batch conversion (needs FFmpeg with the `atrac3`/`atrac3p` decoders, on PATH or given with `--ffmpeg`): `python3 -I tools/audio_convert.py <USRDIR>/snd/psp_snddat.bin -o <scratch>/snd [--format wav\|ogg\|flac] [--bank N …]`, `audio_convert.py <…> --check [--jobs N]` (decodes everything, writes nothing), `audio_convert.py <…> --survey` (codec census, no decoding); voices: `python3 -I tools/voices.py <PSP_GAME> --check`, `voices.py <PSP_GAME> [--language e] -o extracted/voices.csv` |
+| Port output | Install-time conversion from the user's own disc: one 16-bit PCM WAV (or OGG Vorbis q6 / FLAC) per distinct stream, named `snd_<bank>_<first cue>[_<layer>]`, trimmed to the `fact` sample count, plus `snd_<bank>.json` per bank: per cue volume, pan, flags, duration, envelope records (ADPCM), and per stream codec, channels, rate, bitrate, sample count, file and loop `{start, end}` in output samples (end inclusive). OGG files also carry `LOOPSTART`/`LOOPLENGTH` tags. Voice table CSV: (character, voice id) → bank, cue, caption. |
+| Verified | Check run: `ok: 728 banks, 30779 cues, 18608 distinct RIFF waves, 107 ADPCM cues`; `voices --check` `ok: 97 voice tables, 728 banks, 134 voice-test items` (two notes); `audio_convert.py --check --jobs 12` with FFmpeg 7.1.1 (about 3 min): `ok: 728 banks, 18716 streams decoded: ATRAC3 100 (2.6 min), ATRAC3plus 18508 (478.2 min), PS-ADPCM 108 (0.7 min)`. Every wave decodes to exactly (frame count × frame size) samples, every trimmed stream matches the duration of each cue that uses it within 2 ms, every loop lies inside its stream. `snd_bank` and `snd_at3_wave` `reimplemented`. Tests: `tools/tests/test_sound.py`, `tools/tests/test_voices.py`, `tools/tests/test_audio_convert.py`. |
+| Gaps | ATRAC decoding is delegated to FFmpeg (`atrac3`, `atrac3p`), run on the user's machine at install time; no ATRAC decoder is written for the project. Open: whether the game honours the `smpl` loops of the 11 non-music waves that have one (47 of the 48 music waves have one), cue flags and envelope bytes 8–11, the play call and bank loading, which banks the duel uses for a voice set. Not blocking: every stream converts. |
 
 ## 17. PSMF movies
 
@@ -247,10 +247,10 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | --- | --- |
 | Source | `<USRDIR>/movie/*.pmf`: 73 files, 243.1 MiB, 16.9 min (opening, two staff rolls, 68 summon/attack cut-ins, two win scenes). |
 | Format docs | `docs/formats/psmf-movies.md`, `docs/subsystems/movies.md` |
-| Tool / command | `python3 -I tools/psmf.py <USRDIR>/movie [--check]`; `psmf.py <file.pmf> [--check]` (headers and pack clocks only; never decodes or copies video) |
-| Port output | Install-time conversion from the maintainer's copy: strip the 0x800-byte header, demux the MPEG-2 program stream (H.264 Main 480×272 at 29.97 fps, stream `0xe0`; ATRAC3plus, private stream 1) and transcode to a format the 3DS player can decode (for example 400×240 H.264 Baseline or a 3DS-native video format). Plus a JSON list: name, duration, which module plays it. |
-| Verified | Check run: `ok: 73 movies, 243.1 MiB, 16.9 min in total`. `psmf_movie` is `documented`. Tests: `tools/tests/test_psmf.py`. |
-| Gaps | No demux/transcode step in `tools/` (an external tool such as FFmpeg is the expected route; not specified or tested here); header bytes `+0x10`–`+0x55`; what selects the `_a` names; skip behaviour. Not blocking for the rest of the port (a "skip movie" path exists by design). |
+| Tool / command | `python3 -I tools/psmf.py <USRDIR>/movie [--check]`; `psmf.py <file.pmf> [--check]` (headers, pack clocks and the audio demux); conversion with FFmpeg: `psmf.py <USRDIR>/movie --convert -o <scratch>/movie [--format mp4\|mkv\|wav]`; `psmf.py <USRDIR>/movie --convert-check` (converts each movie to a temporary MP4, decodes it back with `ffprobe -count_frames`, deletes it) |
+| Port output | Install-time conversion from the user's own copy: `<name>.mp4` (the H.264 Main 480×272 29.97 fps stream copied bit for bit; audio demuxed by the tool from private stream 1, decoded from ATRAC3plus by FFmpeg, trimmed to start with the first video frame, encoded as AAC 160 kbit/s), or `<name>.mkv` (same video, FLAC audio), or `<name>.wav` (audio only, 16-bit PCM). Re-encoding to what the 3DS plays (for example 400×240 H.264 Baseline or a 3DS-native format) is a second, port-side step from this file. Plus a JSON list: name, duration, which module plays it. |
+| Verified | Check run: `ok: 73 movies, 243.1 MiB, 16.9 min in total; audio: ATRAC3plus 744-byte frames, 2 ch, 44100 Hz, lead 2416 samples`; `--convert-check` with FFmpeg 7.1.1: `ok: 73 movies converted and decoded, 16.9 min of video; largest audio/video length difference 0.083 s, largest video/header difference 0.000 s`. `psmf_movie` and `psmf_audio_stream` are `reimplemented`. Tests: `tools/tests/test_psmf.py`. |
+| Gaps | The 3DS playback format; header bytes `+0x10`–`+0x55`; the decoder delay inside the movie audio (the alignment comes from the PTS, see `psmf-movies.md`); what selects the `_a` names; skip behaviour. Not blocking (a "skip movie" path exists by design). |
 
 ## 18. AI tables
 
@@ -292,7 +292,8 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 - `python3 -I tools/ehp.py --verify` over all archives in one call failed on Windows with "Argument list too long" (shell limit, not a tool fault). Run once per file instead, it reported **609 files, 0 failing** (531 loose `.ehp` and the 78 `field/bustup/*.ehp.gz`; the 20 nested archives are inside them).
 - `python3 -I tools/modules.py list <SYSDIR>/BOOT.BIN <USRDIR>/gmodule <USRDIR>/module --check` passed; it identifies `module/libfont.prx` as an encrypted Sony module and does not decrypt it.
 - `python3 -I tools/progress.py --check`: `ok`.
-- All 30 test files under `tools/tests/` pass (`test_gim.py` and `test_strtbl.py` added with the GIM and string-table tools).
+- All 32 test files under `tools/tests/` pass (`test_gim.py` and `test_strtbl.py` added with the GIM and string-table tools, `test_audio_convert.py` with the audio conversion).
+- Audio and movie conversion (FFmpeg 7.1.1): `audio_convert.py --check` and `psmf.py --convert-check` pass (§16, §17); outputs of the trial conversions went to a scratch directory outside the repository.
 - `python3 -I tools/gim.py check <PSP_GAME>` and `python3 -I tools/strtbl.py check <PSP_GAME>`: `OK` (§7, §15).
 - `python3 -I tools/tables.py odds <USRDIR>/gmodule/rel_shop.prx --check --cardinfo <cardinfo_eng.ehp>` (added with the pack-draw analysis): `ok: 48 packs, rarity box 14/4/2 per 20, 245 cards per round of packs, draws replayed` (§3a); `story.py events --check` still passes with the new opcode names (§13).
 
@@ -317,16 +318,16 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | Story and event scripts | partial | no | Trace the field requests and the lower-confidence opcodes in PPSSPP. |
 | Tutorials | partial | no | Identify whether `tutorial/` is used; decode the remaining engine command codes. |
 | UI string tables | partial | yes (mapping) | Tool and census done; map table indices to screens with the scene analysis of the UI. |
-| Sound and voices | partial | yes (decoder) | Choose and document the ATRAC3/ATRAC3plus decode route; batch export; cue flags and loops. |
-| PSMF movies | partial | no | Specify and test the install-time demux/transcode route. |
+| Sound and voices | complete for decoding (FFmpeg at install time, PS-ADPCM native, loops in JSON) | no | Cue flags, envelope bytes and the play call (PPSSPP trace); whether the SFX loops are used. |
+| PSMF movies | complete for conversion (own audio demux + FFmpeg) | no | Choose the 3DS playback format; the port's installer re-encodes the MP4 to it. |
 | AI tables | partial | partly | Name single-use handlers; PPSSPP trace of plan comparison. |
 | Save data | partial | no (new games) / yes (import) | Map the remaining regions with differential saves; extend `save.py`. |
 | Minigames and other screens | partial | no | Out of work packages 1–5; analyse when the port reaches them. |
 
 ## Open questions
 
-- Which ATRAC3/ATRAC3plus decoder the extractor chain uses (an external FFmpeg step run by the maintainer, or a decoder written for the project), and whether loop points from the `smpl` chunks must be carried over.
-- Which video format and resolution the port plays, and therefore what the install-time PSMF conversion produces.
+- Answered 2026-10-30: ATRAC3/ATRAC3plus are decoded by FFmpeg (`atrac3`, `atrac3p`) on the user's machine at install time (`audio_convert.py`, `psmf.py --convert`); the `smpl` loop points are carried over in the JSON side files and as OGG tags.
+- Which video format and resolution the port plays, and therefore what the port-side re-encode of the converted MP4 produces.
 - Answered 2026-10-30: the model target is glTF 2.0 (the Bézier tracks convert exactly to `CUBICSPLINE` after splitting at the union of the per-axis key frames) plus the `tf3-tgm-scene` side file for what glTF cannot hold.
 - Which code loads `duel/bg/fmagic<id>.ehp` and what `fmagic0000` and `fmagic05` are (the `-etc` tracks are read by `rel_duel_draw` `0x0985b504`, see `field_3d.md`).
 - Whether `tutorial/tutorial_all.ehp` and `tutorial/tutorial_<l>.ehp` are used by any module (no file-name string was found in `BOOT.BIN` or `gmodule/`).
