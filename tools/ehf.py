@@ -12,11 +12,14 @@ Examples (archives are EHP files; an ELF such as BOOT.BIN is scanned for embedde
     python3 -I tools/ehf.py inspect USRDIR/title_menu/title_menu_e.ehp press_start.ehf
     python3 -I tools/ehf.py check USRDIR SYSDIR/BOOT.BIN
     python3 -I tools/ehf.py render SYSDIR/BOOT.BIN loading.ehf --frame 10 -o extracted/ehf/loading.png
+    python3 -I tools/ehf.py json SYSDIR/BOOT.BIN --member loading.ehf -o ../tf3scratch/loading.json
+    python3 -I tools/ehf.py json USRDIR SYSDIR/BOOT.BIN -o ../tf3scratch/ehf      # batch, one .json per .ehf
+    python3 -I tools/ehf.py json --check USRDIR SYSDIR/BOOT.BIN                   # convert all in memory
 """
 
 import argparse
-import gzip
 import importlib.util
+import json
 import struct
 import sys
 from collections import Counter
@@ -100,7 +103,7 @@ def parse_track(data, offset, limit):
                 pos += 4
         keys.append(key)
     return {"base": tuple(floats[:6]), "steps": tuple(floats[6:]), "flags": flags, "pad": pad, "keys": keys,
-            "end": start + count * stride}
+            "offset": offset, "stride": stride, "end": start + count * stride}
 
 
 def parse_tracks(data, offset, size):
@@ -147,9 +150,12 @@ def parse_shape(data, base, head):
         prims.append({"ambient": (ambient & 0xFF, ambient >> 8 & 0xFF, ambient >> 16 & 0xFF),
                       "alpha": alpha & 0xFF, "vtype": vtype,
                       "texture": (texture & 0xFFFF) if cmds[3] == 0xFF else None,
-                      "vaddr": vaddr, "prim": kind, "vertices": verts})
+                      "vaddr": vaddr, "prim": kind, "vertices": verts, "words": words[i:i + 6]})
     return {"type": SHAPE, "anchor": (anchor_x, anchor_y), "scale": scale, "prims": prims,
             "tracks": parse_tracks(data, base + anim_off, anim_size),
+            "blocks": {"display_list": (dl_off, dl_size), "vertices": (vtx_off, vtx_size),
+                       "animation": (anim_off, anim_size)},
+            "pad": data[base + 0x28:base + 0x30],
             "size": max(dl_off + dl_size, vtx_off + vtx_size, anim_off + anim_size)}
 
 
@@ -157,6 +163,8 @@ def parse_clip(data, base, head):
     frames, tl_off, tl_size, anim_off, anim_size = struct.unpack_from("<5I", data, base + 4)
     return {"type": CLIP, "frames": frames, "timeline": parse_nodes(data, base + tl_off, tl_size),
             "tracks": parse_tracks(data, base + anim_off, anim_size),
+            "blocks": {"timeline": (tl_off, tl_size), "animation": (anim_off, anim_size)},
+            "pad": data[base + 0x18:base + 0x20],
             "size": max(tl_off + tl_size, anim_off + anim_size)}
 
 
@@ -204,7 +212,7 @@ def parse(data):
             "work_size": work_size, "work_zero": not any(data[work_off:work_off + work_size]),
             "timeline": parse_nodes(data, tl_off, tl_size), "objects": objects, "names": names,
             "slots": names_size // 16,
-            "sections": sections[:SECTIONS]}
+            "sections": sections[:SECTIONS], "objects_offset": obj_off}
 
 
 def parse_tmf(data):
@@ -290,29 +298,35 @@ def tmf_matches(layout, tmf):
 
 # --- Archives -------------------------------------------------------------------------------------
 
-def archives_in(path):
-    """Yield (label, archive bytes) for an EHP file (gzip accepted), nested EHPs, or EHPs embedded in an ELF."""
-    data = path.read_bytes()
-    if data[:2] == b"\x1f\x8b":
-        data = gzip.decompress(data)
+def archive_entries(path, label=None):
+    """Yield (file label, member prefix, members) for an EHP file (gzip accepted), its nested EHPs, or the EHPs
+    embedded in an ELF. `file label` is `label` (default: the path) plus `@0xOFFSET` for an embedded archive;
+    `member prefix` is '' for the outer archive and `inner.ehp/` for a nested one, so that
+    `prefix + member name` is the member argument tools/gim.py and ehp.find_leaf accept.
+    Embedded archives are found with ehp.embedded_archives(), which skips the scan past each archive, so an
+    archive nested inside an embedded one is reported once (as a nested member), not twice."""
+    data = ehp.read_file(path)
+    label = str(path) if label is None else label
     if data[:4] == b"\x7fELF":
-        pos = data.find(ehp.MAGIC)
-        while pos >= 0:
-            if data[pos + 8:pos + 12] == ehp.TAG:
-                size = _u32(data, pos + 4)
-                yield from _with_nested(f"{path}@{pos:#x}", data[pos:pos + size])
-            pos = data.find(ehp.MAGIC, pos + 4)
-        return
-    if data[:4] == ehp.MAGIC:
-        yield from _with_nested(str(path), data)
+        for pos, archive in ehp.embedded_archives(data):
+            yield from _with_nested(f"{label}@{pos:#x}", "", archive)
+    elif ehp.is_archive(data):
+        yield from _with_nested(label, "", data)
 
 
-def _with_nested(label, data):
+def _with_nested(label, prefix, data):
     members = ehp.parse(data)
-    yield label, members
+    yield label, prefix, members
     for name, blob in members:
-        if blob[:4] == ehp.MAGIC:
-            yield from _with_nested(f"{label}/{name}", blob)
+        name, blob = ehp.unwrap(name, blob)
+        if ehp.is_archive(blob):
+            yield from _with_nested(label, f"{prefix}{name}/", blob)
+
+
+def archives_in(path):
+    """Yield (label, members) for an EHP file (gzip accepted), nested EHPs, or EHPs embedded in an ELF."""
+    for label, prefix, members in archive_entries(path):
+        yield (f"{label}/{prefix[:-1]}" if prefix else label), members
 
 
 def layouts(members):
@@ -533,6 +547,360 @@ def load_textures(layout, members):
     return textures
 
 
+# --- Neutral JSON export --------------------------------------------------------------------------
+# Schema: docs/formats/ehf.md, "JSON export". Every byte of the .ehf is either decoded into a named field,
+# kept raw (with its absolute offset) in "unknown", or listed in "gaps" (bytes no structure claims).
+
+JSON_FORMAT, JSON_VERSION = "tf3-ehf-layout", 1
+SECTION_NAMES = ("stage", "work_area", "main_timeline", "objects", "texture_names")
+TMF_ADDITIVE, TMF_BIT4 = 0x01, 0x10
+# Field kinds whose meaning is not established; --check counts their instances (and the non-zero ones).
+UNKNOWN_KINDS = {
+    "stage.field_08": "u32 at stage+0x08: 2, 1 or 4; frame step in vsyncs? (hypothesis, low)",
+    "stage.field_0c": "u32 at stage+0x0C, zero on the disc",
+    "shape.pad_28": "8 bytes at shape+0x28, zero on the disc",
+    "clip.pad_18": "8 bytes at clip+0x18, zero on the disc",
+    "track.pad_2a": "u16 at track+0x2A, zero on the disc",
+    "track.flag_bit5": "channel flag bit 5: no key data, meaning unknown",
+    "key.add": "4-byte colour-add channel (flag bit 4); encoding unknown, s8 x 2 is a low-confidence guess",
+    "tmf.bit4": ".tmf flag bit 4 (0x10), meaning unknown",
+    "tmf.other_bits": ".tmf bits other than 0 and 4 (none on the disc)",
+    "gap": "bytes inside the file that no decoded structure covers (padding when zero)",
+}
+
+
+def _hex(data):
+    return bytes(data).hex()
+
+
+def _matrix(values, digits=None):
+    return [round(v, digits) if digits is not None else v for v in values]
+
+
+def _coverage(layout, size):
+    """Byte ranges [start, end) claimed by decoded structures (absolute offsets)."""
+    ranges = [(0, 0x40)]  # magic, padding, section table
+    for offset, length in layout["sections"][:3]:  # stage, work area and main timeline are decoded whole
+        ranges.append((offset, offset + length))
+    names_off, names_size = layout["sections"][4]
+    for slot in range(0, names_size, 16):
+        name = layout["names"].get(slot)
+        ranges.append((names_off + slot, names_off + slot + (len(name.encode("cp932")) + 1 if name else 1)))
+    obj_off = layout["objects_offset"]
+    for rel, obj in layout["objects"].items():
+        base = obj_off + rel
+        ranges.append((base, base + (0x30 if obj["type"] == SHAPE else 0x20)))
+        anim_off, anim_size = obj["blocks"]["animation"]
+        if anim_size >= 4:  # the offset table has one u32 per entry, used or not
+            ranges.append((base + anim_off, base + anim_off + 4 * len(obj["tracks"])))
+        for track in obj["tracks"]:
+            if track:
+                ranges.append((track["offset"], track["end"]))
+        if obj["type"] == CLIP:
+            tl_off, tl_size = obj["blocks"]["timeline"]
+            ranges.append((base + tl_off, base + tl_off + tl_size))
+        else:
+            dl_off, dl_size = obj["blocks"]["display_list"]
+            vtx_off, _ = obj["blocks"]["vertices"]
+            ranges.append((base + dl_off, base + dl_off + dl_size))
+            for prim in obj["prims"]:
+                start = base + vtx_off + prim["vaddr"]
+                ranges.append((start, start + vertex_size(prim["vtype"]) * len(prim["vertices"])))
+    ranges = [r for r in ranges if r[1] > r[0]]
+    ranges.sort()
+    merged = []
+    for start, end in ranges:
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    gaps, pos = [], 0
+    for start, end in merged + [[size, size]]:
+        if start > pos:
+            gaps.append((pos, start))
+        pos = max(pos, end)
+    return gaps
+
+
+def _track_json(track, index):
+    if track is None:
+        return None
+    flags = track["flags"]
+    keys = []
+    for key in track["keys"]:
+        out = {"frame": key["frame"]}
+        for name in CHANNELS:
+            if name in key:
+                out[name] = list(key[name])
+        if "add" in key:
+            out["add_raw"] = _hex(v & 0xFF for v in key["add"])
+        keys.append(out)
+    return {"index": index, "offset": track["offset"],
+            "base_matrix": list(track["base"][:4]), "base_translate": list(track["base"][4:]),
+            "steps": dict(zip(("translate", "scale", "skew"), track["steps"])),
+            "flags": flags, "channels": [n for bit, n in enumerate(CHANNELS) if flags >> bit & 1],
+            "flag_bit5": bool(flags & 0x20), "key_stride": track["stride"], "pad_2a": track["pad"], "keys": keys}
+
+
+def _timeline_json(timeline):
+    out, time = [], 0
+    for index, node in enumerate(timeline):
+        out.append({"index": index, "frame": time, "action": "remove" if node["object"] is None else "place",
+                    "object": node["object"], "track": node["track"], "depth": node["depth"],
+                    "clip_depth": node["clip"], "wait": node["wait"]})
+        time += node["wait"]
+    return out
+
+
+def evaluate_frame(layout, frame, digits=6):
+    """Flattened draw list of one main-timeline frame, in draw order. Uses the tool's hypotheses: linear
+    key interpolation, clips loop, parent x child matrices, multiplied colour multiply, summed colour add."""
+    out = []
+
+    def walk(timeline, local, parent, pmul, padd, path, chain):
+        for depth, (node, placed) in sorted(placements(timeline, local).items()):
+            obj = layout["objects"][node["object"]]
+            matrix, mul, add = track_state(obj["tracks"][node["track"]], local - placed)
+            matrix = compose(parent, matrix)
+            mul = [p * m for p, m in zip(pmul, mul)]
+            add = [p + a for p, a in zip(padd, add)]
+            link = {"depth": depth, "object": node["object"], "track": node["track"],
+                    "placed_at": placed, "local_frame": local - placed}
+            if obj["type"] == CLIP:
+                frames = max(obj["frames"], 1)
+                walk(obj["timeline"], (local - placed) % frames, matrix, mul, add, path + (depth,),
+                     chain + [link])
+            else:
+                out.append({"path": list(path + (depth,)), "object": node["object"], "track": node["track"],
+                            "clip_depth": node["clip"], "chain": chain + [link],
+                            "matrix": _matrix(matrix, digits), "multiply": _matrix(mul, digits),
+                            "add": _matrix(add, digits)})
+
+    walk(layout["timeline"], frame, (1.0, 0.0, 0.0, 1.0, 0.0, 0.0), [1.0] * 4, [0] * 4, (), [])
+    return out
+
+
+def to_json(layout, data, tmf=None, members=None, source=None, prefix="", frames=True):
+    """Neutral description of one .ehf (and its .tmf). `members` (archive [(name, bytes)]) resolves texture
+    names to GIM members; `source` is {"file": file label, "member": ehf member} (stored as given);
+    `prefix` is the nested-archive path inside the source file (see archive_entries)."""
+    by_lower = {name.lower(): name for name, _ in members} if members is not None else {}
+    unknown = []
+
+    def note(kind, offset, raw, where=None):
+        unknown.append({"kind": kind, "offset": offset, "raw": raw if isinstance(raw, (int, str)) else _hex(raw),
+                        **({"where": where} if where else {})})
+
+    stage_off = layout["sections"][0][0]
+    note("stage.field_08", stage_off + 0x08, layout["rate"])
+    note("stage.field_0c", stage_off + 0x0C, layout["zero"])
+    xmin, xmax, ymin, ymax = layout["rect"]
+    textures = []
+    for slot in range(layout["slots"]):
+        name = layout["names"].get(slot * 16)
+        flag = tmf[slot] if tmf is not None and slot < len(tmf) else None
+        entry = {"slot": slot, "slot_offset": slot * 16, "name": name, "gim": None, "gim_member": None,
+                 "tmf": flag}
+        if name is not None:
+            entry["gim"] = by_lower.get(name.lower() + ".gim", name + ".gim")
+            if members is None or (name + ".gim").lower() in by_lower:
+                entry["gim_member"] = prefix + entry["gim"]
+        if flag is not None:
+            entry["additive"] = bool(flag & TMF_ADDITIVE)
+            entry["tmf_bit4"] = bool(flag & TMF_BIT4)
+            if flag & TMF_BIT4:
+                note("tmf.bit4", slot, flag, "tmf")
+            if flag & ~(TMF_ADDITIVE | TMF_BIT4):
+                note("tmf.other_bits", slot, flag, "tmf")
+        textures.append(entry)
+    objects = []
+    obj_off = layout["objects_offset"]
+    for rel, obj in layout["objects"].items():
+        base = obj_off + rel
+        tracks = [_track_json(t, i) for i, t in enumerate(obj["tracks"])]
+        for track in obj["tracks"]:
+            if not track:
+                continue
+            note("track.pad_2a", track["offset"] + 0x2A, track["pad"])
+            if track["flags"] & 0x20:
+                note("track.flag_bit5", track["offset"] + 0x24, track["flags"])
+            if track["flags"] & 0x10:
+                pos = track["offset"] + TRACK_HEAD.size
+                note("key.add", pos, len(track["keys"]), f"{len(track['keys'])} keys, raw in keys[].add_raw")
+        entry = {"id": rel, "offset": base, "record_index": rel // 16,
+                 "blocks": {k: {"offset": v[0], "size": v[1]} for k, v in obj["blocks"].items()},
+                 "tracks": tracks}
+        if obj["type"] == CLIP:
+            note("clip.pad_18", base + 0x18, obj["pad"])
+            entry.update({"type": "clip", "frames": obj["frames"], "timeline": _timeline_json(obj["timeline"])})
+        else:
+            note("shape.pad_28", base + 0x28, obj["pad"])
+            prims = []
+            for prim in obj["prims"]:
+                slot = prim["texture"]
+                prims.append({
+                    "type": PRIMS.get(prim["prim"], prim["prim"]), "prim_code": prim["prim"],
+                    "rgb": list(prim["ambient"]), "alpha": prim["alpha"], "vertex_type": prim["vtype"],
+                    "texture_slot": None if slot is None else slot // 16,
+                    "texture": None if slot is None else layout["names"].get(slot),
+                    "vertex_offset": prim["vaddr"], "words": [f"{w:08x}" for w in prim["words"]],
+                    "vertices": [{"uv": list(uv) if uv else None, "xyz": list(xyz)} for uv, xyz in prim["vertices"]]})
+            entry.update({"type": "shape", "anchor": list(obj["anchor"]), "vertex_scale": obj["scale"],
+                          "primitives": prims})
+        objects.append({"id": entry.pop("id"), "type": entry.pop("type"), **entry})
+    gaps = []
+    for start, end in _coverage(layout, len(data)):
+        chunk = data[start:end]
+        zero = not any(chunk)
+        gaps.append({"offset": start, "size": end - start, "zero": zero, **({} if zero else {"raw": _hex(chunk)})})
+        if not zero:
+            note("gap", start, chunk)
+    result = {
+        "format": JSON_FORMAT, "version": JSON_VERSION, "source": source,
+        "size": len(data),
+        "sections": [{"index": i, "name": n, "offset": o, "size": s}
+                     for i, (n, (o, s)) in enumerate(zip(SECTION_NAMES, layout["sections"]))],
+        "stage": {"frames": layout["frames"], "background_rgba": list(layout["background"]),
+                  "rect_twips": {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax},
+                  "width_px": (xmax - xmin) / TWIPS, "height_px": (ymax - ymin) / TWIPS, "twips_per_pixel": TWIPS,
+                  "field_08": layout["rate"], "field_0c": layout["zero"]},
+        "work_area": {"size": layout["work_size"], "zero": layout["work_zero"],
+                      "peak_instances": peak_instances(layout)},
+        "labels": [],
+        "textures": textures,
+        "tmf": None if tmf is None else {"bytes": list(tmf), "matches_slots": len(tmf) == layout["slots"]},
+        "timeline": _timeline_json(layout["timeline"]),
+        "objects": objects,
+        "unknown": unknown,
+        "gaps": gaps,
+    }
+    if frames:
+        result["frames"] = [{"frame": f, "draw": evaluate_frame(layout, f)} for f in range(layout["frames"])]
+    return result
+
+
+def safe_relative(label):
+    parts = [part.replace(":", "_").replace("@", "_at_") for part in label.replace("\\", "/").split("/")]
+    return Path(*[p for p in parts if p not in ("", ".", "..")])
+
+
+def json_output_allowed(path):
+    """Derived layout data goes outside the repository or under an extracted/ directory."""
+    resolved = Path(path).resolve()
+    if "extracted" in (part.lower() for part in resolved.parts):
+        return True
+    try:
+        resolved.relative_to(TOOLS.parent.resolve())
+    except ValueError:
+        return True
+    return False
+
+
+def json_items(paths):
+    """Yield (source file label, member prefix, ehf name, ehf bytes, tmf bytes or None, members) for every .ehf
+    under files/directories (directories walked recursively, labels relative to the directory)."""
+    for path in map(Path, paths):
+        files = ([(p, p.relative_to(path).as_posix()) for p in sorted(path.rglob("*")) if p.is_file()]
+                 if path.is_dir() else [(path, path.name)])
+        for file, label in files:
+            try:
+                archives = list(archive_entries(file, label))
+            except (OSError, ValueError, EOFError, UnicodeDecodeError, struct.error):
+                continue
+            for file_label, prefix, members in archives:
+                for name, blob, tmf in layouts(members):
+                    yield file_label, prefix, name, blob, tmf, members
+
+
+def _source(file_label, prefix, name, tmf):
+    """`file`: disc file (relative to the walked directory) plus `@0xOFFSET` for an archive embedded in an
+    ELF; `member`/`tmf_member`: path inside it, as tools/gim.py and ehp.find_leaf take members."""
+    file, _, embedded = file_label.partition("@")
+    return {"file": file, "embedded_offset": int(embedded, 16) if embedded else None, "archive": file_label,
+            "member": prefix + name, "tmf_member": None if tmf is None else prefix + name[:-4] + ".tmf"}
+
+
+def run_json_check(paths, frames=True):
+    """Convert every .ehf in memory (and serialise it), report failures and the unknown-field census."""
+    stats, kinds, nonzero = Counter(), Counter(), Counter()
+    failures = 0
+    for file_label, prefix, name, blob, tmf, members in json_items(paths):
+        stats["ehf"] += 1
+        try:
+            layout = parse(blob)
+            doc = to_json(layout, blob, parse_tmf(tmf) if tmf is not None else None, members,
+                          _source(file_label, prefix, name, tmf), prefix, frames)
+            json.dumps(doc)
+            unresolved = [t["name"] for t in doc["textures"] if t["name"] and t["gim_member"] is None]
+            if unresolved:
+                raise EhfError(f"textures without a GIM member: {unresolved[:3]}")
+        except (EhfError, struct.error, UnicodeDecodeError, KeyError, ValueError, IndexError) as error:
+            failures += 1
+            print(f"FAIL {file_label}/{prefix}{name}: {error}")
+            continue
+        stats["ok"] += 1
+        stats["with tmf"] += tmf is not None
+        stats["texture refs"] += sum(t["gim_member"] is not None for t in doc["textures"])
+        stats["frames evaluated"] += len(doc.get("frames", ()))
+        stats["gap bytes"] += sum(g["size"] for g in doc["gaps"])
+        stats["non-zero gaps"] += sum(not g["zero"] for g in doc["gaps"])
+        for item in doc["unknown"]:
+            kinds[item["kind"]] += 1
+            raw = item["raw"]  # conditional kinds (bit 5, add, tmf bits, gaps) are only noted when set
+            nonzero[item["kind"]] += bool(raw.strip("0") if isinstance(raw, str) else raw)
+    print(", ".join(f"{k} {v}" for k, v in stats.items()))
+    print("unknown fields (instances, of which non-zero or set):")
+    for kind, text in UNKNOWN_KINDS.items():
+        print(f"  {kind:16} {kinds[kind]:>7} {nonzero[kind]:>7}  {text}")
+    open_kinds = sum(1 for kind in UNKNOWN_KINDS if nonzero[kind])
+    print(f"{len(UNKNOWN_KINDS)} unknown field kinds, {open_kinds} with non-zero values on these files")
+    print("OK" if not failures else f"{failures} layouts FAILED")
+    return 1 if failures else 0
+
+
+def cmd_json(args):
+    if args.check:
+        return run_json_check(args.paths, not args.no_frames)
+    if args.output is None:
+        print("error: give -o (a .json file for one member, a directory for a batch) or --check", file=sys.stderr)
+        return 1
+    if not json_output_allowed(args.output):
+        print("error: write layout data outside the repository or under extracted/", file=sys.stderr)
+        return 1
+    written = failures = 0
+    if args.member:
+        if len(args.paths) != 1:
+            print("error: --member takes exactly one archive", file=sys.stderr)
+            return 1
+        want = args.member.replace(":", "/").lower()
+        items = [i for i in json_items(args.paths) if (i[1] + i[2]).lower() == want or i[2].lower() == want]
+        if not items:
+            print(f"error: {args.member} not found in {args.paths[0]}", file=sys.stderr)
+            return 1
+        items = items[:1]
+    else:
+        items = json_items(args.paths)
+    for file_label, prefix, name, blob, tmf, members in items:
+        label = f"{file_label}/{prefix}{name}"
+        try:
+            doc = to_json(parse(blob), blob, parse_tmf(tmf) if tmf is not None else None, members,
+                          _source(file_label, prefix, name, tmf), prefix, not args.no_frames)
+        except (EhfError, struct.error, UnicodeDecodeError, KeyError, ValueError, IndexError) as error:
+            failures += 1
+            print(f"FAIL {label}: {error}")
+            continue
+        if args.member and args.output.suffix.lower() == ".json":
+            target = args.output
+        else:
+            target = args.output / safe_relative(label).with_suffix(".json")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":") if args.compact else None,
+                                     indent=None if args.compact else 1), encoding="utf-8")
+        written += 1
+    print(f"wrote {written} JSON files to {args.output}, {failures} failures")
+    return 1 if failures else 0
+
+
 # --- Command line ---------------------------------------------------------------------------------
 
 def summary(name, layout, tmf):
@@ -646,12 +1014,22 @@ def main(argv=None):
     ren.add_argument("--frame", type=int, help="frame to draw (default: middle of the main timeline)")
     ren.add_argument("--background", action="store_true", help="fill with the stage background colour")
     ren.add_argument("-o", "--output", type=Path, required=True)
+    jsn = sub.add_parser("json", help="export layouts as neutral JSON (schema in docs/formats/ehf.md)")
+    jsn.add_argument("paths", type=Path, nargs="+", help="archives, ELF files or directories (walked)")
+    jsn.add_argument("--member", help="one .ehf of the single archive given (nested: inner.ehp/name.ehf)")
+    jsn.add_argument("-o", "--output", type=Path,
+                     help="a .json file (with --member) or a directory; outside the repository or under extracted/")
+    jsn.add_argument("--check", action="store_true", help="convert every layout in memory and report; write nothing")
+    jsn.add_argument("--no-frames", action="store_true", help="omit the evaluated per-frame draw lists")
+    jsn.add_argument("--compact", action="store_true", help="no indentation")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
     if args.command == "check":
         return run_check(args.paths)
+    if args.command == "json":
+        return cmd_json(args)
     if args.command == "list":
         for path in args.archives:
             for label, members in archives_in(path):

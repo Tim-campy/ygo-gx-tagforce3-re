@@ -10,7 +10,7 @@ Data formats established; code not yet analysed (entry points found while workin
 
 ## Data
 
-- `.ehf` (`docs/formats/ehf.md`): 2D layouts converted from Flash/SWF. Stage in twips (9600 × 5440 = 480 × 272 px), a main timeline of place/remove records with depths and mask (clip) depths, shapes made of textured quads stored as GE display lists, nested looping clips, and quantised keyframe tracks for an affine matrix and a colour transform. 1,225 on the disc, all parsed and cross-checked by `tools/ehf.py check`; renders of `loading.ehf`, the title screen and several menus look correct.
+- `.ehf` (`docs/formats/ehf.md`): 2D layouts converted from Flash/SWF. Stage in twips (9600 × 5440 = 480 × 272 px), a main timeline of place/remove records with depths and mask (clip) depths, shapes made of textured quads stored as GE display lists, nested looping clips, and quantised keyframe tracks for an affine matrix and a colour transform. 1,225 on the disc, all parsed and cross-checked by `tools/ehf.py check` and exported as neutral JSON by `ehf.py json` (schema in `ehf.md`); renders of `loading.ehf`, the title screen and several menus look correct.
 - `.tmf`: one flag byte per texture slot of the `.ehf`; bit 0 is probably additive blending, bit 4 unknown.
 - Textures are `<name>.gim` members of the same archive (`docs/formats/gim.md`).
 - `loading.ehf` is looked up in the embedded archive at `0x088cc480` (file offset `0xc84d4`) during start-up (`0x08835c68`).
