@@ -1,0 +1,9 @@
+# Names applied to gmodule/rel_title.prx (runtime base 0x08e9aa00, shared slot: registry ids are prefixed with the module name).
+# Evidence in docs/subsystems/ui.md (scene map).
+address,group,name
+0x08e9cb74,ui,ui_title_get_title_message
+0x08e9cbf0,ui,ui_title_get_message
+0x08e9ce54,ui,ui_title_load_archive
+0x08e9cfd0,ui,ui_title_get_menu_archive
+0x08e9d0b8,ui,ui_title_get_layout_name
+0x08e9d0e0,ui,ui_title_get_message_table_name

@@ -48,3 +48,5 @@ address,group,name
 0x090de378,world,world_get_scene_params
 0x090d0c74,world,world_get_field_context
 0x090d616c,world,world_show_location_name
+0x090e057c,ui,ui_field_get_resource
+0x090e05a4,ui,ui_field_find_resource
