@@ -298,6 +298,57 @@ def ydq_listing(name, setup, names):
     return out
 
 
+# .ydq writer: the files are regular `key=value` lines with an optional tab + `//` comment, section headers
+# and CRLF line ends (all 50 files). ydq_decode() keeps every line as plain values and ydq_encode() rebuilds
+# the text byte for byte (tools/roundtrip.py --only ydq).
+
+YDQ_LINE = re.compile(r"^(?P<key>[^=\t]+)=(?P<value>[^\t]*)(?:\t//(?P<comment>.*))?$")
+YDQ_SECTION = re.compile(r"^\[(?P<section>[^\]]*)\]$")
+CRLF = "\r\n"
+
+
+def ydq_decode(blob):
+    """Text -> [line], each {'section': name} | {'key', 'value', 'comment'} | {'blank': True};
+    `value` is an int when it is written as one."""
+    text = blob.decode("cp932")
+    if not text.endswith(CRLF):
+        raise ValueError("a .ydq file ends with CRLF")
+    lines = []
+    for raw in text[:-2].split(CRLF):
+        section, entry = YDQ_SECTION.match(raw), YDQ_LINE.match(raw)
+        if section:
+            lines.append({"section": section["section"]})
+        elif entry:
+            value = entry["value"]
+            if re.fullmatch(r"-?[1-9]\d*|0", value):
+                value = int(value)
+            line = {"key": entry["key"], "value": value}
+            if entry["comment"] is not None:
+                line["comment"] = entry["comment"]
+            lines.append(line)
+        elif raw == "":
+            lines.append({"blank": True})
+        else:
+            raise ValueError(f"unrecognised line {raw[:40]!r}")
+    return lines
+
+
+def ydq_encode(lines):
+    """Inverse of ydq_decode(): Shift-JIS, CRLF after every line."""
+    out = []
+    for line in lines:
+        if "section" in line:
+            out.append(f"[{line['section']}]")
+        elif line.get("blank"):
+            out.append("")
+        else:
+            text = f"{line['key']}={line['value']}"
+            if "comment" in line:
+                text += f"\t//{line['comment']}"
+            out.append(text)
+    return "".join(line + CRLF for line in out).encode("cp932")
+
+
 # ---------------------------------------------------------------------- tuto_text_<l>.bin
 
 def text_table(blob, language):
@@ -332,6 +383,21 @@ def check_text(name, blob, language):
         if size % 4:
             errors.append(f"{name} line {number}: size {size} is not a multiple of 4")
     return errors
+
+
+def text_build(lines, language):
+    """Inverse of text_table(): (offset, size) pairs, then each line followed by zero bytes up to the next
+    multiple of 4: at least one in Shift-JIS ('j'), at least four in UTF-16LE (a line whose text is 4n + 2
+    bytes long gets 6), as on the disc."""
+    encoding, terminator = ("cp932", 1) if language == "j" else ("utf-16-le", 4)
+    head, body = bytearray(), bytearray()
+    start = 8 * len(lines)
+    for line in lines:
+        raw = line.encode(encoding) + bytes(terminator)
+        raw += bytes(-len(raw) % 4)
+        head += struct.pack("<II", start + len(body), len(raw))
+        body += raw
+    return bytes(head + body)
 
 
 # ---------------------------------------------------------------------- tuto_cmd_NN.bin (rel_tutorial)
@@ -412,6 +478,30 @@ def cmd_refs(records):
         if op == 5:
             refs["labels"].append(a)
     return refs
+
+
+def cmd_decode(blob):
+    """Script -> [{'kind': 'tutorial'|'engine'|'end', 'code', 'side', 'a', 'b', 'c'}] (tutorial commands
+    carry 0x4000, engine commands the side in bit 15, the end record is all zero in word 0)."""
+    out = []
+    for _, word, a, b, c in cmd_parse(blob):
+        if word == 0:
+            kind, code, side = "end", 0, 0
+        elif word & SCRIPT_FLAG:
+            kind, code, side = "tutorial", word & 0x3FFF, word >> 15
+        else:
+            kind, code, side = "engine", word & 0x3FFF, word >> 15
+        out.append({"kind": kind, "code": code, "side": side, "a": a, "b": b, "c": c})
+    return out
+
+
+def cmd_build(records):
+    """Inverse of cmd_decode(): 8-byte records u16 op, a, b, c."""
+    out = bytearray()
+    for r in records:
+        word = r["code"] | r["side"] << 15 | (SCRIPT_FLAG if r["kind"] == "tutorial" else 0)
+        out += RECORD.pack(word, r["a"], r["b"], r["c"])
+    return bytes(out)
 
 
 def check_cmd(name, blob, text_count=None, resets=None):

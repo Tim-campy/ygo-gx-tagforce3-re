@@ -31,6 +31,8 @@ There are two tables of 16-byte records `{u32 id, s32 root, char *name, u16 kind
 - `0x0889f57c`: Sony modules, ids 1–7: `libfont.prx` (root -2, kind 0), `videocodec.prx` (kind `0xffff`), `audiocodec.prx` (kind 4, utility `0x0300`), `mpegbase.prx` (kind `0xffff`), `mpeg.prx` (4, `0x0303`), `libatrac3plus.prx` (4, `0x0302`), `sc_sascore.prx` (4, `0x0301`).
 - `0x0889fea4`: game modules, ids 8–0x31, all root 2 (`gmodule/`), kind 0. There are 42 names. Six of them are not on the disc: `rel_sdchrviewer` (0x1c), `rel_blackjack_starter` (0x23), `rel_dodge_starter` (0x25), `rel_connection_starter` (0x27), `rel_underground_starter` (0x29) and `rel_reversi_starter` (0x2d).
 
+Writer and round trip of both tables and the scene table below (`modules.read_descriptors`/`write_descriptors`, `read_scene_table`/`write_scene_table`): `python3 -I tools/roundtrip.py --check <PSP_GAME> --only module_descriptor,scene_table` (byte-identical; `reimplemented`).
+
 Root indexes refer to the path table at `0x0889fb24`, which `0x0881d574` installs as the root table `*0x08920cac` (see `container.md`): 0 `disc0:/PSP_GAME/USRDIR/module/`, 1 `…/kmodule/` (absent from the disc), 2 `…/gmodule/`, 3 `…/USRDIR/`, 4 `…/duel/`, 5 `…/duelsys/`, 6 `…/main/`, 7 `…/snd/`, 8 `…/minigame/`. The boot configuration at `0x088a0154` begins `{0x0889fb24, 1, 0, …}`. `0x08827c54` replaces root -1 with 1 and root -2 with 0.
 
 Kind (jump table at `0x08878b74`, index `kind + 1`):

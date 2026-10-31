@@ -171,6 +171,22 @@ Data and code in `docs/subsystems/world.md` ("Island map"). Additions (high for 
 
 `world.py tables` writes the same tables once for the whole game (`maps`, `doors`, `door_cells`, `walk_blocks`, `special_cells`, `marker_hidden_cells`, `exit_selector`, `exit_groups`, `arrival`, `island`, `npc_spots`, `fixed_npc_spots`, `location_to_map`, `sky_gradients`, `light_modes`, `ambient_sounds`).
 
+## Writers and round trip
+
+| Format | Reader | Writer |
+| --- | --- | --- |
+| Lighting and sky (`rel_field` `+0x28a7c`, `+0x28a34`) | `world.read_lighting_model` | `world.write_lighting` |
+| Island area positions (`rel_field` `+0x298b0`) | `world.read_island_positions` | `world.write_island_positions` |
+| Fixed NPC spots (`rel_story` `+0x2238c`, `+0x21f0c`, `+0x2e550`) | `world.read_fixed_spots` | `world.write_fixed_spots` |
+| Character table (`rel_story` `+0x2245c`, 140 × 57 words) | `world.read_character_table` | `world.write_character_table` (`character_row_words`) |
+| Walk grid `.hmp` (32 files: 31 maps and `minigame/connection/data.ehp/mini_sn01.hmp`) | `world.WalkGrid` | `world.build_hmp` |
+
+The module tables are checked by overwriting the bytes they own with a filler, writing the model back and comparing the whole module; the grids by parse and rebuild. All are byte-identical (`field_map_lighting`, `island_map_areas`, `story_fixed_spots`, `story_char_table` and `hmp` are `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only field_map_lighting,island_map_areas,story_fixed_spots,story_char_table,hmp
+```
+
 ## Open questions
 
 - What loads maps 37 and 38 (no location maps to them), and what selects the second dorm version.

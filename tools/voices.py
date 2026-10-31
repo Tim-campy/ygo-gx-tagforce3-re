@@ -129,6 +129,44 @@ def parse_change_table(blob):
     return tables
 
 
+def build_change_table(tables):
+    """Inverse of parse_change_table(): 16 u32 offsets, then the u16 sub-tables back to back."""
+    if len(tables) != 16:
+        raise ValueError("a voice change table has 16 sub-tables")
+    heads, body, position = [], bytearray(), 64
+    for entries in tables:
+        heads.append(position)
+        body += struct.pack(f"<{len(entries)}H", *entries)
+        position += 2 * len(entries)
+    return struct.pack("<16I", *heads) + bytes(body)
+
+
+def boot_table_spans(elf, bank_count):
+    """(file offset, size) of the bank offset table and the first-id table in BOOT.BIN."""
+    return [(elf.offset(BANK_OFFSET_TABLE - BOOT_BASE), 4 * bank_count),
+            (elf.offset(SOUND_ID_TABLE - BOOT_BASE), 2 * bank_count)]
+
+
+def derive_boot_tables(bank_sizes, cue_counts):
+    """The two tables as the bank chain implies them: running byte offsets and expected_first_ids()."""
+    offsets, position = [], 0
+    for size in bank_sizes:
+        offsets.append(position)
+        position += size
+    return offsets, expected_first_ids(cue_counts)
+
+
+def write_boot_tables(boot_bytes, tables):
+    """Write (offsets, first ids) into a copy of BOOT.BIN."""
+    offsets, first_ids = tables
+    elf = prx_imports.Elf(boot_bytes, BOOT_BASE)
+    (offset_start, _), (id_start, _) = boot_table_spans(elf, len(offsets))
+    out = bytearray(boot_bytes)
+    struct.pack_into(f"<{len(offsets)}I", out, offset_start, *offsets)
+    struct.pack_into(f"<{len(first_ids)}H", out, id_start, *first_ids)
+    return bytes(out)
+
+
 def string_table(blob):
     """Entries of a strTbl-format table: u32 count, u32 table offset, u32 string base, u32 offsets."""
     count, table, base = struct.unpack_from("<III", blob, 0)

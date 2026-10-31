@@ -1,6 +1,6 @@
 # Duel AI priority tables (`gmodule/rel_duel_eng.prx`)
 
-Status: `documented` (layout, lengths, consumers, order semantics). The per-card handlers themselves are not documented here; see `docs/subsystems/ai.md`. Addresses are runtime addresses with the module loaded at `0x09be1400`; file offset = address − `0x09be1400` + `0x54` (single `PT_LOAD` segment). Pointers stored in the file are module offsets (add the base).
+Status: `reimplemented` (layout, lengths, consumers, order semantics; writer and round trip at the end). The per-card handlers themselves are not documented here; see `docs/subsystems/ai.md`. Addresses are runtime addresses with the module loaded at `0x09be1400`; file offset = address − `0x09be1400` + `0x54` (single `PT_LOAD` segment). Pointers stored in the file are module offsets (add the base).
 
 Tool: `tools/ai_tables.py` lists the tables (`list`), gives per card the tables that know it (`cards`), sorts the handlers into behaviour classes by name (`classes`), reports per card every handler with its family and class (`handlers`, families in `docs/subsystems/ai.md`) and checks the layout against the code (`--check`); with `--functions` the check also verifies the handler names (every handler named, a per-card name `ai_handler_<stem>_<card id>…` lists exactly the cards whose entries use the handler, a variant extends a named shared handler). Its output is game data: keep it under `extracted/`.
 
@@ -83,6 +83,14 @@ Three lists of `u16` card ids sit right before T1. They have no handler column; 
 - Every entry has a card id in 3720–7993 and a handler inside `.text`.
 - Each length constant occurs as an immediate in its consumer, and each consumer builds the addresses of the tables it uses (`lui`/`addiu` pairs).
 - The u16 lists have in-range ids, R1 ends with `0x1935`, R1 and R3 are followed by a zero half-word.
+
+## Writer and round trip
+
+`ai_tables.read_model(module)` returns the three `u16` lists and the eleven pair tables as values (handler words as stored); `ai_tables.write_model(prx, model)` zero-fills the list block (lists 4-byte aligned), writes lists and tables at their fixed addresses and refuses a length the code does not hard-code. The bytes owned (`ai_tables.model_spans`) are `0x09dfd2dc`–`0x09e00800` without the 56-byte jump-table gap. The round trip overwrites them with a filler, writes the model and compares the whole module: byte-identical (`ai_priority_tables` is `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only ai_priority_tables
+```
 
 ## Open questions
 

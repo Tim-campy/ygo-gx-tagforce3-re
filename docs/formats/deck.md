@@ -5,16 +5,16 @@ Tool: `tools/decks.py` (`recipes`, `owners`, `samecard`, `tutorial`; CSV/JSON ex
 | Structure | Where | Status |
 | --- | --- | --- |
 | `.ydc` deck recipe | 661 members `RCP000.ydc`–`RCP660.ydc` of the EHP embedded in `BOOT.BIN` at `0x088d77e0` | verified (round-trips; loader read) |
-| Recipe names | `recipe_name_<l>.bin` (`e f g i j s`) in the same archive | documented |
-| Recipe owner table | `BOOT.BIN` `0x08915f28`, 126 × 16 bytes | documented |
-| Recipe level table | `BOOT.BIN` `0x089143f0`, 462 × `u16` | documented (meaning: hypothesis) |
-| Owner variant table | `BOOT.BIN` `0x08916730`, 67 × 12 bytes | documented (fields: hypothesis) |
-| Recipe card list | `BOOT.BIN` `0x089150b8`, 462 × 8 bytes | documented (meaning: hypothesis) |
 | Duel set-up duellist record | 0x1ac bytes, four per set-up; read by `duel_setup_load_decks` (`0x08836358`) | documented (two small ranges unknown) |
+| Recipe names | `recipe_name_<l>.bin` (`e f g i j s`) in the same archive | reimplemented |
+| Recipe owner table | `BOOT.BIN` `0x08915f28`, 126 × 16 bytes | reimplemented |
+| Recipe level table | `BOOT.BIN` `0x089143f0`, 462 × `u16` | reimplemented (meaning: hypothesis) |
+| Owner variant table | `BOOT.BIN` `0x08916730`, 67 × 12 bytes | reimplemented (fields: hypothesis) |
+| Recipe card list | `BOOT.BIN` `0x089150b8`, 462 × 8 bytes | reimplemented (meaning: hypothesis) |
 | In-memory deck | 0xc0-byte struct filled by `deck_load_recipe` | documented |
-| `sameCardTbl.dat` | `deck/all_<l>.ehp` | documented |
-| `fileTbl.dat` | `deck/all_<l>.ehp` | documented |
-| `deck_tutorialNN.bin` | `deck/tutorial.ehp` | documented (instruction lengths and handlers; names partly from context) |
+| `sameCardTbl.dat` | `deck/all_<l>.ehp` | reimplemented |
+| `fileTbl.dat` | `deck/all_<l>.ehp` | reimplemented |
+| `deck_tutorialNN.bin` | `deck/tutorial.ehp` | reimplemented (instruction lengths and handlers; names partly from context) |
 
 `deck_tutorialNN.bin` is **not** a deck format: it is a bytecode script for the deck-construction tutorial (see below).
 
@@ -183,6 +183,23 @@ Loaded by `rel_decktutorial.prx` (strings `deck/tutorial.ehp`, `deck_tutorial%02
 **Button masks** are the PSP controller bits: `0x10` up, `0x20` right, `0x40` down, `0x80` left, `0x100` L, `0x200` R, `0x1000` △, `0x2000` ○, `0x4000` ×, `0x8000` □ (the instruction text next to each mask names the same buttons; for example `0x50` = up/down). The scripts are written with ○ as the confirm button: `allow_buttons` and `wait_button` swap `0x2000` and `0x4000` when `0x08836a98(0)` returns `0x4000` (the system's confirm button is ×), unless flag `0x20` is set.
 
 String arguments (opcodes `0x01`, `0x02`, `0x04`, `0x0f` second word, `0x13`) index `strTbl_<l>.bin` of the same archive (same string-table layout as above, 229 entries in every language). The scripts reference 224 different strings, each exactly once, all below 229; the five unreferenced entries are 0, 1, 3 (menu captions such as "Sample Deck" and "End tutorial?"), 84 and 228. Caption 2 is the one string of the 0–3 group that a script uses, through `0x13`.
+
+## Writers and round trip
+
+| Format | Reader | Writer | Instances |
+| --- | --- | --- | --- |
+| `recipe_name_<l>.bin` | `strtbl.parse` | `strtbl.build` (end offset kept) | 6 |
+| Owner / level / variant tables | `decks.read_recipes` | `decks.write_owners`, `write_levels`, `write_variants` (spans `decks.table_spans`) | 1 each |
+| Recipe card list | `decks.read_card_lists` (pointer and ids per recipe; empty records keep their stored pointer) | `decks.write_card_lists`: zero-fills the block of lists in front of the table (from the lowest pointer; lists are 4-byte aligned), writes the lists and the table | 1 |
+| `sameCardTbl.dat` | `decks.read_same_card` | `decks.build_same_card` | 5 |
+| `fileTbl.dat` | `decks.read_file_table` | `decks.build_file_table` | 5 |
+| `deck_tutorialNN.bin` | `decks.tutorial_decode` (opcode and argument values, `TUTORIAL_ARGS`) | `decks.tutorial_build` | 5 |
+
+Tables inside `BOOT.BIN` are checked by overwriting the bytes they own with a filler, writing the model back and comparing the whole file. Everything rebuilds byte for byte, so `recipe_names`, `recipe_owner_table`, `recipe_level_table`, `recipe_variant_table`, `recipe_card_list`, `same_card_tbl`, `file_tbl` and `deck_tutorial_script` are `reimplemented`:
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only recipe_names,recipe_owner_table,recipe_level_table,recipe_variant_table,recipe_card_list,same_card_tbl,file_tbl,deck_tutorial_script
+```
 
 ## Open questions
 

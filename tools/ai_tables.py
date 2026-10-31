@@ -152,6 +152,50 @@ def list_entries(module):
             yield key, i, address + 2 * i, cid, handler
 
 
+# ---------------------------------------------------------------------------------------------- writer
+
+LISTS_START = LISTS[0][1]  # the u16 lists, each 4-byte aligned with zero padding, end where T1 starts
+
+
+def read_model(module):
+    """{'lists': {key: [card ids]}, 'tables': {key: [(card id, handler module offset)]}}: every byte of
+    0x09dfd2dc-0x09e00800 except the 56-byte jump-table gap, as plain values."""
+    lists = {key: list(module.halves(address, count)) for key, address, count, _, _ in LISTS}
+    tables = {}
+    for key, _, address, count, _ in TABLES:
+        words = module.words(address, 2 * count)
+        tables[key] = [(words[2 * i], words[2 * i + 1]) for i in range(count)]
+    return {"lists": lists, "tables": tables}
+
+
+def model_spans(module):
+    """(file offset, size) of the bytes the writer owns: lists with padding, T1-T3, A-H (not the gap)."""
+    first = TABLES[0][2]
+    return [(module.offset(LISTS_START), first - LISTS_START),
+            (module.offset(first), GAP[0] - first),
+            (module.offset(GAP[1]), TABLES_END - GAP[1])]
+
+
+def write_model(data, model):
+    """Inverse of read_model() into a copy of the module; list and table addresses are the fixed ones the
+    code uses, so each list/table must keep its length."""
+    module = Module(data)
+    out = bytearray(data)
+    start, size = model_spans(module)[0]
+    out[start:start + size] = bytes(size)
+    for key, address, count, _, _ in LISTS:
+        ids = model["lists"][key]
+        if len(ids) != count:
+            raise ValueError(f"list {key} has {count} entries in the code, not {len(ids)}")
+        struct.pack_into(f"<{count}H", out, module.offset(address), *ids)
+    for key, _, address, count, _ in TABLES:
+        pairs = model["tables"][key]
+        if len(pairs) != count:
+            raise ValueError(f"table {key} has {count} entries in the code, not {len(pairs)}")
+        struct.pack_into(f"<{2 * count}I", out, module.offset(address), *(w for pair in pairs for w in pair))
+    return bytes(out)
+
+
 # ---------------------------------------------------------------------------------------------- code scan
 
 

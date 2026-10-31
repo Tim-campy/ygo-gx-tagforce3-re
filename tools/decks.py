@@ -55,6 +55,11 @@ TUTORIAL_LENGTHS = {0x01: 9, 0x02: 7, 0x03: 1, 0x04: 5, 0x05: 3, 0x06: 1, 0x07: 
 TUTORIAL_END = 0x17
 TUTORIAL_STRING_ARG = {0x01: 0, 0x02: 0, 0x04: 0, 0x0F: 2, 0x13: 0}  # opcode -> byte offset of a u16 strTbl index
 TUTORIAL_CARD_OP = 0x0B  # argument is a u16 card id
+# Argument layout per opcode (docs/formats/deck.md); every length matches TUTORIAL_LENGTHS.
+TUTORIAL_ARGS = {0x01: "<4H", 0x02: "<3H", 0x04: "<2H", 0x05: "<H", 0x07: "<I", 0x09: "<2I", 0x0A: "<2H",
+                 0x0B: "<H", 0x0D: "<H", 0x0F: "<2HI", 0x10: "<I", 0x13: "<H", 0x14: "<3H", 0x16: "<2HI"}
+CARD_LIST_TABLE = 0x089150B8  # 462 x {u32 count, u32 pointer (module-relative)}; lists just before it
+CARD_LIST_COUNT = 462
 
 
 # --- YDC deck recipe -------------------------------------------------------------------------------------------
@@ -153,6 +158,73 @@ def read_recipes(boot):
     variants = parse_records(boot, tables.to_offset(sections, VARIANT_TABLE, BOOT_BASE), VARIANT_COUNT, "<3I")
     return {"archive_offset": offset, "member_count": len(members), "decks": decks, "names": names,
             "owners": owners, "levels": levels, "variants": variants}
+
+
+def _boot_offset(boot, vaddr):
+    return tables.to_offset(tables.elf_sections(boot), vaddr, BOOT_BASE)
+
+
+def read_card_lists(boot):
+    """Recipe card list (deck_get_recipe_card_list): [(pointer, [card ids])], one per named recipe. The
+    pointer is module-relative (BOOT.BIN vaddr - 0x08804000); records without cards keep their stored pointer."""
+    table = _boot_offset(boot, CARD_LIST_TABLE)
+    lists = []
+    for k in range(CARD_LIST_COUNT):
+        count, pointer = struct.unpack_from("<II", boot, table + 8 * k)
+        ids = list(struct.unpack_from(f"<{count}H", boot, _boot_offset(boot, BOOT_BASE + pointer))) if count else []
+        lists.append((pointer, ids))
+    return lists
+
+
+def card_list_spans(boot, lists):
+    """The table and the block of lists in front of it (from the lowest list pointer; lists are 4-byte
+    aligned with zero padding, so the writer owns the whole block)."""
+    table = _boot_offset(boot, CARD_LIST_TABLE)
+    pointers = [pointer for pointer, ids in lists if ids]
+    start = _boot_offset(boot, BOOT_BASE + min(pointers)) if pointers else table
+    return [(start, table - start), (table, 8 * len(lists))]
+
+
+def write_card_lists(boot, lists):
+    out = bytearray(boot)
+    table = _boot_offset(boot, CARD_LIST_TABLE)
+    (start, size), _ = card_list_spans(boot, lists)
+    out[start:start + size] = bytes(size)
+    for k, (pointer, ids) in enumerate(lists):
+        struct.pack_into("<II", out, table + 8 * k, len(ids), pointer)
+        if ids:
+            struct.pack_into(f"<{len(ids)}H", out, _boot_offset(boot, BOOT_BASE + pointer), *ids)
+    return bytes(out)
+
+
+def table_spans(boot):
+    """{key: (file offset, size)} of the owner, level and variant tables in BOOT.BIN."""
+    return {"owners": (_boot_offset(boot, OWNER_TABLE), 16 * OWNER_COUNT),
+            "levels": (_boot_offset(boot, LEVEL_TABLE), 2 * LEVEL_COUNT),
+            "variants": (_boot_offset(boot, VARIANT_TABLE), 12 * VARIANT_COUNT)}
+
+
+def write_owners(boot, owners):
+    """Inverse of the owner-table read: 126 x (owner, first recipe, count, 0)."""
+    out = bytearray(boot)
+    start = _boot_offset(boot, OWNER_TABLE)
+    for k, record in enumerate(owners):
+        struct.pack_into("<4I", out, start + 16 * k, *record)
+    return bytes(out)
+
+
+def write_levels(boot, levels):
+    out = bytearray(boot)
+    struct.pack_into(f"<{len(levels)}H", out, _boot_offset(boot, LEVEL_TABLE), *levels)
+    return bytes(out)
+
+
+def write_variants(boot, variants):
+    out = bytearray(boot)
+    start = _boot_offset(boot, VARIANT_TABLE)
+    for k, record in enumerate(variants):
+        struct.pack_into("<3I", out, start + 12 * k, *record)
+    return bytes(out)
 
 
 def owner_of(owners):
@@ -351,6 +423,16 @@ def read_file_table(blob):
     return list(struct.unpack_from(f"<{count}H", blob, 2))
 
 
+def build_same_card(pairs):
+    """Inverse of read_same_card()."""
+    return struct.pack("<I", len(pairs)) + b"".join(struct.pack("<HH", c, n) for c, n in pairs)
+
+
+def build_file_table(ids):
+    """Inverse of read_file_table()."""
+    return struct.pack(f"<H{len(ids)}H", len(ids), *ids)
+
+
 def check_same_card(pairs, samepict=None):
     """Each card's numbers must run 1..n; with CARD_SamePict as {card id: n} they must match it."""
     problems = []
@@ -386,6 +468,26 @@ def tutorial_parse(blob):
     if pos != len(blob) or not ops or ops[-1][1] != TUTORIAL_END:
         raise ValueError("script does not end exactly at its 0x17 opcode")
     return ops
+
+
+def tutorial_decode(blob):
+    """Script as [(opcode, (argument values...))] using TUTORIAL_ARGS."""
+    return [(op, struct.unpack(TUTORIAL_ARGS[op], args) if op in TUTORIAL_ARGS else ())
+            for _, op, args in tutorial_parse(blob)]
+
+
+def tutorial_build(instructions):
+    """Inverse of tutorial_decode(): opcode byte plus packed little-endian arguments, unaligned."""
+    out = bytearray()
+    for op, values in instructions:
+        if op not in TUTORIAL_LENGTHS:
+            raise ValueError(f"unknown opcode {op:#04x}")
+        out.append(op)
+        if op in TUTORIAL_ARGS:
+            out += struct.pack(TUTORIAL_ARGS[op], *values)
+        elif values:
+            raise ValueError(f"opcode {op:#04x} takes no arguments")
+    return bytes(out)
 
 
 def tutorial_strings(ops):

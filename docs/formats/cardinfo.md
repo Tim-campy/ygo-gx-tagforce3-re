@@ -6,19 +6,19 @@ The database has **3,554 records**: record 0 is empty, records 1–3,553 are car
 
 | Member | Language | Status | Size (eng) |
 | --- | --- | --- | --- |
-| `CARD_Prop.bin` | shared | documented | 8 × 3,554 |
+| `CARD_Prop.bin` | shared | reimplemented | 8 × 3,554 |
 | `CARD_Pass.bin` | shared | verified | 4 × 3,554 |
 | `CARD_IntID.bin` | shared | verified | 2 × 4,274 |
-| `CARD_Genre.bin` | shared | documented | 6 × 3,554 |
+| `CARD_Genre.bin` | shared | reimplemented | 6 × 3,554 |
 | `CARD_Indx_<L>.bin` | per language | verified | 8 × 3,555 |
 | `CARD_Name_<L>.bin` | per language | verified | 126,084 |
 | `CARD_Desc_<L>.bin` | per language | verified | 209,706 |
 | `CARD_Huff_<L>.bin` | per language | verified | 826 |
-| `DICT_<L>.bin` | per language | documented | 25,050 |
+| `DICT_<L>.bin` | per language | reimplemented | 25,050 |
 | `CARD_Sort_<L>.bin` | per language | documented | 2 × 3,554 |
 | `CARD_Top_<L>.bin` | per language | documented | 110 |
-| `CARD_SamePict_<L>.bin` | per language | named | 158 |
-| `DLG_Indx_<L>.bin`, `DLG_Text_<L>.bin` | per language | documented | 3,208 / 59,232 |
+| `CARD_SamePict_<L>.bin` | per language | reimplemented | 158 |
+| `DLG_Indx_<L>.bin`, `DLG_Text_<L>.bin` | per language | reimplemented | 3,208 / 59,232 |
 
 ## How it was verified
 
@@ -139,6 +139,23 @@ A second accessor, `card_db_has_genre_mapped(id, k)` (`0x08833638`), maps `k` th
 Layout details (all five languages): every string starts on a 4-byte boundary; after its NUL the pool holds 0 or 2 zero bytes of padding up to the next string, and the last string (plus padding) ends the member. There is no count field and no end marker: the entry count is `len(DLG_Indx) / 4`. 158 of the 802 entries are empty strings (the same numbers in every language), about 400 contain `$C` escapes and 84 contain a `printf` conversion (`%s` 68 times, `%d` 26 times), filled in by the caller. `$` occurs only as `$C<digit>`. `card_db_get_dialog_string(n)` (`0x08832c94`) returns `DLG_Text + DLG_Indx[n]` without a bounds check, so every entry must be a valid string start.
 
 Dump: `python3 -I tools/cardinfo.py <USRDIR>/duelsys/cardinfo_<lang>.ehp --dialog [--format csv|json] -o <scratch>/dlg_<lang>.csv` (columns `number`, `offset`, `text`; text unchanged, escapes kept). `--dialog --check` verifies the layout above; on the disc it prints, for English, `ok: 802 DLG strings (158 empty, 402 with $C colour escapes, 84 with %s/%d), 59232 bytes`, and passes for all five languages.
+
+## Writer and round trip
+
+`cardinfo.decode_archive()` turns an archive into plain values: the `CARD_Prop` fields (`unpack_prop`, inverted by `pack_prop`), passcodes, the id map, the names, the Huffman tree as its `u16` array, the raw description texts with their escapes, the dictionary words and the gap before them, the genre masks, the sort positions, the `CARD_Top` and `CARD_SamePict` pairs and the prompt strings. `cardinfo.encode_archive()` rebuilds every member and the archive (`ehp.build`, stored member order):
+
+- `CARD_Name`: 4 zero bytes, then each name NUL-terminated and zero-padded to a 4-byte boundary; `CARD_Indx` takes the offsets, plus the pool size as sentinel.
+- `CARD_Desc`: each text plus symbol 0 encoded with the stored tree (`huffman_codes`), bits MSB first, back to back from bit 0; `CARD_Indx` takes the start bits and the exact bit length as sentinel; the stream is zero-padded to a whole byte.
+- `DICT`: `count`, 12, `string_base` = 12 + 4·count + 4, the offsets, 4 zero bytes, the packed strings.
+- `DLG_Indx`/`DLG_Text`: strings NUL-terminated and zero-padded to 4 bytes, offsets ascending.
+
+All five archives and all 70 members rebuild byte for byte:
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only cardinfo_ehp,card_prop,card_dict,card_samepict,card_genre,dlg_text
+```
+
+So `cardinfo_ehp`, `card_prop`, `card_dict`, `card_samepict`, `card_genre` and `dlg_text` are `reimplemented`. The genre index map at `BOOT.BIN` `0x0889f980` (`genre_map_table`) is read and written by `search_filters.read_boot_word_tables()` / `write_boot_word_tables()` (`--only genre_map_table`). Tests on synthetic data: `tools/tests/test_roundtrip.py`.
 
 ## Open questions
 

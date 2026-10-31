@@ -285,6 +285,42 @@ New observation for this document (2026-10-30, archive listings only; no code re
 | Verified | All their layouts and models pass `ehf.py check` and `tgm.py check`. |
 | Gaps | Game logic of each minigame and the quiz data (`minigame/quiz/data.ehp`) are not analysed. Not in work packages 1–5; low priority. |
 
+## Writers and round trip (`reimplemented` formats)
+
+A format is `reimplemented` when its tool both reads and writes it and the write of the parsed model reproduces every instance on the disc (or every save) byte for byte, with synthetic unit tests. One command runs all such round trips; nothing is written to disk:
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> [--saves external/ppsspp/saves] [--only ID[,ID...]] [-v]
+python3 -I tools/roundtrip.py --list          # format ids that have a round-trip check
+python3 -I tools/tests/test_roundtrip.py      # synthetic tests of every writer
+```
+
+Files and members are parsed and re-encoded; tables inside `BOOT.BIN` or a gmodule are checked by overwriting the bytes the table owns with a filler (`0xA5`), writing the model back into that copy and comparing the whole executable, so every owned byte comes from the writer and nothing outside it is touched. Saves go through `save.py`'s lossless JSON model (`to_model` → JSON text → `from_model`).
+
+| Format ids | Reader → writer | Instances |
+| --- | --- | --- |
+| `cardinfo_ehp`, `card_prop`, `card_dict`, `card_samepict`, `card_genre`, `dlg_text` | `cardinfo.decode_archive` → `encode_archive` (§3) | 5 archives, 70 members |
+| `pack_table`, `limit_list` | `tables.read_packs` → `write_packs`; `read_limits` → `write_limits` (§3a) | 1 + 1 |
+| `fusion_recipes`, `ritual_table` | `fusion.recipes`/`rituals` → `write_recipes`/`write_rituals` (§3b) | 1 + 1 |
+| `effect_tables`, `effect_lists`, `counter_type_table` | `effect_params.read_effect_model` → `write_effect_model` (§5) | 4 tables, L1 + L4, 1 |
+| `archetype_predicates`, `genre_map_table` | `search_filters.read_boot_word_tables` → `write_boot_word_tables` | 1 + 1 |
+| `recipe_names` | `strtbl.parse` → `strtbl.build` (§6) | 6 |
+| `recipe_owner_table`, `recipe_level_table`, `recipe_variant_table`, `recipe_card_list` | `decks.read_recipes`, `read_card_lists` → `write_owners`, `write_levels`, `write_variants`, `write_card_lists` (§6) | 1 each |
+| `same_card_tbl`, `file_tbl`, `deck_tutorial_script` | `decks.read_same_card`, `read_file_table`, `tutorial_decode` → `build_same_card`, `build_file_table`, `tutorial_build` (§6) | 5 + 5 + 5 |
+| `ptrs_txt` | `ehp.parse_ptrs` → `build_ptrs` (member names, so a rebuilt archive gets correct lists; §2) | 425 |
+| `tmf` | `ehf.decode_tmf` → `build_tmf` (§8) | 689 |
+| `hmp` | `world.WalkGrid` → `build_hmp` (§11) | 32 |
+| `field_map_table`, `field_map_lighting`, `island_map_areas`, `story_exit_cells`, `story_fixed_spots`, `story_char_table` | `world.read_*_model` / `read_*` → `world.write_*` (§12) | 1 each |
+| `field_strtbl` | `strtbl.parse` → `strtbl.build` (§12) | 111 |
+| `ydq`, `tuto_cmd`, `tuto_text` | `tutorial.ydq_decode`, `cmd_decode`, `text_table` → `ydq_encode`, `cmd_build`, `text_build` (§14) | 50 + 17 + 6 |
+| `snd_cue`, `snd_adpcm_layer` | `sound.decode_bank` → `build_bank` (offsets become indices; §16) | 728 banks, 15 with ADPCM |
+| `boot_sound_tables`, `voiceidchgtbl` | `voices.boot_tables` → `write_boot_tables` (also derived from the chain by `derive_boot_tables`); `parse_change_table` → `build_change_table` (§16) | 1; 189 |
+| `ai_priority_tables` | `ai_tables.read_model` → `write_model` (§18) | 1 |
+| `module_descriptor`, `scene_table` | `modules.read_descriptors`, `read_scene_table` → `write_descriptors`, `write_scene_table` | 2 tables; 1 |
+| `save_data`, `save_header`, `save_stored_decks`, `save_decks`, `save_player_profile`, `save_settings`, `save_character_records`, `save_recipe_table`, `save_duel_record`, `save_collection`, `save_pack_records`, `save_picture_bits` | `save.to_model` → `from_model` (`save.py model` / `build` / `roundtrip`; §19) | 7 saves |
+
+Run on 2026-10-31: every check above is byte-identical (about 20 s). The stored decks, recipe table and picture bits are all zero in the seven saves, so for them the real-data round trip covers zero content only; the synthetic tests cover the rest (`save.md`).
+
 ## Check run (2026-10-30)
 
 Every command in the "Check run" lines above returned exit code 0 on the reference dump, except as noted here:

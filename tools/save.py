@@ -5,6 +5,9 @@
   save.py decks      DATA0 [--cardinfo cardinfo_eng.ehp]    deck records (127 slots)
   save.py collection DATA0                                   per-card copies, flags and limit status
   save.py json       DATA0 [-o FILE]                         every mapped region, decoded, as JSON
+  save.py model      DATA0 -o MODEL.json                     lossless JSON model of every region (writer input)
+  save.py build      MODEL.json -o DATA0                     rebuild DATA0 from a model, byte for byte
+  save.py roundtrip  DATA0 [DATA0 ...]                       model -> JSON -> build must give the same bytes
   save.py map                                                the offset map (no save needed)
   save.py DATA0 --check                                      structural checks of the save and of the map
   save.py --check                                            only check the map (gap-free, sizes add up)
@@ -315,6 +318,417 @@ def decode(data):
     return out
 
 
+# ---------------------------------------------------------------------- lossless JSON model and writer
+#
+# to_model() turns DATA0 into JSON-ready values, one entry per region of MAP (the record table field by field,
+# the story block per sub-region); from_model() rebuilds the 0x20000 bytes. Every region with an established
+# layout has its own codec whose fields cover all its bytes (stale bytes after a string or past a list's count
+# are kept as explicit `*_tail` / `stale` fields); regions without one are stored as runs of non-zero bytes.
+# The round trip (json.dumps -> json.loads -> from_model) is byte-identical on every save in
+# external/ppsspp/saves (tools/roundtrip.py --saves ...).
+
+MODEL_FORMAT, MODEL_SCHEMA = "tf3-data0", 1
+
+
+def _runs(raw, merge=8):
+    """Non-zero bytes as [[offset, hex], ...]; zero gaps shorter than `merge` stay inside a run."""
+    runs, k = [], 0
+    while k < len(raw):
+        if not raw[k]:
+            k += 1
+            continue
+        start = end = k
+        while k < len(raw) and (raw[k] or any(raw[k:k + merge])):
+            if raw[k]:
+                end = k
+            k += 1
+        runs.append([start, raw[start:end + 1].hex()])
+    return runs
+
+
+def _from_runs(runs, size):
+    out = bytearray(size)
+    for offset, text in runs:
+        chunk = bytes.fromhex(text)
+        out[offset:offset + len(chunk)] = chunk
+    return bytes(out)
+
+
+def _sparse(values):
+    return {str(i): v for i, v in enumerate(values) if v}
+
+
+def _from_sparse(mapping, count):
+    values = [0] * count
+    for key, value in mapping.items():
+        values[int(key)] = value
+    return values
+
+
+def _text_field(raw):
+    """UTF-16 field: text up to the first NUL unit, plus the non-zero bytes after that NUL (stale bytes)."""
+    units = len(raw) // 2
+    end = next((k for k in range(units) if raw[2 * k:2 * k + 2] == b"\0\0"), units)
+    value = {"text": raw[:2 * end].decode("utf-16-le", "surrogatepass")}
+    tail = raw[2 * end + 2:]
+    if any(tail):
+        value["tail"] = _runs(tail)
+    if end == units:
+        value["unterminated"] = True
+    return value
+
+
+def _encode_text(value, size):
+    raw = value["text"].encode("utf-16-le", "surrogatepass")
+    if not value.get("unterminated"):
+        raw += b"\0\0"
+    raw += _from_runs(value.get("tail", []), size - len(raw))
+    if len(raw) != size:
+        raise ValueError(f"text field of {size} bytes holds {len(raw)}")
+    return raw
+
+
+def _counted(count, values, capacity):
+    """A count and `capacity` slots: the first min(count, capacity) values plus stale slots past the count."""
+    used = min(count, capacity)
+    out = {"values": list(values[:used])}
+    if count != used:
+        out["count"] = count
+    stale = {str(i): v for i, v in enumerate(values) if i >= used and v}
+    if stale:
+        out["stale"] = stale
+    return out
+
+
+def _uncounted(value, capacity):
+    values = list(value["values"]) + [0] * (capacity - len(value["values"]))
+    for key, v in value.get("stale", {}).items():
+        values[int(key)] = v
+    return value.get("count", len(value["values"])), values
+
+
+def _decode_deck_struct(raw):
+    """The 0xc0-byte deck struct: u32 counts main/side/extra, 60 + 15 + 15 u16 ids."""
+    counts = struct.unpack_from("<3I", raw, 0)
+    out = {}
+    for (name, offset, capacity), count in zip(LISTS, counts):
+        out[name] = _counted(count, struct.unpack_from(f"<{capacity}H", raw, offset - COUNTS), capacity)
+    return out
+
+
+def _encode_deck_struct(value):
+    raw = bytearray(0xC0)
+    for k, (name, offset, capacity) in enumerate(LISTS):
+        count, values = _uncounted(value[name], capacity)
+        struct.pack_into("<I", raw, 4 * k, count)
+        struct.pack_into(f"<{capacity}H", raw, offset - COUNTS, *values)
+    return bytes(raw)
+
+
+def _decode_key_cards(raw):
+    count, = struct.unpack_from("<I", raw, 0)
+    return _counted(count, struct.unpack_from("<46H", raw, 4), 46)
+
+
+def _encode_key_cards(value):
+    count, values = _uncounted(value, 46)
+    return struct.pack("<I46H", count, *values)
+
+
+def _records(decode, size, count):
+    """Records that hold a non-zero byte, each with its index; all-zero records are left out."""
+    def dec(raw):
+        out = []
+        for i in range(count):
+            value = decode(raw[size * i:size * (i + 1)])
+            if any(raw[size * i:size * (i + 1)]):
+                out.append({"index": i, **value})
+        return out
+    return dec
+
+
+def _unrecords(encode, size, count):
+    def enc(value):
+        raw = bytearray(size * count)
+        for record in value:
+            fields = {k: v for k, v in record.items() if k != "index"}
+            raw[size * record["index"]:size * (record["index"] + 1)] = encode(fields)
+        return bytes(raw)
+    return enc
+
+
+def _dec_stored(raw):
+    return {"flag": struct.unpack_from("<I", raw, 0)[0], "name": _text_field(raw[4:0x54]),
+            "deck": _decode_deck_struct(raw[0x54:0x114]), "key_cards": _decode_key_cards(raw[0x114:0x174])}
+
+
+def _enc_stored(v):
+    return (struct.pack("<I", v["flag"]) + _encode_text(v["name"], 0x50) + _encode_deck_struct(v["deck"])
+            + _encode_key_cards(v["key_cards"]))
+
+
+def _dec_slot(raw):
+    owner, variant, recipe = struct.unpack_from("<3I", raw, 0)
+    return {"owner": owner, "variant": variant, "recipe": recipe, "name": _text_field(raw[0x0C:0x4C]),
+            "deck": _decode_deck_struct(raw[0x4C:0x10C]), "key_cards": _decode_key_cards(raw[0x10C:0x16C])}
+
+
+def _enc_slot(v):
+    return (struct.pack("<3I", v["owner"], v["variant"], v["recipe"]) + _encode_text(v["name"], 0x40)
+            + _encode_deck_struct(v["deck"]) + _encode_key_cards(v["key_cards"]))
+
+
+def _dec_character(raw):
+    count, = struct.unpack_from("<H", raw, 0)
+    return {"entries": _counted(count, struct.unpack_from("<10H", raw, 2), 10),
+            "points": struct.unpack_from("<H", raw, 0x16)[0]}
+
+
+def _enc_character(v):
+    count, values = _uncounted(v["entries"], 10)
+    return struct.pack("<H10HH", count, *values, v["points"])
+
+
+def _dec_settings(raw):
+    value = {name: raw[byte] >> shift & ((1 << width) - 1) for name, byte, shift, width in SETTING_FIELDS}
+    value["option_flags"] = [int(raw[byte] >> bit & 1) for byte, bit in OPTION_BITS]
+    value["byte2_bits5_7"] = raw[2] >> 5
+    value["nibbles"] = [b & 15 for b in raw[3:8]]
+    value["nibbles_high"] = [b >> 4 for b in raw[3:8]]
+    return value
+
+
+def _enc_settings(v):
+    raw = bytearray(8)
+    for name, byte, shift, width in SETTING_FIELDS:
+        raw[byte] |= (v[name] & ((1 << width) - 1)) << shift
+    for (byte, bit), flag in zip(OPTION_BITS, v["option_flags"]):
+        raw[byte] |= (flag & 1) << bit
+    raw[2] |= v["byte2_bits5_7"] << 5
+    for k, (low, high) in enumerate(zip(v["nibbles"], v["nibbles_high"])):
+        raw[3 + k] = low | high << 4
+    return bytes(raw)
+
+
+def _dec_recipes(raw):
+    out = []
+    for r, word in enumerate(struct.unpack(f"<{RECIPE_COUNT}H", raw)):
+        if word:
+            entry = {"recipe": r, "unlocked": word & 1, "owner": word >> 1 & 0xFF}
+            if word >> 9:
+                entry["bits9_15"] = word >> 9
+            out.append(entry)
+    return out
+
+
+def _enc_recipes(v):
+    words = [0] * RECIPE_COUNT
+    for entry in v:
+        words[entry["recipe"]] = entry["unlocked"] | entry["owner"] << 1 | entry.get("bits9_15", 0) << 9
+    return struct.pack(f"<{RECIPE_COUNT}H", *words)
+
+
+DUEL_TOTALS = ("wins", "losses", "draws", "win_streak", "best_win_streak", "loss_streak", "worst_loss_streak")
+
+
+def _dec_duel_record(raw):
+    out = dict(zip(DUEL_TOTALS, struct.unpack_from("<7I", raw, 0)))
+    rows = []
+    for c in range(DUEL_CHARS):
+        wins, losses, draws, unused = struct.unpack_from("<4H", raw, 0x1C + 8 * c)
+        if wins or losses or draws or unused:
+            row = {"character": c, "wins": wins, "losses": losses, "draws": draws}
+            if unused:
+                row["unused"] = unused
+            rows.append(row)
+    out["per_character"] = rows
+    return out
+
+
+def _enc_duel_record(v):
+    raw = bytearray(0x494)
+    struct.pack_into("<7I", raw, 0, *(v[k] for k in DUEL_TOTALS))
+    for row in v["per_character"]:
+        struct.pack_into("<4H", raw, 0x1C + 8 * row["character"], row["wins"], row["losses"], row["draws"],
+                         row.get("unused", 0))
+    return bytes(raw)
+
+
+def _dec_record_table(raw):
+    return {"record_values": list(struct.unpack_from("<49I", raw, 0)), "record_new": _sparse(raw[0xC4:0xF5]),
+            "record_pad": _runs(raw[0xF5:0xF8]), "bonus_once": _sparse(raw[0xF8:0x14C]),
+            "bonus_state": _sparse(raw[0x14C:0x1B8]), "bonus_best": _sparse(struct.unpack_from("<108h", raw, 0x1B8)),
+            "record_selector": struct.unpack_from("<h", raw, 0x290)[0], "record_unknown": _runs(raw[0x292:0x800])}
+
+
+def _enc_record_table(v):
+    raw = bytearray(0x800)
+    struct.pack_into("<49I", raw, 0, *v["record_values"])
+    raw[0xC4:0xF5] = bytes(_from_sparse(v["record_new"], 49))
+    raw[0xF5:0xF8] = _from_runs(v["record_pad"], 3)
+    raw[0xF8:0x14C] = bytes(_from_sparse(v["bonus_once"], 84))
+    raw[0x14C:0x1B8] = bytes(_from_sparse(v["bonus_state"], 108))
+    struct.pack_into("<108h", raw, 0x1B8, *_from_sparse(v["bonus_best"], 108))
+    struct.pack_into("<h", raw, 0x290, v["record_selector"])
+    raw[0x292:0x800] = _from_runs(v["record_unknown"], 0x56E)
+    return bytes(raw)
+
+
+def _dec_collection(raw):
+    out = []
+    for i in range(CARD_CAPACITY):
+        flags, copies, status, extra = raw[4 * i:4 * i + 4]
+        if flags or copies or status or extra:
+            entry = {"index": i, "flags": flags, "copies": copies, "limit_status": status & 3}
+            if status >> 2:
+                entry["byte2_bits2_7"] = status >> 2
+            if extra:
+                entry["byte3"] = extra
+            out.append(entry)
+    return out
+
+
+def _enc_collection(v):
+    raw = bytearray(4 * CARD_CAPACITY)
+    for e in v:
+        raw[4 * e["index"]:4 * e["index"] + 4] = bytes(
+            [e["flags"], e["copies"], e["limit_status"] | e.get("byte2_bits2_7", 0) << 2, e.get("byte3", 0)])
+    return bytes(raw)
+
+
+def _dec_pack(raw):
+    value = {"stock": [raw[0] & 15, raw[0] >> 4], "state": raw[1] & 7,
+             "rarity_box": list(struct.unpack_from("<20H", raw, 2))}
+    if raw[1] >> 3:
+        value["byte1_bits3_7"] = raw[1] >> 3
+    return value
+
+
+def _enc_pack(v):
+    return (bytes([v["stock"][0] | v["stock"][1] << 4, v["state"] | v.get("byte1_bits3_7", 0) << 3])
+            + struct.pack("<20H", *v["rarity_box"]))
+
+
+def _dec_partner(raw):
+    word, = struct.unpack("<H", raw)
+    return {"flag": word & 1, "cycle": word >> 1 & 7, "character": word >> 4 & 0xFF, "variant": word >> 12}
+
+
+def _enc_partner(v):
+    return struct.pack("<H", v["flag"] | v["cycle"] << 1 | v["character"] << 4 | v["variant"] << 12)
+
+
+def _dec_bits(raw):
+    return bits(raw, 0, len(raw))
+
+
+def _enc_bits(numbers, size):
+    raw = bytearray(size)
+    for n in numbers:
+        raw[n >> 3] |= 1 << (n & 7)
+    return bytes(raw)
+
+
+def _u32_codec(count):
+    return (lambda raw: list(struct.unpack(f"<{count}I", raw)), lambda v: struct.pack(f"<{count}I", *v))
+
+
+def _int_codec(fmt):
+    return (lambda raw: struct.unpack(fmt, raw)[0], lambda v: struct.pack(fmt, v))
+
+
+def _text_codec(size):
+    return (_text_field, lambda v: _encode_text(v, size))
+
+
+CODECS = {
+    "version": _int_codec("<I"),
+    "header_unknown": _u32_codec(2),
+    "frame_counter": _int_codec("<I"),
+    "open_psid": (lambda raw: raw.hex(), bytes.fromhex),
+    "stored_decks": (_records(_dec_stored, STORED_SIZE, STORED_COUNT), _unrecords(_enc_stored, STORED_SIZE, STORED_COUNT)),
+    "deck_slots": (_records(_dec_slot, DECK_SIZE, DECK_COUNT), _unrecords(_enc_slot, DECK_SIZE, DECK_COUNT)),
+    "player_name": _text_codec(0x32),
+    "team_name": _text_codec(0x64),
+    "pad_fdf2": _int_codec("<H"),
+    "duelist_level": _int_codec("<I"),
+    "duelist_exp": _int_codec("<I"),
+    "dp": _int_codec("<I"),
+    "dp_earned": _int_codec("<I"),
+    "settings": (_dec_settings, _enc_settings),
+    "characters": (_records(_dec_character, CHAR_SIZE, CHAR_COUNT), _unrecords(_enc_character, CHAR_SIZE, CHAR_COUNT)),
+    "recipes": (_dec_recipes, _enc_recipes),
+    "duel_record": (_dec_duel_record, _enc_duel_record),
+    "record_table": (_dec_record_table, _enc_record_table),
+    "collection": (_dec_collection, _enc_collection),
+    "card_list_count": _int_codec("<H"),
+    "card_list": (lambda raw: _sparse(struct.unpack("<99H", raw)), lambda v: struct.pack("<99H", *_from_sparse(v, 99))),
+    "card_list_state": (lambda raw: _sparse(struct.unpack("<99H", raw)),
+                        lambda v: struct.pack("<99H", *_from_sparse(v, 99))),
+    "limit_list_name": _text_codec(0x80),
+    "packs_bought": _int_codec("<H"),
+    "packs": (lambda raw: [_dec_pack(raw[PACK_SIZE * p:PACK_SIZE * (p + 1)]) for p in range(PACK_COUNT)],
+              lambda v: b"".join(_enc_pack(p) for p in v)),
+    "progress_bytes": (list, bytes),
+    "pad_16e0a": _int_codec("<H"),
+    "max_story_cycle": _int_codec("<I"),
+    "byte_16e10": _int_codec("<B"),
+    "byte_16e11": _int_codec("<B"),
+    "partner": (_dec_partner, _enc_partner),
+    "picture_bits": (_dec_bits, lambda v: _enc_bits(v, 0xC)),
+    "minigame_block_0": _u32_codec(1), "minigame_block_1": _u32_codec(1), "minigame_block_2": _u32_codec(1),
+    "minigame_block_3": _u32_codec(12), "minigame_block_6": _u32_codec(1), "minigame_block_7": _u32_codec(1),
+    "minigame_block_8": _u32_codec(0xBC // 4), "title_words": _u32_codec(3),
+    "character_flags": (lambda raw: _sparse(struct.unpack(f"<{CHAR_FLAGS_COUNT}H", raw)),
+                        lambda v: struct.pack(f"<{CHAR_FLAGS_COUNT}H", *_from_sparse(v, CHAR_FLAGS_COUNT))),
+    "progress_flags": (list, bytes),
+    "pad_1c0eb": _int_codec("<B"),
+}
+
+
+def _leaves():
+    """(offset, size, key) of the regions the model stores: MAP, with the story block split into its
+    sub-regions (stored as runs); the record table has its own codec."""
+    for offset, size, key, _, _ in MAP:
+        if key == "story_block":
+            for sub in SUBMAPS[key]:
+                yield sub[0], sub[1], f"story_block.{sub[2]}"
+        else:
+            yield offset, size, key
+
+
+def to_model(data):
+    """DATA0 -> JSON-ready dict; from_model() inverts it byte for byte."""
+    if len(data) != SAVE_SIZE:
+        raise ValueError(f"DATA0 is {SAVE_SIZE:#x} bytes, not {len(data):#x}")
+    regions = {}
+    for offset, size, key in _leaves():
+        raw = data[offset:offset + size]
+        codec = CODECS.get(key)
+        regions[key] = codec[0](raw) if codec else {"runs": _runs(raw)}
+    return {"format": MODEL_FORMAT, "schema": MODEL_SCHEMA, "regions": regions}
+
+
+def from_model(model):
+    if model.get("format") != MODEL_FORMAT or model.get("schema") != MODEL_SCHEMA:
+        raise ValueError("not a tf3-data0 schema 1 model")
+    out = bytearray(SAVE_SIZE)
+    for offset, size, key in _leaves():
+        value = model["regions"][key]
+        codec = CODECS.get(key)
+        raw = codec[1](value) if codec else _from_runs(value["runs"], size)
+        if len(raw) != size:
+            raise ValueError(f"{key}: encoded {len(raw)} bytes, the region has {size}")
+        out[offset:offset + size] = raw
+    return bytes(out)
+
+
+def region_problems(data):
+    """Keys of the regions that differ after to_model -> JSON text -> from_model ([] when byte-identical)."""
+    rebuilt = from_model(json.loads(json.dumps(to_model(data))))
+    return [key for offset, size, key in _leaves() if rebuilt[offset:offset + size] != data[offset:offset + size]]
+
+
 def check(data, valid_ids=None):
     problems = check_map()
     if len(data) != SAVE_SIZE:
@@ -358,12 +772,29 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="only run the structural checks")
     parser.add_argument("-o", "--output", type=Path, help="write the output here (keep it out of git)")
     ns = parser.parse_args(argv)
-    what = ns.args[0] if ns.args and ns.args[0] in ("decks", "collection", "json", "map") else None
+    what = (ns.args[0] if ns.args and ns.args[0] in ("decks", "collection", "json", "map", "model", "build", "roundtrip")
+            else None)
     rest = ns.args[1:] if what else ns.args
+    if what == "roundtrip":
+        failed = 0
+        for name in rest:
+            problems = region_problems(Path(name).read_bytes())
+            failed += bool(problems)
+            print(f"{name}: " + (f"differs in {', '.join(problems)}" if problems else "byte-identical"))
+        return 1 if failed else 0
     if len(rest) > 1:
         parser.error("too many arguments")
     path = Path(rest[0]) if rest else None
 
+    if what in ("model", "build"):
+        if path is None or ns.output is None:
+            parser.error(f"{what} needs an input and -o OUTPUT")
+        if what == "model":
+            ns.output.write_text(json.dumps(to_model(path.read_bytes()), indent=1) + "\n", encoding="utf-8")
+        else:
+            ns.output.write_bytes(from_model(json.loads(path.read_text(encoding="utf-8"))))
+        print(f"wrote {ns.output}")
+        return 0
     if what == "map":
         rows = list(map_rows())
         fields = list(rows[0])

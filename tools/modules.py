@@ -181,6 +181,62 @@ def descriptor_tables(boot):
     return tables
 
 
+# --- writers (round trip, tools/roundtrip.py) -----------------------------------------------------------------
+
+DESCRIPTOR_TABLES = (0x0889F57C, 0x0889FEA4)  # Sony modules (ids 1-7), game modules (ids 8-0x31)
+DESCRIPTOR = struct.Struct("<IiIHH")  # id, root, name pointer (module offset), kind, utility id
+SCENE_TABLE, SCENE_COUNT = 0x088A1478, 31  # {u32 scene id, u32 module id}
+
+
+def read_descriptors(boot, address):
+    """Records of one descriptor table up to its zero record: {id, root, name pointer, name, kind, utility}."""
+    rows, pointer = [], address - BOOT_BASE
+    while True:
+        ident, root, name_ptr, kind, utility = DESCRIPTOR.unpack_from(boot.data, boot.offset(pointer))
+        if not (ident or root or name_ptr or kind or utility):
+            return rows
+        rows.append({"id": ident, "root": root, "name_ptr": name_ptr, "name": boot.string(name_ptr),
+                     "kind": kind, "utility": utility})
+        pointer += DESCRIPTOR.size
+
+
+def descriptor_spans(boot, address, rows):
+    """The records, the zero record and each NUL-terminated name."""
+    spans = [(boot.offset(address - BOOT_BASE), DESCRIPTOR.size * (len(rows) + 1))]
+    spans += [(boot.offset(r["name_ptr"]), len(r["name"]) + 1) for r in rows]
+    return spans
+
+
+def write_descriptors(data, model):
+    """model: {table address: rows}. Writes records, a zero record and the names at their pointers."""
+    boot = prx_imports.Elf(data, BOOT_BASE)
+    out = bytearray(data)
+    for address, rows in model.items():
+        start = boot.offset(address - BOOT_BASE)
+        for k, r in enumerate(rows + [None]):
+            values = (0, 0, 0, 0, 0) if r is None else (r["id"], r["root"], r["name_ptr"], r["kind"], r["utility"])
+            DESCRIPTOR.pack_into(out, start + DESCRIPTOR.size * k, *values)
+            if r is not None:
+                name = r["name"].encode("ascii") + b"\0"
+                out[boot.offset(r["name_ptr"]):boot.offset(r["name_ptr"]) + len(name)] = name
+    return bytes(out)
+
+
+def read_scene_table(boot):
+    """[(scene id, module id)] x 31."""
+    start = boot.offset(SCENE_TABLE - BOOT_BASE)
+    return [struct.unpack_from("<2I", boot.data, start + 8 * k) for k in range(SCENE_COUNT)]
+
+
+def write_scene_table(data, pairs):
+    boot = prx_imports.Elf(data, BOOT_BASE)
+    out = bytearray(data)
+    start = boot.offset(SCENE_TABLE - BOOT_BASE)
+    for k, pair in enumerate(pairs):
+        struct.pack_into("<2I", out, start + 8 * k, *pair)
+    return bytes(out)
+
+
 def vote_base(text, text_addr, symbols, sample=150):
     """(base, starts matched, starts total) for the base that best aligns a module's jal targets with symbols."""
     words = struct.unpack_from(f"<{len(text) // 4}I", text)

@@ -213,6 +213,20 @@ Its `sound` command (read-only, run on the maintainer's image on 2026-10-25):
 - In the 15 banks with ADPCM cues, its listed durations are shifted: they are taken from the cue at the wave's ordinal, and that cue may be an ADPCM cue. The durations here come from the cue that points at the wave, and they agree with that wave's `fact` chunk.
 - It shows no PS-ADPCM layers.
 
+## Bank writer and round trip
+
+`sound.decode_bank(bank)` turns a bank into plain values in which every offset is an index: cues keep their fields (`CUE_FIELDS`) with `wave` (index of a distinct RIFF wave, in offset order) or `layer` (first layer entry) instead of `target`; layers name a sample and an envelope record; samples keep pitch, rate and PS-ADPCM bytes; envelopes are decoded with `ENVELOPE` (volume, pan, a `u16`, the ADSR word, the two loop `u16`, a byte, the note, the pitch and 8 trailing bytes). `sound.build_bank(model)` lays out header, cue table, layer table, ADPCM area, wave area (length-prefixed RIFFs) and envelope table back to back, zero-fills to the bank size and writes the `EP` footer; music banks keep the zero layer/ADPCM/envelope/end fields. `sound.build(models)` writes the chain. All 728 banks rebuild byte for byte, the 15 banks with PS-ADPCM layers included (`snd_cue` and `snd_adpcm_layer` are `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only snd_cue,snd_adpcm_layer
+```
+
+The `BOOT.BIN` bank offset and first-id tables (`boot_sound_tables`) are written by `voices.write_boot_tables()`; `voices.derive_boot_tables()` regenerates both from the bank sizes and cue counts, and the round trip checks that the derived tables equal the stored ones. The voice change tables (`*_voiceidchgtbl.bin`, 189 copies) are rebuilt by `voices.build_change_table()` (16 `u32` offsets from 64, then the `u16` sub-tables back to back). Both are `reimplemented`:
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only boot_sound_tables,voiceidchgtbl
+```
+
 ## Open questions
 
 - Cue flags (`0x02`), `0x04`, `0x10` and `0x11`, and envelope bytes `0x08`–`0x0B`: how the player uses them (trace the sceSas/sceAtrac calls in PPSSPP).

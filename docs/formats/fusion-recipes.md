@@ -1,6 +1,6 @@
 # Fusion recipe table and ritual table (`gmodule/rel_duel_eng.prx`)
 
-Status: `documented` (layout, material-code semantics, readers). Addresses are runtime addresses with the module at `0x09be1400` (file offset = address − `0x09be1400` + `0x54`). Tool: `tools/fusion.py` (`recipes`, `rituals`, `--check`). The summoning procedures that use these tables are described in `docs/subsystems/summon.md`.
+Status: `reimplemented` (layout, material-code semantics, readers; writers and round trip at the end). Addresses are runtime addresses with the module at `0x09be1400` (file offset = address − `0x09be1400` + `0x54`). Tool: `tools/fusion.py` (`recipes`, `rituals`, `--check`). The summoning procedures that use these tables are described in `docs/subsystems/summon.md`.
 
 Basis: Ghidra decompilation of every reader (read-only project copy), the BOOT.BIN card-group predicates they call, and the card database (`cardinfo.md`) used to check that every id is a real card of the expected kind. Not yet traced in PPSSPP. Confidence per claim: H (high), M (medium), L (low).
 
@@ -83,6 +83,14 @@ How Ritual Spells reach this code: most Ritual Spells have **no record** in the 
 - With `--cardinfo`: every Fusion is kind 5/7, every card-id material exists, every ritual monster is kind 9/11, every ritual spell is kind 27 with icon 6, and each Level total equals the monster's Level.
 
 On the disc the check passes: 138 recipes (119 + 19), 295 material slots of which 25 are generic (14 distinct codes), 31 ritual records.
+
+## Writers and round trip
+
+`fusion.write_recipes(prx, records)` writes the 138 records (`u16` Fusion id, three material codes, 0 padding a two-material record) and `fusion.write_rituals(prx, records)` the ritual words (monster bits 0–13, spell 14–27, level 28–31) plus the terminating 0 word. The round trip overwrites the tables (`fusion.recipe_span`, `fusion.ritual_span`) with a filler, writes the records read by `recipes()`/`rituals()` and compares the whole module: byte-identical (`fusion_recipes`, `ritual_table` are `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only fusion_recipes,ritual_table
+```
 
 ## Open questions
 

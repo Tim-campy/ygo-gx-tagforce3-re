@@ -103,6 +103,22 @@ These are the **exit cells** of each map (high): `world_field_load_map` (`rel_fi
 | `event_name.bin` | 6 | — | Not in the English archive; loaded from `field/event` (resource directory `+0x2f77c`). |
 | `option_msg_<l>.bin` | — | 40 / 39 | Options screen text. |
 
+## Writers and round trip
+
+Each table has a reader returning plain values, a writer that writes them into a copy of the module, and the list of bytes the table owns; the round trip overwrites those bytes with a filler, writes the model back and compares the whole module.
+
+| Format | Reader | Writer |
+| --- | --- | --- |
+| Map table (`+0x2e798`, `+0x2e298` and the names they point to) | `world.read_map_table_model` (pointer and name per entry) | `world.write_map_table` (pointers and NUL-terminated names) |
+| Exit selector and exit cells (`+0x1f968`, `+0x1fb84`) | `world.read_exit_model` (selector records; every cell triple, including the unread `x`/`y` of key records) | `world.write_exits` (zero record and zero triple appended) |
+| Field string tables (111: `field_strtbl`, `_item`, `_mapname`, `field_strtbl_<l>`) | `strtbl.parse` | `strtbl.build` |
+
+All rebuild byte for byte (`field_map_table`, `story_exit_cells` and `field_strtbl` are `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only field_map_table,story_exit_cells,field_strtbl
+```
+
 ## Open questions
 
 - The island-map areas and destinations are in `docs/subsystems/world.md`; screen positions and navigation are decoded in `field-maps.md`.

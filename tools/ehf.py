@@ -220,6 +220,16 @@ def parse_tmf(data):
     return list(data)
 
 
+def decode_tmf(data):
+    """.tmf as one {'additive': bit 0, 'bit4': bit 4, 'other': remaining bits} per texture slot."""
+    return [{"additive": bool(b & 0x01), "bit4": bool(b & 0x10), "other": b & ~0x11} for b in data]
+
+
+def build_tmf(flags):
+    """Inverse of decode_tmf(): one byte per slot, no header (byte-identical on all 689 .tmf of the disc)."""
+    return bytes((0x01 if f["additive"] else 0) | (0x10 if f["bit4"] else 0) | f["other"] for f in flags)
+
+
 # --- Consistency checks ---------------------------------------------------------------------------
 
 WORK_HEAD, WORK_INSTANCE = 0x78, 0x28

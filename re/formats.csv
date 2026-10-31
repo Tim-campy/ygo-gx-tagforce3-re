@@ -14,37 +14,37 @@ tgm_tms,TGMS mesh (.tms),field_3d,reimplemented,
 tgm_tmt,TGMT node animation (.tmt/.tmt.gz/.vtmt.gz),field_3d,reimplemented,
 tgm_tma,TGMA texture animation (.tma),field_3d,reimplemented,
 file_index,In-memory disc file index (16-byte entries),container,verified,
-ptrs_txt,EHP resource pointer list (*ptrs.txt),container,documented,
-cardinfo_ehp,cardinfo_<lang>.ehp card database archive,card_db,documented,
-card_prop,CARD_Prop card properties (8 bytes per card),card_db,documented,
+ptrs_txt,EHP resource pointer list (*ptrs.txt),container,reimplemented,
+cardinfo_ehp,cardinfo_<lang>.ehp card database archive,card_db,reimplemented,
+card_prop,CARD_Prop card properties (8 bytes per card),card_db,reimplemented,
 card_pass,CARD_Pass passcodes,card_db,verified,
 card_intid,CARD_IntID card id to index map,card_db,verified,
 card_names,CARD_Indx + CARD_Name card names,card_db,verified,
 card_desc,CARD_Desc + CARD_Huff Huffman descriptions,card_db,verified,
-card_dict,DICT description dictionary,card_db,documented,
+card_dict,DICT description dictionary,card_db,reimplemented,
 card_sort,CARD_Sort alphabetical rank (collation rule reproduces all five languages),card_db,verified,
 card_top,CARD_Top alphabet jump table,card_db,verified,
-card_samepict,CARD_SamePict cards with several artworks,card_db,documented,
-card_genre,CARD_Genre category flags (names from DLG_Text 701+n),card_db,documented,
-dlg_text,DLG_Indx + DLG_Text duel prompts,card_db,documented,
-pack_table,Booster pack table and rarity tiers (rel_shop.prx),shop,documented,
+card_samepict,CARD_SamePict cards with several artworks,card_db,reimplemented,
+card_genre,CARD_Genre category flags (names from DLG_Text 701+n),card_db,reimplemented,
+dlg_text,DLG_Indx + DLG_Text duel prompts,card_db,reimplemented,
+pack_table,Booster pack table and rarity tiers (rel_shop.prx),shop,reimplemented,
 pack_draw,Shop purchase and pack draw procedure (rel_shop 0x090d9678; rarity box of 20),shop,verified,
-limit_list,Forbidden/limited list (BOOT.BIN),deck,documented,
-effect_tables,Card effect handler tables (rel_duel_eng.prx),duel_effects,documented,
+limit_list,Forbidden/limited list (BOOT.BIN),deck,reimplemented,
+effect_tables,Card effect handler tables (rel_duel_eng.prx),duel_effects,reimplemented,
 ydc_recipe,YDC deck recipe (RCP%03d.ydc in BOOT.BIN archive 0x088d77e0),deck,verified,
-recipe_names,recipe_name_<l> string table,deck,documented,
-recipe_owner_table,Recipe owner table (BOOT.BIN 0x08915f28),deck,documented,0x7e0
-recipe_level_table,Recipe level table (BOOT.BIN 0x089143f0),deck,documented,924
-recipe_variant_table,Owner deck variant table (BOOT.BIN 0x08916730),deck,documented,804
-recipe_card_list,Recipe card list (BOOT.BIN 0x089150b8; 462 x 8-byte count and pointer),deck,documented,0xe70
+recipe_names,recipe_name_<l> string table,deck,reimplemented,
+recipe_owner_table,Recipe owner table (BOOT.BIN 0x08915f28),deck,reimplemented,0x7e0
+recipe_level_table,Recipe level table (BOOT.BIN 0x089143f0),deck,reimplemented,924
+recipe_variant_table,Owner deck variant table (BOOT.BIN 0x08916730),deck,reimplemented,804
+recipe_card_list,Recipe card list (BOOT.BIN 0x089150b8; 462 x 8-byte count and pointer),deck,reimplemented,0xe70
 duel_setup_duellist,Duel set-up duellist record (0x1ac bytes; recipe field and set-up codes 462-466),deck,documented,0x1ac
 deck_struct,In-memory deck struct (0xc0 bytes),deck,documented,0xc0
-same_card_tbl,sameCardTbl.dat alternative artworks,deck,documented,200
-file_tbl,fileTbl.dat card id list (deck editor thumbnails),deck,documented,7006
-deck_tutorial_script,deck_tutorialNN.bin tutorial bytecode,deck,documented,
-effect_lists,8-byte (card id + handler) effect lists (rel_duel_eng.prx),duel_effects,documented,
-snd_cue,Sound bank cue entry,audio,documented,32
-snd_adpcm_layer,PS-ADPCM layer/sample/envelope records,audio,documented,
+same_card_tbl,sameCardTbl.dat alternative artworks,deck,reimplemented,200
+file_tbl,fileTbl.dat card id list (deck editor thumbnails),deck,reimplemented,7006
+deck_tutorial_script,deck_tutorialNN.bin tutorial bytecode,deck,reimplemented,
+effect_lists,8-byte (card id + handler) effect lists (rel_duel_eng.prx),duel_effects,reimplemented,
+snd_cue,Sound bank cue entry,audio,reimplemented,32
+snd_adpcm_layer,PS-ADPCM layer/sample/envelope records,audio,reimplemented,
 snd_at3_wave,ATRAC3/ATRAC3plus RIFF wave in a sound bank (fmt/fact/smpl; decoder delay; converted by audio_convert.py),audio,reimplemented,
 psmf_audio_stream,PSMF private stream 1 ATRAC3plus track (payload header; 8-byte frame headers; PTS lead),container,reimplemented,
 story_text,Story text tables EveI/EveL SysMsgI/SysMsgL,dialogue,verified,
@@ -54,45 +54,45 @@ save_decks,Save deck slots (game state +0x48c8; 127 x 0x16c),save,reimplemented,
 save_collection,Save card collection (game state +0x11ba4; 3600 x 4 bytes; 3554 used),save,verified,14400
 target_filter_flags,Target filter flag bits (rel_duel_eng.prx),duel_effects,documented,
 effect_param_chains,Per-card parameter compare chains (rel_duel_eng.prx),duel_effects,reimplemented,
-tmf,TMF per-texture flag bytes of an EHF layout,ui,documented,
+tmf,TMF per-texture flag bytes of an EHF layout,ui,reimplemented,
 gmodule_prx,Plain ELF game modules in gmodule/ (36; scene and library modules),system,documented,
-module_descriptor,Module descriptor record {id; root; name; kind; utility id} (BOOT.BIN 0x0889f57c / 0x0889fea4),system,documented,16
+module_descriptor,Module descriptor record {id; root; name; kind; utility id} (BOOT.BIN 0x0889f57c / 0x0889fea4),system,reimplemented,16
 module_registry_entry,Module registry entry (BOOT.BIN 0x089235b4),system,documented,76
-scene_table,Scene id to module id table (BOOT.BIN 0x088a1478),system,documented,248
+scene_table,Scene id to module id table (BOOT.BIN 0x088a1478),system,reimplemented,248
 scene_stack,Scene transition stack (BOOT.BIN 0x0883596c),system,documented,144
 scene_slot,ehscript scene slot state (BOOT.BIN 0x08920be4),system,documented,100
-ydq,Tutorial duel setup (.ydq; Shift-JIS INI text),duel_core,documented,
-tuto_cmd,Duel-tutorial script (tuto_cmd_NN.bin),duel_core,documented,
-tuto_text,Duel-tutorial text table (tuto_text_<l>.bin),duel_core,documented,
+ydq,Tutorial duel setup (.ydq; Shift-JIS INI text),duel_core,reimplemented,
+tuto_cmd,Duel-tutorial script (tuto_cmd_NN.bin),duel_core,reimplemented,
+tuto_text,Duel-tutorial text table (tuto_text_<l>.bin),duel_core,reimplemented,
 tuto_legacy_cmd,Legacy tutorial script (tutorial/ NN_duel_command.bin; not loaded by the game),duel_core,documented,
-voiceidchgtbl,Character voice change table (*_voiceidchgtbl.bin),audio,documented,
+voiceidchgtbl,Character voice change table (*_voiceidchgtbl.bin),audio,reimplemented,
 chr_wordstbl,Cut-in voice captions (chr_wordstbl_<l>.bin),audio,documented,
-boot_sound_tables,Sound bank offset and first-id tables (BOOT.BIN),audio,documented,
+boot_sound_tables,Sound bank offset and first-id tables (BOOT.BIN),audio,reimplemented,
 boot_character_table,Character table (BOOT.BIN 0x088aa510; 174 x 148 bytes),world,documented,
-ai_priority_tables,Duel AI priority tables (rel_duel_eng 0x09dfd2dc-0x09e00800),ai,documented,13604
-hmp,Field walk grid (.hmp; 0.5-unit height grid and walkable cells),world,documented,
-field_map_table,Field map id to archive and mesh tables (rel_field.prx),world,documented,
+ai_priority_tables,Duel AI priority tables (rel_duel_eng 0x09dfd2dc-0x09e00800),ai,reimplemented,13604
+hmp,Field walk grid (.hmp; 0.5-unit height grid and walkable cells),world,reimplemented,
+field_map_table,Field map id to archive and mesh tables (rel_field.prx),world,reimplemented,
 field_door_table,Field door table (rel_field.prx +0x25334; 32 x 10 x 0x2c),world,verified,0x3700
-story_exit_cells,Location selector and exit-cell groups (rel_story.prx +0x1f968 / +0x1fb84),world,documented,
-field_map_lighting,Map light mode and sky gradient per light period (rel_field.prx +0x28a7c / +0x28a34; 32 x 5 x 8 + 6 x 12 bytes),world,documented,1352
+story_exit_cells,Location selector and exit-cell groups (rel_story.prx +0x1f968 / +0x1fb84),world,reimplemented,
+field_map_lighting,Map light mode and sky gradient per light period (rel_field.prx +0x28a7c / +0x28a34; 32 x 5 x 8 + 6 x 12 bytes),world,reimplemented,1352
 field_marker_hidden_cells,Cells without the character overhead sprite (rel_field.prx +0x28f7c / +0x28fec; 14 + 120 x 8 bytes),world,documented,1072
 field_maps,Per-map field data: location to map / door cells / walk overrides / arrival cells / per-location JSON,world,verified,
-field_strtbl,Field string tables (field_strtbl / _item / _mapname),world,documented,
+field_strtbl,Field string tables (field_strtbl / _item / _mapname),world,reimplemented,
 story_calendar,Calendar block (save story block +0x3438; 0x24 bytes),world,verified,36
 save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,documented,348
 shop_unlock_rules,Pack availability rules (rel_shop.prx 0x090d9e5c),shop,documented,
-fusion_recipes,Fusion recipe table (rel_duel_eng.prx 0x09debe98),duel_effects,documented,1104
-ritual_table,Ritual monster/spell table (rel_duel_eng.prx 0x09dec4d4),duel_effects,documented,128
+fusion_recipes,Fusion recipe table (rel_duel_eng.prx 0x09debe98),duel_effects,reimplemented,1104
+ritual_table,Ritual monster/spell table (rel_duel_eng.prx 0x09dec4d4),duel_effects,reimplemented,128
 duel_stat_block,Monster stat block (13 words; duel_core_compute_card_stats),duel_core,documented,52
 duel_effect_records,Effect attachment records (0x09e2c7cc; 255 x 10 bytes),duel_core,documented,2560
-story_char_table,Character table: event keys / pairing flags / item tastes (rel_story.prx +0x2245c; 140 x 228 bytes),world,documented,31920
+story_char_table,Character table: event keys / pairing flags / item tastes (rel_story.prx +0x2245c; 140 x 228 bytes),world,reimplemented,31920
 story_spot_table,NPC spot table (rel_story.prx +0x2092c; 350 x 16 bytes),world,verified,5600
-story_fixed_spots,Fixed NPC spots (rel_story.prx +0x2238c / +0x21f0c / +0x2e550; 13 / 72 / 3 x 16 bytes),world,documented,
+story_fixed_spots,Fixed NPC spots (rel_story.prx +0x2238c / +0x21f0c / +0x2e550; 13 / 72 / 3 x 16 bytes),world,reimplemented,
 story_chapter_table,Partner chapter event table (rel_story.prx +0x2a10c; 64 x 0x110 bytes; docs/formats/chapter-table.md),world,verified,17408
 story_runtime_records,Runtime character records (save story block +0x0; 140 x 0x5c bytes),world,verified,12880
 story_event_queue,Event driver queue (save story block +0x3264; 0x68 bytes),world,verified,104
 story_field_state,Field state (save story block +0x32cc; 0x16c bytes),world,verified,364
-island_map_areas,Island map areas / destinations / screen positions (rel_field.prx +0x298b0; 12 x 8 bytes),world,documented,
+island_map_areas,Island map areas / destinations / screen positions (rel_field.prx +0x298b0; 12 x 8 bytes),world,reimplemented,
 chain_link,Chain link / effect context (rel_duel_eng 0x09e28cb4; 24 bytes),duel_core,verified,24
 effect_marker,Effect marker node (rel_duel_eng pool 0x09e2c7cc; 10 bytes),duel_core,documented,10
 card_effect_spec,Per-card effect specification (tools/card_effects.py JSON Lines; schema 3),duel_effects,documented,
@@ -133,9 +133,9 @@ duel_setup_params,Duel setup parameters (seed 0x09e02990; duelist kinds 0x09e029
 tag_waiting_area,Tag partner waiting area (0x09e02cb8 + side x 300),tag_duel,documented,300
 candidate_list,Candidate list (index 0x09e2991c; count 0x09e29920; entries 0x09e29928; meta 0x09e2a128),duel_effects,documented,3084
 token_table,Token table (rel_duel_eng 0x09e019ec; 46 x 8 bytes),duel_effects,reimplemented,368
-counter_type_table,Counter type table (rel_duel_eng 0x09deb97c; 20 words),duel_effects,documented,80
-archetype_predicates,Archetype predicate table (BOOT.BIN 0x0889e2d8; 63 functions),card_db,documented,252
-genre_map_table,Genre index map (BOOT.BIN 0x0889f980; 35 u32),card_db,documented,140
+counter_type_table,Counter type table (rel_duel_eng 0x09deb97c; 20 words),duel_effects,reimplemented,80
+archetype_predicates,Archetype predicate table (BOOT.BIN 0x0889e2d8; 63 functions),card_db,reimplemented,252
+genre_map_table,Genre index map (BOOT.BIN 0x0889f980; 35 u32),card_db,reimplemented,140
 cardinfo_globals,cardinfo member pointer globals (BOOT.BIN 0x08924d1c),card_db,documented,64
 card_language_suffixes,Language suffix table (BOOT.BIN 0x08878c88; 8 bytes per language),card_db,documented,48
 ai_snapshot_slot,AI state snapshot slot (0x09dff93c + n x 0x39f8; 10 slots),ai,documented,0x39f8
@@ -148,10 +148,10 @@ ai_main_steps,AI main-phase step table (rel_duel_eng 0x09e01ba4),ai,documented,
 ai_candidate_stack,AI candidate card stack (0x09e03004; depth 0x09e03024),ai,documented,32
 ai_combat_tricks,AI combat trick list (0x09e27ff8; up to 8 card ids),ai,documented,
 save_settings,Save settings bits (game state +0xfe04),save,verified,
-save_character_records,Save character records (game state +0xfe0c; 143 x 0x18),save,documented,24
+save_character_records,Save character records (game state +0xfe0c; 143 x 0x18),save,reimplemented,24
 save_pack_records,Save pack records (game state +0x16604; 48 x 0x2a),save,verified,42
 save_player_profile,Player profile: name / team / level / EXP / DP (game state +0xfd5c-0xfdff),save,verified,164
-save_duel_record,Duel-record block: totals / streaks / 143 per-character records (game state +0x10f10; 0x494 bytes),save,documented,1172
+save_duel_record,Duel-record block: totals / streaks / 143 per-character records (game state +0x10f10; 0x494 bytes),save,reimplemented,1172
 save_partner_word,Partner word (game state +0x16e12),save,verified,2
 story_block,Story block (game state +0x16e14),world,documented,
 story_field_save_block,Field save block: stage / chapter step / flags / pairing order (story block +0x345c),world,documented,168
@@ -171,11 +171,11 @@ tgm_model_instance,Runtime TGM model instance (BOOT.BIN 0x0882fa94: meshes/anima
 tgm_vtmt,.vtmt voice node animation (9 nodes; role unknown),field_3d,named,
 ui_resource_table,UI resource record {u32 id; void *cache; char *member format} looked up by id (rel_deck 0x08ebd84c and siblings; docs/subsystems/ui.md),ui,documented,12
 save_header,Save header: version / frame counter / OpenPSID (game state +0x0; 0x20 bytes),save,verified,32
-save_stored_decks,Stored deck records (game state +0x20; 50 x 0x174),save,documented,372
-save_recipe_table,Recipe unlock table (game state +0x10b74; 462 x u16),save,documented,924
+save_stored_decks,Stored deck records (game state +0x20; 50 x 0x174),save,reimplemented,372
+save_recipe_table,Recipe unlock table (game state +0x10b74; 462 x u16),save,reimplemented,924
 save_record_table,Record table: record values / new bits / duel-bonus states (game state +0x113a4; 0x800 bytes),save,documented,2048
 save_flag_bytes,Per-index flag bytes: gallery / card milestones / pack first purchase (game state +0x153e4; 3600 bytes),save,documented,3600
 save_card_list,Card list with per-entry states (game state +0x161f4; 2 + 99 x 2 + 99 x 2 bytes),save,documented,398
 save_progress_bytes,Monotonic progress bytes (game state +0x16de4; 38 bytes),save,documented,38
-save_picture_bits,Picture-seen bit array (game state +0x1b0fc),save,documented,12
+save_picture_bits,Picture-seen bit array (game state +0x1b0fc),save,reimplemented,12
 save_minigame_blocks,Minigame blocks and high scores (game state +0x1be0c-0x1bf0b; record table +0xa0),save,named,256

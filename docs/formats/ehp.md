@@ -89,6 +89,14 @@ Counts are over all 609 top-level archives (loose `.ehp` plus decompressed `fiel
 | `.ydq` | — | 50 | Duel setup text for the tutorial; only in `d_tutorial/` (`tutorial.md`). |
 | `.hmp`, `.efs`, `.dat`, `.png`, `.ehp` | — | small | `.png` is standard PNG; `.ehp` is a nested archive; others unknown. |
 
+## `*ptrs.txt` writer and round trip
+
+`ehp.parse_ptrs(blob, layout)` turns a pointer list into values that do not depend on where the members lie: `None` for 0, a member name when the value is that member's data offset, `[name, delta]` for a value inside a member, and the raw number for a value in the header or entry table (`layout` = `ehp.member_offsets(archive)`). `ehp.build_ptrs(entries, layout)` resolves them against an archive layout and appends the `0xFFFFFFFF` terminator, so a rebuilt archive gets correct lists. All 425 lists on the disc (loose, gzip-wrapped, nested and `BOOT.BIN`-embedded archives) rebuild byte for byte (`ptrs_txt` is `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only ptrs_txt
+```
+
 ## Open questions
 
 - `*ptrs.txt` lists: in archives with TGM members every non-zero entry is the offset of a whole member, so these are lists of resources (`<anim>-ptrs.txt` groups mesh, animation and texture; `all-ptrs.txt` has one slot per animation), not fixups inside a member; no entry falls inside an `.ehf` or `.tmf` member either (`tgm.md`, `ehf.md`). Confirm for the remaining archives, and decide whether a port needs these lists once data is converted offline.

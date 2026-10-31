@@ -62,6 +62,71 @@ def build(members):
     return bytes(out.ljust(total, b"\0"))
 
 
+def member_offsets(data):
+    """[(name, data offset, size)] of an archive, in entry order (the offsets build() would also produce)."""
+    _, _, _, count = HEADER.unpack_from(data, 0)
+    out = []
+    for index in range(count):
+        name_offset, data_offset = ENTRY.unpack_from(data, TABLE + ENTRY.size * index)
+        end = data.index(b"\0", name_offset)
+        size = struct.unpack_from("<I", data, end + 1)[0]
+        out.append((data[name_offset:end].decode("cp932"), data_offset, size))
+    return out
+
+
+# --- *ptrs.txt resource pointer lists --------------------------------------------------------------------------
+
+PTRS_END = 0xFFFFFFFF
+
+
+def is_ptrs(name):
+    return name.lower().endswith("ptrs.txt")
+
+
+def parse_ptrs(blob, layout):
+    """A *ptrs.txt list as plain values, independent of where the members lie: each u32 before the
+    0xFFFFFFFF terminator becomes None (0), a member name (the member's data offset), [name, delta] (inside a
+    member) or the raw int (inside the header or entry table). `layout` is member_offsets() of the archive."""
+    if len(blob) % 4:
+        raise ValueError("pointer list is not a whole number of u32")
+    values = struct.unpack(f"<{len(blob) // 4}I", blob)
+    if not values or values[-1] != PTRS_END or PTRS_END in values[:-1]:
+        raise ValueError("pointer list does not end with its only 0xFFFFFFFF")
+    starts, first = {}, {}
+    for name, offset, _ in layout:
+        starts.setdefault(offset, name)
+        first.setdefault(name, offset)
+    spans = sorted((offset, offset + size, name) for name, offset, size in layout)
+    entries = []
+    for value in values[:-1]:
+        if value == 0:
+            entries.append(None)
+        elif value in starts:
+            entries.append(starts[value])
+        else:
+            inside = next((name for start, end, name in spans if start < value < end), None)
+            entries.append([inside, value - first[inside]] if inside else value)
+    return entries
+
+
+def build_ptrs(entries, layout):
+    """Inverse of parse_ptrs() for an archive with member_offsets() `layout`."""
+    offsets = {}
+    for name, offset, _ in layout:
+        offsets.setdefault(name, offset)
+    words = []
+    for entry in entries:
+        if entry is None:
+            words.append(0)
+        elif isinstance(entry, str):
+            words.append(offsets[entry])
+        elif isinstance(entry, list):
+            words.append(offsets[entry[0]] + entry[1])
+        else:
+            words.append(entry)
+    return struct.pack(f"<{len(words) + 1}I", *words, PTRS_END)
+
+
 def unwrap(name, blob):
     """Decompress a gzip member; returns (name, bytes) with '.gz' dropped."""
     if name.lower().endswith(".gz") and blob[:2] == b"\x1f\x8b":

@@ -68,6 +68,11 @@ class Bank:
         length = struct.unpack_from("<I", self.data, start)[0]
         return self.data[start + 4:start + 4 + length]
 
+    def wave_by_start(self, start):
+        """The RIFF file whose length prefix is at `start` in the wave area."""
+        length = struct.unpack_from("<I", self.data, self.wave_area + start)[0]
+        return self.data[self.wave_area + start + 4:self.wave_area + start + 4 + length]
+
     def wave_spans(self):
         """Distinct (start, end) of the length-prefixed waves, relative to the wave area."""
         spans = set()
@@ -148,6 +153,97 @@ def pcm_wav(samples, rate):
     fmt = struct.pack("<HHIIHH", 1, 1, rate, rate * 2, 2, 16)
     return (b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVE" + b"fmt " + struct.pack("<I", 16) + fmt
             + b"data" + struct.pack("<I", len(pcm)) + pcm)
+
+
+# ---------------------------------------------------------------------- writer (round trip)
+#
+# decode_bank() turns a bank into plain values in which every offset is replaced by an index (cue -> wave
+# or first layer, layer -> sample and envelope); build_bank() lays the areas out again. All 728 banks of
+# the disc rebuild byte for byte (tools/roundtrip.py --only snd_cue,snd_adpcm_layer).
+
+CUE_FIELDS = ("volume", "pan", "flags", "unknown_4", "layers", "target", "unknown_10", "unknown_11", "duration_ms")
+ENVELOPE = struct.Struct("<BBHIHHBBH8s")  # volume, pan, unknown_2, adsr, loop_a, loop_b, unknown_c, note, pitch, rest
+ENVELOPE_FIELDS = ("volume", "pan", "unknown_2", "adsr", "loop_a", "loop_b", "unknown_c", "note", "pitch", "rest")
+
+
+def decode_bank(bank):
+    """Bank -> {serial, size, label, music, cues, layers, samples, waves, envelopes}. A cue keeps its
+    fields except `target`, replaced by `wave` (index into waves) or `layer` (index of its first layer)."""
+    music = bank.layer_table == 0
+    wave_starts = [start for start, _ in bank.wave_spans()]
+    wave_index = {start: k for k, start in enumerate(wave_starts)}
+    layer_count = (bank.adpcm_area - bank.layer_table) // LAYER.size if not music else 0
+    raw_layers = [LAYER.unpack_from(bank.data, bank.layer_table + LAYER.size * k) for k in range(layer_count)]
+    sample_starts = sorted({s for s, _ in raw_layers})
+    sample_index = {start: k for k, start in enumerate(sample_starts)}
+    envelope_count = (bank.end - bank.envelope_table) // ENVELOPE_SIZE if not music else 0
+    cues = []
+    for cue in bank.cues:
+        fields = {name: getattr(cue, name) for name in CUE_FIELDS}
+        target = fields.pop("target")
+        if cue.kind == "riff":
+            fields["wave"] = wave_index[target]
+        else:
+            if target % LAYER.size:
+                raise ValueError(f"cue {cue.index}: layer target {target:#x} not on an entry")
+            fields["layer"] = target // LAYER.size
+        cues.append(fields)
+    envelopes = [dict(zip(ENVELOPE_FIELDS, ENVELOPE.unpack_from(bank.data, bank.envelope_table + ENVELOPE_SIZE * k)))
+                 for k in range(envelope_count)]
+    layers = []
+    for sample_offset, envelope_offset in raw_layers:
+        if envelope_offset % ENVELOPE_SIZE:
+            raise ValueError(f"envelope offset {envelope_offset:#x} not on a record")
+        layers.append({"sample": sample_index[sample_offset], "envelope": envelope_offset // ENVELOPE_SIZE})
+    samples = []
+    for start in sample_starts:
+        pitch, rate, blob = bank.sample(start)
+        samples.append({"pitch": pitch, "rate": rate, "adpcm": blob})
+    return {"serial": bank.serial, "size": bank.size, "label": bank.label, "music": music, "cues": cues,
+            "layers": layers, "samples": samples, "waves": [bank.wave_by_start(s) for s in wave_starts],
+            "envelopes": envelopes}
+
+
+def build_bank(model):
+    """Inverse of decode_bank(): header, cue table, layer table, ADPCM area, wave area, envelope table,
+    zero fill and the 'EP' footer; the size is the model's (a multiple of 2048) or the smallest that fits."""
+    cue_table = 0x30
+    layer_table = cue_table + CUE_SIZE * len(model["cues"])
+    sample_offsets, adpcm = [], bytearray()
+    for sample in model["samples"]:
+        sample_offsets.append(len(adpcm))
+        adpcm += SAMPLE_HEADER.pack(len(sample["adpcm"]), sample["pitch"], sample["rate"]) + sample["adpcm"]
+    layer_bytes = b"".join(LAYER.pack(sample_offsets[layer["sample"]], ENVELOPE_SIZE * layer["envelope"])
+                           for layer in model["layers"])
+    adpcm_area = layer_table + len(layer_bytes)
+    wave_area = adpcm_area + len(adpcm)
+    wave_offsets, waves = [], bytearray()
+    for riff in model["waves"]:
+        wave_offsets.append(len(waves))
+        waves += struct.pack("<I", len(riff)) + riff
+    envelope_table = wave_area + len(waves)
+    envelopes = b"".join(ENVELOPE.pack(*(e[name] for name in ENVELOPE_FIELDS)) for e in model["envelopes"])
+    end = envelope_table + len(envelopes)
+    cues = bytearray()
+    for cue in model["cues"]:
+        target = LAYER.size * cue["layer"] if "layer" in cue else wave_offsets[cue["wave"]]
+        cues += CUE.pack(*(target if name == "target" else cue[name] for name in CUE_FIELDS))
+    size = model.get("size") or -(-(end + len(FOOTER) + 2) // SECTOR) * SECTOR
+    label = model["label"].encode("ascii")
+    if model["music"]:
+        header = HEADER.pack(MAGIC, model["serial"], size, cue_table, 0, 0, wave_area, 0, 0, label)
+    else:
+        header = HEADER.pack(MAGIC, model["serial"], size, cue_table, layer_table, adpcm_area, wave_area,
+                             envelope_table, end, label)
+    body = header + bytes(cues) + layer_bytes + bytes(adpcm) + bytes(waves) + envelopes
+    if len(body) > size - 4:
+        raise ValueError(f"bank {model['serial']}: {len(body)} bytes do not fit in {size}")
+    return body + bytes(size - 4 - len(body)) + FOOTER + struct.pack("<H", model["serial"])
+
+
+def build(models):
+    """The whole bank chain (psp_snddat.bin) from decode_bank() models."""
+    return b"".join(build_bank(model) for model in models)
 
 
 # ---------------------------------------------------------------------- checks
