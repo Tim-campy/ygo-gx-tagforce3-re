@@ -1,0 +1,32 @@
+# Names for gmodule/rel_tutorial.prx (module "rel_tutorial", library libtutorial_rel). Its runtime base is unknown
+# (no PPSSPP symbol export taken during a tutorial; tools/modules.py base finds no match in the seven exports), so
+# addresses are module offsets: import the module at image base 0x0 to apply them, or add the base once known.
+# Evidence in docs/formats/tutorial.md ("Functions"). Status named.
+address,group,name
+0x00003748,duel_core,duel_core_tutorial_start_lesson
+0x00003864,duel_core,duel_core_tutorial_update
+0x00003974,duel_core,duel_core_tutorial_shutdown
+0x000039b4,duel_core,duel_core_tutorial_filter_input
+0x00003df8,duel_core,duel_core_tutorial_on_ui_event
+0x00004310,duel_core,duel_core_tutorial_gate_duel_flow
+0x000043a8,duel_core,duel_core_tutorial_check_cursor
+0x00004548,duel_core,duel_core_tutorial_fire_event_handler
+0x0000457c,duel_core,duel_core_tutorial_on_answer
+0x000045f8,duel_core,duel_core_tutorial_redraw_hint
+0x00004624,duel_core,duel_core_tutorial_is_busy
+0x00004724,duel_core,duel_core_tutorial_fetch_record
+0x0000473c,duel_core,duel_core_tutorial_exec_command
+0x00004b70,duel_core,duel_core_tutorial_exec_duel_command
+0x00004c38,duel_core,duel_core_tutorial_step
+0x00004ca8,duel_core,duel_core_tutorial_wait_message
+0x00004cf0,duel_core,duel_core_tutorial_load_text_line
+0x00004dac,duel_core,duel_core_tutorial_wait_ui_idle
+0x00004e4c,duel_core,duel_core_tutorial_goto_label
+0x00004ea0,duel_core,duel_core_tutorial_hide_hint
+0x00004ed0,duel_core,duel_core_tutorial_load_reset_field
+0x000058f0,duel_core,duel_core_tutorial_load_archive
+0x00005a98,duel_core,duel_core_tutorial_load_member
+0x00005b78,duel_core,duel_core_tutorial_init
+0x00006098,duel_core,duel_core_tutorial_ui_event_hook
+0x000009e4,duel_core,duel_core_tutorial_init_graphics
+0x00001584,duel_core,duel_core_tutorial_draw_lesson_image

@@ -168,6 +168,24 @@ class CmdTest(unittest.TestCase):
         _, notes = tutorial.check_cmd("s", SCRIPT, 2, set())
         self.assertEqual(len(notes), 1)
 
+    def test_engine_codes_and_events(self):
+        script = records((0x0069, 0, 0, 0),  # past the dispatcher's last case 0x68
+                         (0x8000, 0, 0, 0),  # code 0 (side 1): the default case, no handler
+                         (0x0030, 0, 0, 0),  # handled by the engine, not in the tutorial's table
+                         (0x400E, 99, 0, 0),  # wait_event with an event the table does not name
+                         (0x400E, 54, 0, 2),  # documented event
+                         (0x4010, 0, 0, 0),  # on_event 0 clears: not an event
+                         (0, 0, 0, 0))
+        errors, notes = tutorial.check_cmd("s", script)
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(all("has no handler" in e for e in errors))
+        self.assertEqual(len(notes), 2)
+        self.assertIn("0x30 is not documented", notes[0])
+        self.assertIn("event 99 is not documented", notes[1])
+        listing = tutorial.cmd_listing(tutorial.cmd_parse(script))
+        self.assertIn("; dialog or menu", listing[4])
+        self.assertNotIn(";", listing[5])
+
     def test_listing(self):
         lines = tutorial.cmd_listing(tutorial.cmd_parse(SCRIPT), ["Hi\nthere", "Q"])
         self.assertIn('message       text=0 b=0  "Hi\\nthere"', lines[0])
@@ -185,6 +203,44 @@ class TextTest(unittest.TestCase):
         broken = bytearray(text_table(["One", "Two"]))
         broken[8:12] = struct.pack("<I", 0x30)  # second line no longer follows the first
         self.assertTrue(tutorial.check_text("t", bytes(broken), "e"))
+
+
+def legacy_script(*rows):
+    return struct.pack("<H", len(rows)) + records(*rows)
+
+
+LEGACY = legacy_script((0x0056, 0, 5, 0),  # raw engine command: draw 5
+                       (0x8068, 0, 900, 0),  # 0x68 sub 0: message 0
+                       (0x0068, 0x0200, 900, 1),  # 0x68 sub 0 with a high byte: message 1
+                       (0x0068, 0x1003, 22, 1))  # 0x68 sub 3: not a message reference
+
+
+class LegacyTest(unittest.TestCase):
+    def test_parse_and_check(self):
+        rows = tutorial.legacy_parse(LEGACY)
+        self.assertEqual([r[0] for r in rows], [2, 10, 18, 26])
+        self.assertEqual(tutorial.legacy_message_count(string_table(["a", "b"])), 2)
+        self.assertEqual(tutorial.check_legacy("x", LEGACY, 2)[0], [])
+        errors, _ = tutorial.check_legacy("x", LEGACY, 1)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("message 1 past the table (1)", errors[0])
+        with self.assertRaises(ValueError):
+            tutorial.legacy_parse(LEGACY[:-1])
+        errors, _ = tutorial.check_legacy("x", legacy_script((0x0070, 0, 0, 0)))
+        self.assertIn("has no handler", errors[0])
+
+    def test_archive(self):
+        members = {"01_duel_command.bin": LEGACY, "01_field_set.txt": YDQ,
+                   "01_message_res.bin": string_table(["a", "b"]), "tuto_bigwin01.gim": b"MIG.00.1"}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tutorial_e.ehp"
+            path.write_bytes(tutorial.ehp.build(sorted(members.items())))
+            code, out = run([str(path), "--check"])
+            self.assertEqual(code, 0, out)
+            self.assertIn("1 duel setups, 1 scripts of 4 records (3 wrapped in command 0x68)", out)
+            code, out = run([str(path), "--only", "command"])
+            self.assertIn("tutorial sub 0 (2)", out)
+            self.assertIn("draw <b> cards", out)
 
 
 class MainTest(unittest.TestCase):

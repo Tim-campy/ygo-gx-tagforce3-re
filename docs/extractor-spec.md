@@ -212,12 +212,12 @@ New observation for this document (2026-10-30, archive listings only; no code re
 
 | Item | Value |
 | --- | --- |
-| Source | `d_tutorial/tutorial.ehp`: 50 `.ydq` duel setups (Shift-JIS INI text), 17 `tuto_cmd_NN.bin` scripts, `tuto_text_<l>.bin` (read by `rel_tutorial`). `deck/tutorial.ehp`: deck-building tutorial (§6). `tutorial/tutorial_all.ehp` and `tutorial/tutorial_<l>.ehp`: a **second, undocumented set** (`NN_field_set.txt` and `field_reset_NN.txt` in the same `[DUEL…]` text form as `.ydq`, `NN_duel_command.bin`, `NN_message_res.bin`, GIM). |
+| Source | `d_tutorial/tutorial.ehp`: 50 `.ydq` duel setups (Shift-JIS INI text), 17 `tuto_cmd_NN.bin` scripts, `tuto_text_<l>.bin` (read by `rel_tutorial`). `deck/tutorial.ehp`: deck-building tutorial (§6). `tutorial/tutorial_all.ehp`, `tutorial/tutorial_<l>.ehp` and `tutorial/face/`: a **legacy set the game does not load** (confidence high; `tutorial.md`, "The `tutorial/` directory"); not needed by the port. |
 | Format docs | `docs/formats/tutorial.md`, `docs/formats/deck.md` |
-| Tool / command | `python3 -I tools/tutorial.py <USRDIR>/d_tutorial/tutorial.ehp <USRDIR>/deck/tutorial.ehp --check [--notes] [--cardinfo …]`; listing: `tutorial.py <archive> [--only cmd_03] [--lang e] [-o …]` |
+| Tool / command | `python3 -I tools/tutorial.py <USRDIR>/d_tutorial/tutorial.ehp <USRDIR>/deck/tutorial.ehp --check [--notes] [--cardinfo …]`; listing: `tutorial.py <archive> [--only cmd_03] [--lang e] [-o …]`; legacy set: `tutorial.py <USRDIR>/tutorial/tutorial_*.ehp --check` |
 | Port output | JSON per lesson: duel setup (both sides' cards per zone, LP, options), script instructions, text per language. |
-| Verified | Check run: `ok: 50 duel setups, 17 scripts, 6 text tables of 878 lines; 878 text references to 878 lines (8 notes)`; deck tutorial `ok, 732 instructions`. `ydq`, `tuto_cmd`, `tuto_text` `documented`. Tests: `tools/tests/test_tutorial.py`. |
-| Gaps | Duel-engine command codes used by the scripts only partly understood; draw order of the deck list. The `tutorial/` directory is not handled (`tutorial.py` finds 0 members in it) and no module string names it (`rel_tutorial` names only `tutorial/tutorial.ehp` under its own root); it may be unused (low confidence). |
+| Verified | Check run: `ok: 50 duel setups, 17 scripts, 6 text tables of 878 lines; 878 text references to 878 lines; 59 duel-engine records (8 notes)` (no engine code or UI event left undocumented); legacy archives `ok: legacy tutorial set (not loaded by the game): 10 duel setups, 4 scripts of 1550 records (1273 wrapped in command 0x68)` (`tutorial_all`: 0 scripts); deck tutorial `ok, 732 instructions`. `ydq`, `tuto_cmd`, `tuto_text` `documented`. Tests: `tools/tests/test_tutorial.py`. |
+| Gaps | Draw order of the deck list; `rel_tutorial`'s runtime base (names kept at module offsets in `re/names-rel_tutorial.csv`); the meaning of the legacy `0x68` sub-operations (not needed: the set is unused). |
 
 ## 15. UI and system string tables
 
@@ -319,7 +319,7 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 | Free-roam maps and field assets | partial (per-map export complete) | partly (scene export via TGM) | Per-map JSON with grid, heights rule, exits, doors and art references done; inspect `field/event/` and `field/mail/`; island-area sprite regions; geometry through the TGM exporter. |
 | World and field tables | partial (map/door/exit/island and chapter-table export complete) | no | PPSSPP check of one chapter (field block bytes 0–1), of arrival cells and door locks; what follows the staff roll. |
 | Story and event scripts | partial | no | Trace the field requests and the lower-confidence opcodes in PPSSPP. |
-| Tutorials | partial | no | Identify whether `tutorial/` is used; decode the remaining engine command codes. |
+| Tutorials | complete (every opcode, engine command and UI event the data uses; `tutorial/` settled as unused) | no | PPSSPP: draw order of the `.ydq` deck list, the UI-event resumption, a symbol export for `rel_tutorial`'s base. |
 | UI string tables | partial (tables mapped to scenes) | no | Tool, census and scene map done (97 % of tables, 332 index requests with table and constant index); trace the runtime-selected tables in PPSSPP. |
 | Sound and voices | complete for decoding (FFmpeg at install time, PS-ADPCM native, loops in JSON) | no | Cue flags, envelope bytes and the play call (PPSSPP trace); whether the SFX loops are used. |
 | PSMF movies | complete for conversion (own audio demux + FFmpeg) | no | Choose the 3DS playback format; the port's installer re-encodes the MP4 to it. |
@@ -333,6 +333,6 @@ Every command in the "Check run" lines above returned exit code 0 on the referen
 - Which video format and resolution the port plays, and therefore what the port-side re-encode of the converted MP4 produces.
 - Answered 2026-10-30: the model target is glTF 2.0 (the Bézier tracks convert exactly to `CUBICSPLINE` after splitting at the union of the per-axis key frames) plus the `tf3-tgm-scene` side file for what glTF cannot hold.
 - Which code loads `duel/bg/fmagic<id>.ehp` and what `fmagic0000` and `fmagic05` are (the `-etc` tracks are read by `rel_duel_draw` `0x0985b504`, see `field_3d.md`).
-- Whether `tutorial/tutorial_all.ehp` and `tutorial/tutorial_<l>.ehp` are used by any module (no file-name string was found in `BOOT.BIN` or `gmodule/`; `scenes.py check` leaves them, with `field/always_lang_<lang>.ehp`, `tutorial/face/`, `umd_replace/` and `database/gallery.ehp`, unattributed).
+- Answered 2026-10-31: `tutorial/tutorial_all.ehp`, `tutorial/tutorial_<l>.ehp` and `tutorial/face/` are not used (confidence high): nothing names them, and the only shared member names are looked up by dead code in `rel_tutorial` (`tutorial.md`). `scenes.py check` still leaves `field/always_lang_<lang>.ehp`, `umd_replace/` and `database/gallery.ehp` unattributed.
 - Whether the port reads assets from the user's ISO at first run (and converts them) or ships a converter tool; this decides whether the extractors must become a single "convert everything" command.
 - Whether `*ptrs.txt` bundles are needed at all once members are addressed by name.
