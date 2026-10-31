@@ -1097,7 +1097,7 @@ address,group,name
 0x08eb1dc4,,thunk_FUN_09cfabec
 0x08eb1dcc,,thunk_FUN_09ceb448
 0x08eb1dd4,,thunk_FUN_09cecc54
-0x08eb1ddc,,thunk_FUN_09cee284
+0x08eb1ddc,ai,thunk_ai_check_card_condition
 0x08eb1de4,,thunk_FUN_09cee118
 0x08eb1dec,,thunk_FUN_09d1a7fc
 0x08eb1df4,,thunk_FUN_09d1a820

@@ -201,6 +201,12 @@ The slot is called with `(link, link below)` once per frame until it returns a n
 | `0x09c43180` | 32 | Tribute or send the card itself (`0x09c26878(side, slot)`) | M |
 | `0x09c435ac` | 22 | Discard the card itself from the hand | M |
 | `duel_effects_confirm_recruiter_trigger` `0x09c45f84` | 20 | Mystic Tomato-type: is a suitable monster in the Deck?, then the yes/no handler | H |
+| `duel_effects_cost_monster_activation` `0x09c4c140` | 38 (M1 21, M2 17) | Per-card costs and checks of monster effects: a discard-count chain (`a1` = 1, 2 or 5) into `duel_core_request_discard_cost`, LP costs, Tributes, counters; −1 when a check fails | M |
+| `duel_effects_pay_activation_cost` `0x09c45688` | 24 (S/T 13, M3 11) | Per-card costs: pay LP (800 for Royal Oppression), send the top 2 cards of the Deck (Lightsworn Barrier), banish from the Graveyard, send a field card, a yes/no prompt (message 47); 125 of 130 cases return 1 | M |
+| `duel_effects_cost_discard_b` `0x09c4b050` | 13 (M3) | The discard-count chain of `duel_effects_cost_discard` (Final Destiny 5, Spell Vanishing 2, Lightning Vortex 1) | H |
+| `duel_effects_cost_discard_or_lp` `0x09c4f970` | 1 (M3 `0x1c53`) | Same chain plus an LP payment | M |
+
+The last four were named from the cases that `effect_params.resolve_chain` resolves (`card-effect-spec.md`, "Compare chains"). The per-card count is the case's join state (`a1=n` before the shared call), and it was checked against the card texts of the sample there. They are not yet confirmed in PPSSPP.
 
 Chaos Sorcerer's handler adds `0x16c9` and `0xfb6` markers; Spell Counter cards remove counters (`0x09c47d8c`). Cost handlers skip the payment when the event code is `0x24` (activation without cost, e.g. through Trap of Darkness `0x1935`). (H)
 

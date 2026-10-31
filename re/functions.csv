@@ -9489,7 +9489,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,,1
 0x098bb94c,thunk_FUN_09cfabec,,,1
 0x098bb954,thunk_FUN_09ceb448,,,1
 0x098bb95c,thunk_FUN_09cecc54,,,1
-0x098bb964,thunk_FUN_09cee284,,,1
+0x098bb964,thunk_ai_check_card_condition,ai,,1
 0x098bb96c,thunk_FUN_09cee118,,,1
 0x098bb974,thunk_FUN_09d1a7fc,,,1
 0x098bb97c,thunk_FUN_09d1a820,,,1
@@ -19032,7 +19032,7 @@ rel_duel_mgr:0x08eb1dbc,thunk_FUN_09cfab4c,,,1
 rel_duel_mgr:0x08eb1dc4,thunk_FUN_09cfabec,,,1
 rel_duel_mgr:0x08eb1dcc,thunk_FUN_09ceb448,,,1
 rel_duel_mgr:0x08eb1dd4,thunk_FUN_09cecc54,,,1
-rel_duel_mgr:0x08eb1ddc,thunk_FUN_09cee284,,,1
+rel_duel_mgr:0x08eb1ddc,thunk_ai_check_card_condition,ai,,1
 rel_duel_mgr:0x08eb1de4,thunk_FUN_09cee118,,,1
 rel_duel_mgr:0x08eb1dec,thunk_FUN_09d1a7fc,,,1
 rel_duel_mgr:0x08eb1df4,thunk_FUN_09d1a820,,,1
@@ -21770,7 +21770,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c34da0,FUN_09c34da0,,,8
 0x09c34da8,FUN_09c34da8,,,120
 0x09c34e20,FUN_09c34e20,,,12
-0x09c34e2c,FUN_09c34e2c,,,732
+0x09c34e2c,duel_effects_filter_spell_target_by_card,duel_effects,documented,732
 0x09c35138,FUN_09c35138,,,8
 0x09c35140,FUN_09c35140,,,12
 0x09c3514c,FUN_09c3514c,,,8
@@ -21842,7 +21842,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c3861c,FUN_09c3861c,,,8
 0x09c38624,FUN_09c38624,,,192
 0x09c386e4,FUN_09c386e4,,,284
-0x09c38800,FUN_09c38800,,,2840
+0x09c38800,duel_effects_filter_slot_target_by_card,duel_effects,documented,2840
 0x09c39420,FUN_09c39420,,,108
 0x09c3948c,FUN_09c3948c,,,1
 0x09c39498,FUN_09c39498,,,112
@@ -22106,7 +22106,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c45580,FUN_09c45580,,,56
 0x09c455b8,FUN_09c455b8,,,80
 0x09c45608,FUN_09c45608,,,128
-0x09c45688,FUN_09c45688,,,2300
+0x09c45688,duel_effects_pay_activation_cost,duel_effects,documented,2300
 0x09c45f84,duel_effects_confirm_recruiter_trigger,duel_effects,,468
 0x09c46158,FUN_09c46158,,,108
 0x09c461c4,FUN_09c461c4,,,52
@@ -22176,14 +22176,14 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c4a994,FUN_09c4a994,,,656
 0x09c4ac24,FUN_09c4ac24,,,780
 0x09c4af30,FUN_09c4af30,,,276
-0x09c4b050,FUN_09c4b050,,,1656
+0x09c4b050,duel_effects_cost_discard_b,duel_effects,documented,1656
 0x09c4b6c8,FUN_09c4b6c8,,,492
 0x09c4b8b4,FUN_09c4b8b4,,,368
 0x09c4ba24,FUN_09c4ba24,,,524
 0x09c4bc30,FUN_09c4bc30,,,200
 0x09c4bcf8,FUN_09c4bcf8,,,248
 0x09c4bdf0,duel_effects_cost_banish_from_graveyard,duel_effects,documented,848
-0x09c4c140,FUN_09c4c140,,,6264
+0x09c4c140,duel_effects_cost_monster_activation,duel_effects,documented,6264
 0x09c4da78,FUN_09c4da78,,,96
 0x09c4dad8,FUN_09c4dad8,,,292
 0x09c4dbfc,FUN_09c4dbfc,,,304
@@ -22211,7 +22211,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09c4f608,FUN_09c4f608,,,148
 0x09c4f69c,FUN_09c4f69c,,,280
 0x09c4f7b4,FUN_09c4f7b4,,,444
-0x09c4f970,FUN_09c4f970,,,1692
+0x09c4f970,duel_effects_cost_discard_or_lp,duel_effects,documented,1692
 0x09c5000c,FUN_09c5000c,,,188
 0x09c500c8,FUN_09c500c8,,,192
 0x09c50188,FUN_09c50188,,,136
@@ -24662,7 +24662,7 @@ rel_duel_mgr:0x08eb58b4,FUN_08eb58b4,,,8
 0x09cec874,FUN_09cec874,,,992
 0x09cecc54,FUN_09cecc54,,,5316
 0x09cee118,FUN_09cee118,,,364
-0x09cee284,FUN_09cee284,,,11976
+0x09cee284,ai_check_card_condition,ai,,11976
 0x09cf114c,FUN_09cf114c,,,96
 0x09cf11ac,FUN_09cf11ac,,,1288
 0x09cf16d8,FUN_09cf16d8,,,704
