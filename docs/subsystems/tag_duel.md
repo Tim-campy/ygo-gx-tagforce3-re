@@ -31,7 +31,7 @@ Only caller `duel_core_next_turn`, with the side whose turn starts. Steps (decom
 2. Loads the partner's lists from the waiting area `0x09e02cc8 + side × 300`: the three counts, then for each reference `r` an entry with the card id `0x09e2bbcc[r × 6] & 0x3fff` in bits 0–13, `r & 1` in bit 14 and `r >> 1` in bits 23–30 (the other bits are kept).
 3. Toggles `u32 0x09e02cb8 + side × 4` (which of the pair is active), copies the saved buffer into the waiting area (`system_memcpy`, 300 bytes), and swaps the duelist kinds `0x09e02998[side]` and `0x09e029a0[side]`.
 
-No return value. Field, Graveyard, banished cards and LP are not touched. The two toggle words (`0x09e02cb8`, `0x09e02cbc`) sit in the 16 bytes before side 0's waiting area; what else that header holds is not known.
+No return value. Field, Graveyard, banished cards and LP are not touched. The two toggle words (`0x09e02cb8`, `0x09e02cbc`) sit in the 16 bytes before side 0's waiting area; the other two header words (`0x09e02cc0`, `0x09e02cc4`) hold each side's first partner card-instance serial, written by `duel_core_load_deck` (byte layout: [`docs/formats/duel-runtime.md`](../formats/duel-runtime.md), "Tag partner waiting area").
 
 **Verified in PPSSPP (2026-10-27, [`results/2026-10-27-sessionB.md`](../verification/results/2026-10-27-sessionB.md)):** entry and return logs at four turn changes showed the three counts exchanged with the waiting area, LP and Graveyard unchanged, and the duelist kinds swapped with the waiting kinds (B1); `0x09dc7ff4` was the only start entry for a story tag duel and left the flag at 1 (B2).
 

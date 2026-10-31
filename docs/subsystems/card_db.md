@@ -32,7 +32,7 @@ The export is game content: keep it under `extracted/`, never in git.
 | --- | --- | --- | --- |
 | `0x08832684` | `card_db_load_cardinfo` | H | Builds the path from `…cardinfo_`, a language suffix (table at `0x08878c88`, 8 bytes per language, index from `save_get_language`, `0x08857b80`) and `.ehp`; `container_get_file_size(5, …)`, then `container_load_file` to `0x08926b50` with completion callback `card_db_on_cardinfo_loaded` (`0x08832a04`). No direct caller (exported). |
 | `0x08832778` | `card_db_bind_cardinfo` | H | Binds the loaded archive and looks up all 14 members into the globals above. |
-| `0x08832718` | `card_db_append_language_suffix(name)` | H | Appends the first letter of the language's code (table `0x08878c88`, index `save_get_language()`) minus `0x20` (upper case) and the suffix at `0x0889f8b0`. Called by `card_db_bind_cardinfo` on `CARD_Name_` etc. before each lookup of a per-language member, whose real names end in `<L>.bin`. |
+| `0x08832718` | `card_db_append_language_suffix(name)` | H | Appends the first letter of the language's code (table `0x08878c88`, index `save_get_language()`) minus `0x20` (upper case) and the suffix at `0x0889f8b0`. Table layout: `docs/formats/system-runtime.md`, "card_language_suffixes". Called by `card_db_bind_cardinfo` on `CARD_Name_` etc. before each lookup of a per-language member, whose real names end in `<L>.bin`. |
 | `0x08832a1c` | `card_db_index_of_id(id) → index` | H | `id < 0xe88 ? 0 : IntID[id − 0xe88]`. |
 | `0x08832a68` | `card_db_get_name(id) → UTF-16 string` | H | `Name + Indx[index].name_offset`. |
 | `0x08832b54` | `card_db_get_prop(id) → record` | H | `Prop + 8 × index`; 11 callers (presumably the field getters). |

@@ -29,6 +29,8 @@ The tiers are rarities, from common (1) to ultra rare (4): in the packs checked,
 
 ## Buying and opening packs (`rel_shop` code)
 
+**Verified in PPSSPP (2026-10-31)**: E16 of [`results/2026-10-31-sessionE-P.md`](../verification/results/2026-10-31-sessionE-P.md) bought one pack (pack 17) and diffed the save: price (DP − 100), bought flag `0x1542a + 17`, purchase counter `0x16602`, one draw, one rarity-box entry (`n = 0`, `r = 1`), stock nibble − 1, and the five cards entering the collection only at the commit on the results screen, exactly as described below. The row `pack_draw` is `verified` ([`results/2026-10-31-format-raises.md`](../verification/results/2026-10-31-format-raises.md)). Which packs are on sale is decided by the rules in [`shop-rules.md`](shop-rules.md).
+
 Static reading of the Ghidra decompilation of `rel_shop.prx` (runtime base `0x090ced00`; function names from `re/names-rel_shop.csv`) and the `BOOT.BIN` save accessors. Confidence: high for the draw procedure (one function, read in full, and replayed by `tools/tables.py odds --check`), medium for the purchase flow (a state machine with UI code around it). Not traced in PPSSPP yet.
 
 ### Shelf, purchase modes and prices

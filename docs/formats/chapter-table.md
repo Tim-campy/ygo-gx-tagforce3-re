@@ -4,6 +4,8 @@ The table that decides which story record the partner's chapter plays next, and 
 
 Module offsets; runtime address = `0x08e9aa00` + offset, file offset = offset + `0x54`. Little-endian.
 
+**Verified in PPSSPP (2026-10-31)**: E13 of [`results/2026-10-31-sessionE-W.md`](../verification/results/2026-10-31-sessionE-W.md) followed Jaden's row through the game's own code: the points gate held at the stage-1 cap (no chapter event below 1,000 points), the keys `(201, 1, 1)`, `(201, 1, 2)`, `(201, 1, 3)` were queued for stage 1 steps 1–3, step 2 needed its highlighted location, and the stage closed (`02 01` in the field save block) inside the step-3 record chain. The row `story_chapter_table` is `verified` ([`results/2026-10-31-format-raises.md`](../verification/results/2026-10-31-format-raises.md)). The field save block itself is laid out in [`story-runtime.md`](story-runtime.md).
+
 ## Layout
 
 64 rows of `0x110` bytes = 17 entries of four `i32` (17,408 bytes in total).
@@ -50,7 +52,7 @@ In the field save block (story block `+0x345c`, `story_field_save_block`):
 | `+0x00` | Story stage 1–10. Init 1 (`world_init_calendar`, `0x08eaac3c`). +1 by opcode 50094 `advance_counter` (`world_advance_story_stage`, `0x08eab3c0`), capped at 10, which also sets the step to 1. | H |
 | `+0x01` | Chapter step 1–4. Init 1. `world_get_chapter_step` (`0x08eab440`); `world_advance_chapter_step` (`0x08eab40c`): +1, back to 1 after 4. | H |
 
-The **points cap** of the stage, `world_get_points_cap()` (`0x08eab450`), is the `i32` table `+0x2e528` indexed by the stage: `−1, 1000, 2000, …, 8000, 8000, 3` for stages 0–10. Friendship points are clamped to it (`world_change_char_points`), so the points can only reach `1000·stage` while the stage lasts.
+The **points cap** of the stage, `world_get_points_cap()` (`0x08eab450`), is the `i32` table `+0x2e528` indexed by the stage: `−1, 1000, 2000, …, 8000, 8000, 3` for stages 0–10 (the last value is the first word of the next table, `+0x2e550`; `story-runtime.md`, "Calendar tables"). Friendship points are clamped to it (`world_change_char_points`), so the points can only reach `1000·stage` while the stage lasts.
 
 Story state `+0x357c` (8 bytes, registered by the story init through `0x08ea560c`): word `+4` is the **partner talk pending** flag: set to 1 on each new day (`world_change_time`, `0x08ea066c`), cleared by the daily partner talk (`world_partner_daily_event`) and by a daily-step chapter event (`world_get_partner_talk_pending` `0x08ea563c`, `world_set_partner_talk_pending` `0x08ea562c`; M, code).
 

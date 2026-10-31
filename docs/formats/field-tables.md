@@ -67,6 +67,8 @@ Confidence: high for the table contents and the switch; the place names are labe
 | `+0x24` | f32 | Opening amount: slide length (kind 0, × 1.5) or fraction of a full turn (kind 1); 1.0, 0.5, 0.25 on the disc | H |
 | `+0x28` | u32 | **Target field map id** `M`, 0 for none (not read by the door animation) | M |
 
+**Verified in PPSSPP (2026-10-31)**: E12 of [`results/2026-10-31-sessionE-W.md`](../verification/results/2026-10-31-sessionE-W.md): room 101's door opened in slot 2 and stayed locked at light period 4, room 204 and the dining hall opened at midnight, and the logged kinds were 0 (sliding) and 1 (hinged) as `+0x04` says; the row `field_door_table` is `verified` ([`results/2026-10-31-format-raises.md`](../verification/results/2026-10-31-format-raises.md)).
+
 Entries exist for map indices 1 (three classroom doors), 2 (store), 5 and 26 (the Slifer dorm outside, both versions: eight `door_b` with targets 13–20, the rooms 101–204, and one `door_a` with target 21, the dining hall). Basis for `+0x28`: the eight room doors carry 13–20 in the order of the upper/lower floor positions, matching the room maps.
 
 ## Exit cells (`rel_story.prx`)

@@ -47,7 +47,7 @@ In `rel_duel_draw` (base `0x0983fb00`, `re/names-duel_draw.csv`):
 | `0x0985b44c` | `field_3d_sample_track_rgb(tracks, first, frame) → u32` | H | Three tracks × 255, packed as `R | G<<8 | B<<16`. |
 | `0x09842900` | `field_3d_update_visibility_mask(cutin, inst)` | M | Builds a 32-bit mask from tracks 10–41 (bit set when the value is 0), merges overrides `+0x184/+0x188`, calls `field_3d_set_group_mask`. |
 
-Runtime model instance (`tgm_model_instance` in `re/formats.csv`, partial, named): `+0x00` TGMS, `+0x04`
+Runtime model instance (`tgm_model_instance` in `re/formats.csv`; full 0x68-byte layout table in `docs/formats/tgm.md`, "Runtime model instance"): `+0x00` TGMS, `+0x04`
 animation list, `+0x08` its count, `+0x1C` current animation index, `+0x24` previous index, `+0x0C` node
 world matrices (64 bytes per bone), `+0x10` skin matrices, `+0x14` TGMT, `+0x18` previous TGMT (cross-fade),
 `+0x20` frame (f32), `+0x28` previous frame, `+0x2C` animated material copies (0xA4 per TGMA entry), `+0x30`

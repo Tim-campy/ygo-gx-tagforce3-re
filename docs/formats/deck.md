@@ -10,7 +10,7 @@ Tool: `tools/decks.py` (`recipes`, `owners`, `samecard`, `tutorial`; CSV/JSON ex
 | Recipe level table | `BOOT.BIN` `0x089143f0`, 462 × `u16` | documented (meaning: hypothesis) |
 | Owner variant table | `BOOT.BIN` `0x08916730`, 67 × 12 bytes | documented (fields: hypothesis) |
 | Recipe card list | `BOOT.BIN` `0x089150b8`, 462 × 8 bytes | documented (meaning: hypothesis) |
-| Duel set-up duellist record | 0x1ac bytes, four per set-up; read by `duel_setup_load_decks` (`0x08836358`) | named (partial layout) |
+| Duel set-up duellist record | 0x1ac bytes, four per set-up; read by `duel_setup_load_decks` (`0x08836358`) | documented (two small ranges unknown) |
 | In-memory deck | 0xc0-byte struct filled by `deck_load_recipe` | documented |
 | `sameCardTbl.dat` | `deck/all_<l>.ehp` | documented |
 | `fileTbl.dat` | `deck/all_<l>.ehp` | documented |
@@ -110,19 +110,25 @@ Check run on the disc: `ok: 661 of 661 recipes have an owner: 462 from the owner
 
 ### Duel set-up duellist record (0x1ac bytes)
 
-Offsets as `duel_setup_load_decks` and the set-ups use them (confidence medium; other bytes are not read there):
+Purpose: one duellist of a duel set-up. Every set-up (`rel_story`, `rel_title`, `rel_tutorial`, `rel_underground`, `rel_debug_menu`) fills a 0x858-byte block whose four duellist records sit at `+0x1a4 + i × 0x1ac` (`+0x1a4`–`+0x853`; the last 4 bytes of the block follow the records) and passes it to `duel_setup_load_decks` (`BOOT.BIN 0x08836358`), which copies the block to a static buffer (`0x0883634c` `deck_get_duel_setup_buffer` returns it) and completes each record. The first 0x1a4 bytes of the block are not read by `duel_setup_load_decks` and are not mapped here.
 
-| Offset | Size | Field |
-| --- | --- | --- |
-| `0x00` | 2 | Character (1 = the player). |
-| `0x02` | 2 | Variant. |
-| `0x04`, `0x06` | 2 + 2 | A second character/variant pair (the set-ups write the same values; `rel_underground` writes character 142). |
-| `0x08` | 2 | Recipe or set-up code (table above). |
-| `0x0a` | 2 | Argument of code 463 (stored-deck number). |
-| `0x18` | 50 | Duellist name (UTF-16). |
-| `0x4a` | 64 | Deck name (UTF-16). |
-| `0x8c` | 0xc0 | Deck (in-memory deck struct above). |
-| `0x14c` | 0x60 | Card list: `u32 count`, up to 46 `u16` card ids (from the recipe card list for recipes, from the stored deck for code 463). |
+Offsets as `duel_setup_load_decks` and the set-ups use them (capstone disassembly of `0x08836358`–`0x088366d0`, 2026-10-31):
+
+| Offset | Size | Type | Field | Evidence | Conf. |
+| --- | --- | --- | --- | --- | --- |
+| `0x00` | 2 | `u16` | Character id (story character; 1 = the player, 0 = no duellist). 1 copies the player's name; 2–142 take the character's name when `world_character_exists(char, variant)` (`0x0885b8dc`) holds (`world_get_character_name_string`, `0x0885b208`); 0 and ≥ 143 leave the name untouched | `lhu 0x1a4(s3)` and the compare chain at `0x088363a4`–`0x08836414` | H |
+| `0x02` | 2 | `u16` | Variant (passed with the character to the name lookup) | `lhu 2(s1)` at `0x088363f0`/`0x08836400` | M |
+| `0x04` | 2 + 2 | `u16`, `u16` | A second character/variant pair; the set-ups write the same values as `0x00`/`0x02`, `rel_underground` writes character 142 | set-up writers | M |
+| `0x08` | 2 | `u16` | Recipe or set-up code (< 462 recipe, 462–466 codes, ≥ 467 cleared; table above) | `lhu 8(s1)`, compare chain `0x0883641c`–`0x08836488` | H |
+| `0x0a` | 2 | `u16` | Argument of code 463 (stored-deck number) | `lhu 0xa(s1)` at `0x08836478` | H |
+| `0x0c` | 12 | — | Unknown; not read by `duel_setup_load_decks` | — | unknown |
+| `0x18` | 50 | `u16[25]` | Duellist name (UTF-16, NUL-terminated) | copy of 0x32 bytes at `0x088363cc`–`0x088363d8` | H |
+| `0x4a` | 64 | `u16[32]` | Deck name (UTF-16) | copy/clear of 0x40 bytes at `+0x4a` | H |
+| `0x8a` | 2 | — | Unknown (padding before the 4-aligned deck) | — | unknown |
+| `0x8c` | 0xc0 | deck | Deck: the in-memory deck structure above | copy/clear of 0xc0 bytes at `+0x8c` | H |
+| `0x14c` | 0x60 | struct | Card list: `u32 count`, up to 46 `u16` card ids (from the recipe card list for recipes, from the stored deck for code 463) | `deck_get_recipe_card_list(…, +0x14c)`, clear of 0x60 bytes | H |
+
+Hypothesis (medium, not traced): the duel manager passes the four record decks to the engine's duelist deck slots `0x09e029ac + n × 0xc0` (`duel_core_set_duelist_deck`, `docs/formats/duel-runtime.md`), record `i` being duelist `i`.
 
 ### Recipe card list: `0x089150b8`
 

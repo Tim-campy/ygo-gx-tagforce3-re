@@ -132,7 +132,7 @@ The field save block (story block `+0x345c`, `0xa8` bytes) starts with the **sto
 
 ## Card shop: pack availability
 
-`rel_shop` `0x090d9264` first calls `0x090d9e5c` and then copies every pack's save state into the shop's pack table; `0x090d9e5c` (5,924 bytes) recomputes the 48 pack states with `save_set_pack_state(p, s)` (`save.md`). States: 0 not available, 1 was available but its condition no longer holds (greyed), 2 on sale, bit 2 (4) "unlocked by the story" (`set_pack_state 60000` in scripts), turned into 2 at the next visit. Rules, in order (medium; static reading of the decompilation):
+`rel_shop` `0x090d9264` first calls `0x090d9e5c` and then copies every pack's save state into the shop's pack table; `0x090d9e5c` (5,924 bytes) recomputes the 48 pack states with `save_set_pack_state(p, s)` (`save.md`). States: 0 not available, 1 was available but its condition no longer holds (greyed), 2 on sale, bit 2 (4) "unlocked by the story" (`set_pack_state 60000` in scripts), turned into 2 at the next visit. **Superseded (2026-10-31):** the full rule list, read instruction by instruction, is in [`docs/formats/shop-rules.md`](../formats/shop-rules.md). It corrects this summary: the level, opponent and "all of characters 2–8" rules are independent ways to put a pack on sale (each one alone sets state 2), not extra requirements; pack 15's opponent threshold is 400 and the packs 41/42 byte is `0x090fad50`. The summary below is kept for history. Rules, in order (medium; static reading of the decompilation):
 
 | Packs | Condition for state 2 |
 | --- | --- |

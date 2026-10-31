@@ -286,6 +286,21 @@ The set looks like the tutorial data of an earlier engine revision left on the d
 | `NN_message_res.bin` | Headed string table without end offset (`string-tables.md`, layout A). With sub-operation 0, `c` is a line index: the indices run in order and the largest equals count − 1 in all four lessons (148, 126, 197, 189 lines). | H |
 | `tuto_duel01.gim`, `tuto_bigwin01.gim`, `tuto_duelimg01`–`06.gim` | GIM images (`gim.md`); `tuto_duelimg*` differ per language. | — |
 
+#### `NN_duel_command.bin` layout (`tuto_legacy_cmd`)
+
+Purpose: the scripted engine commands of one legacy tutorial lesson. The game does not load the file (above); the layout is established from the data alone (all four files parse exactly to their size with this layout) and from the record format, which is the engine's command record (`duel-runtime.md`, "Engine command queue"). Little-endian.
+
+| Offset | Size | Type | Field | Evidence | Conf. |
+| --- | --- | --- | --- | --- | --- |
+| `0x00` | 2 | `u16` | Record count `n` | file size = 2 + 8 × `n` in all four files | H |
+| `0x02 + 8i` | 8 | record | Record `i` (fields below, offsets relative to the record) | size check | H |
+| `+0x00` | 2 | `u16` | `op`: bits 0–14 engine command code (all ≤ `0x68`, the dispatcher's range), bit 15 side | codes within `duel_command_dispatch`; bit 15 = side as in the `.ydq` loader | H |
+| `+0x02` | 2 | `u16` | `a`; for command `0x68`: bits 0–7 sub-operation (22 distinct values, 0–31), bits 8–15 a parameter | value distribution | H (split), unknown (sub-operation meaning) |
+| `+0x04` | 2 | `u16` | `b` | — | H (position), per command |
+| `+0x06` | 2 | `u16` | `c`; with sub-operation 0 a line index into `NN_message_res.bin` (indices in order, maximum = line count − 1) | `tutorial.py --check` | H |
+
+There is no header besides the count and no end record. The meaning of the `0x68` sub-operations cannot be recovered from TF3, because command `0x68` only relays them to `rel_duel_draw` as UI event `0x42`.
+
 `tutorial.py <USRDIR>/tutorial/tutorial_*.ehp --check` checks this framing (record count, codes within the dispatcher, message indices within the table, the setups). The meaning of the `0x68` sub-operations is not recoverable from TF3: command `0x68` only relays them as UI event `0x42`.
 
 ## Open questions

@@ -2,6 +2,8 @@
 
 Everything the field module uses to set up and run one Duel Academy map, beyond the archive itself: which story location loads which map, lighting and sky per time of day, exits, doors and door cells, walkability overrides, the floor-height rule, the player's arrival cell, NPC positions and the island (travel) map. Static analysis of `rel_field.prx` (base `0x090ced00`) and `rel_story.prx` (base `0x08e9aa00`) in Ghidra plus cross-checks on the disc data; nothing here was traced in PPSSPP. Module offsets as in `field-tables.md` (file offset = offset + `0x54`). The archive layout (`bg_NN_MM.ehp`), the door table and the exit-cell tables themselves are in `docs/formats/field-tables.md`; the walk grid in `docs/formats/hmp.md`.
 
+**Verified in PPSSPP (2026-10-31)**: the per-map data (registry row `field_maps`) matched the game in E11 of [`results/2026-10-31-sessionE-W.md`](../verification/results/2026-10-31-sessionE-W.md): in four map changes the arrival cell, direction and the per-door rule of location 6 equalled the "Arrival cell" table; the NPC spot table (`story_spot_table`) matched in C2 of [`results/2026-10-27-sessionC.md`](../verification/results/2026-10-27-sessionC.md) (records' location, cells and direction equal spots 334/335, 100, 50). Both rows are `verified` ([`results/2026-10-31-format-raises.md`](../verification/results/2026-10-31-format-raises.md)). The rest of this document is still static analysis.
+
 Tool: `tools/world.py`.
 
 ```
@@ -74,6 +76,15 @@ A door opens (`t` → 1, `t += 0.1 + 0.1·t` per frame, sound `0x090db820(kind)`
 `world_get_lab_special_cell` (`0x090d0cc8`): on map 32, `(32, 2)`/`(33, 2)` → kind 1 (field action 9) and `(30, 2)`/`(31, 2)` → kind 2 (action 10).
 
 `world_is_marker_hidden_cell` (`0x090d9e78`): two cell lists (`u32 x, y` pairs), 14 cells of map 21 at `+0x28f7c` and 120 cells of map 27 at `+0x28fec`. On these cells `0x090d3f54` draws nothing over a character; elsewhere it draws a 44 × 36 sprite plus a 24 × 24 icon from the field UI texture above the character (presumably the talk/event balloon; low).
+
+**Marker-hidden cell lists** (`rel_field.prx` `+0x28f7c`, 1,072 bytes; read 2026-10-31 in the disassembly of `world_is_marker_hidden_cell`). The function takes `(x, y)`, picks a list by `world_get_current_map()` (map 21 → list A, map 27 → list B, any other map → no list, returns 0) and returns 1 on the first entry with both words equal (linear search over the fixed count, no terminator).
+
+| Module offset | Size | Type | Content | Conf. |
+| --- | --- | --- | --- | --- |
+| `+0x28f7c` | 14 × 8 | `{u32 x, u32 y}[14]` | List A, map 21 (count 14 is an immediate in the code) | H |
+| `+0x28fec` | 120 × 8 | `{u32 x, u32 y}[120]` | List B, map 27 (count 120, immediate); starts right after list A | H |
+
+Coordinates are presumably walk-grid cells, as elsewhere in the field code (medium). The meaning of the hidden marker is low (above). `world.py tables --table marker_hidden_cells` exports both lists.
 
 ## Walkability overrides (code)
 

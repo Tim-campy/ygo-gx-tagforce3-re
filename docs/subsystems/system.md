@@ -31,6 +31,8 @@ The game manages its own heaps with a 16-byte header tagged `"HOGE"` (`0x45474f4
 | `0x08826450` | `system_heap_alloc(heap, size) → ptr or 0` | H | Tail call to `0x08826458(heap, size, 1)`; size rounded up to 16. 11 callers, including `save_open`, `0x08841564`, `0x088367bc`. |
 | `0x088265ac` | `system_heap_free(heap, ptr) → 1` | M | Sets the block's free bit and relinks it (`0x08826c9c`, `0x08826fb8`, `0x088270ac`). 16 callers, including `save_close`. |
 
+Header and block-table layout: `docs/formats/system-runtime.md`, "heap_header".
+
 ### Boot and main loop
 
 | Address | Name | Conf. | Evidence |

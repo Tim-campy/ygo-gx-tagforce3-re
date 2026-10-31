@@ -125,6 +125,8 @@ Porting: a family is a template (its dominant query); the member adds constants 
 
 ## Simulation and scoring
 
+Memory layouts of the AI runtime blocks (context stack, candidate stack, summon choice, stat snapshot, snapshot slots, battle plan, combat tricks, board view, step table) are in [`docs/formats/ai-runtime.md`](../formats/ai-runtime.md).
+
 ### State snapshots
 
 The AI tests moves on the real duel state. `ai_simulate_attack`, `ai_plan_battle_with_tricks` and `ai_plan_battle` push a snapshot (depth `0x09e27fee`, at most 10) of the command/duel block `0x09e29914` (`0xc14` bytes) and the two player blocks `0x09e2a528` (`0x2de4` bytes) into slot `n` at `0x09dff93c + n × 0x39f8`, run rules code, then restore and re-run `ai_analyze_board` (H). The ten slots (`0x09e03334`–`0x09e27ebc`) make up most of the 150 KiB region `0x09e02ff8` cleared by `duel_core_reset`.

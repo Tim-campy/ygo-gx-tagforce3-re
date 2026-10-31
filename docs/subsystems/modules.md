@@ -105,7 +105,7 @@ Screens ("scenes") are modules that run in one slot, served by the thread `ehscr
 | `0x0881cf74` | `system_scene_request(basename)` | H | `strcpy(+0x04, basename); strcat(".prx")`. Exported. |
 | `0x0881cf00` | `system_scene_run_slice()` | M | Main thread: `sceKernelResumeThread(ehscript)`, `sceKernelSleepThread`, `sceKernelSuspendThread`. Called once per main-loop iteration at `0x088338ac`. The scene code thus runs as a coroutine of the main loop. |
 
-Scene transitions use a scene id, not a module id. The scene table at `0x088a1478` (31 × `{u32 scene, u32 module_id}`) is mapped by `0x0883dbb0`; an unknown id returns the string `"unknown id"`. The stack is a 144-byte structure returned by `0x0883596c`: `+0` depth, `+4` current transition `{u16 type, from, to, arg}`, `+0x0C` stack of 8-byte transitions.
+Scene transitions use a scene id, not a module id. The scene table at `0x088a1478` (31 × `{u32 scene, u32 module_id}`) is mapped by `0x0883dbb0`; an unknown id returns the string `"unknown id"`. The stack is a 144-byte structure returned by `0x0883596c`: `+0` depth, `+4` current transition `{u16 type, from, to, arg}`, `+0x0C` stack of 8-byte transitions. Full layout (16 entries, the `+0x8c` halfword): `docs/formats/system-runtime.md`.
 
 | Address | Name (proposed) | Conf. | Evidence |
 | --- | --- | --- | --- |

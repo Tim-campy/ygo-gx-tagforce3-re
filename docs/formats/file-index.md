@@ -1,6 +1,8 @@
 # In-memory file index (runtime structure)
 
-Status: `documented`. Built at boot by `container_build_file_index` (`0x0881e054`) from the disc's own ISO 9660 directories; there is **no custom file table on the disc**. Confidence: high (decompiled builder, lookup and both call sites; not yet observed at runtime).
+Status: `verified`. Built at boot by `container_build_file_index` (`0x0881e054`) from the disc's own ISO 9660 directories; there is **no custom file table on the disc**. Confidence: high (decompiled builder, lookup and both call sites; observed at runtime in E1, below).
+
+**Verified in PPSSPP** (2026-10-31, check E1, `docs/verification/results/2026-10-31-sessionE-T.md`): the start/end/ready words, 2,131 entries (= the files on the disc) and the first entry's path, LBA and size matched live memory; row `file_index` is `verified` (`docs/verification/results/2026-10-31-format-raises.md`).
 
 ## Purpose
 

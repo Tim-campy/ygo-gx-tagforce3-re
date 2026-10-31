@@ -89,6 +89,13 @@ All integers little-endian. The state is a raw copy of in-memory structures: unu
 | `0x1c0eb` | 1 | Alignment to the state size. | M | — |
 | `0x1c0ec` | `0x3f14` | Rest of the save buffer: never copied to or from the state; 0 in the analysed save. | H | `save_get_state_size`. |
 
+**Verified in PPSSPP (2026-10-31)**, rows raised to `verified` in [`results/2026-10-31-format-raises.md`](../verification/results/2026-10-31-format-raises.md):
+
+- **Header** (`0x00000`–`0x0001f`, row `save_header`): E7 and E8 of [`results/2026-10-31-sessionE-S.md`](../verification/results/2026-10-31-sessionE-S.md): the frame counter `+0x0c` grew by 30.1 per second (the 30 Hz main loop), `+0x04`–`+0x0b` stayed 0 in every save, and `DATA0` equalled memory.
+- **Settings** (`0x0fe04`, `save_settings`): E5 and E5b of [`results/2026-10-31-sessionE-T.md`](../verification/results/2026-10-31-sessionE-T.md) (below, "Settings").
+- **Player profile** (`0x0fd5c`–`0x0fdff`, `save_player_profile`): DP `u32` at `0x0fdfc` changed by `save_add_dp` in C4 of [`results/2026-10-27-sessionC.md`](../verification/results/2026-10-27-sessionC.md) and E16 of [`results/2026-10-31-sessionE-P.md`](../verification/results/2026-10-31-sessionE-P.md) (−100 for one pack).
+- **Pack records** (`0x16604`, `save_pack_records`) and **collection** (`0x11ba4`, `save_collection`): E16: the stock nibble of pack 17 went `0xaa` → `0xa9`, rarity-box entry 0 became 1, and the five drawn cards went from `00 00` to `02 01` (state "new", one copy). The same diff confirmed the pack-bought byte `0x1542a + 17` and the purchase counter `0x16602` (below).
+
 Totals over the leaves of the map (sub-maps of the record table and the story block included): high 98,363 bytes (of which 16,148 the buffer tail), medium 27,090, low 769, unknown 4,850 (`0x00004` 8, story block `+0x3524` 4, record table `+0x292` 1,390, `0x1b108` 3,332, `0x1bf18` 116).
 
 ### Stored deck record (`0x174` bytes)
@@ -152,28 +159,47 @@ Entry `r` belongs to deck recipe `r` (`deck.md`). Bit 0: unlocked; bits 1–8: t
 
 ### Record table (`0x113a4`, `0x800` bytes)
 
-| Offset | Size | Field | Conf. |
-| --- | --- | --- | --- |
-| `+0x000` | 49 × 4 | `u32` record values. `save_init_new_game` sets `[37]` = 599,940 and `[38]` = 999 (initial values of "smallest is best" records, such as the fastest win and the fewest turns; hypothesis). `[40]`–`[48]` (`+0xa0`–`+0xc0`) are the **minigame high scores**: `save_get/set_minigame_record_0..8`. `rel_duelrecord` lists the values with text ids from `0x1020`. | M |
-| `+0x0c4` | 49 | "New record" bits per value (bits 0–1); `rel_duelrecord` shows and clears them; the minigame result routine sets `+0xec + k`. | M |
-| `+0x0f5` | 3 | Alignment. | M |
-| `+0x0f8` | 84 | Set-once flags: `rel_duel_eng +0x1204` sets `[n]` to 1 and returns whether it was new; `rel_duelrecord` writes 2 after showing. A loop over 82 cases in `rel_duel_eng +0x1ae0` evaluates them. | M |
-| `+0x14c` | 108 | Duel-bonus state per entry: 0 never, 1 first time, 2 again (`rel_duel_eng +0x1244`; read by `rel_shop +0xb0dc` and `rel_duelrecord`). | M |
-| `+0x1b8` | 108 × 2 | `s16` best value per entry (`rel_duel_eng` stores the new value when it beats the old one; `rel_duel_mgr +0x8624` reads it). | M |
-| `+0x290` | 2 | `s16` selector, read by `rel_duel_eng +0x27e4` (switch on values < 118) and `rel_duelrecord`; writer not found. | L |
-| `+0x292` | `0x56e` | **Unknown** (1,390 bytes). | — |
+`save_get_record_table()` returns `S + 0x113a4` (the duel record `+0x494`). Basis for every row: the accesses relative to that pointer in `BOOT.BIN`, `rel_duel_eng`, `rel_duel_mgr`, `rel_duelrecord`, `rel_shop` and the minigame modules (map pass, "How the map was built"), and the bounds of the loops that walk each array.
+
+| Offset | Size | Type | Field | Conf. |
+| --- | --- | --- | --- | --- |
+| `+0x000` | 49 × 4 | `u32[49]` | Record values. `save_init_new_game` sets `[37]` = 599,940 and `[38]` = 999 (initial values of "smallest is best" records, such as the fastest win and the fewest turns; hypothesis). `[40]`–`[48]` (`+0xa0`–`+0xc0`) are the **minigame high scores**: `save_get/set_minigame_record_0..8`. `rel_duelrecord` lists the values with text ids from `0x1020`. | M |
+| `+0x0c4` | 49 | `u8[49]` | "New record" bits per value (bits 0–1); `rel_duelrecord` shows and clears them; the minigame result routine sets `+0xec + k`. | M |
+| `+0x0f5` | 3 | — | Alignment. | M |
+| `+0x0f8` | 84 | `u8[84]` | Set-once flags: `rel_duel_eng +0x1204` sets `[n]` to 1 and returns whether it was new; `rel_duelrecord` writes 2 after showing. A loop over 82 cases in `rel_duel_eng +0x1ae0` evaluates them. | M |
+| `+0x14c` | 108 | `u8[108]` | Duel-bonus state per entry: 0 never, 1 first time, 2 again (`rel_duel_eng +0x1244`; read by `rel_duelrecord` and, for entries 0–103, by the shop's pack rules, `shop-rules.md`). | M |
+| `+0x1b8` | 108 × 2 | `s16[108]` | Best value per entry (`rel_duel_eng` stores the new value when it beats the old one; `rel_duel_mgr +0x8624` reads it). | M |
+| `+0x290` | 2 | `s16` | Selector, read by `rel_duel_eng +0x27e4` (switch on values < 118) and `rel_duelrecord`; writer not found. | L |
+| `+0x292` | `0x56e` | — | **Unknown** (1,390 bytes; no access found). | — |
 
 The minigame high scores are written by a result routine that every minigame module carries a copy of (`rel_blackjack +0xd4b8`, `rel_connection +0xce6c`, `rel_dodge +0xdbc8`, `rel_quiz +0x82e8`, `rel_reversi +0x8194`, `rel_throw +0x1e34`, `rel_underground +0xfacc`, `rel_title +0x3b830`): it switches on a minigame index 0–6, derives a reward value from the score (for example score / 50, stored in the routine's work block; that it is DP is not checked), and when the score beats `save_get_minigame_record_k` stores it and sets the new-record bit. The shop rules (`world.md`) test records 0 (> 49,999), 1 (> 99,999), 2 (> 399), 7 (> 49,999) and 8 (> 4,499) for packs 35–38 and 40. Which minigame owns which of the nine values is not established (seven switch cases, nine values; low).
 
 ### Flag bytes (`0x153e4`, 3,600 bytes)
 
-One `u8` per index. Used indices: 0–69 are read by `rel_gallery` through a byte table at `rel_gallery +0x8a34` (70 unlock entries) and written by `save_set_card_milestone_flag` (`0x088544f8`, for 13 card ids, from `duel_core_record_duel_result`); 70–117 (`0x1542a + p`) are the per-pack "bought once" bytes of `save_set_pack_bought(p)`. The other 3,482 bytes have no reader. That the array has 3,600 entries, the capacity of the collection, suggests one byte per card-database index that the game uses only partly (medium for the bounds, low for that reading).
+One `u8` per index. Used indices: 0–69 are read by `rel_gallery` through a byte table at `rel_gallery +0x8a34` (70 unlock entries) and written by `save_set_card_milestone_flag` (`0x088544f8`, from `duel_core_record_duel_result`; per-card bases 0x00–0x44 for 34 card ids plus fixed indices 0x2a and 0x2b, `functions/save.md`); 70–117 (`0x1542a + p`) are the per-pack "bought once" bytes of `save_set_pack_bought(p)`. The other 3,482 bytes have no reader. That the array has 3,600 entries, the capacity of the collection, suggests one byte per card-database index that the game uses only partly (medium for the bounds, low for that reading).
+
+| Index (offset) | Size | Type | Field | Conf. | Basis |
+| --- | --- | --- | --- | --- | --- |
+| 0–69 (`0x153e4`) | 70 | `u8[70]` | Gallery unlock flags (0/1), written by the card milestones | M | `save_set_card_milestone_flag`, `rel_gallery +0x8a34` |
+| 70–117 (`0x1542a`) | 48 | `u8[48]` | Pack `p` bought at least once (1) | H | `save_set_pack_bought`; verified in E16 (`0x1542a + 17` 0 → 1, `results/2026-10-31-sessionE-P.md`) |
+| 118–3,599 (`0x1545a`) | 3,482 | `u8[3482]` | No reader or writer found | — | map pass |
 
 ### Card list (`0x161f4`)
 
-A `u16` count (< 100), 99 `u16` card ids and 99 `u16` states (1–3). Written by `rel_deck` and `rel_select_card`; read by `rel_deck`, `rel_decktutorial`, `rel_deckswap`, `rel_limitlist`, `rel_recipeviewer`, `rel_select_card`, `rel_shop`, `rel_duel_mgr`, `rel_labo` and by `0x08835ebc`/`0x08836104`, which add the entries with states 1–3 back to the free copies of a card. The shop's pack results show the copies of a card in this list (`packs.md`). Presumably a list of cards set aside by the deck editor (low).
+| Offset | Size | Type | Field | Conf. | Basis |
+| --- | --- | --- | --- | --- | --- |
+| `0x161f4` | 2 | `u16` | Entry count, 0–99 | H | `save_get_card_list_count`, `save_set_card_list_count` |
+| `0x161f6` | 99 × 2 | `u16[99]` | Card ids (entry `i` at `+2i`; the getter returns 0 outside 0–98) | H | `save_get_card_list_entry`, `save_set_card_list_entry` |
+| `0x162bc` | 99 × 2 | `u16[99]` | Per-entry state 1–3 (`save_count_card_list_entries` counts states 1 and 3, and 2 on request) | H (layout), L (meaning) | `save_get_card_list_state`, `save_set_card_list_state` |
+
+The two arrays end at `0x16382`, where the `0x200`-byte edit block starts (exact adjacency). A `u16` count (< 100), 99 `u16` card ids and 99 `u16` states (1–3). Written by `rel_deck` and `rel_select_card`; read by `rel_deck`, `rel_decktutorial`, `rel_deckswap`, `rel_limitlist`, `rel_recipeviewer`, `rel_select_card`, `rel_shop`, `rel_duel_mgr`, `rel_labo` and by `0x08835ebc`/`0x08836104`, which add the entries with states 1–3 back to the free copies of a card. The shop's pack results show the copies of a card in this list (`packs.md`). Presumably a list of cards set aside by the deck editor (low).
 
 ### Progress bytes (`0x16de4`, 38 bytes)
+
+| Offset | Size | Type | Field | Conf. | Basis |
+| --- | --- | --- | --- | --- | --- |
+| `0x16de4 + n` | 1 each, `n` = 0–37 | `u8[38]` | Progress value `n`; only ever raised (the setter keeps the maximum) | H (layout), L (meaning) | `save_raise_progress_byte`, `save_get_progress_byte` (the setter checks `n < 38`) |
+| `0x16de4 + 2` | 1 | `u8` | Entry 2: raised to 1 by `rel_story`'s new-day code once the day index exceeds 8 | H | `world_change_time` |
 
 `save_raise_progress_byte(n, v)` keeps the maximum (`n < 38`); `rel_deck` reads and raises entries, and `rel_story`'s new-day code raises entry 2 to 1 once the day index exceeds 8 (`world_change_time`). Presumably tutorial or help-page progress (low).
 
@@ -205,11 +231,20 @@ The option meanings were verified in PPSSPP by changing one option at a time on 
 
 ### Partner word (`0x16e12`)
 
+| Bits | Type | Field | Conf. | Basis |
+| --- | --- | --- | --- | --- |
+| 0 | flag | Partner flag (`save_set_partner_flag`, `0x08857cd8`; cleared by the two cycle functions); meaning unknown | H (position), — (meaning) | code |
+| 1–3 | 3-bit | Story cycle 1–3 | H (position), L (meaning) | `save_set_story_cycle` |
+| 4–11 | `u8` | Partner character id | H | `save_get_partner` (`0x088550c8`), `save_set_partner` (`0x08855110`); verified C3 |
+| 12–15 | 4-bit | Partner variant | H | same; verified C3 |
+
+**Verified in PPSSPP**: C3 of [`results/2026-10-27-sessionC.md`](../verification/results/2026-10-27-sessionC.md) read `0x0023` with Jaden (character 2, variant 0) as partner, matching the logged `char=2`; low nibble 3 = flag 1 + cycle 1. E8 of [`results/2026-10-31-sessionE-S.md`](../verification/results/2026-10-31-sessionE-S.md) found the same word in memory and in `DATA0`. The row `save_partner_word` is `verified` ([`results/2026-10-31-format-raises.md`](../verification/results/2026-10-31-format-raises.md)).
+
 `u16`: bit 0 a flag (`save_set_partner_flag`, `0x08857cd8`; cleared by the two cycle functions); bits 1–3 the **story cycle** 1–3; bits 4–11 the partner character, bits 12–15 its variant (`save_get_partner`, `save_set_partner`; `world.md`). `save_set_story_cycle(n)` (`0x08854310`, caller `rel_title +0x6db4` with the cycle of a stored partner word) sets bits 1–3 to `n`, refills every pack shelf (`save_reset_packs`) and raises `0x16e0c` to `n`; `save_advance_story_cycle` (`0x088543a0`, caller `rel_story +0x9224`) clears bit 0, computes the next cycle (1 → 2 → 3 → 1) and raises `0x16e0c` to it, but does not write the new cycle back into bits 1–3 (read in the disassembly, 2026-10-31). That this counts play-throughs of the story is a hypothesis (low). This answers the earlier open question about the low 4 bits of the partner word (value 3 for Jaden = flag 1 + cycle 1).
 
 ### Story block (`0x16e14`, `0x42e8` bytes)
 
-Registered by the story init (`rel_story +0x49cc`); blocks and sizes from the per-block clear functions. Layouts of the records and the field blocks are in `docs/subsystems/world.md`.
+Registered by the story init (`rel_story +0x49cc`); blocks and sizes from the per-block clear functions. Field-by-field layouts of the runtime records, the event queue, the field state, the field save block and the flag block are in [`story-runtime.md`](story-runtime.md) (with their PPSSPP checks); behaviour in `docs/subsystems/world.md`.
 
 | Story offset | State offset | Size | Content | Conf. |
 | --- | --- | --- | --- | --- |
@@ -229,6 +264,26 @@ Registered by the story init (`rel_story +0x49cc`); blocks and sizes from the pe
 | `+0x35b0` | `0x1a3c4` | 8 | 50-bit sandwich-seen set. | H |
 | `+0x35b8` | `0x1a3cc` | 140 × `0x18` | Second set of character records, sorted by the character id at `+0` (binary search at `rel_story +0x2b24`). | M |
 | `+0x42d8` | `0x1b0ec` | `0x10` | Story flags 129–192 (`+0`, `+4`), system flags 65–128 (`+8`, `+0xc`). | H |
+
+### Character flags (`0x1bf8c`, 174 × 2 bytes)
+
+Two bytes per row of the `BOOT.BIN` character table (`character-table.md`; 174 rows, so the array ends at `0x1c0e8`, where the progress flags start). `save_get_character_flags(row)` (`0x0885519c`) returns `S + 0x1bf8c + 2·row`; `save_get_character_flags_by_key(c, v)` (`0x08855178`) maps `(character, variant)` to the row with `world_find_character_row` (no check for a missing row). Accessors at `0x088551d4`–`0x08855638` (`functions/save.md`); all read in the code (high for positions).
+
+| Byte | Bits | Type | Field | Writers / readers | Conf. |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 0 | flag | Set by `save_init_character` for characters 2–7 (variant 0) | `rel_title` reads it (`ui_title_get_character_entry_filtered`) | H (code), — (meaning) |
+| 0 | 1 | flag | Set by `save_init_character` (characters 2–7) and by `rel_story` | no reader found | H (code), — (meaning) |
+| 0 | 2 | flag | **Partner story finished**: set by `world_driver_finish_partner_story` for the partner's row | shop rules (packs 3–41, 41/42; `shop-rules.md`), staff-roll movie choice | M |
+| 0 | 3 | flag | Set by `save_init_character` for characters 2–141 only | no reader found | H (code), — (meaning) |
+| 0 | 4–7 | — | Unused (no accessor) | — | H |
+| 1 | 0 | flag | Set by `rel_story` | `rel_title` (`ui_title_build_deck_list` and one other) | H (code), — (meaning) |
+| 1 | 1–3 | 3-bit | Weekly random value `rand % 5` | written by `world_assign_daily_spots`; read by `rel_duel_mgr`, `rel_title` | H (code), — (meaning) |
+| 1 | 4–6 | 3-bit | Weekly random value `rand % 6` | same | H (code), — (meaning) |
+| 1 | 7 | — | Unused (no accessor) | — | H |
+
+### Minigame blocks (`0x1be0c`–`0x1bf0b`)
+
+Not yet laid out beyond the map rows above: the blocks are reached through pointers that the minigame modules keep in their own globals, which the map pass did not follow, so sizes other than block 3 (12 `u32`, from `save_reset_options`) rest on adjacency only (low). Differential save 7 (below) is the pending check.
 
 ## Game-state accessors (`BOOT.BIN`)
 

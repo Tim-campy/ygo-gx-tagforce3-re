@@ -300,6 +300,41 @@ The scalar tracks before the first one a node uses are scene parameters. Two lay
 `.vtmt` (88 files, `voice01.vtmt.gz` in each cut-in archive): flag 2, nine nodes, no leading tracks.
 Purpose unknown (lip or face animation driven by voice playback is a guess, low).
 
+## Runtime model instance (`tgm_model_instance`, 0x68 bytes)
+
+Registry row `tgm_model_instance`. Created by `field_3d_create_model_instance(tms, anim_list)` (`0x0882f3f4`), which allocates `0x68` bytes through the allocator pointer `0x0889f720`, clears them and fills the fields below; destroyed by `field_3d_destroy_model_instance` (`0x0882f89c`, seven frees through `0x0889f724`). Advanced by `field_3d_update_model` (`0x0882fa94`, "Playback" above) and drawn by `field_3d_draw_model` (`0x0882fd88`). Users: the duel backdrops and cut-ins in `rel_duel_draw`, `rel_field` and `rel_shop` (`docs/subsystems/field_3d.md`). Basis: capstone disassembly of the creator, destructor and every accessor named below (2026-10-31).
+
+| Offset | Size | Type | Field | Evidence | Conf. |
+| --- | --- | --- | --- | --- | --- |
+| `+0x00` | 4 | `TGMS *` | Bound mesh | First store after the clear in the creator | H |
+| `+0x04` | 4 | `TGMT **` | Animation list (from the creator's `anim_list`, terminated by −1; or `&inst+0x14` after `field_3d_set_animation`) | Creator; `field_3d_set_animation`; `field_3d_play_animation` | H |
+| `+0x08` | 4 | s32 | Number of animations in the list | Creator counts up to the −1 terminator; set to 1 by `field_3d_set_animation` | H |
+| `+0x0c` | 4 | `float[16] *` | Node world matrices, 64 bytes per node (TGMS `+0x3c` nodes) | Creator allocates `count << 6`; freed by the destructor | H |
+| `+0x10` | 4 | `float[16] *` | Skin matrices (`world × bone_matrix`), 64 bytes per bone | Creator; `field_3d_update_model` | H |
+| `+0x14` | 4 | `TGMT *` | Current animation (inflated data) | `field_3d_play_animation`, `field_3d_set_tgmt_data` | H |
+| `+0x18` | 4 | `TGMT *` | Previous animation (cross-fade source) | `field_3d_play_animation` with flags bit 0 | H |
+| `+0x1c` | 4 | s32 | Current animation index (−1 none) | Creator, `field_3d_set_animation`, `field_3d_play_animation` | H |
+| `+0x20` | 4 | f32 | Current frame | `field_3d_update_model`; `field_3d_get_frame` | H |
+| `+0x24` | 4 | s32 | Previous animation index | `field_3d_play_animation` | H |
+| `+0x28` | 4 | f32 | Previous animation's frame | `field_3d_play_animation`; blend in `field_3d_update_model` | H |
+| `+0x2c` | 4 | `void *` | Animated material copies, `0xa4` bytes per TGMA entry | Creator allocates and copies; `field_3d_apply_tma` | H |
+| `+0x30` | 4 | `void *` | Animated texture copies, `0x28` bytes each | Creator; `field_3d_apply_tma` | H |
+| `+0x34` | 4 | `TGMA *` | Texture animation | `field_3d_set_tma` | H |
+| `+0x38` | 4 | f32 | TGMA frame (always wraps) | `field_3d_set_tma`, `field_3d_update_model` | H |
+| `+0x3c` | 4 | u32 | Flags: bit 0 cross-fade active, bit 1 loop | `field_3d_play_animation` stores its `flags`; `field_3d_update_model`, `field_3d_get_loop_length` | H |
+| `+0x40` | 4 | s32 | Size of each TGMT inflate buffer (`0x1b800` once allocated on first inflate; 0 before) | `field_3d_resize_tgmt_buffers` (`0x0882ffcc`) compares and stores it; `field_3d_set_tgmt_data` passes it to `sceGzipDecompress` | H |
+| `+0x44` | 4 | `void *` | TGMT inflate buffer A | `field_3d_set_tgmt_data` inflates into the buffer not used by `+0x18`; resize and destructor | H |
+| `+0x48` | 4 | `void *` | TGMT inflate buffer B | Same (double buffer, so the cross-fade source survives the next inflate) | H |
+| `+0x4c` | 4 | s32 | Inflated length in buffer A | `field_3d_set_tgmt_data` stores the `sceGzipDecompress` result at `+0x4c + 4·b`; copied on resize | H |
+| `+0x50` | 4 | s32 | Inflated length in buffer B | Same | H |
+| `+0x54` | 4 | u32 | Draw state word 0, passed to the draw pass as `inst+0x54` | `field_3d_exchange_draw_state(inst, 0, value)` (`0x088300ac`); `field_3d_draw_model` | H (location), M (meaning: per-instance draw option) |
+| `+0x58` | 4 | u32 | Draw state word 1 | `field_3d_exchange_draw_state(inst, 1, value)` | H (location), L (meaning) |
+| `+0x5c` | 4 | `void *` | Copy of `+0x2c` taken at the end of creation | Creator (`sw +0x2c → +0x5c`); reader not traced | H (location), L (role) |
+| `+0x60` | 4 | `void *` | Copy of `+0x30` taken at the end of creation | Creator; reader not traced | H (location), L (role) |
+| `+0x64` | 4 | u32 | Visibility group mask (bit *i* hides group *i*) | `field_3d_set_group_mask` / `field_3d_get_group_mask`; cut-in visibility tracks (above) | H |
+
+Unknown: only the roles of `+0x58`, `+0x5c` and `+0x60` (locations known). The VFPU matrix code of `field_3d_update_model` is read by hand (lower confidence per `CLAUDE.md`), but no field above depends on it.
+
 ## TGMA (texture animation)
 
 Header (0x24 bytes): `TGMA`, header size `0x24`, track table offset (`0x24 + 36 × entries`), key
