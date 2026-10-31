@@ -30,6 +30,9 @@ COLORS = {"unknown": "#6e7681", "named": "#8957e5", "documented": "#1f6feb",
           "reimplemented": "#2ea043", "verified": "#e3b341"}
 # Default names assigned by Ghidra/IDA/Hopper: a function that still has one is "unknown".
 AUTO_NAME = re.compile(r"^(?:thunk_)?(?:FUN|SUB|sub|LAB|DAT|PTR|UNK)_[0-9a-fA-F]+$")
+# Import stubs and jump thunks (Ghidra names them thunk_<target>): they hold no code of their own, so the
+# function headline leaves them out and reports them on a separate line (docs/PROGRESS.md, "Counting rules").
+STUB_NAME = re.compile(r"^thunk_")
 DEFAULT_STAGE = "documented"
 REPORT_ROWS = 100
 PANEL_WIDTH, GAP, MAP_HEIGHT, HEADER, LEGEND = 495, 10, 280, 30, 30
@@ -108,11 +111,18 @@ def summarize(groups, stage):
             "reached": reached, "groups": groups}
 
 
-def collect(path, stage):
-    groups = {}
+def collect(path, stage, split_stubs=False):
+    groups, stubs = {}, []
     for row in load_registry(path):
-        groups.setdefault(row["group"], []).append(row)
-    return summarize([group_entry(name, rows, stage) for name, rows in sorted(groups.items())], stage)
+        if split_stubs and STUB_NAME.match(row["name"]):
+            stubs.append(row)
+        else:
+            groups.setdefault(row["group"], []).append(row)
+    data = summarize([group_entry(name, rows, stage) for name, rows in sorted(groups.items())], stage)
+    if split_stubs:
+        done = sum(1 for r in stubs if RANK[r["status"]] >= RANK[stage])
+        data["stubs"] = {"done": done, "total": len(stubs), "percent": pct(done, len(stubs))}
+    return data
 
 
 def select_groups(data, names):
@@ -377,8 +387,13 @@ def report(base, head):
 def summary_lines(label, data):
     reached = " | ".join(f'{status} {data["reached"][status]}%' for status in STATUSES[1:])
     extra = f'; bytes {data["bytes_percent"]}%' if data["bytes_total"] else ""
-    return [f'{label} {data["done"]}/{data["total"]} ({data["percent"]}%) at stage "{data["stage"]}"{extra}',
-            f"  reached: {reached}"]
+    lines = [f'{label} {data["done"]}/{data["total"]} ({data["percent"]}%) at stage "{data["stage"]}"{extra}',
+             f"  reached: {reached}"]
+    if data.get("stubs", {}).get("total"):
+        stubs = data["stubs"]
+        lines.append(f'  import stubs (thunk_*, not counted above): {stubs["done"]}/{stubs["total"]} '
+                     f'({stubs["percent"]}%) at stage "{data["stage"]}"')
+    return lines
 
 
 def append_log(root, stage, functions, formats):
@@ -428,10 +443,11 @@ def main(argv=None):
     if args.log and args.group:
         parser.error("--log records whole-project numbers and does not combine with --group")
     try:
-        functions = collect(args.root / "re" / "functions.csv", args.stage)
+        functions = collect(args.root / "re" / "functions.csv", args.stage, split_stubs=True)
         formats = collect(args.root / "re" / "formats.csv", args.stage)
         if args.check:
-            print(f'ok: {functions["total"]} functions, {formats["total"]} formats')
+            stubs = functions["stubs"]["total"]
+            print(f'ok: {functions["total"] + stubs} functions ({stubs} import stubs), {formats["total"]} formats')
             return 0
         if args.group:
             functions = select_groups(functions, args.group)

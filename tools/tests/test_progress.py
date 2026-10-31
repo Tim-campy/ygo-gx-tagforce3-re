@@ -94,6 +94,16 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual((groups["container"]["done"], groups["container"]["todo"]), (1, 2))
         self.assertEqual((groups["card_db"]["done"], groups["card_db"]["todo"]), (2, 0))
 
+    def test_import_stubs_are_counted_apart(self):
+        rows = FUNCTIONS + "0x08830000,thunk_card_db_lookup,card_db,documented,8\n0x08830008,thunk_FUN_08820020,duel_core,,8\n"
+        with make_root(rows) as root:
+            data = progress.collect(Path(root) / "re" / "functions.csv", "documented", split_stubs=True)
+            plain = progress.collect(Path(root) / "re" / "functions.csv", "documented")
+        self.assertEqual((data["done"], data["total"]), (3, 7))
+        self.assertEqual(data["stubs"], {"done": 1, "total": 2, "percent": 50.0})
+        self.assertEqual(plain["total"], 9)
+        self.assertIn("import stubs", "\n".join(progress.summary_lines("functions", data)))
+
     def test_stage_changes_the_headline(self):
         self.assertEqual(self.collect("named")["done"], 5)
         self.assertEqual(self.collect("verified")["done"], 1)
@@ -145,7 +155,7 @@ class OutputTests(unittest.TestCase):
     def test_check_and_errors(self):
         with make_root() as root:
             code, stdout, _ = run("--root", root, "--check")
-            self.assertEqual((code, stdout.strip()), (0, "ok: 7 functions, 3 formats"))
+            self.assertEqual((code, stdout.strip()), (0, "ok: 7 functions (0 import stubs), 3 formats"))
         with make_root("id,name,status\n0x1,a,bogus\n") as root:
             code, _, stderr = run("--root", root, "--check")
             self.assertEqual(code, 2)

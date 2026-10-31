@@ -37,6 +37,7 @@ When `status` is blank, a function whose name matches a tool default is `unknown
 - A function or format is **done** when its stage is at or above `--stage` (default `documented`).
 - The headline percentage counts entries. When sizes are present, a second figure weights by bytes, because a handful of large functions can hide most of the code.
 - `reached` lists the cumulative percentage at every stage from `named` upward.
+- **Import stubs are counted apart.** A function whose name starts with `thunk_` (an import stub or jump thunk: 8 bytes that only jump to another function) holds no code of its own. Documenting it adds no knowledge once its target is documented, so the function headline, its byte figure and `reached` leave stubs out, and a separate line reports how many stubs reach the stage. `--check` prints the total including stubs. (Decided by the maintainer on 2026-10-31, after the documentation round documented 10,856 stubs.)
 - The total only includes entries already in the registries, not every function in the binary. Import the full function list from Ghidra early so the denominator is honest, and re-import when analysis discovers more.
 
 ## Commands
