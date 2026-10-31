@@ -31,10 +31,20 @@ duel_core_battle_step_attack_costs,any,,attack_restriction,pays a cost to declar
 duel_core_battle_step_attack_end,any,,battle_trigger,effect at the end of the attack,,,L,registry name (battle step)
 duel_core_battle_step_damage_start,any,,battle_trigger,effect at the start of the Damage Step,,,L,registry name (battle step)
 duel_core_battle_step_damage_end,any,,battle_trigger,effect at the end of the Damage Step,,,L,registry name (battle step)
+duel_core_compute_card_stats,cmp,,stat_modifier,its own case in the current ATK/DEF computation (stat modifier),,,H,stat-modifiers.md: every stat modifier is a card-id compare chain in duel_core_compute_card_stats
+duel_effects_get_field_card_stat_bonus,cmp,,stat_modifier,while face-up: modifies the ATK/DEF of other monsters,,,H,stat-modifiers.md: other face-up cards; card chain on the source id
+duel_core_battle_compute_stats,cmp,,stat_modifier,ATK/DEF modifier during the Damage Step,,,H,stat-modifiers.md / battle.md: Damage-Step modifiers of the battle records
+duel_core_battle_get_damage_calc_bonus,cmp,,stat_modifier,ATK/DEF change during damage calculation only,,,M,stat-modifiers.md: own 'during damage calculation only' amount (-1 = none)
+duel_core_compute_base_stats,cmp,,stat_modifier,changes its original ATK/DEF or the words it overrides in the base stat block,,,M,stat-modifiers.md: original stats and their overrides
+duel_effects_get_standby_lp_cost,any,,maintenance_cost,pays LP in its controller's Standby Phase to keep it,,,H,effect-tables.md: standby LP cost chain 0x09de2310
+0x09dbffd8,cmp,,win_condition,wins the Match when its direct attack reduces the opponent's LP to 0,,,H,duel_core_step_apply_lp_change: stores the id as the match-deciding card when the damage reaches the LP
+0x09dabf4c,cmp,,summon_procedure,Special Summon procedure: material filter and count,,,M,duel_core_get_procedure_material_rule: returns the material filter callback and writes the count (1-3)
+0x088544f8,cmp,,save_record,sets a per-card save-file milestone flag,,,M,save_set_card_milestone_flag: writes 1 at save state + 0x153e4 + per-card offset
 0x09db315c,any,,battle_trigger,effect when the attack is declared,,,L,unnamed; callers duel_core_cmd_declare_attack and _declare_direct_attack
 duel_core_get_battle_flip_trigger,any,,battle_trigger,triggers when it battles or is flipped by battle,,,L,battle.md: 0/1/2 battle or flip trigger
 duel_core_send_battle_destroyed_cards,any,,destruction_rule,changes where battle-destroyed monsters go (banish or return),,,M,effect-helpers-movement.md: battle destruction banish rules
 duel_core_send_batch_step,any,,destruction_rule,card-specific rule when cards are sent from the field,,,L,effect-helpers-movement.md
+0x09c1fb50,any,,destruction_rule,card-specific consequence when it leaves the field (linked cards destroyed / banished / returned),,,M,duel_core_apply_leave_field_rules: per-card branch called by duel_core_send_field_card (Destiny Board, Pyramid of Light, Fulfillment of the Contract)
 duel_core_send_field_card,any,,destruction_rule,card-specific rule when a field card is removed (immunity or redirect),,,M,effect-helpers-movement.md: removal after immunity checks
 duel_core_send_hand_card,any,,destruction_rule,effect when sent from the hand,,,L,registry name
 duel_effects_can_destroy_slot,any,,immunity,cannot be destroyed by card effects,,,L,registry name
@@ -72,7 +82,7 @@ duel_core_is_tribute_allowed,any,,summon_lock,while active: prevents Tributes,,,
 duel_effects_can_summon_trap_monster,any,,summon_lock,while active: affects Trap Monsters,,,L,registry name
 duel_core_is_double_tribute,any,,tribute_rule,counts as two Tributes,,,M,summon.md: monsters worth two tributes
 duel_core_count_tribute_value,any,,tribute_rule,counts as two Tributes,,,M,summon.md: tribute capacity
-0x09bfb1b0,any,,tribute_rule,tribute eligibility rule,,,L,unnamed; summon.md: tribute acceptance test of duel_core_count_tribute_value
+0x09bfb1b0,any,,tribute_rule,tribute eligibility rule (which monsters it accepts or may be as a Tribute),,,M,duel_core_can_tribute_slot_for: per-card tests of the slot's card and of the monster being summoned before duel_core_can_tribute
 duel_effects_cost_tribute,any,,tribute_rule,card-specific Tribute cost,,,L,registry name
 duel_core_is_synchro_material_candidate,any,,synchro_rule,Synchro Material restriction,,,M,summon.md: per-card restrictions
 0x08866870,cmp,,fusion_rule,can substitute for one Fusion Material,substitute,1=yes,M,fusion-recipes.md: fusion substitute list

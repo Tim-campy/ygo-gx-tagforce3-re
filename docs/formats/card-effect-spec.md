@@ -80,7 +80,9 @@ The tool writes the placeholder as a separate object (`spec_status` `placeholder
    - an iterable of dicts that each carry a `card_id` key.
 3. In every other case, including a failed import, a missing function or an exception, the input is skipped. The reason is printed in the `--check` summary line `search filters: ...` and stored in the JSONL header.
 
-## Object schema (schema 3)
+## Object schema (schema 4)
+
+Schema 4 adds `effects[].inert` (a record whose every slot is a return-0 stub, section "Inert records"), the card-level `spec_basis` (`records`, `fallback` or `engine` for a `full` card), the CSV column `spec_basis` at the end, and the engine-mapped `full` rule (section "Engine-mapped cards"). It removes or renames nothing; a schema-3 reader keeps working.
 
 Schema 3 adds `slots.resolve.categories_refined` and `slots.resolve.refinement` to schema 2 (records whose resolve handler `tools/family_split.py` examines), the `family_split` key of `sources` and `confidence`, and the CSV column `resolve_categories_refined` at the end. `slots.*.categories` is unchanged: it stays the static reach of the handler. Schema 2 added fields to schema 1 and removed or renamed none:
 
@@ -123,7 +125,9 @@ A schema-1 or schema-2 reader that ignores unknown keys keeps working. A schema-
 | `ai[]` | list | `ai_tables` | `table name index handler handler_name` |
 | `tokens[]` | list | token table | `index token_id token_name count count_computed position` |
 | `token_of[]` | list | token table | For a token card: the cards that create it |
+| `effects[].inert` | bool | effect tables | Present (true) only for an inert record: every slot handler is exactly `jr ra; move v0, zero` |
 | `spec_status` | string | rule below | |
+| `spec_basis` | string | rule below | For a `full` card only: `records` (its live records are complete), `fallback` (a complete icon fallback plus the per-card part) or `engine` (engine-mapped) |
 | `sources` | object | | For each populated field, the input and tool it came from |
 | `confidence` | object | rule below | For each populated field, high/medium/low |
 
@@ -158,15 +162,32 @@ Every other chain that `effect_params.compare_chains` reports gets a label from 
 
 | Status | Rule |
 | --- | --- |
-| `full` | At least one own effect record, and every record reaches an `effect` category in some slot with no unnamed callee in its resolve closure. A spell served by a fallback record is `full` when that record is complete and the per-card part is known: a ritual-table entry for ritual spells, stat modifiers for equip and field spells. |
-| `partial` | Effect records that are not all complete, or only side data (lists, parameter chains, stat mods, tokens, a fallback record). |
-| `engine_only` | An effect-bearing kind with no effect record, no fallback and no side data, whose id the engine tests directly: an `eq`, `switch` or `arg` reference in `engine_refs`, or a case in a non-parameter compare chain. The behaviour lives in the shared engine function(s) named in `engine_refs`; the spec gives where, not what. |
+| `full` | Basis `records`: at least one live (not inert) effect record, and every live record reaches an `effect` category in some slot with no unnamed callee in its resolve closure. Basis `fallback`: a spell served by a complete fallback record whose per-card part is known: a ritual-table entry for ritual spells; stat modifiers, or an engine-mapped card, for equip and field spells. Basis `engine`: no live record, and the card is engine-mapped (below). |
+| `partial` | Live effect records that are not all complete, or only side data (lists, parameter chains, stat mods, tokens, a fallback record, inert records) that is not engine-mapped. |
+| `engine_only` | An effect-bearing kind with no effect record, no fallback and no side data, whose id the engine tests directly (an `eq`, `switch` or `arg` reference in `engine_refs`, or a case in a non-parameter compare chain), and that is not engine-mapped. The behaviour lives in the shared engine function(s) named in `engine_refs`; the spec gives where, not what. |
 | `missing` | An effect-bearing kind with no data from any source, and no `eq`/`switch`/`arg` engine reference. |
 | `vanilla` | A kind without effect text (normal, plain fusion/ritual/synchro, normal tuner, token) and no own effect record. Recipes and AI entries are still listed. |
 | `unreleased` | The engine knows the id but `cardinfo` has no record. |
 | `placeholder` | The fallback id `0x0e74`. |
 
-`full` does not mean the effect is reverse engineered: it means every record maps onto named helpers. Behaviour inside a shared family handler still depends on the card id (next section).
+`full` does not mean the effect is reverse engineered: it means every record maps onto named helpers, or every engine test of the card maps onto a named rule. Behaviour inside a shared family handler still depends on the card id (next section), and an engine-mapped card's branch arithmetic is not decoded.
+
+### Inert records
+
+`duel_effects_cond_never` (`0x09ce28dc`) and `duel_effects_resolve_noop` (`0x09c7eb14`) are both exactly `jr ra; move v0, zero`. A record whose every slot is such a stub can never be activated through the chain (a condition that is never true) or resolves to nothing; the card's behaviour is triggered by engine code that tests its id (Royal Decree, Imperial Order, The Emperor's Holiday, the Spirit Message and Sarcophagus cards, the "when this face-down card is destroyed" traps). The tool detects the stub from the two instruction words, not from the name (H). Inert records are kept in `effects[]` with `inert: true` but do not count as live records: a card whose only records are inert is judged like a card without records. On the disc 17 cards carry an inert record, 9 of them no live record.
+
+### Engine-mapped cards
+
+A card without a live record can still be fully located when everything the engine does with its id lies in named functions whose rule is known. `card_effects.engine_mapped` requires all of:
+
+1. The card's own strong engine references (`eq`/`switch`/`arg`) are grouped by function, ignoring AI functions (registry group `ai`) and groups whose every semantic tag only locates the card (`ai_hint`, `archetype`, `name_alias`, `named_reference`, `save_record`). At least one group remains.
+2. Every remaining group is in a named function and carries at least one descriptive semantic tag (`card-refs.md`, "Semantics"; `unclassified` and the generic tags do not count).
+3. At least one descriptive tag of the card has confidence H or M.
+4. Every stat-modifier function (`params.stat_mods`) and every L1/L4 list handler is named.
+
+This is the engine-side counterpart of the record rule: a full record maps onto named helpers with categories; an engine-mapped card maps onto named rule functions with tags. It says where the behaviour is and which rule it belongs to (`stat_modifier`, `piercing`, `summon_condition`, `negation` ...), not the arithmetic of the card's branch (the `+300 per card in hand` of a stat case is in `params.stat_mods[].values` only when the case body is a constant).
+
+Precision (disc, judged against the card texts, read locally and not copied): 25 random cards that moved from `partial` to `full` (engine): every descriptive tag matched the text (25/25), and for 23 of 25 every clause of the text has a tag (the two gaps are a Toon's "destroyed when Toon World leaves" and a Gemini's position lock). 20 random cards that moved from `engine_only`: 19 of 20 have only correct tags (one `destruction_rule` phrase, "changes where battle-destroyed monsters go", is too narrow for a card that destroys its attacker), and every clause was located for all 20. 10 of 10 fallback spells were right (6 ritual spells with their table entry; the 3 equip spells and 1 field spell that are full through an engine-mapped rule).
 
 ## Figures (disc, registry of this commit, depth 3, `--boot`)
 
@@ -175,14 +196,17 @@ Every other chain that `effect_params.compare_chains` reports gets a label from 
 | Effect records | 2,600. 2,544 join a `cardinfo` record, 3 carry the placeholder `0x0e74`, 53 belong to 47 unreleased ids |
 | Unreleased ids | 47 with effect records. All 18 unreleased ids of the AI tables (`ai-tables.md`) are among them; 29 occur only in the effect tables. 5 more (`0x142d`, `0x1f08`, `0x1f0f`, `0x1f35`, `0x1f37`) appear only in lists, chains, fusion or AI data |
 | Output | 3,614 ids for 3,553 `cardinfo` cards (8 more unreleased ids than schema 1, from the cases of non-parameter chains) |
-| Released cards with own effect records | 2,251, of which 781 are `full` (34.7 %) |
-| Fallback spells | 126, none `full` yet: the field and equip fallback resolve handlers reach unnamed callees |
+| Released cards with own effect records | 2,251, of which 2,224 are `full` (98.8 %; 6 of these have only inert records and are `full` by the engine rule) |
+| Fallback spells | 126, 110 `full`: 28 ritual spells with a ritual-table entry (the ritual record S/T 2 is complete since its six callees were named), 56 equip spells (53 with stat modifiers, 3 engine-mapped) and 26 field spells (25 with stat modifiers, 1 engine-mapped) |
 | Effect record confidence | high 1,289, medium 1,269, low 42 (before the family split, same registry: high 604, medium 1,954, low 42) |
 | Family split | 915 resolve slots examined, 394 refined (425 labels removed); split confidence high 689, medium 226 |
 | Cards per source | target filter 406, draw count 120, LP cost 103, any chain 2,702 (681 in parameter chains), engine references 2,960 (medium 2,866, low 94), stat modifiers 543, fusion/ritual role 386, AI tables 1,660, token makers 46 |
-| Spec status (`--boot --draw`) | full 1,730, partial 812, engine_only 273, missing 0, vanilla 738, unreleased 60, placeholder 1 |
-| `engine_only` by kind | effect 188, trap 30, spell 26, effect fusion 15, Gemini 6, effect tuner 4, Toon 2, effect synchro 2 |
-| Without `--boot` | 267 `engine_only`, 6 `missing` (effect monsters tested only in `BOOT.BIN`, see `card-refs.md`) |
+| Spec status (`--boot --draw`) | full 2,625, partial 95, engine_only 95, missing 0, vanilla 738, unreleased 60, placeholder 1 |
+| `full` by basis | records 2,218, fallback 110, engine 297 |
+| `partial` by reason | 52 cards with only side data that is not engine-mapped (stat modifiers or parameter chains plus engine tests in unnamed functions or with only L tags), 27 with a live record that reaches no `effect` category, 14 equip/field spells whose fallback has no per-card part, 2 ritual spells without a ritual-table entry |
+| `engine_only` by kind | effect 61, trap 14, spell 9, effect fusion 7, Gemini 3, effect tuner 1 |
+| Without `--boot` | full 2,623, partial 91, engine_only 95, 6 `missing` (effect monsters tested only in `BOOT.BIN`, see `card-refs.md`) |
+| Before the engine-mapped rule (previous commit, same flags) | full 2,288, partial 254, engine_only 273 |
 
 Run `--check` for the current status counts; they move as helpers are named.
 
@@ -190,7 +214,8 @@ Run `--check` for the current status counts; they move as helpers are named.
 
 - **Family handlers.** Handlers are shared by card families: Pot of Greed's resolve handler serves 73 cards, and a handler can branch on the card id. Categories are static reach, so a shared handler reports the union of its family's categories in `categories` (`effect-classification.md`, "Limits"). `categories_refined` gives the card's own share where `tools/family_split.py` can isolate it (resolve slot only; 96 % label precision on a judged sample of family records, against 83 % for `categories`). Unions remain where the branch depends on run-time state: state carried between the steps of a handler (every fusion spell keeps `banish`, which applies only under a field effect), targets and choices, and data-driven handlers that never test the id. Those records stay at medium confidence. `shared_by_cards` shows how wide the family is.
 - **Data-driven searches.** The builders of list `0x09dec554` select deck cards through a filter word that is not yet decoded. Until `tools/search_filters.py` exists, searches such as Reinforcement of the Army show only `move_list_card` plus the list membership in `lists`.
-- **Engine-only cards.** `engine_only` cards (273 on the disc) are located, not decoded. `engine_refs` names the functions that test the id: 185 of these cards have an `eq`/`switch` test in a named `rel_duel_eng` function, 30 only in unnamed functions, 52 appear only as a call argument (another effect or helper names them), and 6 only in `BOOT.BIN`. The behaviour is the branch that the test selects inside that function. `card_refs.py` now gives each `eq`/`switch`/`arg` reference a semantic tag and phrase from `tools/engine_ref_semantics.csv` (266 of the 273 cards get a descriptive tag; precision about 0.95 for the best tag, see `card-refs.md`, "Semantics"). Decoding the conditional branches themselves is still open.
+- **Engine-only and engine-mapped cards.** Both are located, not decoded: `engine_refs` names the functions that test the id, and the semantic tags of `tools/engine_ref_semantics.csv` say which rule each function implements. The 297 engine-mapped cards have every test in a named, tagged function; the 95 remaining `engine_only` cards have a test in an unnamed function without a rule (worklist: `FUN_09da3dfc`, `FUN_09beefb4`, `FUN_09da9470`, `FUN_09c3dd68`, `FUN_09c147f0`, ...) or only L tags. The conditional branch that the test selects inside the function is still not decoded for either.
+- **Stat-modifier arithmetic.** Cards located in `duel_core_compute_card_stats` by the `stat_modifier` tag (69 of the engine-mapped cards), but `params.stat_mods[].values` holds the constant only when the case body is a straight constant; amounts that scale with a count (per card in hand, per Dragon in the Graveyard) are not decoded.
 - **Unresolved chains.** 244 of the 306 compare chains have fewer than half of their cases evaluating to a constant. Their cases are joined with `value` null, labelled from the registry when the function is named.
 - **Unnamed helpers.** Completeness depends on names in `re/functions.csv`. The `full` share rises as the naming worklist of `effect-classification.md` is worked off.
 - **Variant selection.** `variant` is the position of the record. The rule that picks a variant at run time (`duel_effects_select_record_variant`) is not part of the spec.
@@ -203,7 +228,7 @@ Each `engine_refs` group carries a `semantics` list (`{tag, phrase, modality, co
 
 ## CSV summary columns
 
-`card_id name kind released spec_status effect_records tables fallback resolve_categories target_filters draw_count lp_cost chains stat_mod_sections fusion_role ai_tables tokens search_filters effects_confidence engine_ref_functions engine_ref_groups resolve_categories_refined`. Multi-valued cells are space-separated. `resolve_categories_refined` (schema 3) is the union over the card's records of `categories_refined`, or of `categories` where a record has no refinement. `engine_ref_functions` is the number of functions in `engine_refs`; `engine_ref_groups` lists their registry groups (`unnamed` for default names).
+`card_id name kind released spec_status effect_records tables fallback resolve_categories target_filters draw_count lp_cost chains stat_mod_sections fusion_role ai_tables tokens search_filters effects_confidence engine_ref_functions engine_ref_groups resolve_categories_refined spec_basis`. Multi-valued cells are space-separated. `resolve_categories_refined` (schema 3) is the union over the card's records of `categories_refined`, or of `categories` where a record has no refinement. `engine_ref_functions` is the number of functions in `engine_refs`; `engine_ref_groups` lists their registry groups (`unnamed` for default names). `spec_basis` (schema 4) is empty unless the card is `full`.
 
 ## Open questions
 

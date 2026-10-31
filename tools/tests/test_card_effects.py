@@ -360,5 +360,76 @@ class EngineRefs(unittest.TestCase):
         self.assertEqual((row["engine_ref_functions"], row["engine_ref_groups"]), (2, "duel_core unnamed"))
 
 
+def sem(tag, confidence="M"):
+    return {"tag": tag, "phrase": tag, "modality": "", "confidence": confidence, "param": "", "value": None,
+            "label": "", "rule": tag}
+
+
+def tagged(kind, function, name, tag, confidence="M", **kw):
+    r = ref(kind, function, name, **kw)
+    r["semantics"] = sem(tag, confidence)
+    return r
+
+
+class EngineMapped(unittest.TestCase):
+    """Inert records and the engine-mapped rule (docs/formats/card-effect-spec.md)."""
+
+    def build(self, refs, **over):
+        return ce.build_specs(sources(**{"stat_mods": [], "chain_cases": [], "engine_refs": refs, **over}))
+
+    def test_described_named_references_make_full(self):
+        refs = {MAT: [tagged("eq", 0x09BED2D8, "duel_core_get_direct_attack_mode", "direct_attack"),
+                      tagged("eq", 0x09D00000, "FUN_09d00000", "ai_hint", "L"),        # AI: ignored
+                      tagged("eq", 0x09C30000, "card_db_is_hero", "archetype", "H"),   # membership: ignored
+                      tagged("arg", 0x09C40000, "ai_choose_attack_target", "ai_hint", operand="",
+                             detail="x")]}
+        s = self.build(refs)[MAT]
+        self.assertEqual((s["spec_status"], s["spec_basis"]), ("full", "engine"))
+
+    def test_blockers(self):
+        base = [tagged("eq", 0x09BED2D8, "duel_core_get_direct_attack_mode", "direct_attack")]
+        unnamed = base + [tagged("eq", 0x09C50000, "FUN_09c50000", "piercing")]
+        untagged = base + [tagged("eq", 0x09C60000, "duel_core_compute_card_stats", "unclassified", "L")]
+        only_low = [tagged("eq", 0x09BED2D8, "duel_core_battle_resolve", "battle_damage_rule", "L")]
+        for refs in (unnamed, untagged, only_low):
+            self.assertEqual(self.build({MAT: refs})[MAT]["spec_status"], "engine_only")
+        # side data keeps the card partial unless the references are mapped
+        stat = [{"card_id": "0x1001", "section": "self", "function_name": "duel_core_compute_card_stats",
+                 "use": "test", "address": "0x09c05a00", "values": "300", "helper": "", "calls": ""}]
+        self.assertEqual(self.build({MAT: untagged}, stat_mods=stat)[MAT]["spec_status"], "partial")
+        self.assertEqual(self.build({MAT: base}, stat_mods=stat)[MAT]["spec_status"], "full")
+        unnamed_stat = [dict(stat[0], function_name="FUN_09c05304")]
+        self.assertEqual(self.build({MAT: base}, stat_mods=unnamed_stat)[MAT]["spec_status"], "partial")
+        self.assertEqual(self.build({}, stat_mods=stat)[MAT]["spec_status"], "partial")  # side data, no references
+
+    def test_equip_fallback_engine_mapped(self):
+        refs = {EQUIP: [tagged("eq", 0x09BED2D8, "duel_core_is_valid_attack_target", "attack_target_rule")]}
+        records = sources()["records"] + [
+            record("S/T", 1, ce.PLACEHOLDER_ID, {"resolve": slot(0x09C748A8, "duel_effects_resolve_equip_to_target",
+                                                                 ["equip"])})]
+        s = self.build(refs, records=records)[EQUIP]
+        self.assertEqual((s["spec_status"], s["spec_basis"]), ("full", "fallback"))
+        self.assertEqual(self.build({}, records=records)[EQUIP]["spec_status"], "partial")
+
+    def test_inert_records(self):
+        stub = dict(record("S/T", 9, BARE, {"condition": slot(0x09CE28DC, "duel_effects_cond_never")}), inert=True)
+        refs = {BARE: [tagged("eq", 0x09BED2D8, "duel_effects_collect_negation_state", "negation", "H")]}
+        s = self.build(refs, records=sources()["records"] + [stub], lists=[], tokens=[])[BARE]
+        self.assertTrue(s["effects"][0]["inert"])
+        self.assertEqual((s["spec_status"], s["spec_basis"]), ("full", "engine"))
+        s = self.build({}, records=sources()["records"] + [stub], lists=[], tokens=[])[BARE]
+        self.assertEqual(s["spec_status"], "partial")  # an inert record alone is not a spec
+        live = record("S/T", 10, BARE, {"resolve": slot(H_DRAW, "duel_effects_resolve_draw", ["draw"])})
+        s = self.build({}, records=sources()["records"] + [stub, live], lists=[], tokens=[])[BARE]
+        self.assertEqual((s["spec_status"], s["spec_basis"]), ("full", "records"))
+
+    def test_return_zero_stub(self):
+        words = {0x100: (0x03E00008, 0x00001021), 0x200: (0x03E00008, 0x24020001)}
+        module = types.SimpleNamespace(words=lambda a, n: words[a])
+        self.assertTrue(ce.is_return_zero_stub(module, 0x100))
+        self.assertFalse(ce.is_return_zero_stub(module, 0x200))  # returns 1
+        self.assertFalse(ce.is_return_zero_stub(module, 0x300))  # no code there
+
+
 if __name__ == "__main__":
     unittest.main()

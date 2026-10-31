@@ -31,6 +31,7 @@ import collections
 import csv
 import importlib.util
 import json
+import struct
 import sys
 from pathlib import Path
 
@@ -52,8 +53,9 @@ ci = _load("re_cardinfo", "cardinfo.py")
 cr = _load("re_card_refs", "card_refs.py")
 fs = _load("re_family_split", "family_split.py")
 
-SCHEMA = 3  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
-#             3 = 2 plus slots.resolve.categories_refined / .refinement (tools/family_split.py)
+SCHEMA = 4  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
+#             3 = 2 plus slots.resolve.categories_refined / .refinement (tools/family_split.py);
+#             4 = 3 plus effects[].inert, spec_basis and the engine-mapped `full` rule
 FIRST_CARD, LAST_CARD = ep.FIRST_CARD, ep.LAST_CARD
 
 # Token table read by duel_effects_find_token_entry (0x09befee0, 68 bytes): 46 records of four u16
@@ -69,6 +71,17 @@ TOKEN_KIND = 21
 PLACEHOLDER_ID = 0x0E74
 FALLBACK_RECORD = {2: 0, 3: 1, 6: 2}
 SPELL_KIND = 27
+
+# A slot handler whose whole body is `jr ra; move v0, zero` returns 0 and does nothing: as a condition the record
+# can never be activated through the chain, as a resolve handler it resolves to nothing. A record whose every
+# slot is such a stub is inert; the card's behaviour lives in engine code that tests its id (Royal Decree,
+# Hot Sauce Bottle, the Spirit Message cards; docs/formats/card-effect-spec.md, "Inert records").
+RETURN_ZERO_STUB = (0x03E00008, 0x00001021)
+
+# Engine-reference tags that locate a card without being its effect: AI knowledge, archetype membership, name
+# aliases, references made by another card's effect, and save-file bookkeeping. `unclassified` is not here: an
+# untagged test in a named function is part of the card's behaviour that the spec cannot describe yet.
+LOCATING_TAGS = cr.GENERIC_TAGS - {"unclassified"}
 
 SEARCH_LIST = "L1"  # the 8-byte list 0x09dec554 (search / summon-from-deck builders)
 OWN_LISTS = ("L1", "L4")  # L2 and L3 are the AI tables (reported under "ai")
@@ -269,7 +282,7 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
             if not h:
                 continue
             c = classifier.closure(h)
-            slots[slot] = {"handler": h, "name": registry.name(h),
+            slots[slot] = {"handler": h, "name": registry.name(h), "stub": is_return_zero_stub(module, h),
                            "categories": sorted({x for x, r in c["categories"] if r == "effect"}),
                            "meta": sorted({x for x, r in c["categories"] if r == "meta"})}
             unnamed |= c["unnamed"]
@@ -284,7 +297,8 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
                                  "removed": sorted(set(ref["removed"]) & set(res["categories"])),
                                  "added": ref["added"], **({"lp_amounts": ref["lp_signs"]} if ref["lp_signs"] else {})}
         records.append({"table": table, "index": index, "card_id": cid, "slots": slots, "commands": commands,
-                        "unnamed_resolve": unnamed_resolve, "unnamed": len(unnamed)})
+                        "unnamed_resolve": unnamed_resolve, "unnamed": len(unnamed),
+                        "inert": bool(slots) and all(sl["stub"] for sl in slots.values())})
 
     functions = ep.function_starts(module)
     users = ep.handler_users(module)
@@ -320,6 +334,14 @@ def extract(prx_bytes, cardinfo_bytes, functions_path, categories_path, boot_pat
 
 
 # ---------------------------------------------------------------------------------------------- join
+
+
+def is_return_zero_stub(module, address):
+    """The handler is exactly `jr ra; move v0, zero` (returns 0, no other effect)."""
+    try:
+        return tuple(module.words(address, 2)) == RETURN_ZERO_STUB
+    except (IndexError, KeyError, ValueError, struct.error):
+        return False
 
 
 def material(code, cards):
@@ -386,6 +408,8 @@ def build_specs(src):
                "slots": slots, "commands": [hx(c, 4) for c in rec["commands"]],
                "unnamed_resolve_callees": rec["unnamed_resolve"], "unnamed_callees": rec["unnamed"],
                "confidence": record_confidence(rec, handler_cards)}
+        if rec.get("inert"):
+            out["inert"] = True
         tf = src["target_filters"].get((rec["table"], rec["index"]))
         if tf:
             out["target_filter"] = {k: tf[k] for k in ("flags", "form", "side", "zone", "face", "position")}
@@ -461,7 +485,9 @@ def build_specs(src):
                                         "reason": f"no own record; icon {ident['icon_name']}",
                                         "complete": record_complete_out(rec)}
     for cid, s in specs.items():
-        s["spec_status"] = spec_status(s)
+        s["spec_status"], basis = spec_status_basis(s)
+        if basis:
+            s["spec_basis"] = basis
         s["sources"] = {k: SOURCES[k] for k in field_keys(s)}
         s["confidence"] = field_confidence(s)
     return dict(sorted(specs.items()))
@@ -494,6 +520,40 @@ def engine_ref_groups(rows):
 def strong_engine_refs(s):
     """Engine references that name this card (eq, switch, or an argument), not only a range bound."""
     return [g for g in s.get("engine_refs", ()) if set(g["kinds"]) & cr.STRONG]
+
+
+def effect_engine_groups(s):
+    """Strong engine-reference groups that belong to the card's own behaviour: not AI functions, and not groups
+    whose every tag only locates the card (LOCATING_TAGS)."""
+    out = []
+    for g in strong_engine_refs(s):
+        tags = {x["tag"] for x in g["semantics"]}
+        if g["group"] == "ai" or (tags and tags <= LOCATING_TAGS):
+            continue
+        out.append(g)
+    return out
+
+
+def engine_mapped(s):
+    """The card's engine-side behaviour maps onto named functions with a described rule, the way a full record
+    maps onto named helpers: every effect-bearing strong reference group (effect_engine_groups) is in a named
+    function and carries a descriptive semantic tag (not cr.GENERIC_TAGS), at least one of them of confidence H
+    or M; every stat-modifier function and every L1/L4 list handler is named. Says where and which rule, not
+    the branch's exact arithmetic (docs/formats/card-effect-spec.md, "Engine-mapped cards")."""
+    groups = effect_engine_groups(s)
+    if not groups:
+        return False
+    strong = False
+    for g in groups:
+        desc = [x for x in g["semantics"] if x["tag"] not in cr.GENERIC_TAGS]
+        if not g["named"] or not desc:
+            return False
+        strong |= any(x["confidence"] in ("H", "M") for x in desc)
+    if not strong:
+        return False
+    if any(ec.DEFAULT_NAME.match(m["function_name"]) for m in s["params"].get("stat_mods", ())):
+        return False
+    return all(lst["name"] and not ec.DEFAULT_NAME.match(lst["name"]) for lst in s["lists"])
 
 
 def field_keys(s):
@@ -546,33 +606,44 @@ def field_confidence(s):
 
 def spec_status(s):
     """unreleased: no cardinfo record; vanilla: a kind without effect text and no effect data;
-    full: every effect record reaches an effect category and its resolve closure has no unnamed callee;
-    partial: effect records not all complete, or only side data (lists, chains, stat mods, ...);
+    full: every live effect record reaches an effect category and its resolve closure has no unnamed callee, or
+    the card has no live record and its engine-side behaviour is engine-mapped (engine_mapped);
+    partial: effect records not all complete, or only side data (lists, chains, stat mods, ...) that is not
+    engine-mapped;
     engine_only: an effect card whose only data is engine code that tests its id (card_refs eq/switch/arg
-    references, or compare chains that are not parameter chains);
+    references, or compare chains that are not parameter chains), not engine-mapped;
     missing: an effect card with no data from any source; placeholder: the fallback id 0xe74.
+    Inert records (every slot a return-0 stub) do not count as live records.
     A spell served by a fallback record is full when that record is complete and the per-card part is known
-    (ritual: a ritual-table entry; equip and field: stat modifiers), else partial."""
+    (ritual: a ritual-table entry; equip and field: stat modifiers, or engine-mapped), else partial."""
+    return spec_status_basis(s)[0]
+
+
+def spec_status_basis(s):
+    """(spec_status, basis): basis is `records`, `fallback` or `engine` for a full card, else ''."""
     if s["card_id_dec"] == PLACEHOLDER_ID:
-        return "placeholder"
+        return "placeholder", ""
     if not s["released"]:
-        return "unreleased"
-    if s["effects"]:
-        return "full" if all(record_complete_out(e) for e in s["effects"]) else "partial"
+        return "unreleased", ""
+    live = [e for e in s["effects"] if not e.get("inert")]
+    if live:
+        return ("full", "records") if all(record_complete_out(e) for e in live) else ("partial", "")
     fb = s.get("fallback_effect")
     if fb:
         per_card = s["fusion"].get("ritual_spell") if fb["index"] == FALLBACK_RECORD[6] else \
-            s["params"].get("stat_mods")
-        return "full" if fb["complete"] and per_card else "partial"
+            s["params"].get("stat_mods") or engine_mapped(s)
+        return ("full", "fallback") if fb["complete"] and per_card else ("partial", "")
     params = {k: v for k, v in s["params"].items() if k != "chains"}
     if any(c.get("class", "parameter") == "parameter" for c in s["params"].get("chains", ())):
         params["chains"] = True
     side = s["lists"] or params or s["tokens"] or s["fusion"].get("ritual_spell")
-    if s["identity"]["kind"] in NO_TEXT_KINDS:
-        return "vanilla"
-    if side:
-        return "partial"
-    return "engine_only" if strong_engine_refs(s) or s["params"].get("chains") else "missing"
+    if s["identity"]["kind"] in NO_TEXT_KINDS and not s["effects"]:
+        return "vanilla", ""
+    if engine_mapped(s):
+        return "full", "engine"
+    if side or s["effects"]:
+        return "partial", ""
+    return ("engine_only" if strong_engine_refs(s) or s["params"].get("chains") else "missing"), ""
 
 
 # ---------------------------------------------------------------------------------------------- check and output
@@ -614,6 +685,11 @@ def join_report(src, specs):
     lines.append(f"cards: {len(cards)} in cardinfo, {len(specs)} ids in the output")
     lines.append("spec status: " + ", ".join(f"{k} {status[k]}" for k in
                                              STATUSES))
+    basis = collections.Counter(s.get("spec_basis") for s in specs.values() if s["spec_status"] == "full")
+    inert = [s for s in specs.values() if any(e.get("inert") for e in s["effects"])]
+    lines.append(f"full by basis: records {basis['records']}, fallback {basis['fallback']}, engine {basis['engine']}; "
+                 f"cards with inert records: {len(inert)} "
+                 f"({sum(1 for s in inert if all(e.get('inert') for e in s['effects']))} with no live record)")
     missing = [s for s in released if s["spec_status"] == "missing"]
     lines.append("missing cards by kind: " + (", ".join(
         f"{k} {n}" for k, n in sorted(collections.Counter(s["identity"]["kind_name"] for s in missing).items()))
@@ -648,7 +724,7 @@ STATUSES = ("full", "partial", "engine_only", "missing", "vanilla", "unreleased"
 CSV_FIELDS = ["card_id", "name", "kind", "released", "spec_status", "effect_records", "tables", "fallback", "resolve_categories",
               "target_filters", "draw_count", "lp_cost", "chains", "stat_mod_sections", "fusion_role", "ai_tables",
               "tokens", "search_filters", "effects_confidence", "engine_ref_functions", "engine_ref_groups",
-              "resolve_categories_refined"]
+              "resolve_categories_refined", "spec_basis"]
 
 
 def csv_row(s):
@@ -675,7 +751,8 @@ def csv_row(s):
             "engine_ref_groups": " ".join(sorted({g["group"] or "unnamed" for g in s.get("engine_refs", ())})),
             "resolve_categories_refined": " ".join(sorted({
                 c for e in s["effects"] for c in e["slots"].get("resolve", {}).get(
-                    "categories_refined", e["slots"].get("resolve", {}).get("categories", []))}))}
+                    "categories_refined", e["slots"].get("resolve", {}).get("categories", []))})),
+            "spec_basis": s.get("spec_basis", "")}
 
 
 def write_outputs(out_dir, specs, meta):

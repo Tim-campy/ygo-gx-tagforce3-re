@@ -331,3 +331,10 @@ address,group,name
 0x0882d614,system,system_movie_decode_video
 0x0882d6fc,system,system_movie_stop_video
 0x0882e038,system,system_movie_feed_ringbuffer
+0x08863a34,card_db,card_db_get_fusion_summon_class
+0x08864c60,card_db,card_db_is_fusion_class_summonable
+0x08865ad8,card_db,card_db_is_extra_deck_unrestricted
+0x0886354c,card_db,card_db_get_special_summon_condition_class
+0x088544f8,save,save_set_card_milestone_flag
+0x08866870,card_db,card_db_is_fusion_substitute
+0x088669a0,card_db,card_db_is_control_locked

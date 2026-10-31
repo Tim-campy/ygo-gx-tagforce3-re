@@ -258,11 +258,11 @@ address,group,name
 0x08eb038c,,thunk_FUN_09bf5520
 0x08eb0394,duel_effects,thunk_duel_effects_is_control_changing_card
 0x08eb039c,,thunk_FUN_09bf5890
-0x08eb03a4,,thunk_FUN_09bf5970
+0x08eb03a4,duel_effects,thunk_duel_effects_is_spell_trap_negator
 0x08eb03ac,,thunk_FUN_09bf5b40
 0x08eb03b4,,thunk_FUN_09bf65b8
 0x08eb03bc,,thunk_FUN_09bf6708
-0x08eb03c4,,thunk_FUN_09bf6728
+0x08eb03c4,ai,thunk_ai_is_special_summon_effect
 0x08eb03cc,,thunk_FUN_09bf6e18
 0x08eb03d4,,thunk_FUN_09bf6f50
 0x08eb03dc,duel_effects,thunk_duel_effects_cannot_be_negated
@@ -354,7 +354,7 @@ address,group,name
 0x08eb068c,duel_core,thunk_duel_core_count_empty_monster_zones
 0x08eb0694,,thunk_FUN_09bfaf3c
 0x08eb069c,duel_core,thunk_duel_core_find_free_monster_zone
-0x08eb06a4,,thunk_FUN_09bfb1b0
+0x08eb06a4,duel_core,thunk_duel_core_can_tribute_slot_for
 0x08eb06ac,duel_core,thunk_duel_core_can_tribute_slot
 0x08eb06b4,duel_core,thunk_duel_core_can_tribute_for_effect
 0x08eb06bc,duel_core,thunk_duel_core_is_double_tribute
@@ -427,7 +427,7 @@ address,group,name
 0x08eb08d4,duel_core,thunk_duel_core_can_attack_directly
 0x08eb08dc,duel_core,thunk_duel_core_get_direct_attack_mode
 0x08eb08e4,duel_core,thunk_duel_core_has_piercing
-0x08eb08ec,,thunk_FUN_09bedc0c
+0x08eb08ec,duel_core,thunk_duel_core_slot_has_piercing
 0x08eb08f4,duel_core,thunk_duel_core_get_graveyard_name_id
 0x08eb08fc,duel_core,thunk_duel_core_find_last_graveyard_card_named
 0x08eb0904,duel_core,thunk_duel_core_find_entry_in_graveyard
@@ -536,7 +536,7 @@ address,group,name
 0x08eb0c3c,,thunk_FUN_09be5eb8
 0x08eb0c44,duel_core,thunk_duel_core_expire_turn_effects
 0x08eb0c4c,,thunk_FUN_09be6ac4
-0x08eb0c54,,thunk_FUN_09be6d90
+0x08eb0c54,duel_core,thunk_duel_core_apply_phase_start_attack_rules
 0x08eb0c5c,,thunk_FUN_09be71b4
 0x08eb0c64,,thunk_FUN_09be7310
 0x08eb0c6c,,thunk_FUN_09be75f8
@@ -618,7 +618,7 @@ address,group,name
 0x08eb0ecc,duel_core,thunk_duel_core_discard_hand_card
 0x08eb0ed4,duel_core,thunk_duel_core_discard_hand_card_reason2
 0x08eb0edc,duel_core,thunk_duel_core_discard_hand_card_as_cost
-0x08eb0ee4,,thunk_FUN_09c18e60
+0x08eb0ee4,duel_core,thunk_duel_core_send_ritual_hand_tribute
 0x08eb0eec,duel_core,thunk_duel_core_send_hand_card_to_graveyard
 0x08eb0ef4,duel_core,thunk_duel_core_send_hand_card_to_graveyard_as_cost
 0x08eb0efc,duel_core,thunk_duel_core_banish_hand_card
@@ -687,7 +687,7 @@ address,group,name
 0x08eb10f4,,thunk_FUN_09c27694
 0x08eb10fc,duel_core,thunk_duel_core_post_announce_field_card
 0x08eb1104,duel_core,thunk_duel_core_chain_announce_activation
-0x08eb110c,,thunk_FUN_09c27818
+0x08eb110c,duel_core,thunk_duel_core_post_announce_card
 0x08eb1114,duel_core,thunk_duel_core_post_announce_slot
 0x08eb111c,duel_core,thunk_duel_core_set_lp
 0x08eb1124,duel_core,thunk_duel_core_pay_lp
@@ -797,7 +797,7 @@ address,group,name
 0x08eb1464,duel_effects,thunk_duel_effects_link_should_resolve
 0x08eb146c,,thunk_FUN_09c54658
 0x08eb1474,,thunk_FUN_09cdccec
-0x08eb147c,,thunk_FUN_09cdd74c
+0x08eb147c,duel_core,thunk_duel_core_apply_forced_positions
 0x08eb1484,,thunk_FUN_09cdcebc
 0x08eb148c,,thunk_FUN_09cdcf88
 0x08eb1494,duel_core,thunk_duel_core_flag_face_up_copies
@@ -950,7 +950,7 @@ address,group,name
 0x08eb192c,duel_core,thunk_duel_core_begin_select_cards
 0x08eb1934,duel_core,thunk_duel_core_begin_select_zone
 0x08eb193c,duel_core,thunk_duel_core_begin_select_target
-0x08eb1944,,thunk_FUN_09dcebd8
+0x08eb1944,duel_core,thunk_duel_core_begin_select_tributes
 0x08eb194c,duel_core,thunk_duel_core_begin_select_target_ex
 0x08eb1954,,thunk_FUN_09dcee18
 0x08eb195c,,thunk_FUN_09dcee68
@@ -1269,7 +1269,7 @@ address,group,name
 0x08eb2324,,thunk_FUN_09d67474
 0x08eb232c,ai,thunk_ai_choose_cost_for_current_link
 0x08eb2334,ai,thunk_ai_choose_cost_as_side
-0x08eb233c,,thunk_FUN_09d6a8d4
+0x08eb233c,ai,thunk_ai_submit_hand_card_choice
 0x08eb2344,ai,thunk_ai_choose_hand_card_as_side
 0x08eb234c,,thunk_FUN_09d6b368
 0x08eb2354,,thunk_FUN_09d6afcc
@@ -1390,7 +1390,7 @@ address,group,name
 0x08eb26ec,,thunk_FUN_09d9e108
 0x08eb26f4,,thunk_FUN_09d9e204
 0x08eb26fc,,thunk_FUN_09d9e7c0
-0x08eb2704,,thunk_FUN_09d9e8b4
+0x08eb2704,ai,thunk_ai_run_card_selection
 0x08eb270c,,thunk_FUN_09d9e9a0
 0x08eb2714,,thunk_FUN_09d9ea94
 0x08eb271c,,thunk_FUN_09d9eb80
@@ -1775,14 +1775,14 @@ address,group,name
 0x08eb32f4,card_db,thunk_card_db_is_in_archetype
 0x08eb32fc,card_db,thunk_card_db_get_evolution_relatives
 0x08eb3304,card_db,thunk_card_db_get_flip_kind
-0x08eb330c,,thunk_FUN_0886354c
-0x08eb3314,,thunk_FUN_08863a34
+0x08eb330c,card_db,thunk_card_db_get_special_summon_condition_class
+0x08eb3314,card_db,thunk_card_db_get_fusion_summon_class
 0x08eb331c,card_db,thunk_card_db_is_special_summon_only
 0x08eb3324,card_db,thunk_card_db_can_be_normal_summoned
 0x08eb332c,card_db,thunk_card_db_is_summoned_without_polymerization
-0x08eb3334,,thunk_FUN_08864c60
+0x08eb3334,card_db,thunk_card_db_is_fusion_class_summonable
 0x08eb333c,card_db,thunk_card_db_can_be_special_summoned
-0x08eb3344,,thunk_FUN_08865ad8
+0x08eb3344,card_db,thunk_card_db_is_extra_deck_unrestricted
 0x08eb334c,,thunk_FUN_08865e64
 0x08eb3354,card_db,thunk_card_db_get_turn_counter_rule
 0x08eb335c,card_db,thunk_card_db_get_spell_counter_capacity
@@ -1791,9 +1791,9 @@ address,group,name
 0x08eb3374,card_db,thunk_card_db_has_hand_effect
 0x08eb337c,card_db,thunk_card_db_is_hand_summon_trigger
 0x08eb3384,card_db,thunk_card_db_is_usable_by_opponent
-0x08eb338c,,thunk_FUN_08866870
+0x08eb338c,card_db,thunk_card_db_is_fusion_substitute
 0x08eb3394,card_db,thunk_card_db_fusion_allows_substitute
-0x08eb339c,,thunk_FUN_088669a0
+0x08eb339c,card_db,thunk_card_db_is_control_locked
 0x08eb33a4,,thunk_FUN_088669e4
 0x08eb33ac,,thunk_FUN_08866a1c
 0x08eb33b4,card_db,thunk_card_db_is_sarcophagus_or_spirit_message
@@ -2651,7 +2651,7 @@ address,group,name
 0x08eb4e54,,thunk_FUN_08854218
 0x08eb4e5c,,thunk_FUN_08854310
 0x08eb4e64,,thunk_FUN_088543a0
-0x08eb4e6c,,thunk_FUN_088544f8
+0x08eb4e6c,save,thunk_save_set_card_milestone_flag
 0x08eb4e74,,thunk_FUN_088548a0
 0x08eb4e7c,,thunk_FUN_088548d8
 0x08eb4e84,,thunk_FUN_08854910

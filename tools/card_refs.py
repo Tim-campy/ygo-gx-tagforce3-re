@@ -473,8 +473,8 @@ def strong_ids(refs):
 
 SEMANTICS = HERE / "engine_ref_semantics.csv"
 # Tags that locate a card without describing its effect: AI knowledge, archetype membership, name aliases,
-# references made by another card's effect, and functions without a rule.
-GENERIC_TAGS = {"ai_hint", "archetype", "name_alias", "named_reference", "unclassified"}
+# references made by another card's effect, save-file bookkeeping, and functions without a rule.
+GENERIC_TAGS = {"ai_hint", "archetype", "name_alias", "named_reference", "save_record", "unclassified"}
 CONFIDENCE_ORDER = {"H": 0, "M": 1, "L": 2}
 # How the helper that receives an `arg` id qualifies the rule of the calling function.
 MODALITY = [
