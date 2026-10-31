@@ -8,7 +8,7 @@ cip_cardm,cardm_<l>.cip headerless DXT1 64x64 card face,card_db,reimplemented,74
 cip_card8,card8_a.cip index8 128x128 card art (GIM),card_db,reimplemented,66557952
 cip_cardj,cardj_a.cip masked 512x512 JPEG card art,card_db,verified,590188544
 gim,Sony GIM texture,field_3d,reimplemented,
-pmf,Sony PSMF movie,ui,named,
+pmf,Sony PSMF movie (same format as psmf_movie; docs/formats/psmf-movies.md),ui,documented,
 snd_bank,SP sound bank chain (snd/psp_snddat.bin),audio,reimplemented,138645504
 ehf,EHF 2D layout (converted Flash timeline; paired with .tmf),ui,reimplemented,
 tgm_tms,TGMS mesh (.tms),field_3d,reimplemented,
