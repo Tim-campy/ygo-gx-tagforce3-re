@@ -53,17 +53,44 @@ TMT_NODE = struct.Struct("<HhhH")  # translation track base, rotation track, sca
 TRACK = struct.Struct("<II")  # key count, first key
 SCALAR_KEY = struct.Struct("<Ifff")  # frame, value, Bezier handle 1, Bezier handle 2
 TMT_FLAG_CAMERA = 2  # "-etc" files: leading camera/scene parameter tracks
-TMT_FLAG_SHORT_QUAT = 4  # rotation keys are 4 x s16 / 32767 instead of 4 x f32
+TMT_FLAG_SHORT_QUAT = 4  # rotation keys are 4 x s16 / 32760 instead of 4 x f32
+SHORT_QUAT_SCALE = 32760.0  # BOOT.BIN 0x08831a18 divides by 0x46fff000 = 32760.0 (not 32767)
+SLERP_EPSILON = 5e-5  # BOOT.BIN 0x0881c650 falls back to a linear blend below this (constant 0x3851b717)
 
 # --- TGMA ----------------------------------------------------------------------------------------
 TMA_HEADER = struct.Struct("<4sI2I4II")  # magic, header size, 2 offsets, 4 counts, zero
 TMA_HEADER_SIZE = 0x24
-TMA_ENTRY = struct.Struct("<16hI")  # track base per channel slot, texture index in the TGMS
-TMA_SLOTS = {0: ("uv_offset", 2), 1: ("uv_scale", 2), 2: ("scalar", 1)}
+TMA_ENTRY = struct.Struct("<16hI")  # 4 layers x (uv offset, uv scale, alpha, unused) track bases; material
+TMA_SLOTS = {0: ("uv_offset", 2), 1: ("uv_scale", 2), 2: ("alpha", 1)}  # per layer; slot 3 is never read
+TMA_LAYERS = 4
+
+# Material (0xA4 bytes) and its four 0x20-byte layers at +0x18, as the draw (BOOT.BIN 0x0882e950) reads them.
+MAT_TRANSLUCENT = 1  # drawn in the second (translucent) pass instead of the first
+MAT_DOUBLE_SIDED = 2  # GU_CULL_FACE disabled
+MAT_ANIMATED = 4  # +0x98 selects the TGMA entry whose animated copy is drawn
+MAT_GROUPED = 8  # +0xA0 is a visibility group bit; the material is skipped while the hook mask has it
+LAYER_ENABLED, LAYER_LIGHTING, LAYER_ALPHA_TEST, LAYER_BLEND, LAYER_NO_DEPTH_WRITE, LAYER_MASK_ALPHA = 1, 2, 4, 8, 16, 32
 
 
 def align(value, boundary):
     return (value + boundary - 1) // boundary * boundary
+
+
+def slerp(q0, q1, u):
+    """Shortest-path spherical interpolation of unit quaternions (x, y, z, w), normalised; a plain linear blend
+    when the keys are almost equal (sine of the angle below SLERP_EPSILON)."""
+    dot = sum(a * b for a, b in zip(q0, q1))
+    if dot < 0:
+        q1, dot = [-c for c in q1], -dot
+    angle = math.acos(min(dot, 1.0))
+    sin = math.sin(angle)
+    if sin < SLERP_EPSILON:
+        a, b = 1 - u, u
+    else:
+        a, b = math.sin((1 - u) * angle) / sin, math.sin(u * angle) / sin
+    q = [a * x + b * y for x, y in zip(q0, q1)]
+    n = math.sqrt(sum(c * c for c in q)) or 1.0
+    return tuple(c / n for c in q)
 
 
 def check_tracks(tracks, total):
@@ -247,25 +274,25 @@ class Tms:
         raw = self.data[base:base + MATERIAL_SIZE]
         layers = []
         for k in range(4):
-            o = 0x1C + 0x20 * k
-            texture, unknown, color = struct.unpack_from("<iI4s", raw, o)
-            layers.append({"texture": texture, "unknown_04": unknown, "color": color,
-                           "state": raw[o + 0x0C:o + 0x10], "blend": raw[o + 0x10:o + 0x14],
-                           "blend_fix": (raw[o + 0x14:o + 0x18], raw[o + 0x18:o + 0x1C])})
+            o = 0x18 + 0x20 * k
+            flags, texture, map_type, color = struct.unpack_from("<IiI4s", raw, o)
+            layers.append({"flags": flags, "texture": texture, "map_type": map_type, "color": color,
+                           "alpha_func": raw[o + 0x10], "alpha_ref": raw[o + 0x11], "alpha_mask": raw[o + 0x12],
+                           "depth_func": raw[o + 0x13], "blend": raw[o + 0x14:o + 0x18],
+                           "blend_fix": (raw[o + 0x18:o + 0x1C], raw[o + 0x1C:o + 0x20])})
         count, first = struct.unpack_from("<HH", raw, 0x9C)
-        return {"unknown_00": struct.unpack_from("<I", raw, 0)[0], "emissive": raw[4:8], "diffuse": raw[8:12],
-                "ambient": raw[12:16], "specular": raw[16:20], "shininess": struct.unpack_from("<f", raw, 0x14)[0],
-                "flags": struct.unpack_from("<I", raw, 0x18)[0], "layers": layers,
-                "unknown_98": struct.unpack_from("<I", raw, 0x98)[0], "batch_count": count, "first_batch": first,
-                "unknown_a0": struct.unpack_from("<I", raw, 0xA0)[0], "raw": raw}
+        return {"flags": struct.unpack_from("<I", raw, 0)[0], "emissive": raw[4:8], "ambient": raw[8:12],
+                "diffuse": raw[12:16], "specular": raw[16:20], "shininess": struct.unpack_from("<f", raw, 0x14)[0],
+                "layers": layers, "anim_entry": struct.unpack_from("<I", raw, 0x98)[0], "batch_count": count,
+                "first_batch": first, "group": struct.unpack_from("<I", raw, 0xA0)[0], "raw": raw}
 
     def _texture(self, index):
         base = self.textures_offset + TEXTURE_SIZE * index
-        name_offset, zero, mode, minus_one, unknown, u_off, v_off, u_scale, v_scale, anim = struct.unpack_from(
-            "<II4siIffffi", self.data, base)
+        name_offset, zero, mode, env, wrap, u_off, v_off, u_scale, v_scale, anim = struct.unpack_from(
+            "<II4s4s4sffffi", self.data, base)
         return {"name_offset": name_offset, "name": cstring(self.data, self.names_offset + name_offset),
-                "zero": zero, "mode": mode, "minus_one": minus_one, "unknown_10": unknown,
-                "uv_offset": (u_off, v_off), "uv_scale": (u_scale, v_scale), "animation": anim}
+                "zero": zero, "mode": mode, "tex_func": mode[2], "tex_alpha": mode[3], "env_color": env,
+                "wrap": wrap, "uv_offset": (u_off, v_off), "uv_scale": (u_scale, v_scale), "animation": anim}
 
     def _batch(self, index):
         fields = BATCH.unpack_from(self.data, self.batches_offset + BATCH.size * index)
@@ -423,12 +450,13 @@ class Tmt:
     def rot_key_size(self):
         return 8 if self.flags & TMT_FLAG_SHORT_QUAT else 16
 
-    def sample_scalar(self, track, frame, default):
-        """Value of a scalar track at `frame`: each segment is a cubic Bezier in value with control points
-        (value_k, handle1_k, handle2_k, value_k+1), its parameter linear in frame time (hypothesis)."""
+    def sample_scalar(self, track, frame):
+        """Value of a scalar track at `frame`, as BOOT.BIN 0x0883138c computes it: 0.0 without keys, the first
+        (last) value before the first (after the last) key, else the cubic Bezier (value_k, handle1_k, handle2_k,
+        value_k+1) of the segment, its parameter u = (frame - frame_k) / (frame_k+1 - frame_k) (0x088312c0)."""
         keys = self.scalar_keys(track)
         if not keys:
-            return default
+            return 0.0
         if frame <= keys[0][0]:
             return keys[0][1]
         for (t0, v0, h1, h2), (t1, v1, _, _) in zip(keys, keys[1:]):
@@ -438,8 +466,9 @@ class Tmt:
         return keys[-1][1]
 
     def sample_rotation(self, track, frame):
-        """Quaternion (x, y, z, w) of a rotation track at `frame`, normalised linear blend of the two keys
-        around it (the game's exact interpolation is not established)."""
+        """Quaternion (x, y, z, w) of a rotation track at `frame` (BOOT.BIN 0x088314e4 / 0x08831788): identity
+        without keys, the first (last) key outside the key range, else the shortest-path slerp of the two keys
+        around it (0x0881c650, VFPU) followed by a normalisation (0x0881c904)."""
         keys = self.rotation_keys(track)
         if not keys:
             return (0.0, 0.0, 0.0, 1.0)
@@ -447,17 +476,13 @@ class Tmt:
             return keys[0][1]
         for (t0, q0), (t1, q1) in zip(keys, keys[1:]):
             if frame < t1:
-                u = (frame - t0) / (t1 - t0)
-                sign = 1 if sum(a * b for a, b in zip(q0, q1)) >= 0 else -1
-                q = [a * (1 - u) + sign * b * u for a, b in zip(q0, q1)]
-                n = math.sqrt(sum(c * c for c in q)) or 1.0
-                return tuple(c / n for c in q)
+                return slerp(q0, q1, (frame - t0) / (t1 - t0))
         return keys[-1][1]
 
     def local_matrix(self, node, frame):
         tbase, rot, sbase, _ = self.nodes[node]
-        t = [0.0] * 3 if tbase == 0xFFFF else [self.sample_scalar(tbase + k, frame, 0.0) for k in range(3)]
-        s = [1.0] * 3 if sbase == -1 else [self.sample_scalar(sbase + k, frame, 1.0) for k in range(3)]
+        t = [0.0] * 3 if tbase == 0xFFFF else [self.sample_scalar(tbase + k, frame) for k in range(3)]
+        s = [1.0] * 3 if sbase == -1 else [self.sample_scalar(sbase + k, frame) for k in range(3)]
         q = (0.0, 0.0, 0.0, 1.0) if rot == -1 else self.sample_rotation(rot, frame)
         return trs_matrix(t, q, s)
 
@@ -472,7 +497,7 @@ class Tmt:
         for k in range(first, first + count):
             frame = struct.unpack_from("<I", self.data, self.rot_times_offset + 4 * k)[0]
             if self.rot_key_size == 8:
-                quat = tuple(v / 32767.0 for v in struct.unpack_from("<4h", self.data, self.rot_keys_offset + 8 * k))
+                quat = tuple(v / SHORT_QUAT_SCALE for v in struct.unpack_from("<4h", self.data, self.rot_keys_offset + 8 * k))
             else:
                 quat = struct.unpack_from("<4f", self.data, self.rot_keys_offset + 16 * k)
             out.append((frame, quat))
@@ -560,14 +585,15 @@ class Tma:
         p += check_tracks(self.tracks, self.key_count)
         bases = []
         for i, entry in enumerate(self.entries):
-            slots = entry[:16]
-            if any(s != -1 for s in slots[len(TMA_SLOTS):]):
-                p.append(f"entry {i}: unknown channel slot used")
-            for slot, (_, width) in TMA_SLOTS.items():
-                if slots[slot] != -1:
-                    if not 0 <= slots[slot] <= self.track_count - width:
-                        p.append(f"entry {i}: track base out of range")
-                    bases.append(slots[slot])
+            for layer in range(TMA_LAYERS):
+                slots = entry[4 * layer:4 * layer + 4]
+                if slots[3] != -1:
+                    p.append(f"entry {i}: unread channel slot 3 of layer {layer} used")
+                for slot, (_, width) in TMA_SLOTS.items():
+                    if slots[slot] != -1:
+                        if not 0 <= slots[slot] <= self.track_count - width:
+                            p.append(f"entry {i}: track base out of range")
+                        bases.append(slots[slot])
         if bases != sorted(bases) or len(set(bases)) != len(bases):
             p.append("channel track bases are not increasing")
         for i in range(self.track_count):
@@ -816,7 +842,9 @@ def export_obj(tms, members, out_dir, stem, node_world=None):
                     x, y, z = tms.world_position(v, b, node_world)
                     lines.append(f"v {x:.6f} {y:.6f} {z:.6f}")
                     u, w = v.get("uv", (0.0, 0.0))
-                    lines.append(f"vt {u:.6f} {1 - w:.6f}")
+                    # the game samples row (1 - w) from the top (texture setup 0x0882e720: offset 1 - v_off,
+                    # scale -v_scale); OBJ counts v from the bottom, so the stored w is already OBJ's v
+                    lines.append(f"vt {u:.6f} {w:.6f}")
                 start = vcount + 1
                 if prim[0] == 3:
                     tris = [(k, k + 1, k + 2) for k in range(0, len(verts) - 2, 3)]
@@ -842,9 +870,9 @@ def inspect(obj, out):
             print(f"  texture {i}: {t['name']!r} mode={t['mode'].hex()} uv_offset={t['uv_offset']} "
                   f"uv_scale={t['uv_scale']} animation={t['animation']}", file=out)
         for i, m in enumerate(obj.materials):
-            layers = [(l["texture"], l["blend"].hex()) for l in m["layers"] if l["texture"] != -1]
+            layers = [(l["flags"], l["texture"], l["blend"].hex()) for l in m["layers"] if l["flags"]]
             print(f"  material {i}: flags={m['flags']:#x} diffuse={m['diffuse'].hex()} batches={m['first_batch']}"
-                  f"+{m['batch_count']} layers={layers}", file=out)
+                  f"+{m['batch_count']} anim_entry={m['anim_entry']} group={m['group']} layers={layers}", file=out)
         for i, b in enumerate(obj.batches):
             palette = [x for x in b["palette"] if x >= 0]
             print(f"  batch {i}: vtype={b['vtype']:#x} {describe_vtype(b['vtype'])} palette={palette} "
@@ -856,7 +884,8 @@ def inspect(obj, out):
             print(f"  node {i}: translate={'-' if t == 0xFFFF else t} rotate={r} scale={s}", file=out)
     else:
         for i, e in enumerate(obj.entries):
-            slots = {TMA_SLOTS[k][0]: e[k] for k in TMA_SLOTS if e[k] != -1}
+            slots = {f"layer{layer}.{TMA_SLOTS[k][0]}": e[4 * layer + k] for layer in range(TMA_LAYERS)
+                     for k in TMA_SLOTS if e[4 * layer + k] != -1}
             print(f"  entry {i}: material={e[16]} {slots}", file=out)
 
 
@@ -877,12 +906,41 @@ def main(argv=None):
     obj.add_argument("--tmt", help="TGMT member that poses a skinned mesh (default: same name as the .tms)")
     obj.add_argument("--frame", type=float, default=0, help="animation frame for the pose (default 0)")
     obj.add_argument("-o", "--output", type=Path, required=True, help="output directory")
+    gl = sub.add_parser("gltf", help="export a TGMS with skeleton, skin, animations and camera to glTF 2.0 + a JSON "
+                                     "side file (keep out of git); --check converts everything in memory")
+    gl.add_argument("paths", type=Path, nargs="+", help="archive (export) or archives/directories (--check)")
+    gl.add_argument("--member", help="the .tms member to export (nested archives as outer.ehp:inner)")
+    gl.add_argument("--tmt", action="append", default=[], help="extra TGMT member (repeatable; an -etc file "
+                                                                 "replaces the camera; the first one gives the rest pose)")
+    gl.add_argument("--all-tmt", action="store_true", help="also every TGMT whose node count matches the skeleton")
+    gl.add_argument("--fps", type=float, default=30.0, help="frames per second for glTF times (default 30, assumed)")
+    gl.add_argument("--flip-winding", action="store_true", help="reverse the triangle winding")
+    gl.add_argument("--check", action="store_true", help="convert and validate every model and animation")
+    gl.add_argument("-v", "--verbose", action="store_true")
+    gl.add_argument("-o", "--output", type=Path, help="output directory (outside the repository or under extracted/)")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
     if args.command == "check":
         return run_check(args.paths, args.verbose)
+    if args.command == "gltf":
+        exporter = _load("tgm_gltf")
+        if args.check:
+            return exporter.run_check(args.paths, args.fps, args.verbose)
+        if not args.member or not args.output or len(args.paths) != 1:
+            print("error: export needs one archive, --member and -o", file=sys.stderr)
+            return 2
+        if not exporter.output_allowed(args.output):
+            print("error: write exports outside the repository or under an extracted/ directory", file=sys.stderr)
+            return 2
+        stem, doc, stats, problems = exporter.export(args.paths[0], args.member, args.output, args.tmt,
+                                                     args.all_tmt, args.fps, args.flip_winding)
+        print(f"{args.output / (stem + '.gltf')}: {len(doc['nodes'])} nodes, {stats['triangles']} triangles, "
+              f"{len(doc.get('animations', []))} animations, {len(doc.get('images', []))} textures")
+        for problem in problems:
+            print(f"problem: {problem}", file=sys.stderr)
+        return 1 if problems else 0
     if args.command == "list":
         for path in iter_archives(args.paths):
             for prefix, members, _ in archive_members(path.read_bytes()):

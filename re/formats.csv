@@ -159,3 +159,6 @@ heap_header,HOGE heap header and block list (system_heap_create),system,named,16
 psmf_movie,Sony PSMF movie (movie/*.pmf; AVC video + ATRAC3plus audio; 73 files),container,documented,
 strtbl,UI string table (u32 count / 12 / base; UTF-16LE; end offset),ui,reimplemented,
 strtbl_offset_list,Offset-list string table (pack_name_str / pack_explain_str),shop,reimplemented,
+tgm_etc_scene,TGMT -etc scene block (leading tracks: camera lens; fog/ambient/4 lights or 32 visibility groups),field_3d,documented,
+tgm_model_instance,Runtime TGM model instance (BOOT.BIN 0x0882fa94: meshes/animations/frame/matrices/group mask),field_3d,named,
+tgm_vtmt,.vtmt voice node animation (9 nodes; role unknown),field_3d,named,
