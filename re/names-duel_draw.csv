@@ -197,7 +197,7 @@ address,group,name
 0x098ac90c,ui,ui_card_list_picker_set_select_range,H,stores minimum (0x09be0464) and maximum (0x09be0460) selection counts; caller passes the clamped values
 0x098ac920,ui,ui_card_list_picker_get_selection,H,copies the selection 0x09be046c (count 0x09be0468) to out and returns the count
 0x098ac95c,ui,ui_card_list_picker_close,M,only calls 0x08834ce0(window 0x09bde010); caller 0x098a3484
-0x098ad064,ui,ui_stub_noop_card_list_menu_text,M,empty body called by 0x098ae6cc with (x, y, 0x7c, label) where a text draw would be
+0x098ad064,ui,ui_draw_card_list_menu_text,H,tail call to font_draw_text_fit_width 0x098be63c with x, y, width << 6 (Ghidra lost the jump); was ui_stub_noop_card_list_menu_text
 0x098ad4a0,ui,ui_card_list_picker_preview_entry,M,for a list entry takes two engine values (0x09dc9d30, 0x09dc9dd0) and passes them to 0x0984d564; called on cursor change
 0x098ad514,ui,ui_card_list_picker_toggle_selection,H,removes the entry from 0x09be046c if present (SE 0x7a06) or appends it below the maximum (SE 0x7a05; buzzer 0x7a07 when full)
 0x098ad63c,ui,ui_card_list_picker_undo_selection,M,with picks drops the last one (SE 0x7a06); with none closes the window (0x08834ce0) unless cancel is locked (buzzer 0x7a07)
@@ -650,7 +650,7 @@ address,group,name
 # family deck_effect
 0x09863d4c,ui,ui_on_deck_effect_done,M,done cb: 0x098534d8(player, 1), destroys the wait object, frees, clears the deck-effect flag (0x09864b10(0))
 0x09863d90,ui,ui_retry_deck_effect,M,update cb: when card objects are idle calls ui_start_deck_effect(player) and deletes itself, else holds flag 0x15
-0x09863df0,ui,ui_start_deck_effect,M,when idle: wait object 0x15, effect 0x09872e14 with the object count of the deck zone 0xd (0x09851ed4(p, 0xd)), sets the deck-effect flag; else queues a retry
+0x09863df0,ui,ui_start_deck_shuffle_anim,M,UI event 0x15 handler, model field_card-shuffle01; was ui_start_deck_effect
 0x098644e4,ui,ui_is_deck_effect_running,H,returns [0x098e761c], set and cleared by ui_set_deck_effect_running
 0x09864b10,ui,ui_set_deck_effect_running,H,[0x098e761c] = (param != 0); callers ui_start_deck_effect and ui_on_deck_effect_done
 # family deferred_requests
@@ -833,7 +833,7 @@ address,group,name
 0x098b2418,ui,ui_draw_nine_slice_box,H,four corners, edges and centre from one texture region with corner size (cw, ch)
 0x098b2648,ui,ui_help_text_open,M,clears 0x09be0d60, text view window at (200,0x20) 0x113x0xcd (0x088425f8/0x08842654), sets the body (0x098b2734)
 0x098b2734,ui,ui_help_text_set_body,M,stores body string 0x09be0e34, resets scroll, body font (0x098b2b1c), text height via 0x098b27ac, total height
-0x098b27ac,ui,ui_stub_noop_help_measure_text,M,empty body where ui_help_text_set_body measures the text height
+0x098b27ac,ui,ui_split_help_text_lines,H,tail call to 0x098be654 (font_split_lines) with the last two arguments 0 (Ghidra lost the jump); was ui_stub_noop_help_measure_text
 0x098b27b8,ui,ui_stub_noop_help_update_hook,M,empty body called first by ui_duel_help_update
 0x098b27c0,ui,ui_help_text_draw,M,scroll bar (0x098b2cd8), separator, clip rect, boxed body text at the scroll offset, optional image 0x09be0d6c
 0x098b296c,ui,ui_help_text_close,M,closes window 0x09be0d70 (0x088428fc) and clears 0x09be0d60 (0xec bytes)
@@ -860,7 +860,7 @@ address,group,name
 0x098b3a5c,ui,ui_duel_help_load_topic_text,M,body = card_db_get_dictionary_word(body table 0x09be0e5c, table offset + page) into the text view (0x098b2648/0x098b2734)
 0x098b3b00,ui,ui_duel_help_update_page_index,M,0x09be0e80 = page 0x09be0e70 + topic start - (base + 1)
 0x098b3b58,ui,ui_duel_help_draw_header,M,two coloured bars, an icon and label string 8 of the label table 0x09be0e60
-0x098b3c5c,ui,ui_stub_noop_help_header_text,M,empty body called by ui_duel_help_draw_header where the title text draw would be
+0x098b3c5c,ui,ui_draw_help_header_text,H,tail call to font_draw_text_fit_width 0x098be63c with x, y, width << 6 (Ghidra lost the jump); was ui_stub_noop_help_header_text
 0x098b3c70,ui,ui_help_set_header_font,M,text flags, size 15x15, colour black; caller ui_duel_help_draw_header
 0x098b3cb0,ui,ui_stub_noop_help_close_hook,M,empty body called by ui_duel_help_close
 0x098b3d44,ui,ui_duel_help_get_topic_group,H,returns 0 for topics 0..0x0c and 1 for 0x0d..0x18
@@ -868,14 +868,14 @@ address,group,name
 0x098b3d94,ui,ui_duel_help_index_from_topic,H,returns topic - topic base 0x09be0ea4
 0x098b3da4,ui,ui_duel_help_open_footer,M,clears 0x09be0f78, footer window at (5,0xee) 0x1d6x0x1e (0x088425f8/0x08842654)
 0x098b3e74,ui,ui_duel_help_draw_footer,M,per-language (save_get_language) positions of the button hints from the label table, in the footer window
-0x098b4138,ui,ui_stub_noop_help_footer_text,M,empty body called by ui_duel_help_draw_footer where text is drawn
+0x098b4138,ui,ui_draw_help_footer_text,H,tail call to font_draw_text_fit_width 0x098be63c with x, y, width << 6 (Ghidra lost the jump); was ui_stub_noop_help_footer_text
 0x098b414c,ui,ui_duel_help_close_footer,M,closes window 0x09be0f84 (0x088428fc) and clears 0x09be0f78 (0xd0 bytes)
 0x098b4180,ui,ui_help_set_footer_font,M,text flags, size 14x14, colour black; caller ui_duel_help_draw_footer
 0x098b4374,ui,ui_duel_help_open_topic_list,M,list record 0x09be1060 at (0x4b,0x1e) 0x191x0xd0 with draw/item/cursor/measure callbacks, then its window (0x098b44d4)
 0x098b44d4,ui,ui_duel_help_reset_topic_list,M,sets topic range and cursor, recreates window 0x09be1094 (0x088428fc/0x088425f8/0x08842654)
 0x098b45d0,ui,ui_duel_help_update_topic_list,M,list input then state 0x09be1048: 1 open (SE 0x7a08), 2 opening, 3 browse, 4 decided delay, 5/6 closing, 7 closed
 0x098b4774,ui,ui_duel_help_draw_topic_list,M,list (0x098b502c), nine-slice title bar and the current topic name from table 0x09be1058
-0x098b4850,ui,ui_stub_noop_topic_list_title_text,M,empty body called by ui_duel_help_draw_topic_list where the title text draw would be
+0x098b4850,ui,ui_draw_topic_list_title_text,H,tail call to font_draw_text_fit_width 0x098be63c with x, y, width << 6 (Ghidra lost the jump); was ui_stub_noop_topic_list_title_text
 0x098b4864,ui,ui_duel_help_close_topic_list,M,list term stub, closes window 0x09be1094, clears 0x09be1048 (0x120 bytes)
 0x098b48a4,ui,ui_duel_help_set_topic_list_active,H,sets bit 0 of 0x09be1064 (topic list active flag)
 0x098b48c8,ui,ui_duel_help_start_topic_list,H,sets topic list state 0x09be1048 = 1 (open)
@@ -886,7 +886,7 @@ address,group,name
 0x098b4b4c,ui,ui_duel_help_draw_topic_cursor,M,cursor box: flash in state 4, blink when active, plain otherwise
 0x098b4ca4,ui,ui_duel_help_draw_topic_scroll_track,M,separator rect and ui_draw_scroll_bar for the topic list
 0x098b4d90,ui,ui_duel_help_measure_topic_item,M,item height from the topic name text height (via stub 0x098b4e1c) for the list layout
-0x098b4e1c,ui,ui_stub_noop_measure_topic_text,M,empty body where ui_duel_help_measure_topic_item measures the text
+0x098b4e1c,ui,ui_split_topic_text_lines,H,tail call to 0x098be654 (font_split_lines) with the last two arguments 0 (Ghidra lost the jump); was ui_stub_noop_measure_topic_text
 0x098b4e28,ui,ui_help_set_text_flags,M,0x0884862c(1), 0x088486dc(0), 0x088485d4(1), 0x0884857c(1)
 0x098b4e5c,ui,ui_help_set_topic_title_font,M,text flags, size 14x14, colour white
 0x098b4e8c,ui,ui_help_set_topic_item_font,M,text flags, size 14x14, colour black
@@ -901,7 +901,7 @@ address,group,name
 0x098b5864,ui,ui_duel_help_draw_index_cursor,M,cursor box for the index list, blinking when active (bit 0 of 0x09be1184)
 0x098b5924,ui,ui_duel_help_draw_index_scroll_bar,M,window draw then ui_draw_scroll_bar for the index list
 0x098b59e4,ui,ui_duel_help_measure_index_item,M,item height of the entry text (table 0x09be1178) minus an indent marker (label 6), via stub 0x098b5ab4
-0x098b5ab4,ui,ui_stub_noop_measure_index_text,M,empty body where ui_duel_help_measure_index_item measures the text
+0x098b5ab4,ui,ui_split_index_text_lines,H,tail call to 0x098be654 (font_split_lines) with the last two arguments 0 (Ghidra lost the jump); was ui_stub_noop_measure_index_text
 0x098b5ac0,ui,ui_help_set_index_font,M,text flags, size 14x14, colour black
 0x098b5b08,ui,ui_duel_help_is_indented_entry,M,true when the entry's first character equals the first character of label string 6
 # family duel_messages
@@ -944,7 +944,7 @@ address,group,name
 0x098b1854,ui,ui_duel_options_draw_choice_pair,M,two choice icons 0x4c apart, highlighted by the current value, alpha blink when the row is selected
 0x098b19ac,ui,ui_duel_options_set_render_state,M,GE state setup (blend 0x0882b160, texture function, clears) and binds the options texture
 0x098b1a90,ui,ui_duel_options_draw_message,H,card_db_get_dictionary_word(find_member(archive, option_msg_<l>.bin by save_get_language), index), optionally centred
-0x098b1bbc,ui,ui_stub_noop_options_text,M,empty body called by ui_duel_options_draw_message where the text draw would be
+0x098b1bbc,ui,ui_draw_options_text,H,tail call to font_draw_text_fit_width 0x098be63c with x, y, width << 6 (Ghidra lost the jump); was ui_stub_noop_options_text
 0x098b1bd0,ui,ui_duel_options_draw_item_label,M,message index per section/item, highlighted on the cursor row, via 0x098b21bc
 0x098b1d1c,ui,ui_duel_options_draw_level_item,M,level bar for items 1..3 from settings bytes +0xa/+0xc/+0xe (item 1 skipped outside Japanese)
 0x098b1dd8,ui,ui_duel_options_draw_section_frame,M,nine-slice section frames at x+0xab (0x098b14f4)
@@ -1431,3 +1431,314 @@ address,group,name
 # family zone_values
 0x09857960,ui,ui_update_zone_value_tweens,M,per player x 5 zones (stride 0x20 at 0x098d5db0+0x108c8): time += dt, lerps two ints from start to end over the duration
 0x09857d08,ui,ui_reset_zone_value_tween,M,clears the 0x20-byte tween at 0x098d5db0+0x108c8+player*0xa0+zone*0x20 and seeds start/end with the values from 0x0989d950
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family burst_event
+0x098643c0,ui,ui_update_burst_event_wait_done,M,holds UI event 0x3e until 0x0986a300 (burst finished), then deletes itself
+0x098643f8,ui,ui_update_burst_event_hold,M,after 1/ui_get_anim_speed_factor s sets task flag 1 on the burst and switches to 0x098643c0; holds UI event 0x3e
+0x09864468,ui,ui_start_burst_event_3e,M,ui_start_burst_effect at (0x13a, 0x84) and duel object 0x098643f8; holds UI event 0x3e; caller 0x0989bd54 (draw id 0x3e)
+0x0986a300,ui,ui_is_burst_effect_finished,M,task data null or counter +4 > 59; caller 0x098643c0 on the ui_start_burst_effect handle
+# family card_fx_tasks
+0x09852cd0,field_3d,field_3d_start_or_defer_card_set_fx,M,object still moving (+0x70 < +0x74) -> +0x8c bit 2, else 0x09861adc; caller ui_cmd_show_card_set (UI event 0x1e)
+0x09852d20,field_3d,field_3d_start_or_defer_summon_fx,M,moving -> +0x8c bit 3 and holds UI event 0x38, else 0x09861d38; caller ui_cmd_show_summon_complete (UI event 0x38)
+0x09852d7c,field_3d,field_3d_start_or_defer_placed_summon_fx,M,moving -> +0x8c bit 4 and holds UI event 0x39, else 0x09861f58; caller 0x0989bb0c (UI event 0x39)
+0x09861adc,field_3d,field_3d_start_card_set_fx,M,card set effect task 0x0986525c at the object (scale 0x09853750, card id if face-up), handle at +0x98; ui_cmd_show_card_set path
+0x09861ce4,field_3d,field_3d_on_summon_fx_show_card_popup,M,done cb passed by 0x09861f58/0x09861d38: card popup task 0x09869e54 at screen (0x13a, 0x7a), keeps handle
+0x09861d38,field_3d,field_3d_start_summon_fx,M,summon fx task 0x09865810 (sound 0x7a1c) at the zone pose, card popup below speed 3, card info, holds UI event 0x38
+0x09861f58,field_3d,field_3d_start_placed_summon_fx,M,summon fx variant 1 (0x0986585c) plus card popup, card info; reached from UI event 0x39 (place_trap_monster, special_summon_token)
+0x09862804,ui,ui_hold_release_fx_events,M,duel-object update cb: holds UI events 0x2c, 0x2f and 0x32 (0x088369f4) while the tribute/material fx runs
+0x09862840,field_3d,field_3d_start_card_release_fx,M,wait object (ui_hold_release_fx_events), creator(param) at the object pose with face-up turned rotation, holds UI event 0x2c
+0x09862a14,field_3d,field_3d_start_material_release_fx,M,like 0x09862840 with a side/zone face check; holds UI event 0x2f (fusion) or 0x32 (synchro) by flag
+0x09862c38,field_3d,field_3d_start_tribute_fx,H,field_3d_start_card_release_fx(obj, 0x09867ad8) (a1 set by lui/addiu); caller ui_cmd_show_tribute
+0x09862c44,field_3d,field_3d_start_material_send_fx,H,t0 = a3, a3 = 0x09868478, j 0x09862a14; callers draw handlers of UI events 0x2f and 0x32
+0x09863214,field_3d,field_3d_start_destroy_by_effect_fx,M,object moving (+0x8c bits 6/7) -> +0x8d bit 7 and holds 0x1f, else destroy fx 0x09866938; callers ui_cmd_show_destroy_by_effect, motion end
+0x098632c8,field_3d,field_3d_start_destroy_by_battle_fx,M,destroy fx task 0x09866938 (sound 0x7a18) at the object; caller ui_cmd_show_destroy_by_battle (UI event 0x20)
+0x09863358,field_3d,field_3d_start_card_travel_fx,M,+0x8d bit 4 (hidden) and travel task 0x09869654 from start +0x20 to target +0x30; caller field_3d_board_move_object
+0x098651bc,field_3d,field_3d_create_card_set_fx_task,H,ui_duel_create_draw_task(0x098652a8, 0xb8 bytes): +4 scale, +8 position, +0x14 yaw
+0x0986525c,field_3d,field_3d_create_card_set_fx_task_with_card,M,0x098651bc then data +0x24 = card id; caller field_3d_start_card_set_fx
+0x098652a8,field_3d,field_3d_update_card_set_fx,M,sound 0x7a17, card quad fades in over 16 frames, 24 rotating shards on list 5, ends at 16
+0x09865728,field_3d,field_3d_create_summon_fx_task,H,ui_duel_create_draw_task(0x098658a8, 0xc4c bytes): +4 scale, +8 pos, +0x14 yaw, +0x20 variant 0
+0x098657cc,field_3d,field_3d_create_summon_fx_task_variant1,H,0x09865728 then +0x20 = 1
+0x09865810,field_3d,field_3d_create_summon_fx_task_with_card,M,0x09865728 then +0x28 = card id; caller field_3d_start_summon_fx
+0x0986585c,field_3d,field_3d_create_summon_fx_task_variant1_with_card,M,0x098657cc then +0x28 = card id; caller field_3d_start_placed_summon_fx
+0x098658a8,field_3d,field_3d_update_summon_fx,M,sound 0x7a1c; card quad plus particle bursts, variant +0x20 changes the path; task of 0x09865728
+0x09866880,field_3d,field_3d_create_destroy_fx_task,H,ui_duel_create_draw_task(0x09866984, 0x2508 bytes): +4 scale, +8 pos, +0x14 rot, +0x20 size
+0x09866938,field_3d,field_3d_create_destroy_fx_task_with_card,M,0x09866880 then +0x30 = card id; callers destroy-by-effect/battle starters
+0x09866984,field_3d,field_3d_update_destroy_fx,M,sound 0x7a18; card broken into fragment rows flying apart; task of 0x09866880
+0x09867a20,field_3d,field_3d_create_tribute_fx_task,H,ui_duel_create_draw_task(0x09867b74, 0x17c4 bytes): +4 scale, +8 pos, +0x14 rot, +0x20 size 1
+0x09867ad8,field_3d,field_3d_create_tribute_fx_task_ex,M,0x09867a20 then rotation, size and +0x2c card id; creator passed by field_3d_start_tribute_fx
+0x09867b74,field_3d,field_3d_update_tribute_fx,M,sound 0x7a3c; card quad alpha 255 -> 0 over 32 frames with particles; task of 0x09867a20
+0x098683c0,field_3d,field_3d_create_material_fx_task,H,ui_duel_create_draw_task(0x098684c4, 0x7050 bytes): +8 scale, +0xc pos, +0x18 rot, +0x24 size
+0x09868478,field_3d,field_3d_create_material_fx_task_with_card,M,0x098683c0 then +0x30 = card id; creator set by field_3d_start_material_send_fx
+0x098684c4,field_3d,field_3d_update_material_fx,M,sounds 0x7a38 then 0x7a3c; fusion/synchro material leaving the field; task of 0x098683c0
+0x09869654,field_3d,field_3d_create_card_travel_fx_task,H,ui_duel_create_draw_task(0x098696e0, 0x490 bytes) with start +4 and end +0x10 positions
+0x098696e0,field_3d,field_3d_update_card_travel_fx,M,lerps start -> end with a 150-unit sine arc over 24 frames, particles; task of 0x09869654
+0x09869e1c,field_3d,field_3d_is_card_popup_shown,M,task data null or counter +4 > 15 (the 16-frame fade-in of 0x09869ed0)
+0x09869e54,field_3d,field_3d_create_card_popup_task,H,ui_duel_create_draw_task(0x09869ed0, 0x6c bytes): handle, card id +0xc, screen point +0x10
+0x09869ed0,field_3d,field_3d_update_card_popup,M,fx camera at the point, card face (field_3d_dl_bind_card_face_texture) on list 7 tilting in over 16 frames, fades 8 frames after flag 1
+# family card_name_picker
+0x098a45d4,ui,ui_card_name_picker_setup_window,M,window callback: window kept in buffer 0x09bdd148 +0x3790, rows from +0x3788, item height 0x12, width 0x098a4c38
+0x098a4764,ui,ui_card_name_picker_draw_text,M,only system_font_draw_text(x<<6, y<<6, w<<6); between ui_close_card_name_picker and ui_build_card_name_picker_list
+0x098a4c38,ui,ui_card_name_picker_get_width,M,200 for language 0, else 300; only caller the picker window setup 0x098a45d4
+# family card_objects
+0x09853468,ui,ui_add_card_object_callback,H,stores cb in the first free of the four slots +0x9c..+0xa8 run by ui_run_card_object_callbacks; callers highlight/glow start
+0x098534a0,ui,ui_remove_card_object_callback,H,clears the matching slot of +0x9c..+0xa8; callers ui_stop_card_highlight/target glow
+0x09853750,ui,ui_get_zone_card_scale,M,(side*16 + zone) -> 2.0/1.0/4.0/6.0 passed as the scale s (1+s/64) of field_3d_draw_card_quad; 8 card-fx callers
+0x09856e40,ui,ui_get_card_motion_duration,M,table 0x098cf050[ui_get_anim_speed()]; duration passed to ui_set_card_object_motion by 8 callers
+# family card_viewer_mode
+0x098a3fac,ui,ui_set_card_viewer_card_id,M,stores 0x09bdd0f0, opened by the mode 5 card viewer (ui_card_viewer_open) and played by the mode 0xb movie draw
+0x098a4134,ui,ui_card_viewer_mode_update,M,UI mode 5 update: after fade ui_card_viewer_open(0x09bdd0f0, textures 0x4001b/0x4001c) layer 9; updates; closes, pops
+0x098a425c,ui,ui_card_viewer_mode_start_close,M,draw flags 7 on, state 0x09bdd0f4 = 2, fade in; called when the card viewer update finishes
+0x098a4298,ui,ui_duel_movie_mode_draw,M,UI mode 0xb draw (table row 11): ui_play_duel_movie(0x09bdd0f0, 0, 3) then pops; Destiny Board path of event 0x40
+# family chain_markers
+0x09853808,ui,ui_push_chain_link_marker,M,0x098e67b8[side*0x44+zone*4] = link number, location pushed on stack 0x098e6840 (count 0x098e6880); caller ui_cmd_show_chain_link_activated
+0x098538d0,ui,ui_pop_chain_link_marker,M,pops stack 0x098e6840, clears the zone number, restores the previous link at the same location; callers chain link resolving
+# family coin_toss
+0x0985d7d8,field_3d,field_3d_draw_spinning_coin_sprite,M,duel object 0x10021 (coin01.tms/.tmt) lit by two rotating lights into VRAM +0x160000 128x128, drawn as a sprite; caller ui_draw_two_way_card_choice
+0x098723a4,field_3d,field_3d_create_coin_toss_task,H,ui_duel_create_draw_task(0x09872438, 0x100 bytes), coin count +4 and results +8; caller ui_start_coin_toss
+0x09872438,field_3d,field_3d_update_coin_toss,M,coin models (fx node hook rotate y), string table 0x80014, sound 0x7a39, list 7; task of 0x098723a4
+0x0989e94c,ui,ui_set_coin_toss_state,M,stores 0x098e9ac8; callers ui_start_coin_toss and ui_on_coin_toss_done (-1)
+0x0989e958,ui,ui_get_coin_toss_state,M,returns 0x098e9ac8 (written by coin toss start/done); caller ui_draw_duel_hud
+# family cutin_chara_blocks
+0x098b60f4,field_3d,field_3d_cutin_shared_on_motion_start,M,start_cutin_extra_fx + default_on_motion_start; block of shared setup 0x098b5ff0 (chars 5v0, 6, 9-0x12, 0x2b-0x2d, 0x96-0x98)
+0x098b6144,field_3d,field_3d_cutin_shared_on_motion_end,M,stop_cutin_extra_fx + default_on_motion_end; shared setup block 0x098b5ff0
+0x098b61a4,field_3d,field_3d_cutin_shared_frame_hook,M,set_cutin_extra_fx_phase + default_frame_hook; shared setup block 0x098b5ff0
+0x098b8164,field_3d,field_3d_cutin_shared_pick_voice_motion,M,key chr<<3|variant (5/6/0xa/0xc/0x12/0x2b): motion from voice table 0x098d4950.. or random 0x115-0x139, cutin_start_motion
+0x098b88f0,field_3d,field_3d_cutin_chr02v2_on_motion_start,M,start_cutin_extra_fx + default_on_motion_start; setup 0x098b8898 = character 2 variant 2 in field_3d_cutin_get_chara_setup
+0x098b8940,field_3d,field_3d_cutin_chr02v2_on_motion_end,M,stop_cutin_extra_fx + default_on_motion_end; chr02v2 block (setup 0x098b8898, pose table b)
+0x098b89a0,field_3d,field_3d_cutin_chr02v2_frame_hook,M,set_cutin_extra_fx_phase + default_frame_hook; chr02v2 block (setup 0x098b8898)
+0x098b8e34,field_3d,field_3d_cutin_chr02v0_on_motion_start,M,start_cutin_extra_fx + default_on_motion_start; setup 0x098b8ddc = character 2 variant 0 in field_3d_cutin_get_chara_setup
+0x098b8e84,field_3d,field_3d_cutin_chr02v0_on_motion_end,M,stop_cutin_extra_fx + default_on_motion_end; chr02v0 block (setup 0x098b8ddc, pose table c)
+0x098b8ee4,field_3d,field_3d_cutin_chr02v0_frame_hook,M,set_cutin_extra_fx_phase + default_frame_hook; chr02v0 block (setup 0x098b8ddc)
+0x098b9378,field_3d,field_3d_cutin_chr03v1_on_motion_start,M,default_on_motion_start only; setup 0x098b932c = character 3 variant 1 in field_3d_cutin_get_chara_setup (pose table d)
+0x098b9398,field_3d,field_3d_cutin_chr03v1_on_motion_end,M,default_on_motion_end only; chr03v1 block (setup 0x098b932c)
+0x098b9634,field_3d,field_3d_cutin_chr03v0_on_motion_start,M,default_on_motion_start only; setup 0x098b95e8 = character 3 variant 0 in field_3d_cutin_get_chara_setup (pose table e)
+0x098b9654,field_3d,field_3d_cutin_chr03v0_on_motion_end,M,default_on_motion_end only; chr03v0 block (setup 0x098b95e8)
+# family cutin_core
+0x09840fa0,field_3d,field_3d_cutin_set_card_id,M,stores param (0 -> -1) at current cut-in slot [0x098d4d48]+0x160, the card whose ATK/DEF field_3d_cutin_default_frame_events shows
+0x09840fbc,field_3d,field_3d_cutin_set_value_range,M,slot*400: +0x16c = start, +0x170 = start + delta (values shown by 0x0985ed48); only caller ui_cmd_play_lp_change_cutin
+0x09841164,field_3d,field_3d_cutin_get_eye_position,M,returns current slot +0x150, filled from system_gum_get_eye_position by field_3d_cutin_apply_camera; callers two cut-in fx updaters
+0x09841198,field_3d,field_3d_cutin_set_current_disc_flag,M,field_3d_cutin_set_disc_flag(current slot, v); +0x168 gates the 'duel_disc_02.iff' layer; field_3d_update_cutin_sound_fx calls it with 0 at the end
+0x098411a8,field_3d,field_3d_cutin_get_current_disc_flag,M,returns current slot +0x168 (duel-disc layer flag); caller field_3d_draw_cutin_aux_fx
+0x09842610,field_3d,field_3d_cutin_set_disc_flag,M,slot +0x168 = v; field_3d_cutin_bind_layer_texture sets 'duel_disc_02.iff' unless +0x168; callers cutin_start_motion, start_cutin_fx
+0x09842620,field_3d,field_3d_cutin_is_mask_bit_clear,M,(slot +0x180 & 1<<n) == 0; caller 0x098952c4 waits on bits 8/9/10 before its flash
+0x0984412c,field_3d,field_3d_cutin_collect_deck_card_ids,M,trigger-queue entry kind 0xe value/100 (max 40, clamped by deck count; Overload Fusion/Cyberdark checks) deck ids -> field_3d_set_cutin_fx_card_list
+0x0989d434,field_3d,field_3d_cutin_play_for_card,M,if ui_is_cutin_display_enabled: cutin_select_slot, card id to cut-in +0x160 (0x09840fa0), cutin_reset_current(motion)
+# family cutin_fx
+0x0987a25c,field_3d,field_3d_cutin_get_attach_position,M,translation of field_3d_cutin_get_attach_matrix_current(node) into a vec3; 5 cut-in fx callers
+0x09888204,field_3d,field_3d_draw_cutin_fx_anim3e_54_v4_sprites,M,per particle: translate, billboard matrix, rotate z, 4-vertex draw, drift and spin; only caller field_3d_update_cutin_fx_anim3e_54_v4
+0x0988ccfc,field_3d,field_3d_cutin_has_fx_animb1,M,(character, variant) 5/0, 0x14/2, 0x12, 0x19, 0x21 -> 1; gates field_3d_create_cutin_fx_animb1_by_variant in field_3d_start_cutin_fx
+0x09891900,field_3d,field_3d_create_cutin_fx_anim1e3_21e,H,ui_duel_create_draw_task(0x09891958, 0x158 bytes), fx slot +0x20; caller field_3d_start_cutin_fx
+0x09891958,field_3d,field_3d_update_cutin_fx_anim1e3_21e,M,timing 0x09895a2c, sounds 0x7a2b (0x7a2a for character 0x26) and 0x7a2d, attach node 0x2b, disc flag at the end frame
+0x0989218c,field_3d,field_3d_draw_cutin_extra_a_screen_quad,M,projects two points to screen and draws a sprite between them with colour/alpha; caller field_3d_update_cutin_extra_a_fx
+0x098952c4,field_3d,field_3d_update_cutin_attach_flash,M,anims 0x81 / 0xc4-0xd4 / 0x104-0x114 at attach node 0x2e/0x2d, waits for slot+0x180 bits 8-10, sound 0x7a19
+0x09895a2c,field_3d,field_3d_get_cutin_fx_timing_anim1e3_21e,M,animation id 0x1e3-0x21e -> start frame, end frame, duration 0x18; caller 0x09891958
+0x09895e08,field_3d,field_3d_get_cutin_sound_fx_timing,M,animation id 0x26f-0x2b3 -> start/end frames; caller field_3d_update_cutin_sound_fx
+0x09899190,field_3d,field_3d_cutin_aux_fx_set_fade_timing,M,0x098e93e0 = frames 1, 0x098e93e8 = frames 2, counters 0x098e93dc/e4/ec = 0; caller field_3d_start_cutin_aux_fx
+0x098991b0,field_3d,field_3d_cutin_aux_fx_layer_hook,M,layer 0xb hook: alpha fade from 0x098e93e4/e8, sound 0x7a17 at frame 0x098e93e0, advances the counters
+# family debug_card
+0x098a0d14,ui,ui_debug_reset_card_picker,M,clears 0x09bdd054 (0x28), clamps card id 0x09bdd050 to 0xe88-0x1f39, card_db_get_name; neighbour ui_debug_place_card
+0x098a1440,ui,ui_debug_draw_text,M,only system_font_draw_text(x<<6, y<<6, (480-x)<<6, str); next to ui_debug_place_card
+# family deck_effect
+0x098534d8,ui,ui_set_deck_effect_done_flag,M,0x098e6670[side] = v; callers ui_start_deck_effect and ui_on_deck_effect_done (passes 1)
+0x09872e14,field_3d,field_3d_create_deck_shuffle_task,H,ui_duel_create_draw_task(0x09872e88, 0x90 bytes); caller ui_start_deck_effect (holds UI event 0x15, shuffle deck)
+0x09872e88,field_3d,field_3d_update_deck_shuffle,M,model 0x10020 (field_card-shuffle01-base), four random sounds (field_3d_fx_rand_pick_of_five), height by card count
+# family destiny_board
+0x098642b0,ui,ui_show_destiny_board_progress,M,UI event 0x40: b == 0 -> wait 0x40 and letters task 0x09875d74(n+1); n == 4 with b -> card 0x1468 Destiny Board, UI mode 0xb
+0x09875d74,field_3d,field_3d_create_destiny_board_letters_task,H,ui_duel_create_draw_task(0x098761c0, 0x219c bytes), letter count +0xc, flag +0x10; caller ui_show_destiny_board_progress
+0x09875de4,field_3d,field_3d_draw_destiny_board_letter,M,one alpha-faded, sine-wobbled sprite of the letter strip; only caller 0x098761c0
+0x098761c0,field_3d,field_3d_update_destiny_board_letters,M,fx texture 0x1e 'duel_ouija.gim', up to 5 letters (special path at 5), fades over 16 frames
+# family dice_roll
+0x09864038,ui,ui_start_dice_roll,M,wait object 0x3d, dice task 0x0987298c(1 die, value, side == 0); caller 0x0989bd20 (UI event 0x3d)
+0x0987298c,field_3d,field_3d_create_dice_roll_task,H,ui_duel_create_draw_task(0x09872a30, 0x6c bytes), die count +4, values +0xc, side flag +0x14
+0x09872a30,field_3d,field_3d_update_dice_roll,M,model 0x1001e/0x1001f (dice01_anm1/2), string table 0x80015/0x80016, sounds 0x7a3f-0x7a42 and 0x7a37
+# family draw_cmd_handlers
+0x0989962c,ui,ui_auto_submit_action_mask_800,M,scans 10 locations (0x098d0504) per side for action mask 0x800, ui_submit_player_action(.., 0xb, 1); caller ui_cmd_begin_player_input
+0x0989a2b8,ui,ui_cmd_shuffle_hand,M,draw table id 0x12 = UI event 0x12 posted only by duel_core_cmd_shuffle_hand; ui_request_hand_relayout(view side)
+0x0989a2e0,ui,ui_cmd_reveal_hand_card,M,draw table id 0x13 = UI event 0x13 from duel_core_cmd_reveal_hand_card; flips the hand object, card info
+0x0989a394,ui,ui_cmd_shuffle_deck,M,draw table id 0x15 = UI event 0x15 from duel_core_cmd_shuffle_deck; ui_start_deck_effect(view side)
+0x0989a3bc,ui,ui_cmd_sync_board_zone,M,draw table id 0x16 = UI event 0x16 (shuffle deck, deck end, swap decks, duel start, ydq load); field_3d_board_sync_zone
+0x0989a3f0,ui,ui_cmd_flip_pile_top_card,M,draw table id 0x17 = UI event 0x17 from duel_core_cmd_post_ui_event_17 (side, zone); field_3d_board_flip_pile_top_card
+0x0989a468,ui,ui_cmd_point_at_location,M,draw table id 0x19 = UI event 0x19 from duel_core_cmd_show_location_card; cursor to location, 0.5 s hold, optional card info
+0x0989a798,ui,ui_cmd_create_token,M,draw table id 0x1d = UI event 0x1d from duel_core_cmd_create_token; creates or re-cards the board object at the location
+0x0989a9f8,ui,ui_cmd_advance_turn_counter,M,draw table id 0x25 = UI event 0x25 from duel_core_cmd_advance_turn_counter; ui_request_value_increment_popup (zone 0x10 = none)
+0x0989ad30,ui,ui_cmd_replace_slot_effect_value,M,draw table id 0x28 = UI event 0x28 from duel_core_cmd_replace_slot_effect_value; ui_start_zone_value_change(obj, new - old, 3)
+0x0989ada8,ui,ui_cmd_shuffle_monster_zones,M,draw table id 0x29 = UI event 0x29 from duel_core_cmd_shuffle_monster_zones; ui_request_gather_monsters(view side, mask)
+0x0989af54,ui,ui_cmd_show_fusion_material_sent,M,draw table id 0x2f = UI event 0x2f from duel_core_cmd_move_fusion_material; stops glow, material fx (flag 1), +0x8d bit 4
+0x0989b070,ui,ui_cmd_show_synchro_material_sent,M,draw table id 0x32 = UI event 0x32 from duel_core_cmd_post_ui_event_32 (after synchro marks 0x30); material fx (flag 0)
+0x0989bb0c,ui,ui_cmd_show_placed_monster_summon,M,draw command 0x39 (table 0x098d0180); starts the summon effect for a monster placed by an effect (draw_0 reading)
+0x0989bb64,ui,ui_cmd_show_fusion_synchro_summon,M,draw table id 0x3a = UI event 0x3a from duel_core_cmd_announce_fusion_synchro_summon; material ids, tasks 0x098641f8/0x09864254
+0x0989bc8c,ui,ui_cmd_show_card_info,M,draw table 0x098d0180 id 0x3b: only calls ui_card_info_show_card_id(card id, 0)
+0x0989bcac,ui,ui_cmd_start_coin_toss,M,draw table id 0x3c = UI event 0x3c (duel_core_cmd_post_ui_event_3c): view side, unpacked fields, then ui_start_coin_toss
+0x0989bd20,ui,ui_cmd_roll_dice,M,draw command 0x3d; object table 0x098d0960 model dice01
+0x0989bd54,ui,ui_cmd_play_screen_burst_3e,M,draw table id 0x3e = UI event 0x3e (side, a): when a != 0, 0x09864468 = ui_start_burst_effect at (0x13a,0x84) + flag 0x3e
+0x0989bdf8,ui,ui_cmd_show_special_win,M,draw table id 0x40 = UI event 0x40 from duel_core_cmd_show_duel_result: 0x098642b0 task by reason, Destiny Board 0x1468 movie (reason 4)
+0x0989be1c,ui,ui_start_duel_end_card_fx_14,M,caller ui_cmd_dispatch_duel_end_scene; 0x09864360 = field_3d_create_card_fx_task(0x14) wrapped in a duel object
+# family duel_board
+0x0984ebf0,field_3d,field_3d_stub_noop_board_update_hook,M,empty body; only caller field_3d_board_update
+0x098509b4,field_3d,field_3d_board_move_object,M,relinks a card object between zone lists, sets location codes, target transform and motion (kinds 5/7/8 jump + travel fx); 6 callers incl ui_cmd_move_card
+0x09850e7c,field_3d,field_3d_board_flip_pile_top_card,M,pile top object (extra deck: last index) moved to list front; if face-down per engine, motion to the opposite face transform, toggles +0x8d bit 5
+0x098510cc,field_3d,field_3d_board_raise_card_to_pile_top,M,moves the object holding ref to the list end and animates it onto the pile height; already top -> card set fx; caller ui_cmd_move_list_card
+0x098522c0,field_3d,field_3d_board_resync_piles,M,gathers objects of the five pile zones (table 0x098ceee0) and rematches them to hand/extra/deck/grave/banished instances by ref or card id
+0x09852b1c,field_3d,field_3d_board_gather_monster_objects,M,monster zones of a mask move to their midpoint (+30 up) at double duration, +0x8c bit 5, then back; callers ui_request_gather_monsters (UI event 0x29)
+0x09853034,field_3d,field_3d_board_start_hand_reveal_flip,M,unless +0x8d bit 3 (shown): +0x8c bit 6, time +0x70 = 0; caller ui_cmd_reveal_hand_card (UI event 0x13)
+0x098533d0,field_3d,field_3d_board_no_object_fx_pending,M,1 when no card object of zones 0-14 on both sides has a fx task handle at +0x98 (set by 0x09861adc); callers gather-monster request/retry
+0x098539fc,field_3d,field_3d_draw_pile_with_count,M,counts settled objects of a pile zone, top card id/face, field_3d_draw_scaled_model_10003, count number with draw flag 0x80; caller 0x098777f8
+0x09854cf8,field_3d,field_3d_board_prepare_hud_layer,M,layer 4: viewport 480x272, ui_draw_phase_indicator_layout, then 3D state, blend and depth clear (0x14); caller field_3d_board_draw
+# family duel_dialogs
+0x09864b34,ui,ui_open_word3_confirm_prompt,M,ui_open_confirm_prompt(ui_get_duel_dict_word(3), 2, 1, 0), message window at y 100, card-info pair suppressed
+0x09864b88,ui,ui_on_card_confirm_answer,M,unsuppresses card info; with choice 1/2 sets card to show (0x09bdd0f0) and pushes UI mode 5 with the arg
+# family duel_draw_stubs
+0x0989c604,system,system_stub_noop_duel_draw_frame,M,empty body called by system_duel_draw_frame_callback
+0x0989cf60,system,system_stub_noop_duel_draw_scene_start,M,empty body called by system_duel_draw_scene_start
+0x0989e150,ui,ui_stub_noop_duel_draw_reset,M,empty body called by ui_duel_draw_reset
+0x0989ea64,ui,ui_stub_return_neg1_duel_hud,M,returns -1; only caller ui_draw_duel_hud
+0x0989ea6c,ui,ui_stub_return_0_field_cursor_update,M,returns 0; only caller ui_field_cursor_update
+# family duel_end
+0x09864328,ui,ui_update_final_countdown_win_wait,M,holds UI event 0x3f until field_3d_is_card_fx_task_finished(task); cb of 0x09864360
+0x09864360,ui,ui_start_final_countdown_win_fx,M,field_3d_create_card_fx_task(0x14, 0, 0) plus wait object; via 0x0989be1c = case 7 (win reason Final Countdown) of ui_cmd_dispatch_duel_end_scene
+# family duel_help_mode
+0x098a2144,ui,ui_open_duel_help_mode,M,if ui_can_open_duel_help: saves the mode in 0x09bdd084, push UI mode 8 (help) arg 0; START opens it (SE 0x7a09)
+0x098a2194,ui,ui_duel_help_mode_enter,M,mode 8 enter: help topic 4-9 from duel_core_get_phase / open input mode into 0x09bdd07c, fade out
+0x098a2274,ui,ui_duel_help_mode_exit,M,mode 8 exit: loops ui_duel_help_close with system_wait_frame until it returns non-zero
+0x098a22ac,ui,ui_duel_help_mode_draw,M,mode 8 draw: ui_duel_help_draw in state 1, else the saved mode's draw (ui_draw_duel_ui_mode_by_index) plus the fade
+0x098a23b0,ui,ui_duel_help_mode_update,M,mode 8 update: after fade ui_duel_help_open(topic, heap, texture 0x40020, tables 0x80017/0x8001e); closes and pops
+0x098a24ec,ui,ui_is_duel_help_mode_browsing,M,state 0x09bdd080 == 1; caller ui_close_active_duel_ui_mode
+0x098a2508,ui,ui_can_open_duel_help,M,false in set-up mode 5, UI modes 5/6/8/9, link duels, set-up mode 2, looping HUD anim or busy flag 2
+0x098a25e4,ui,ui_duel_help_mode_start_close,M,state 0x09bdd080 = 2, draw flags 0x87 on, fade in; called when ui_duel_help_update finishes
+# family duel_hud
+0x0984cff8,ui,ui_init_attack_selection_sides,M,memset 0x098d5474 (0x2c), +0x18 = side, +0x1c = 1 - side; only caller ui_cmd_begin_attack_selection (UI event 0xa)
+0x0984d084,ui,ui_begin_battle_damage_display,M,stores 0x098d549c, sets draw flag 0x10, holds UI event 0xd (0x088369f4(0xd)); only caller ui_cmd_show_battle_damage
+0x098534f0,ui,ui_reset_all_zone_value_tweens,H,ui_reset_zone_value_tween(side, zone) for 2 sides x zones 0-4; caller ui_cmd_show_phase_banner
+0x09853548,ui,ui_start_zone_stat_tweens,M,per side x 5 monster zones: target ATK/DEF from attack state or card stats, tween at 0x098d5db0+0x108c8, duration 0x09856e40
+0x09854a14,ui,ui_update_action_highlight_flag,M,draw flag 0x40 = 1 only when 0x0989d8a0(0) and open input mode is 4/5/6/8/9; caller field_3d_board_draw
+0x0985842c,ui,ui_get_hud_anim_frame_step,M,table 0x098cf080[ui_get_anim_speed()]; caller ui_update_hud_layout_anim
+0x09858afc,ui,ui_stub_noop_duel_hud_hook,M,empty body; only caller ui_draw_duel_hud
+0x0985a6a8,ui,ui_draw_hud_icon_4001e,M,sprite of duel texture 0x4001e (ui_get_duel_texture) 24x24 at (x+6, y+6), uv pair by index; caller ui_draw_duel_hud
+# family duel_options
+0x0989e46c,ui,ui_can_auto_advance_for_side,M,save option flag 2 set, side not human, not a link duel (0x08835a7c), confirm button not held
+0x098a2620,ui,ui_open_duel_options_mode,M,unless UI mode 5/6/9: saves the mode in 0x09bdd08c, push UI mode 9 (options) arg 0
+0x098a2698,ui,ui_duel_options_mode_enter,M,mode 9 enter (table row 9): state 1, fade out, ui_duel_options_open(heap, archive 0x80001, 1)
+0x098a277c,ui,ui_duel_options_mode_update,M,mode 9 update: ui_duel_options_update until 2, loads cut-in archives if now enabled, pops on release
+0x098a289c,ui,ui_is_duel_options_mode,M,ui_get_duel_ui_mode() == 9; caller ui_close_active_duel_ui_mode
+0x098a28c0,ui,ui_close_duel_options_mode,M,pops the UI mode when it is 9; caller ui_close_active_duel_ui_mode
+# family duel_scene
+0x0985b080,field_3d,field_3d_get_duel_camera_vec4,M,copies vec4 0x098e6bb0 (after the projection 0x098e6ba0..ac saved by field_3d_set_duel_scene); caller Molten Destruction extra
+# family duel_setup_queries
+0x0989e170,ui,ui_is_not_match_duel,M,duel set-up 0x0883634c +0x191 != 2 (2 = match, see duel_core_get_match_result); callers result, HUD, turn indicator
+0x0989e198,ui,ui_get_match_game_mark,M,session 0x08836718 +0x34 game count, +0x36[i] result 1/2/3 -> 1/0 per side or 2 (draw), -1 past the count
+0x0989e350,ui,ui_get_duelist_name,M,set-up 0x0883634c + 0x1bc + i*0x1ac = duellist record (+0x1a4) +0x18 name (deck.md)
+0x0989e4ec,ui,ui_is_duel_setup_mode_2,M,duel set-up 0x0883634c +0x190 (mode) == 2; 13 callers use it to block player shortcuts and menus
+0x0989e564,ui,ui_find_player_duelist_index,M,first of 2 (4 in tag) set-up records whose character (+0x1a4 + i*0x1ac) is 1 = the player, else -1
+# family duel_ui_modes
+0x0989c73c,ui,ui_is_card_viewer_or_help_mode,M,ui_get_duel_ui_mode() is 5 (card viewer, update 0x098a4134) or 8 (help, update 0x098a23b0)
+0x0989d334,ui,ui_set_cutin_mode_active,M,on: cutin_clear_skip_flag, draw flag 8, push UI mode 6; off: pop, clear flag 8, field_3d_cutin_stop_current
+0x0989d3dc,ui,ui_is_cutin_mode_active,M,ui_test_set_draw_flags(8, -1), the flag ui_set_cutin_mode_active sets; callers card info display request/retry
+0x098a20fc,ui,ui_cutin_mode_update,M,UI mode 6 update (table 0x098d1f5c row 6 +8): confirm button -> field_3d_cutin_skip_current
+0x098a3230,ui,ui_update_duel_draw_common_input,M,text scroll, both triggers -> expression picker (table 0x098d205c), START -> help (SE 0x7a09), then mode update of table 0x098d1f5c
+0x098a363c,ui,ui_call_field_3d_board_is_settled,M,returns field_3d_board_is_settled() != 0; clears the input wait 0x09bdd0e0 in the common input update
+# family field_cursor
+0x0984f52c,ui,ui_field_cursor_add_blocker,M,stores handle in first free of 16 words at 0x098d5d5c (inside cursor record 0x098d5d20); caller ui_open_info_panel
+0x0984f57c,ui,ui_field_cursor_remove_blocker,M,clears the matching word of the 16-entry list 0x098d5d5c; callers ui_update_info_panel, ui_hide_attack_pointer
+0x0984f78c,ui,ui_field_cursor_alpha_test_hook,M,texture hook of ui_field_cursor_draw_model: GE state 0 enable + alpha func (6, 0, 0xff) or disable by flag
+0x0984fecc,ui,ui_field_cursor_draw_action_icons,M,projects cursor to 480x272, draws ui_card_action_draw_icon for each bit 0-12 of duel_core_view_get_card_action_mask, 14 px apart
+# family field_cursor_mode
+0x098a37ac,ui,ui_field_cursor_mode_enter,M,UI mode 1 enter (table 0x098d1f5c row 1): draw flags 7 on, 0x09bdd0e4 = 0
+0x098a37d4,ui,ui_field_cursor_mode_draw,M,UI mode 1 draw: ui_duel_draw_label_panel while only L is held on the local human's turn (SE 0x7a0c once)
+0x098a38dc,ui,ui_field_cursor_mode_update,M,UI mode 1 update: d-pad cursor, L+d-pad jumps (SE 0x7a04), L+buttons zone 0xe/0xf actions, R/confirm deck action 0xc
+# family field_highlights
+0x09855920,ui,ui_draw_zone_card_marker,M,list 5: card quad at the object (blinking when selectable), cursor model, chain badge number from 0x098e67b8; returns selectable
+# family flag_message_mode
+0x098a2d20,ui,ui_push_flag_message_mode,M,ui_push_duel_ui_mode(7) keeping the current mode argument; mode 7 enter 0x098a2d54 opens the flag message
+0x098a2d54,ui,ui_flag_message_mode_enter,M,mode 7 enter (table 0x098d1f5c row 7): ui_duel_open_flag_message(ui_get_duel_dict_word(2)), state 0x09bdd0b0 = 1
+0x098a2d94,ui,ui_flag_message_mode_update,M,mode 7 update: d-pad to ui_field_cursor_handle_input, confirm/0x8000 closes; pops when info panel idle (SE 0x7a0c)
+0x098a2e94,ui,ui_is_flag_message_mode_open,M,state 0x09bdd0b0 == 1; caller ui_close_active_duel_ui_mode
+0x098a2ea8,ui,ui_flag_message_mode_confirm,M,state 0x09bdd0b0 = 2 and ui_duel_signal_flag_message
+# family frame_draw
+0x098a6df4,ui,ui_draw_polyline_frame,M,window01.gim edge and corner quads along a point list (direction 1-4 per segment); list/grid panel callers
+0x098a724c,ui,ui_draw_frame_style_quad,M,window01.gim quad between two points with UVs of style param from table 0x098d2cf8 (0x58-byte rows)
+0x098a7738,ui,ui_emit_polyline_segment_down,M,edge quad of ui_draw_polyline_frame for direction 4 (same x, y increasing), UVs table 0x098d2cd8
+# family fx_render_state
+0x09879380,field_3d,field_3d_dl_clear_depth,M,select layer, ge_set_clear_depth(v), ge_write_clear(0x14), commit; callers coin toss and dice tasks
+0x0987a09c,field_3d,field_3d_dl_set_duel_scene,M,select layer, field_3d_set_duel_scene into it, commit; callers coin toss and dice tasks
+# family grid_select
+0x098a4c68,ui,ui_grid_select_open,M,clears 0x09bdd14c (0x150), copies the 11-word grid descriptor, title +0xc to 0x09bdd214; callers attribute/race dialogs
+0x098a4cd8,ui,ui_grid_select_copy_descriptor,H,copies 11 words from the descriptor to the grid state; only caller ui_grid_select_open
+0x098a4d38,ui,ui_grid_select_layout_window,M,rows from item range and columns 0x09bdd154, cell size 0x09bdd168/0x09bdd16c into window +0xcc/+0xf0/+0xf2 and its size
+0x098a4e2c,ui,ui_grid_select_open_confirm_button,M,0x098a57e4(0, 0, 100, 0x15): the confirm-button window of the grid; callers attribute/race setup
+0x098a4e40,ui,ui_grid_select_draw_grid,M,header bar, every cell via item callback 0x09bdd160, cursor frame, selected marks 0x09bdd164, confirm window below
+0x098a50ac,ui,ui_grid_select_update,M,d-pad over cells / confirm row 9 (SE 0x7a04), toggle up to max 0x09bdd174, confirm needs min 0x09bdd170 (SE 0x7a05/0x7a07)
+0x098a54ec,ui,ui_grid_select_get_width,M,caches 0x09bdd178 = cell width 0x09bdd168 x columns 0x09bdd154
+0x098a552c,ui,ui_grid_select_get_height,M,caches 0x09bdd17c = rows x cell height 0x09bdd16c + 0x2a
+0x098a55e0,ui,ui_grid_select_draw_header_bar,M,window01.gim bar in three pieces, then the hovered item's name from callback 0x09bdd15c at 10x12
+0x098a57e4,ui,ui_grid_select_create_confirm_window,M,0x120-byte list window 0x09bdd210 at (x,y,w,h), draw callback 0x098a5938, ui_open_list_window
+0x098a58f4,ui,ui_grid_select_free_confirm_window,M,ui_list_window_reset and heap free of 0x09bdd210
+0x098a5938,ui,ui_grid_select_draw_confirm_label,M,centred title 0x09bdd214 at 12x12, grey until min selections 0x09bdd170 reached, cursor frame on row 9
+# family info_panel
+0x098a6a80,ui,ui_get_info_panel,M,returns 0x09bdd43c; callers ui_duel_open_count_message and ui_duel_open_flag_message; neighbours ui_draw_info_panel
+0x098a6a98,ui,ui_set_info_panel_close_test,M,stores close-test callback 0x09bdd6c0, default 0x098a6dd0; callers the auto-close, count and flag messages
+0x098a6dd0,ui,ui_info_panel_default_close_test,M,duel_core_get_pending_action_count_result() == 0; default of ui_set_info_panel_close_test
+# family input_pending
+0x0989e934,ui,ui_set_player_input_pending,M,stores 0x098e9ac4; ui_submit_player_action and 0x098a0ccc clear it, ui_cmd_begin_player_input sets it
+0x0989e940,ui,ui_get_player_input_pending,M,returns 0x098e9ac4; ui_auto_close_message_is_done closes when it is 0
+0x098a0ccc,ui,ui_close_player_input_if_answered,M,duel_core_close_input_if_answered() != 0 -> ui_set_player_input_pending(0)
+# family location_pair
+0x0989c880,ui,ui_get_saved_location_pair_engine,M,0x0989e5d4 copies the two saved location codes, then maps bit 0 (side) of each with duel_core_view_side_to_engine
+0x0989e5d4,ui,ui_get_saved_location_pair,M,ui_copy_location_code from 0x098e9abe / 0x098e9ac0 into the two outputs; caller ui_cmd_move_card
+0x0989e624,ui,ui_set_saved_location_pair,M,stores two location codes in 0x098e9abe/0x098e9ac0, folding index 1-4 (bits 6+) into the zone bits first
+# family location_point
+0x09863b34,ui,ui_update_location_point_hold,M,holds UI event 0x19 until +0x14 >= 0.5 s, then unlocks the field cursor and deletes itself
+0x09863b84,ui,ui_start_location_point_hold,M,locks the field cursor, duel object 0x09863b34, holds UI event 0x19; caller 0x0989a468
+# family message_window
+0x098a60f8,ui,ui_is_message_window_open,M,0 when window state 0x09bdd395 is 0, 1 or 6, else 1; seven dialog update callers test it for closed
+0x098a6134,ui,ui_is_message_window_idle,M,window state 0x09bdd395 == 3; the grid update only reads input in that state
+0x098a6188,ui,ui_start_close_message_window,H,ui_list_window_start_close(0x09bdd2ac), the window of ui_open_message_window
+# family partner_switch
+0x0989c674,tag_duel,tag_duel_start_partner_switch,M,engine side mapped to view, then 0x098a28f0 pushes UI mode 10 whose update calls field_3d_board_assign_duelist(side, duelist)
+0x098a28f0,tag_duel,tag_duel_push_partner_switch_mode,M,stores side/arg/duelist/callback at 0x09bdd0a0-0x09bdd0ac, ui_push_duel_ui_mode(10); mode table 0x098d1f5c row 10
+0x098a2980,tag_duel,tag_duel_update_partner_switch_mode,M,mode 10 update (table 0x098d1f5c +8): timed by anim speed, field_3d_board_assign_duelist + 0x098522c0, pops, engine callback
+0x098a2b1c,tag_duel,tag_duel_is_partner_switch_active,M,returns state 0x09bdd090 != 0; callers board pile drawing incl. field_3d_board_draw_piles
+0x098a2b2c,tag_duel,tag_duel_get_partner_switch_fade,M,for the switching side 0x09bdd0a0: 0..1 in state 1, 1..0 in state 2 over half the anim-speed period
+0x098a2c70,tag_duel,tag_duel_get_partner_switch_progress,M,frames 0x09bdd09c over the anim-speed period for the switching side; caller ui_draw_player_portrait_panel
+# family portrait
+0x098b5b48,ui,ui_call_draw_character_portrait_image,M,only calls 0x098b5b70; caller ui_draw_character_portrait
+0x098b5b70,ui,ui_draw_character_portrait_image,M,characters 0x79-0x8d use fixed 0x33x0x54 atlas cells, others world_get_character_model_ids cells; scaled by percent
+# family portrait_expression
+0x098a36e0,ui,ui_can_open_expression_picker,M,input level < 2, UI mode not 0/5/6/8/0xb, portrait expression settled, picker not latched, not set-up mode 2
+0x098b8440,ui,ui_draw_portrait_expression_picker,M,overlay of ui_draw_duel_ui_mode when 0x09bdd0fc: frame texture 0x40026, 9 player portraits (ui_get_portrait_expression)
+0x098b8878,ui,ui_expression_picker_draw_text,M,only system_font_draw_text(x<<6, y<<6, (480-x)<<6, str); caller ui_draw_portrait_expression_picker
+# family stacked_draw
+0x098644f0,ui,ui_update_stacked_draw_wait,M,when the glow task sets +0xc: thunk_duel_core_clear_deck_stacked_flag, field_3d_board_move_object, deletes itself
+0x09864558,ui,ui_start_stacked_draw_effect,M,from ui_cmd_move_card: stores the move, duel object 0x098644f0 and deck glow task 0x0987779c; the move waits for the glow
+0x0987779c,field_3d,field_3d_create_stacked_draw_glow_task,H,ui_duel_create_draw_task(0x098777f8, 0x130 bytes), side flag +0xc; caller ui_start_stacked_draw_effect
+0x098777f8,field_3d,field_3d_update_stacked_draw_glow,M,redraws the deck pile (zone 0xd, field_3d_draw_pile_with_count) into VRAM 0x174000 and adds a glow over 16 frames
+# family summon_fx
+0x098641f8,ui,ui_start_fusion_summon_fx,M,wait object 0x3a, fusion task 0x09873274(count, materials, card); caller 0x0989bb64 for kinds 0/1 (UI event 0x3a)
+0x09864254,ui,ui_start_synchro_summon_fx,M,wait object 0x3a, synchro task 0x09874924; caller 0x0989bb64 for kind 2 (command 0x4e count|0x200 = Synchro)
+0x09873274,field_3d,field_3d_create_fusion_summon_fx_task,H,ui_duel_create_draw_task(0x09873334, 0xb5ec + 4n bytes) with n material ids at +0xb5ec and card +0x10
+0x09873334,field_3d,field_3d_update_fusion_summon_fx,M,sound 0x7a38, material card faces (field_3d_dl_bind_card_face_texture) and result card; UI event 0x3a kinds 0/1
+0x09874924,field_3d,field_3d_create_synchro_summon_fx_task,H,ui_duel_create_draw_task(0x098749e8, 0x186bc + 4n bytes) with n material ids and card +0x10
+0x098749e8,field_3d,field_3d_update_synchro_summon_fx,M,sounds 0x7a45, 0x7a38, 0x7a27; UI event 0x3a kind 2 (Synchro)
+# family turn_indicator
+0x0989e224,ui,ui_is_local_side_active,M,awaiting input per view side with 40-frame hysteresis (0x098e9ad0/ad4), else open input mode, UI mode 2/4 or turn side 0
+0x0989e310,ui,ui_is_opponent_side_active,M,!ui_is_local_side_active() && view turn side != 0; caller ui_draw_player_portrait_panel
+0x0989e3a8,ui,ui_get_field_input_block_level,M,2 in cut-in mode (flag 8), 0 when the local human is awaited and pending flag 0x098e9ac4 is clear, else 1
+# family turn_timer
+0x0989e964,ui,ui_get_turn_timer_blink,M,returns 0x098e9adc[side], set by 0x0989e97c when the turn timer changes; caller ui_draw_duel_hud
+0x0989e97c,ui,ui_update_turn_timer_blink,M,per side: duel_core_view_get_turn_timer_frames changes -> blink 0x098e9adc = 1, cleared after 30 unchanged frames
+# family view_wrappers
+0x0989d7a8,duel_core,duel_core_view_get_local_side,M,duel_core_get_local_side() == 2 ? 2 : 0 (local side is view side 0); callers use it as the human player's side
+0x0989d81c,duel_core,duel_core_view_get_turn_timer_seconds,M,side mapped then 0x09be1740: session 0x08836718 word[duelist] / 30 + 1 (turn timers, duel_core.md); caller HUD
+0x0989d840,duel_core,duel_core_view_get_turn_timer_frames,M,side mapped then 0x09be17a0: session 0x08836718 word[duelist] + 1 (turn timers); caller 0x0989e97c
+0x0989d874,duel_core,duel_core_view_can_stack_deck_card,H,side mapped then duel_core_can_stack_deck_card
+0x0989d8a0,duel_core,duel_core_view_is_awaiting_player_input,H,side mapped then duel_core_is_awaiting_player_input
+0x0989dddc,duel_core,duel_core_view_get_location_card_id,H,side mapped then duel_core_get_location_card_id
+0x0989de00,duel_core,duel_core_view_get_location_position,H,side mapped then duel_core_get_location_position
+0x0989de48,duel_core,duel_core_view_get_location_count,H,side mapped then duel_core_get_location_count
+0x0989de6c,duel_core,duel_core_view_get_location_instance,H,side mapped then duel_core_get_location_instance
+0x0989deb4,duel_core,duel_core_view_ai_has_extra_deck_card_named,H,side mapped then ai_has_extra_deck_card_named
+0x0989defc,duel_core,duel_core_view_get_zone_highlight_states,M,side mapped, 0x09c0a174 fills 2x11 u16 zone states (7 = slot prohibited), copied per view side; caller ui_update_zone_highlights
+0x0989e058,duel_core,duel_core_view_can_activate_slot_card,H,both side args mapped then duel_effects_can_activate_slot_card
+0x0989e0b0,duel_core,duel_core_view_can_activate_hand_card,H,side mapped then duel_effects_can_activate_hand_card
+# family zone_values
+0x09863730,ui,ui_update_counter_change_hold,M,duel-object update cb: holds UI event 0x27 (show counters), deletes itself when draw flag 8 is clear

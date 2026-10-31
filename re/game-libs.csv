@@ -1,0 +1,76 @@
+# Names of functions that game modules import from libraries tools/prx_imports.py cannot resolve against BOOT.BIN
+# or a --provider: the libraries exported by sub-modules that are not loaded in Ghidra (rel_cardalbum,
+# rel_charalist, rel_conv_machine, rel_decktutorial, rel_duelrecord, rel_limitlist, rel_password, rel_recipeviewer,
+# rel_select_card, rel_tutoriallist, rel_tutorial, rel_deckswap), libshop_rel (rel_shop is refreshed after
+# rel_story, so its registry names are not available when rel_story's stubs are generated), and Sony NIDs that
+# BOOT.BIN does not import. prx_imports.py names each stub thunk_<name> in <group>. Keyed by library and NID; the
+# NID -> export offset map is in the exporting module's .lib.ent. Evidence: the call sites in rel_story
+# (0x08ea2e44-0x08ea3800), rel_title (ui_title_update_*/draw_*), rel_deck (deck_run_*), rel_duel_mgr
+# (system_duel_mgr_run_*, frame callback). "start/update/draw" is the common sub-module protocol: start(args) once,
+# update() every frame until it returns non-zero (the result), draw() every frame while running.
+# Columns: library,nid,group,name,confidence,basis (ApplyNames-style CSV is generated from it, see docs/subsystems/system.md).
+library,nid,group,name,confidence,basis
+libcardalbum_rel,0xee554159,ui,ui_card_album_start,H,called once with (mode, config) by rel_story 0x08ea32a0 and ui_title_update_card_album
+libcardalbum_rel,0x43ab5667,ui,ui_card_album_update,H,polled each frame; non-zero ends the album (rel_story 0x08ea32c8, ui_title_update_card_album)
+libcardalbum_rel,0x0ab67a89,ui,ui_card_album_draw,H,called while update returns 0 (rel_story 0x08ea32c8) and from ui_title_draw_card_album
+libcharalist_rel,0x0b63a183,ui,ui_charalist_open,H,called with (mode, config) right after module 0xd loads (rel_title, rel_story 0x08ea3334)
+libcharalist_rel,0xfd65b042,ui,ui_charalist_update,H,polled after open; 1 chosen, 2 cancelled, 0 running (rel_title), rel_story 0x08ea338c
+libcharalist_rel,0x6e5ebe0f,ui,ui_charalist_update_ex,M,ui_title_update_wireless_partner_pick polls it instead of update with a flag argument; same 0/1/2 results
+libcharalist_rel,0xe11636ec,ui,ui_charalist_e11636ec,M,called with the config word before reading the selected character and variant (ui_title_get_charalist_choice); role unknown
+libcharalist_rel,0x953239e8,ui,ui_charalist_953239e8,M,export of libcharalist_rel without a caller in the analysed modules
+libcharalist_rel,0xdf67151f,ui,ui_charalist_df67151f,M,export of libcharalist_rel without a caller in the analysed modules
+libcharalist_rel,0x558dbb5f,ui,ui_charalist_558dbb5f,M,export of libcharalist_rel without a caller in the analysed modules
+libcharalist_rel,0x342a4009,ui,ui_charalist_get_selected_character,M,first picker result, stored +0x44 and passed as the opponent (rel_title minigame menu)
+libcharalist_rel,0xbac2ba34,ui,ui_charalist_get_selected_variant,M,second picker result, stored +0x48 next to the character id (rel_title)
+libcharalist_rel,0x99d1857c,ui,ui_charalist_draw,H,called only from draw paths while the picker is open (rel_title) and while update returns 0 (rel_story 0x08ea338c)
+libcharalist_rel,0xb80f59ad,ui,ui_charalist_close,M,called once the picker returned 1 or 2 (rel_title)
+libconv_machine_rel,0x0bb25540,ui,ui_conv_machine_start,H,called once by rel_story 0x08ea3210
+libconv_machine_rel,0xcd9bce9b,ui,ui_conv_machine_update,H,polled by rel_story 0x08ea3234; non-zero ends the module
+libconv_machine_rel,0x95efa5fe,ui,ui_conv_machine_draw,H,called by rel_story 0x08ea3234 while update returns 0
+libdeck_tutorial_rel,0x4e16f5a6,deck,deck_tutorial_start,H,deck_run_deck_tutorial and ui_title_update_deck_tutorial pass (lesson, {heap, archive}) after starting module 0x12
+libdeck_tutorial_rel,0x9f1777a8,deck,deck_tutorial_update,H,polled until non-zero, then module 0x12 is unloaded (rel_deck, rel_title, rel_story 0x08ea3760)
+libdeck_tutorial_rel,0xe5389f40,deck,deck_tutorial_draw,H,called from the frame callback while the tutorial runs (rel_deck) and ui_title_draw_deck_tutorial
+libduelrecord_rel,0x6adb95db,ui,ui_duel_record_start,H,called once with the config word (ui_title_update_duel_record, rel_story 0x08ea37dc)
+libduelrecord_rel,0x420f9405,ui,ui_duel_record_update,H,polled; non-zero unloads the module (ui_title_update_duel_record, rel_story 0x08ea3800)
+libduelrecord_rel,0x8d53dc42,ui,ui_duel_record_draw,H,ui_title_draw_duel_record; rel_story 0x08ea3800 while update returns 0
+liblimitlist_rel,0xe69a45d2,deck,deck_limit_list_start,H,called once with (mode, config) (ui_title_update_limit_list, rel_story 0x08ea3470)
+liblimitlist_rel,0x56e1ca7a,deck,deck_limit_list_update,H,polled; 1 done, 2 leave to the deck editor, 0 running (ui_title_update_limit_list, rel_story 0x08ea3498)
+liblimitlist_rel,0x780ba2ad,deck,deck_limit_list_draw,H,ui_title_draw_limit_list; rel_story 0x08ea3498 while update returns 0
+libpassword_rel,0x932ae9c8,ui,ui_password_start,H,called once by rel_story 0x08ea30e4
+libpassword_rel,0x516c75f9,ui,ui_password_update,H,polled by rel_story 0x08ea3108; non-zero ends the module
+libpassword_rel,0x69b41c27,ui,ui_password_draw,H,called by rel_story 0x08ea3108 while update returns 0
+librecipe_viewer_rel,0x98e7e882,deck,deck_recipe_viewer_start,H,deck_run_recipe_viewer passes mode, {heap, archive, callbacks} and the slot; rel_story 0x08ea3044 (0,0,1,1)
+librecipe_viewer_rel,0x099048e2,deck,deck_recipe_viewer_update,H,polled while it returns -1 (deck_run_recipe_viewer, rel_story 0x08ea3074)
+librecipe_viewer_rel,0x363d43c5,deck,deck_recipe_viewer_draw,H,called from the frame callback while the viewer runs (rel_deck, rel_title draw state, rel_story 0x08ea3074)
+libselect_card_rel,0xbf2b46d7,ui,ui_select_card_open,H,called with (mode, {heap, art reader, archive}, &count, list) after module 0x1d loads (rel_title card trade, rel_story 0x08ea3174)
+libselect_card_rel,0x5b395307,ui,ui_select_card_update,H,polled each frame; 1 = picking finished (rel_title), rel_story 0x08ea31a4
+libselect_card_rel,0x0787468b,ui,ui_select_card_0787468b,M,read by the card-trade gate query 0x08edceac (rel_title); role unknown
+libselect_card_rel,0x4d3d501f,ui,ui_select_card_close,M,called by ui_card_trade_release when the picker is open
+libselect_card_rel,0xcfa64443,ui,ui_select_card_draw,H,ui_title_draw_module_overlays in card-trade mode; rel_story 0x08ea31a4 while update returns 0
+libselect_card_rel,0xae4aa6ec,ui,ui_select_card_ae4aa6ec,M,export of libselect_card_rel without a caller in the analysed modules
+libshop_rel,0x9b8ed106,shop,shop_lib_start,H,rel_shop +0x9580 (0x090d8280): clears the work area, creates a 0x640000 heap, shop_init_scene; rel_story 0x08ea2ef0 passes (flag 4, weekday)
+libshop_rel,0xcaa9b5d8,shop,shop_run_frame,H,rel_shop +0x960c (0x090d830c, registry name); rel_story 0x08ea2f58 polls it
+libshop_rel,0x83ffb9fb,shop,shop_lib_draw,H,rel_shop +0x9630 (0x090d8330): jump to shop_draw_scene; rel_story calls it while the shop runs
+libshop_rel,0xb2dbe2bd,shop,shop_lib_shutdown_step,H,rel_shop +0x9638 (0x090d8338): releases sounds, UI, resources and the heap in steps, 1 when done; rel_story 0x08ea2fb4 polls it
+libshop_rel,0xbc3bd8c0,shop,shop_load_scene_step,H,rel_shop +0xd044 (0x090dbd44, registry name); rel_story 0x08ea2ef0 polls it after start
+libtutoriallist_rel,0x41015b0f,ui,ui_tutorial_list_start,H,called once with (current lesson, config) (ui_title_update_tutorial_list, rel_story 0x08ea3534)
+libtutoriallist_rel,0xcf2830ff,ui,ui_tutorial_list_update,H,polled; 1 chosen, 2 cancelled, 0 running (ui_title_update_tutorial_list, rel_story 0x08ea3564)
+libtutoriallist_rel,0xf498562a,ui,ui_tutorial_list_get_selection,H,read after update returns 1; < 8 a lesson, 8-0x17 a duel set-up mode (rel_title, rel_story 0x08ea3564)
+libtutoriallist_rel,0xc1b2b589,ui,ui_tutorial_list_draw,H,ui_title_draw_tutorial_list; rel_story 0x08ea3564 while update returns 0
+libtutorial_rel,0x268b762c,duel_core,duel_core_tutorial_start_lesson,H,rel_tutorial +0x3748 (names-rel_tutorial.csv); system_duel_mgr_run_tutorial passes lesson +0x193 and two callbacks
+libtutorial_rel,0x377afcad,duel_core,duel_core_tutorial_update,H,rel_tutorial +0x3864; called every frame by system_duel_mgr_frame_callback in the tutorial state
+libtutorial_rel,0x6a6888a5,duel_core,duel_core_tutorial_shutdown,H,rel_tutorial +0x3974; called before module 0xb is unloaded
+libtutorial_rel,0xcdb4377f,duel_core,duel_core_tutorial_filter_input,H,rel_tutorial +0x39b4 (names-rel_tutorial.csv)
+libtutorial_rel,0xf57728c7,duel_core,duel_core_tutorial_on_ui_event,H,rel_tutorial +0x3df8 (names-rel_tutorial.csv)
+libtutorial_rel,0x4d8b6479,duel_core,duel_core_tutorial_gate_duel_flow,H,rel_tutorial +0x4310 (names-rel_tutorial.csv)
+libtutorial_rel,0xde7bf13b,duel_core,duel_core_tutorial_check_cursor,H,rel_tutorial +0x43a8 (names-rel_tutorial.csv)
+libtutorial_rel,0x72aedb62,duel_core,duel_core_tutorial_fire_event_handler,H,rel_tutorial +0x4548 (names-rel_tutorial.csv)
+libtutorial_rel,0x4acb6495,duel_core,duel_core_tutorial_on_answer,H,rel_tutorial +0x457c (names-rel_tutorial.csv)
+libtutorial_rel,0x212f04f0,duel_core,duel_core_tutorial_redraw_hint,H,rel_tutorial +0x45f8 (names-rel_tutorial.csv)
+libtutorial_rel,0x5493f091,duel_core,duel_core_tutorial_is_busy,H,rel_tutorial +0x4624 (names-rel_tutorial.csv)
+libtutorial_rel,0x3badb924,duel_core,duel_core_tutorial_on_duel_end,M,rel_tutorial +0x468c; the frame callback calls it when duel_core_run_duel_flow returns 1
+libtutorial_rel,0x03787c68,duel_core,duel_core_tutorial_is_finished,M,rel_tutorial +0x46dc; system_duel_mgr_run_tutorial leaves the tutorial state when it returns 1
+libdeck_swap_rel,0x02a2e785,deck,deck_swap_start,H,system_duel_mgr_run_deckswap passes (set-up block, save_get_card_list_count, set-up + 0xc0, 0) after module 10 loads
+libdeck_swap_rel,0xc5289073,deck,deck_swap_update,H,polled by system_duel_mgr_run_deckswap; 1 = done, then module 10 is unloaded
+libdeck_swap_rel,0x993bd8e1,deck,deck_swap_draw,H,called by system_duel_mgr_frame_callback in the deck-swap state
+sceRtc,0xe7c27d1b,sdk,sceRtcGetCurrentClockLocalTime,H,Sony NID of sceRtcGetCurrentClockLocalTime; caller deck_save_to_stored_deck (deck date)

@@ -86,7 +86,7 @@ A door opens (`t` → 1, `t += 0.1 + 0.1·t` per frame, sound `0x090db820(kind)`
 | 12, 37 | mode 0, or event flag | the nine door cells |
 | 12, 37 | mode 1 at light period 4 | the door cells of maps 13–19 and 40: `(15, 24)`, `(15, 20)`, `(15, 16)`, `(15, 12)`, `(13, 24)`, `(13, 20)`, `(13, 16)` |
 
-Movement also consults a per-cell occupancy word (`world_get_cell_occupant` / `world_set_cell_occupant`, a `u32` grid at `*(0x098997f0)`): NPC movement writes 3 at its cells, the partner's free-cell search rejects 3 and the player's collision rejects 5 (meaning of 5 open). Pick-up items are 8 runtime slots of `0x60` bytes at `0x09896ec0` (`world_take_pickup_at_cell`, field action 15). Both are runtime state.
+Movement also consults a per-cell occupancy word (`world_get_cell_occupant` / `world_set_cell_occupant`, a `u32` grid at `*(0x098997f0)`): NPC movement writes 3 at its cells, pick-up items write 4 at theirs (`world_update_pickups`, `rel_field` `0x090e1ba4`: `world_set_cell_occupant(x / 0.5, z / 0.5, 4)` per active slot; added 2026-10-31), the partner's free-cell search rejects 3 and the player's collision rejects 5 (meaning of 5 open). Pick-up items are 8 runtime slots of `0x60` bytes at `0x09896ec0` (`world_take_pickup_at_cell`, field action 15). Both are runtime state.
 
 ## Floor height
 

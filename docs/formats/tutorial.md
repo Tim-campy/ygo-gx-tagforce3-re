@@ -226,7 +226,7 @@ The `.ydq` loader also posts `0x29` (slot flag bit), `0x35` (equip record), `0x3
 | `rel_duel_eng +0x1e6ecc` (`0x09dc82cc`) | `duel_core_parse_ydq_line` | H | All `.ydq` key strings (`0x09e01be8`–`0x09e01d94`) are referenced only here. |
 | `rel_duel_eng +0x1e6e08` (`0x09dc8208`) | `duel_core_set_phase` | M | Stores the phase in `0x09e2d1e8`; called for `Phase=` and by the tutorial for commands 10–15. |
 | `rel_duel_eng +0x1df3f8` (`0x09dc07f8`) | `duel_core_push_command` | H | Appends `(u16 op, a, b, c)` to the 256-entry queue `0x09e29100`. |
-| `rel_duel_eng +0x44c` (`0x09be184c`) | `duel_core_set_turn` | H | Writes `0x09e2d1e0`. |
+| `rel_duel_eng +0x44c` (`0x09be184c`) | `duel_core_set_turn_counter` (formerly `duel_core_set_turn`) | H | Writes `0x09e2d1e0`. |
 | `rel_duel_eng +0x1d64dc` (`0x09db78dc`) | engine command `0x27` handler | M | Field cursor, UI event 8 (above). Not renamed here: the `duel_eng` names are kept by another work stream. |
 | `rel_duel_eng +0x1dde3c` (`0x09dbf23c`) | engine command `0x2c` handler | M | Trap monster placement (above). |
 | `rel_duel_eng +0x1da3d8` (`0x09dbb7d8`) | engine command `0x56` handler | H | Draw. |

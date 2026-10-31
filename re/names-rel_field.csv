@@ -343,7 +343,7 @@ address,group,name
 0x090dcc84,world,world_field_req_update_npc,M,request handler: moves one NPC to a cell and overrides direction/fields when not -1 (request 8)
 0x090de53c,world,world_field_req_set_partner,M,request handler: row -1 removes, else context +0x18, world_spawn_partner, portrait load
 0x090de600,world,world_field_req_begin_walk,M,request handler: enables talk scan 0x0910c5fc, command state 0 or 0xc, or opens command bar mode 6
-0x090dee74,world,world_field_req_bind_ui,M,request handler: stores UI archive 0x0910c620, binds resources 0/1, card display and HUD layouts
+0x090dee74,world,world_field_on_ui_resource_loaded,H,completion callback that world_field_req_scene_setup passes to world_field_load_fixed_resource: binds UI resources 0/1, card display, partner anim; clears 0x0910c5f0; was world_field_req_bind_ui
 0x090df2ec,world,world_field_req_place_player,M,request handler (x, z, dir): player object for row of (1,0), floor height (request 9)
 # family field_resource_loader
 0x090e1690,ui,ui_field_queue_resource_load,M,allocs a 0x1c-byte node on the field heap (0x090e025c) and links it into the load queue 0x0910cc8c/0x0910cc90 (optional insert after head)
@@ -555,3 +555,92 @@ address,group,name
 0x090d396c,system,system_copy_vec4,M,copies four words
 0x090d3ecc,system,system_copy_matrix4,M,copies 16 words
 0x090d69b4,system,system_copy_vec2,M,copies two words (screen positions)
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family card_get
+0x090d5910,ui,ui_field_render_card_get_texture,M,phases 0/1: renders ui_draw_card_blank / ui_draw_card_face(0x09106790) into EDRAM +0x160000 (128x256) and binds it as texture
+# family field_audio
+0x090d1438,audio,audio_field_set_sound_volume_1500ms,M,disassembly: tail jump to thunk_audio_set_sound_volume with a2 = 1500; caller world_play_map_ambient_sounds
+0x090dc0ac,audio,audio_field_stop_se_500ms,M,disassembly: tail jump to BOOT 0x0884195c (stop sound effects with arg) with a0 = 500; caller world_field_req_end_field
+# family field_hud
+0x090d6278,ui,ui_field_hud_update_panel_slide,M,state 0x091069a0 = 1: system_vfpu_vector2_lerp with eased t 0x091069ac until 1.0 (state 2); writes s16 position 0x091069bc/be
+# family field_message
+0x090e6c9c,ui,ui_field_get_message_window_db4,M,returns 0x09899db4 (message window block 0x09899db0); 5 update callers poll it
+0x090e6ccc,ui,ui_field_set_message_window_dcc,M,stores arg in 0x09899dcc (message window block); next to set_message_font_size/set_message_wait_input
+# family field_objects
+0x090d3994,world,world_set_object_draw_param_5b00,M,stores arg in 0x09105b00; caller world_draw_object_list, next to the shadow functions
+# family field_request_polls
+0x090cf6bc,dialogue,dialogue_field_poll_preload_portraits,H,request 11 poll: 0x09105340 == 0 (function created)
+0x090cf708,dialogue,dialogue_field_poll_release_portraits,H,request 12 poll: 0x09105344 == 0 (function created)
+0x090cf8bc,dialogue,dialogue_field_poll_show_portraits,H,request 13 poll: 0x09105348 == 0 (function created)
+0x090cf968,dialogue,dialogue_field_poll_set_portrait_expressions,H,request 14 poll: 0x0910534c == 0 (function created)
+0x090cf9f0,dialogue,dialogue_field_poll_close_talk_windows,H,request 15 poll: 0x09105350 == 0 (function created)
+0x090d2280,world,world_field_poll_release_character_models,H,request 5 poll: 0x09105930 == 0 (function created)
+0x090d28e4,dialogue,dialogue_field_poll_talk_line,H,request 17 poll: 0x09105934 == 0 (function created)
+0x090d2b54,dialogue,dialogue_field_poll_choice_menu,H,request 18 poll: writes the chosen option 0x09105a84, done when 0x09105938 == 0 (function created)
+0x090d327c,ui,ui_field_poll_picture,H,request 19 poll: 0x09105a88 == 0 (function created)
+0x090d48c4,world,world_field_poll_camera_shake,H,request 20 poll: shake time 0x09106710 == 0 (function created)
+0x090d48f0,world,world_field_poll_stop_camera_shake,H,request 21 poll: 0x09106714 == 0 (function created)
+0x090d84e0,world,world_field_poll_set_event_mode,H,request 1 poll: 0x09106b90 == 0 (function created)
+0x090d8528,world,world_field_poll_island_map,H,request 2 poll: 0x09106b94 == 0 (function created)
+0x090d85d8,world,world_field_poll_start_field,H,request 31 poll: 0x09106b98 == 0 (function created)
+0x090d8688,world,world_field_poll_end_field,H,request 32 poll: 0x09106b9c == 0 (function created)
+0x090d8748,world,world_field_poll_fade,H,request 22 poll: 0x09106ba0 == 0 (function created)
+0x090d8790,ui,ui_field_poll_dp_change,H,request 24 poll: 0x09106ba4 == 0 (function created)
+0x090d8894,ui,ui_field_poll_hud_marker,H,request 26 poll: 0x09106ba8 == 0 (function created)
+0x090d88b4,world,world_field_poll_req_27,H,request 27 poll: 0x09106bac == 0 (function created)
+0x090d88d4,ui,ui_field_poll_partner_points_anim,H,request 28 poll: 0x09106bb0 == 0 (function created)
+0x090d92f0,world,world_field_poll_load_map,H,request 3 poll: map loading flag 0x09106be0 == 0 (function created)
+0x090d9334,world,world_field_poll_release_map,H,request 4 poll: 0x09106be4 == 0 (function created)
+0x090dcc6c,world,world_field_poll_npc_list,H,request 7 poll: 0x09107010 == 0 (function created)
+0x090dcdd4,world,world_field_poll_update_npc,H,request 8 poll: 0x09107014 == 0 (function created)
+0x090de4f0,world,world_field_poll_scene_setup,H,request table +0x2df0c entry 0 poll: 0x0910c5f0 == 0 (function created)
+0x090de524,world,world_field_poll_place_player,H,request 9 poll: 0x0910c5f4 == 0 (function created)
+0x090de5e8,world,world_field_poll_set_partner,H,request 10 poll: 0x0910c5f8 == 0 (function created)
+0x090de81c,world,world_field_poll_buy_sandwich,H,request 25 poll: writes the result 0x0910c61c, done when 0x0910c600 == 0 (function created)
+0x090de85c,ui,ui_field_poll_show_card_get,H,request 23 poll: 0x0910c604 == 0 (function created)
+0x090e1eb0,world,world_field_poll_spawn_pickups,H,request 6 poll: 0x09896eb0 == 0 (function created)
+0x090eb59c,world,world_field_poll_req_30,H,request 30 poll: 0x09899e0c == 0, then result 0 (function created)
+# family field_requests
+0x090cf980,dialogue,dialogue_field_req_close_talk_windows,M,request 15 start (story close_talk/close_talk_of): for each listed active slot sets its close flag and state 3 (function created)
+0x090d48dc,world,world_field_req_stop_camera_shake,H,request 21 start: clears the shake time 0x09106710 and strength 0x09106714 (function created)
+0x090d8760,ui,ui_field_req_dp_change,H,request 24 start (story dp_add/dp_sub): ui_field_start_dp_change(delta, 200, 100), busy 0x09106ba4
+0x090d88ac,world,world_field_req_store_param_27,M,request 27 start: stores the first parameter word in 0x09106b18 (meaning unknown; story world_send_field_request_27) (function created)
+0x090d88cc,ui,ui_field_req_partner_points_anim,H,request 28 start (story partner_points_add): jump to ui_field_req_set_partner_icon_anim(*param) (function created)
+0x090de508,world,world_field_req_place_player_at,H,request 9 start: sets 0x0910c5f4 and jumps to world_field_req_place_player with (x, z, dir) from the parameters (function created)
+0x090de7bc,world,world_field_req_buy_sandwich,M,request 25 start (story buy_sandwich): stores {a, character key of row b}, command state 0x11 (sandwich roulette), busy 0x0910c600
+0x090de840,ui,ui_field_req_show_card_get,H,request 23 start (story give_card): sets 0x0910c604 and jumps to ui_field_show_card_get (field_strtbl word 5, card name, SE 0x7a0c) (function created)
+0x090eb584,world,world_field_req_30,M,request 30 start: sets 0x09899e10 and 0x09899e0c to 1 (neighbour of the field save dialog; meaning unknown) (function created)
+# family field_stubs
+0x090d25f4,dialogue,dialogue_stub_noop_talk_release,M,jr ra; called by dialogue_reset_talk and world_field_shutdown_components
+0x090d2b78,dialogue,dialogue_stub_return_arg_talk_draw,M,returns its display-list argument; caller dialogue_draw_talk
+0x090d2f14,ui,ui_field_stub_noop_picture_release,M,jr ra; called by ui_field_reset_picture and world_field_shutdown_components
+0x090d33b0,ui,ui_field_stub_noop_day_banner_release,M,jr ra; called by ui_field_reset_day_banner and world_field_shutdown_components
+0x090d4710,world,world_stub_noop_camera_shake_reset,M,jr ra; called by world_field_reset_components, next to the camera-shake functions
+0x090d4718,world,world_stub_noop_camera_shake_shutdown,M,jr ra; called by world_field_shutdown_components, next to the camera-shake functions
+0x090d6370,ui,ui_field_hud_stub_noop_free_location_name,M,jr ra; called by ui_field_hud_free; follows world_show_location_name
+0x090d68d8,ui,ui_field_hud_stub_noop_free_date_panel,M,jr ra; called by ui_field_hud_free; follows the date-panel draw functions
+0x090d72f4,ui,ui_field_hud_stub_noop_free_target_info,M,jr ra; called by ui_field_hud_free; follows ui_field_hud_draw_target_info
+0x090d7494,ui,ui_field_hud_stub_noop_free_time_icon,M,jr ra; called by ui_field_hud_free; follows ui_field_hud_draw_time_icon
+0x090d7aa8,ui,ui_field_hud_stub_noop_free_partner_panel,M,jr ra; called by ui_field_hud_free; follows ui_field_hud_draw_partner_panel
+0x090d7ddc,ui,ui_field_hud_stub_noop_free_points_meter,M,jr ra; called by ui_field_hud_free; follows ui_field_hud_draw_points_meter
+0x090db6d8,world,world_stub_noop_map_update_hook,M,jr ra; called from world_update_map
+0x090db6e0,world,world_stub_noop_map_draw_hook,M,jr ra; called from world_draw_map
+0x090db6e8,world,world_stub_noop_map_free_hook,M,jr ra; called from world_free_map_models
+# family font_px_wrappers
+0x090d2c98,dialogue,dialogue_draw_text_to_screen_edge,H,disassembly: font_draw_text(x<<6, y<<6, (480-x)<<6, text); caller dialogue_draw_choice_item
+0x090d386c,ui,ui_field_draw_text_to_screen_edge,H,disassembly: font_draw_text(x<<6, y<<6, (480-x)<<6, text); caller ui_draw_outlined_text
+0x090d72c0,ui,ui_field_hud_draw_text_to_screen_edge,H,disassembly: font_draw_text(x<<6, y<<6, (480-x)<<6, text); caller ui_field_hud_draw_target_info
+0x090d72e0,ui,ui_field_hud_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width
+# family map_archive
+0x090d0dd0,world,world_get_name_after_dot,M,returns strstr(name, ".") + 1 (string 0x090fc148 = "."); caller world_bind_map_archive
+# family map_render
+0x090da484,field_3d,field_3d_set_map_variant_group_mask,M,disassembly: builds a 32-bit group mask (groups 0-4/5-9/10-14 by variant a1), tail call thunk_field_3d_set_group_mask(a0, mask)
+0x090db30c,field_3d,field_3d_map_stencil_draw_callback,M,draw-state callback (phase t0): 0 = pixel mask, depth write, stencil func(1,1,0xff) op REPLACE; 1 = masks off
+0x090db6c0,world,world_install_map_material_callback,H,field_3d_exchange_draw_state(map model 0x09106bf0, 1, 0x090db6f0); caller world_bind_map_archive
+0x090db6f0,field_3d,field_3d_map_material_dd_callback,M,material name longer than 6 containing "_DD."/"_Dd."/"_dD."/"_dd." -> GE enable on phase 1, disable on phase 0
+0x090db920,field_3d,field_3d_begin_map_stencil_pass,M,clear stencil 0, stencil test func(1,0,0xff), depth write on, pixel mask 0xffffff; caller world_draw_map
+0x090db99c,field_3d,field_3d_draw_map_stencil_volume,M,gum transforms per map (3, 0x26, 0xd-0x14) then two draw_array passes with front face 1/0 and stencil ops 4/5
+0x090dbcbc,field_3d,field_3d_draw_stencil_pulse_overlay,M,full-screen sprite 0x1e0x0x110 where stencil test 4, colour 0x8080ff with alpha pulsing over frame timing %40
+# family sandwich
+0x090e1dc4,world,world_get_sandwich_roulette_entry,M,returns &table 0x090f831c[8*i]; callers world_sandwich_roulette_start/draw_icon/spin

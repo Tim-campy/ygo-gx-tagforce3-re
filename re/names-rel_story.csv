@@ -368,7 +368,7 @@ address,group,name
 0x08ea9850,dialogue,dialogue_op_bgm,H,story.md handler 0xee50 (50155): audio_play_bgm(dialogue_map_bgm_track(a1))
 0x08ea98a4,dialogue,dialogue_op_scene_map,H,story.md 50158: event state +0x14 = map, +0x18 = b; b = 2 sets system flag 30
 0x08ea9928,dialogue,dialogue_op_scene_player,H,story.md 50159: world_set_player_position(x*0.5+0.25, y*0.5+0.25, mapped direction)
-0x08ea99c4,dialogue,dialogue_op_npc_place,H,50160/50161 (value 2): record +0x40 = variant of character-table row a2 (world_get_character_key)
+0x08ea99c4,dialogue,dialogue_op_npc_set_variant,H,50160/50161: world_get_character_key(row a2) -> world_set_record_event_variant(char a1, variant); was dialogue_op_npc_place
 0x08ea9a68,dialogue,dialogue_op_nop_50163,H,empty handler at the 50163 position (story.md nop)
 0x08ea9a70,dialogue,dialogue_op_npc_value_44,M,story.md op_50164: record +0x44 = a2
 0x08ea9a9c,dialogue,dialogue_op_nop_50165,H,empty handler at the 50165 position (story.md nop)
@@ -569,3 +569,83 @@ address,group,name
 0x08ea9f20,dialogue,dialogue_test_bool_b,H,story.md 0xf520 test helper: mode 1 -> value != 0, mode 2 -> value == 0
 0x08ea9f88,dialogue,dialogue_is_block_opener,H,story.md 0xf588: true for case/random_case with n = 1 and for 0xc35e-0xc37e (50014-50046)
 0x08ea9fd8,dialogue,dialogue_is_block_closer,H,story.md 0xf5d8: true for case 11 and for endif opcodes 0xc37f-0xc39f
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family character_flags
+0x08eac1e4,world,world_set_flag1_if_partner_deck,M,when world_character_has_partner_deck: save_set_character_flag_bit1(char, variant)
+0x08eac228,world,world_set_flags_0_3_if_duel_allowed,M,when BOOT world_character_allowed_in_mode: save_set_character_flag_bit0 and bit3; called by every duel set-up
+# family dialogue_ops
+0x08ea94ec,dialogue,dialogue_op_set_block_3570_50141,M,story.md opcode 50141 = 0xa96c(1): world_set_story_block_3570_word4(1)
+# family duel_setup
+0x08ea4150,world,world_init_duel_setup_mode,M,memset(0x08ece420, 0, 8): duel set-up mode word (world_set_duel_setup_mode) and its flag byte 0x08ece424
+0x08ea4164,world,world_term_duel_setup_mode,M,same memset of 0x08ece420 from world_term_story_globals
+# family exit_cells
+0x08eab200,world,world_bind_exit_tables,M,stores tables 0x08eba368/0x08eba584 in 0x08ecea5c/0x08ecea60, read by world_get_exit_cells/world_select_exit_group
+# family field_actions
+0x08ea3d00,world,world_handle_item_menu_action,M,action 18 (world.md): field request 30 and wait; result 0 -> scene mode 0 and story state 5, else state 0xc
+# family field_state
+0x08ea5aac,world,world_set_field_state_160,M,u16 field state (0x08ece52c) +0x160 = arg; read back by dialogue_op_if_value_160
+0x08ea5abc,world,world_set_field_state_162,M,u16 field state +0x162 = arg; read back by dialogue_op_if_value_162
+0x08ea5acc,world,world_set_field_state_164,M,word field state +0x164 = arg; read back by dialogue_op_if_value_164
+0x08ea5adc,world,world_get_field_state_160,H,returns u16 field state +0x160; caller dialogue_op_if_value_160
+0x08ea5aec,world,world_get_field_state_162,H,returns u16 field state +0x162; caller dialogue_op_if_value_162
+0x08ea5afc,world,world_get_field_state_164,H,returns word field state +0x164; caller dialogue_op_if_value_164
+0x08ea5b0c,world,world_set_field_state_168,M,word field state +0x168 = arg; story init and world_driver_handle_result (0)
+0x08ea5b1c,world,world_get_field_state_168,H,returns word field state +0x168; caller dialogue_expand_name_tokens
+# family map_pickups
+0x08e9adc8,world,world_bind_map_pickup_table,M,stores arg in 0x08ec90a0 (map pickup table pointer, memset by world_init_map_pickup_table); caller dialogue_bind_script_tables
+# family name_tokens
+0x08eadd3c,dialogue,dialogue_get_location_map_name,M,disassembly: clamps (a0-1 < 32, a1-1 < 2), table 0x08eb6570[8*a0+4*a1], tail call ui_field_get_map_name
+# family opcode_handlers
+0x08ea8170,dialogue,dialogue_op_if_setting_b0_bit3,H,50042: dialogue_test_bool(save_test_setting_b0_bit3(), a1), else skip_to 0xc39b
+0x08ea87dc,dialogue,dialogue_op_mark_card,H,50100: tail jump to thunk_card_db_mark_card(a1) (story.md mark_card); Ghidra shows an empty body
+0x08ea980c,dialogue,dialogue_op_prefetch_bgm,H,50154: audio_prefetch_snddat_block(dialogue_map_bgm_track(a1))
+# family scene_ctx
+0x08ea0564,world,world_story_frame_callback,M,world_run_overlay_frame_callback, then the optional function pointer 0x08ecd98c; no direct callers (installed callback)
+# family story_bgm
+0x08ea1b58,audio,audio_restore_story_sounds_after_submodule,M,for sub-module result 0x08ecd974 = 2/8/9 or 7 (charalist mode 0x08ecd994 != 3): audio_fade_out_bgm + audio_request_story_sounds
+0x08eaa930,audio,audio_story_stop_all_sounds_1500ms,M,disassembly: tail jump to BOOT 0x08841914 (stop all sounds with arg) with a0 = 1500; next to audio_fade_out_bgm/stop_bgm
+# family story_globals
+0x08e9eba0,world,world_init_story_global_d96c,M,memset(0x08ecd96c, 0, 2); init list world_init_story_globals
+0x08e9ebb4,world,world_term_story_global_d96c,M,memset(0x08ecd96c, 0, 2); teardown list world_term_story_globals
+0x08ea5324,world,world_init_story_global_e4c8,M,memset(0x08ece4c8, 0, 0x10); init list world_init_story_globals
+0x08ea5338,world,world_term_story_global_e4c8,M,memset(0x08ece4c8, 0, 0x10); teardown list world_term_story_globals
+0x08ea536c,world,world_set_story_block_3570_word4,M,*(0x08ece4d8)+4 = arg; 0x08ece4d8 holds story block +0x3570 (world_bind_story_block_3570)
+0x08ea55e4,world,world_init_story_global_e514,M,memset(0x08ece514, 0, 0x10); init list world_init_story_globals
+0x08ea55f8,world,world_term_story_global_e514,M,memset(0x08ece514, 0, 0x10); teardown list world_term_story_globals
+0x08eaa5ec,world,world_init_story_global_ea4c,M,memset(0x08ecea4c, 0, 4); init list world_init_story_globals
+0x08eaa600,world,world_term_story_global_ea4c,M,memset(0x08ecea4c, 0, 4); teardown list world_term_story_globals
+# family story_stubs
+0x08e9c3d8,world,world_stub_noop_island_map_open,M,jr ra; called from world_state_open_island_map
+0x08ea531c,world,world_stub_noop_counter_pickup,M,jr ra; called from world_collect_map_counter_item
+0x08ea564c,world,world_stub_noop_partner_talk_init,M,jr ra; init list entry next to the partner-talk accessors
+0x08ea5654,world,world_stub_noop_partner_talk_term,M,jr ra; teardown list entry next to the partner-talk accessors
+# family sub_module_states
+0x08ea2e44,world,world_state_init_field_module,M,world_field_init_module, wait a frame, 0x08835ad0(1)
+0x08ea2e70,world,world_state_run_field_frame,M,world_field_update then world_field_draw
+0x08ea2e94,world,world_state_shutdown_field_module,M,waits field sync, clears the overlay callback, polls world_field_shutdown_step until done, forces the location set-up
+0x08ea2ef0,world,world_state_start_shop,H,shop_lib_start(system flag 4, weekday), polls shop_load_scene_step until ready
+0x08ea2f58,world,world_state_update_shop,H,shop_run_frame; 0 -> shop_lib_draw, else result 1 and next state 0xf
+0x08ea2fb4,world,world_state_shutdown_shop,H,polls shop_lib_shutdown_step until done; 0x0883de9c == 4 leaves to scene mode 2
+0x08ea3044,world,world_state_start_recipe_viewer,H,deck_recipe_viewer_start(0, 0, 1, 1)
+0x08ea3074,world,world_state_update_recipe_viewer,H,deck_recipe_viewer_update; -1 -> draw, else result 2
+0x08ea30e4,world,world_state_start_password,H,ui_password_start()
+0x08ea3108,world,world_state_update_password,H,ui_password_update; 0 -> draw, else result 3
+0x08ea3174,world,world_state_start_select_card,H,ui_select_card_open(0, 0, 0, 0)
+0x08ea31a4,world,world_state_update_select_card,H,ui_select_card_update; 0 -> draw, else result 4, next state 0x18
+0x08ea3210,world,world_state_start_conv_machine,H,ui_conv_machine_start()
+0x08ea3234,world,world_state_update_conv_machine,H,ui_conv_machine_update; 0 -> draw, else result 5
+0x08ea32a0,world,world_state_start_card_album,H,ui_card_album_start(1, 0)
+0x08ea32c8,world,world_state_update_card_album,H,ui_card_album_update; 0 -> draw, else result 6
+0x08ea3334,world,world_state_start_charalist,H,ui_charalist_open(system flag 0x14 ? 3 : 1, 0)
+0x08ea338c,world,world_state_update_charalist,H,ui_charalist_update; result 7; with system flag 0x14 also resets location 0xe, calendar, records and selects the partner event
+0x08ea3470,world,world_state_start_limit_list,H,deck_limit_list_start(1, 0)
+0x08ea3498,world,world_state_update_limit_list,H,deck_limit_list_update; 2 -> scene mode 3 (deck editor), 0 -> draw, else result 8
+0x08ea3534,world,world_state_start_tutorial_list,H,ui_tutorial_list_start(scene word 0, 0)
+0x08ea3564,world,world_state_update_tutorial_list,H,ui_tutorial_list_update; 1: selection 0-7 lesson, 8-0x17 duel set-up mode 0-15 and a default duel; result 9
+0x08ea3730,world,world_state_start_deck_tutorial,H,deck_tutorial_start(scene word 0, 0)
+0x08ea3760,world,world_state_update_deck_tutorial,H,deck_tutorial_update; 0 -> draw, else result 10, next state 0x25
+0x08ea37dc,world,world_state_start_duel_record,H,ui_duel_record_start(0)
+0x08ea3800,world,world_state_update_duel_record,H,ui_duel_record_update; 0 -> draw, else result 11
+# family talk_windows
+0x08eac798,dialogue,dialogue_call_close_talk_windows,H,disassembly: j dialogue_close_talk_windows (next function); caller dialogue_op_close_talk_of

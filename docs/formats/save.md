@@ -41,7 +41,7 @@ All integers little-endian. The state is a raw copy of in-memory structures: unu
 | --- | --- | --- | --- | --- |
 | `0x00000` | 4 | Version `0x30000`; the load path rejects another value. | H | `save_init_new_game` writes it; load tasks compare it. |
 | `0x00004` | 8 | Two `u32`, **unknown** (0 in the analysed save). | — | No access through `save_get_state` found. |
-| `0x0000c` | 4 | `u32` frame counter: +1 per main-loop iteration, saturating at `0xffffffff` (play time in frames; 3,449 in the analysed save). | M | `save_tick_frame_counter` (`0x088359f4`), called by `system_main`; also read by `rel_debug_menu`. |
+| `0x0000c` | 4 | `u32` frame counter: +1 per main-loop iteration, saturating at `0xffffffff` (play time in frames; 3,449 in the analysed save). | M | `system_run_frame_services` (`0x088359f4`, formerly `save_tick_frame_counter`), called by `system_main`; also read by `rel_debug_menu`. |
 | `0x00010` | 16 | The console's OpenPSID (`sceOpenPSIDGetOpenPSID(state + 0x10)`). | H | `save_init_new_game`; checksum above. |
 | `0x00020` | 50 × `0x174` | Stored deck records (below). | M | `save_get_stored_deck(n)` = `+0x20 + 0x174n`; 50 records end exactly at the deck slots. |
 | `0x048c8` | 127 × `0x16c` | Deck slots 0–126 (below). | H | `deck_get_slot_cards` (`+0x4914 + 0x16c·s`), `save_reset_deck_slot` (`+0x48c8`). |

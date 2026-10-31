@@ -328,7 +328,7 @@ address,group,name
 0x08864300,card_db,card_db_can_be_normal_summoned
 0x0885f944,card_db,card_db_get_next_alias_id
 0x088630d8,card_db,card_db_get_evolution_relatives
-0x0882b964,system,system_movie_create_player
+0x0882b964,system,system_movie_play,H,creates the sceMpeg player, starts display/read/sound threads, runs system_movie_flush_video, waits for the threads and tears everything down; was system_movie_create_player
 0x0882c294,system,system_movie_flush_video
 0x0882c4d0,system,system_movie_query_stream
 0x0882d554,system,system_movie_decode_audio
@@ -376,7 +376,7 @@ address,group,name
 0x088669e4,card_db,card_db_is_unnegatable_card
 0x08866470,card_db,card_db_gains_spell_counter_on_spell
 0x08835de0,save,save_get_state_size
-0x088359f4,save,save_tick_frame_counter
+0x088359f4,system,system_run_frame_services,H,per main-loop iteration: game-state play-time counter +0xc, 0x08835bf0(4) when 0x08aa5698, audio_update_voice_queues, audio_update_frame; was save_tick_frame_counter
 0x088370b8,save,save_compute_psid_checksum
 0x08835d68,save,save_psid_checksum_changed
 0x08835d94,save,save_store_psid_checksum
@@ -590,7 +590,7 @@ address,group,name
 0x08841850,audio,audio_release_track,M,0x0886c5c4(track,1); bgm_stop releases the track with it (story.md)
 0x08841870,audio,audio_play_track_with_fade,M,0x0886d8ec(t,t,0,500,0): story bgm plays the loaded track with a 500 ms fade (story.md)
 0x08841884,audio,audio_play_track_with_fade_arg,M,same as audio_play_track_with_fade with a caller-supplied third argument
-0x088418f8,audio,audio_stop_track,M,0x0886c164(track,0): bgm_stop stops the track with it (story.md)
+0x088418f8,audio,audio_stop_sound_now,H,audio_stop_sound(id, 0): stops one sound id with no fade; callers pass SE ids (list window 0x7a04); was audio_stop_track
 0x08869a0c,audio,audio_refresh_bgm_slots,M,drops finished entries of the 4 BGM slots 0x08dce638 and picks the highest-priority (+0x32) one as current 0x08dce634
 0x0886be60,audio,audio_start_bgm_slot,M,starts a BGM in the 4-slot table 0x08dce638, stopping the previous current track; callers audio_start_bgm_track and audio_stop_sound
 0x0886d8ec,audio,audio_start_bgm_track,M,converts fade times (ms*10/58) and starts the key with audio_start_bgm_slot; 0x08841870 plays BGM with a 500 ms fade (story.md)
@@ -1469,11 +1469,11 @@ address,group,name
 0x088281e8,system,system_module_add_ref,H,increments module entry +0x10; caller system_module_load_ex
 0x088281f8,system,system_module_release_ref,H,decrements module entry +0x10; caller system_module_unload
 # family movie
-0x0883debc,system,system_movie_create_player_with_volume,M,volume = settings byte 0 * 0x8000/15, forced 0 when 0x08d4da48 bit0 (mute) set; then system_movie_create_player(a, flags|1, vol, c)
+0x0883debc,system,system_movie_play_with_volume,M,volume = settings byte 0 * 0x8000/15 (0 when muted), then system_movie_play
 # family movie_player
 0x0882b7c4,system,system_movie_read_sectors,M,reads count<<11 bytes through system_movie_reader_read; returns bytes/0x800 or -1 when not a whole number of 2048-byte sectors
 0x0882b8c0,system,system_movie_shutdown_on_exit,M,caller system_exit_callback; with a player present stops it and sceKernelWaitThreadEnd on threads 0x08924aac/ab0/ab4
-0x0882b95c,system,system_call_movie_create_player,H,body only calls system_movie_create_player
+0x0882b95c,system,system_call_movie_play,H,body only calls system_movie_play
 0x0882c128,system,system_movie_check_playback_end,M,caller system_movie_flush_video; ends (returns 0) when video and audio queues are drained and the reader is done, or end flag bit 8 is set
 0x0882c214,system,system_movie_is_end_flag_set,M,reads the event-flag bits via system_movie_get_event_flag_bits and returns 1 when bit 8 is set, else -1
 0x0882c274,system,system_movie_set_all_event_flags,M,calls system_movie_stub_set_event_flag(flags, 0xff); callers system_movie_flush_video and system_movie_shutdown_on_exit
@@ -2285,3 +2285,353 @@ address,group,name
 0x08844a78,ui,ui_build_frame_quad,M,fills two sprite vertices from rect and uv; flip modes 1/2/3 swap coordinates with system_swap_memory
 0x08844bbc,ui,ui_window_list_find_free_slot,H,first zero entry of 16 slots, else -1
 0x08844bec,ui,ui_window_list_find,H,index of the slot whose window +8 equals the descriptor, else -1
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family adhoc
+0x0884b16c,system,system_adhoc_connect_netconf,M,system_netconf_connect_adhoc(0); net API state 5 on success, -1 on error; caller system_adhoc_update
+0x0884b418,system,system_adhoc_handle_ctl_disconnected,M,when sceNetAdhocctlGetState is 0: state 7 creates/joins/connects (netconf), 0x25 shows dialog 0xe, 0x22 -> -1, 9 -> 0; caller system_adhoc_update
+0x0884b5c0,system,system_adhoc_poll_msg_dialog,M,system_poll_net_msg_dialog; when done: state -1 if 0x26 else 0x21, sets 0x08dbfbc8; caller system_adhoc_update
+# family archetypes
+0x08862fec,card_db,card_db_is_archetype_60,H,entry 60 of the archetype table 0x0889e2d8: ids 0x1f08..0x1f0b and 0x1f21 (effect-helpers-predicates.md)
+# family banks
+0x08841858,audio,audio_release_all_banks,M,audio_release_bank_range(-0x205, 1); -0x205 releases all banks (names.csv)
+0x08841864,audio,audio_release_banks_below_split,M,audio_release_bank_range(-0x206, 1); -0x206 releases the banks below state+0x0c
+0x088670b8,audio,audio_find_bank_group_for_id,M,last index i with table(+0x20 of 0x08dd3004)[i] <= id over 0x08dd300c entries, -1 without banks
+0x088674ac,audio,audio_clear_bank_entry_busy,M,byte +10 = 0; caller audio_on_bank_read_complete
+0x088676d0,audio,audio_is_sound_id_loaded,M,id below header +0xc and below 0x08dd3008, or between 0x08dd300c and 0x08dd3008; callers audio_play_se/voice/bgm
+0x0886874c,audio,audio_get_bank_header_u16_0e,M,u16 +0xe of bank header 0x08dd3004, -1 without banks
+0x08868768,audio,audio_get_bank_header_u16_10,M,u16 +0x10 of bank header 0x08dd3004, -1 without banks
+0x088687ac,audio,audio_get_bank_table_word_for_sound,M,word 0 of the 16-byte bank table entry (header +0x18) of audio_find_bank_for_sound
+0x0886a968,audio,audio_find_bank_for_sound_key,M,audio_find_bank_for_sound(audio_make_sound_key(..)); caller audio_split_voice_sound_id
+0x0886abac,audio,audio_are_bank_loads_idle,M,1 when no bank record of the 0x08dd300c banks is mid-load (flag byte +0xc and words +0/+4), else 0
+# family bgm
+0x0886804c,audio,audio_get_current_bgm_object,M,returns slot 0x08dce638[0x08dce634] or 0 when the index is negative; used by the 0x10000 (current BGM) paths
+0x08868074,audio,audio_set_bgm_volume,M,audio_set_sound_fader(current BGM, 3, vol*0x1021>>7, time) like audio_set_sound_volume; value 10 (module stubs)
+0x08868180,audio,audio_update_bgm_ducking,M,minimum cue byte 02 among playing sounds sets fader 0x08dce614 to (0xf-min)*0x1112>>4 (else 0x1000) over 0x96
+0x08868520,audio,audio_get_bgm_handle,M,audio_make_voice_handle(current BGM object) or 0
+0x08868554,audio,audio_get_bgm_sound_id,M,u16 +0x1c of the current BGM object, -1 without one
+# family callbacks
+0x0886d808,audio,audio_set_callback_08dd3130,M,0x08dd3130 = a, 0x08dd3138 = b, 0x08dd3134 = 0
+0x0886d824,audio,audio_clear_callback_08dd3130,M,under sema 0x08dce64c clears 0x08dd3130 and 0x08dd3138
+# family card_copies
+0x08835ebc,deck,deck_count_free_card_copies,M,save_get_card_count(id) minus copies in member 0 deck parts 1+2 (3+2 for fusion/synchro) minus card-list entries of state 1..3
+0x08836104,deck,deck_count_free_card_copies_2,M,byte-identical twin of 0x08835ebc
+0x0885ca28,deck,deck_flag_cards_exceeding_owned,M,fills u16 flags at duel set-up +0xc0 (init 4) per card-list entry: 1/2/3 when main/side/extra copies exceed save_get_card_count
+# family card_face
+0x08838f08,ui,ui_draw_card_face_overlay_sprites,M,binds a GIM, ui_alloc_translated_vertices of 6 vertices from 0x088a0948, draws them as sprites; caller ui_draw_card_face_parts
+# family card_view
+0x08837464,ui,ui_card_view_open,M,clears the 0x44-byte card view block 0x08acc984, copies 9 words of args, finds cil_0000e.gim in the icon archive, inits the ehf player
+0x08837514,ui,ui_copy_card_view_params,M,copies nine words; only caller ui_card_view_open (0x08837464)
+0x08837564,ui,ui_card_view_close,M,memset of the 0x44-byte card view block 0x08acc984
+0x08837578,ui,ui_draw_card_detail_view,M,16-byte entry that runs 0x08837588 with x = y = 0 (decompiler shows the merged body); caller 0x08837f14
+0x08837588,ui,ui_draw_card_detail_view_at,M,flip-art, frame ehf, info bar, badges column, text panel and text scroll of one card view state at (x, y)
+0x08837950,ui,ui_draw_card_detail_view_pair,M,20-byte entry that runs 0x08837964 at offset 0,0 (merged body in the decompile)
+0x08837964,ui,ui_draw_card_detail_view_pair_at,M,draws two card view states (art flips, panels, scroll, second frame ehf 0x08acc9a4) at (x, y) with layout table 0x088a11b0
+0x08837f14,ui,ui_draw_card_detail_view_temp,M,ui_init_card_view_state on a stack block, draws it with 0x08837578, ui_store_card_view_state into arg 2
+0x088389a0,ui,ui_copy_card_view_block_74,M,copies 29 words (0x74 bytes); only caller ui_update_card_view_state
+0x088395e4,ui,ui_draw_card_frame_ehf,M,maps a frame type (0..0x12) to an ehf frame range (0-0x3b, 0x3c-0x77, ...), sets it if changed, draws ehf 0x08acc98c at (x, y-0x9d)
+# family card_viewer
+0x0884eb08,ui,ui_card_viewer_get_frame_tick,M,returns word +4 of system_get_frame_timing(); only caller ui_card_viewer_draw
+0x0884ebb4,ui,ui_card_viewer_set_pack_source,M,stores arg in 0x08db3df4, the pack-name archive in 0x08db3df8, sets flag bit 0 of 0x08db3dea, ui_card_viewer_find_packs
+0x0884f84c,ui,ui_card_viewer_draw_sysmsg13_icon_row,M,draws sysmsg string 0xd at (8, y+1) then a 22x10 sprite of GIM 0x08db3dec with u = (n-1)*12 + 0x50; caller ui_card_viewer_draw
+0x0885022c,ui,ui_card_viewer_draw_blinking_arrows,M,when frame bit 3 is set draws two 23x11 sprites of GIM 0x08db3dec at (4,3) and (0x5c,3); caller ui_card_viewer_draw
+0x08850488,ui,ui_card_viewer_draw_rarity_icon,M,maps n 4/3/1 to row 0/2/1 and draws a 21x11 sprite of GIM 0x08db3df4 (pack source); caller ui_card_viewer_draw
+# family character_name
+0x08836724,world,world_get_character_name_string_first,M,world_get_character_name_string(arg1, 0, arg0)
+0x08836734,world,world_call_get_character_name_string,M,world_get_character_name_string(arg1, arg2, arg0): argument-reordering wrapper
+# family character_tables
+0x0885b7b4,world,world_find_triple_key_entry,M,system_bsearch of key (a, b, c) in 0x215 16-byte rows at 0x088b0d64 with world_compare_triple_key
+0x0885bb60,world,world_character_allowed_in_mode,M,world_character_can_duel, category != 3, then rejects (7,1), (8,1), (0x10,1), (0x1b,0), (0x25..0x27,1), (0x29,1)
+0x0885bcc4,world,world_is_character_2e,M,returns id == 0x2e; next to world_is_player_character (id == 1)
+# family color
+0x08844dac,system,system_lerp_color_rgba8888,M,unpacks two RGBA8888 colours, system_vfpu_vector4_lerp_2 by t, repacks with system_vfpu_color_to_rgba8888; caller ui_update_window
+# family counter_badges
+0x0883aa80,ui,ui_draw_counter_badge_0,M,ui_draw_counter_icon(.., icon 0) then ui_draw_counter_value at (+0xc, +1) (a3 = 0 in the disassembly); badge row/column callers
+0x0883aad4,ui,ui_draw_counter_badge_1,M,same wrapper with counter icon 1 (li a3,1)
+0x0883ab28,ui,ui_draw_counter_badge_2,M,same wrapper with counter icon 2 (li a3,2)
+0x0883ab7c,ui,ui_draw_counter_badge_3,M,same wrapper with counter icon 3 (li a3,3)
+0x0883abd0,ui,ui_draw_counter_badge_4,M,same wrapper with counter icon 4 (li a3,4)
+0x0883ac24,ui,ui_draw_counter_badge_5,M,same wrapper with counter icon 5 (li a3,5)
+0x0883ac78,ui,ui_draw_counter_badge_7,M,same wrapper with counter icon 7 (li a3,7)
+0x0883accc,ui,ui_draw_counter_badge_11,M,same wrapper with counter icon 11 (li a3,11)
+0x0883ad20,ui,ui_draw_counter_badge_8,M,same wrapper with counter icon 8 (li a3,8)
+0x0883ad74,ui,ui_draw_counter_badge_10,M,same wrapper with counter icon 10 (li a3,10)
+0x0883adc8,ui,ui_draw_counter_badge_9,M,same wrapper with counter icon 9 (li a3,9)
+0x0883ae1c,ui,ui_draw_counter_badge_12,M,same wrapper with counter icon 12 (li a3,12)
+0x0883ae70,ui,ui_draw_counter_badge_13,M,same wrapper with counter icon 13 (li a3,13)
+0x0883aec4,ui,ui_draw_counter_badge_14,M,same wrapper with counter icon 14 (li a3,14)
+0x0883af18,ui,ui_draw_counter_badge_15,M,same wrapper with counter icon 15 (li a3,15)
+0x0883af6c,ui,ui_draw_counter_badge_16,M,same wrapper with counter icon 16 (li a3,16)
+0x0883afc0,ui,ui_draw_counter_badge_17,M,same wrapper with counter icon 17 (li a3,17)
+0x0883b014,ui,ui_draw_counter_badge_18,M,same wrapper with counter icon 18 (li a3,18)
+0x0883b068,ui,ui_draw_counter_badge_19,M,same wrapper with counter icon 19 (li a3,19)
+0x0883b0bc,ui,ui_draw_counter_badge_20,M,same wrapper with counter icon 20 (li a3,20)
+0x0883b110,ui,ui_draw_counter_badge_21,M,same wrapper with counter icon 21 (li a3,21)
+# family cues
+0x08866e64,audio,audio_get_cue_data_pointer,M,bank data + bank +0x1c + cue record +0xc; callers audio_run_sound_script, 0x0886711c
+0x088670c0,audio,audio_get_cue_relative_index_0c,M,(audio_find_bank_for_sound - cue data u16 +0xa) + u16 +0xc, -1 when missing
+0x0886711c,audio,audio_get_cue_relative_index_0e,M,(audio_find_bank_for_sound - cue data u16 +0xa) + u16 +0xe, -1 when missing
+0x088698d4,audio,audio_get_sound_cue_byte_1e,M,cue byte +0x1e of a sound id, or of a handle (<= 0x10000) through audio_find_sound_object
+# family cxx_runtime
+0x08853e2c,system,system_register_global_destructor,M,links {next, arg1, arg0} at the head of list 0x08dc1390 and returns arg0; next to system_operator_delete_on_heap
+# family deflate_internals
+0x08817e70,sdk,sdk_deflate_read_bits_checked,M,rotates bit buffer t8 by count, refills 16 bits from the stream, returns 0x80000108 when v0<0; caller sceDeflateDecompress
+0x08817e8c,sdk,sdk_deflate_read_block_header,M,reads the 2-bit block type: type 2 reads code lengths and builds tables, else fills fixed tables (0x90 literals); 0x80000108 on error
+0x08817f08,sdk,sdk_deflate_decode_huffman_symbol_refill,M,bit-reverses the next bits and indexes Huffman table +0x1d/+0x3c like sdk_deflate_decode_huffman_symbol, with a stream refill
+0x08817fa4,sdk,sdk_deflate_read_code_lengths_count_plus1,M,4-byte alternate entry of 0x08817fa8 that first sets count = t5+1; same body
+0x08817fa8,sdk,sdk_deflate_read_code_lengths,M,decodes code-length symbols (16 = repeat, 17/18 = zero runs) via sdk_deflate_decode_huffman_symbol, then sorts into count/symbol tables
+# family duel_setup
+0x0883634c,deck,deck_get_duel_setup_buffer,H,returns 0x08ac18c8, the static copy of the 0x858-byte duel set-up made by duel_setup_load_decks (deck.md)
+0x088366dc,deck,deck_copy_key_card_list,M,copies a 4-byte header and 23 pairs of u16 (0x60 bytes); callers deck_copy_slot_key_cards, duel_setup_load_decks
+0x08836718,deck,deck_get_duel_setup_tail_block,M,returns 0x08ac2120 = end of the 0x858-byte set-up buffer 0x08ac18c8; per-duelist words read by duel_eng, +0x34 count; filled by net receive
+# family ehf_draw
+0x0881f7ac,ui,ui_ehf_build_type3_instance_matrix,M,finds an instance of kind 3 whose child shape is kind 0, evaluates both tracks, inverts, maps to player pos/size; caller ui_ehf_draw
+0x08820e7c,ui,ui_ehf_draw_shape_instance_array,M,loops 20-byte entries (x, y, scale, material, shape offset), per entry writes matrix/material and system_ge_draw_array; caller ui_ehf_draw_instances
+# family ehf_player
+0x0881ea54,ui,ui_ehf_set_override_flag,M,stores arg in 0x08921900, the global ui_ehf_override_start_frame sets and ui_ehf_restore_start_frame clears
+0x0881eaf8,ui,ui_ehf_clear_override_flag,M,clears 0x08921900, as ui_ehf_restore_start_frame does
+0x0881eb7c,ui,ui_ehf_get_player_field_1c,M,accepts EHF (magic 0x1a464845, via ui_ehf_get_player) or player, returns player +0x1c, -1 for NULL
+# family faders
+0x08841998,audio,audio_is_bgm_volume_fading,M,tail call audio_is_sound_fader_moving(0x10000, 3); 0x10000 = current BGM (0x0886804c path), fader 3 = volume; decompile shows the callee body
+# family file_io
+0x08867178,system,system_get_file_size_from_offset,M,waits for the UMD on disc0: paths, sceIoOpen(path, 1), returns sceIoLseek result minus offset; next to system_read_file_range
+# family font
+0x08845768,system,system_font_reset_ccc_table,M,sceCccSetTable(0, 0); caller system_font_init
+0x08846854,system,system_font_is_no_line_start_char,H,system_font_bsearch_char in 0x2f chars at 0x088a16a8: closing brackets, small kana, punctuation (kinsoku: may not start a line)
+0x08846884,system,system_font_is_no_line_end_char,H,system_font_bsearch_char in 10 chars at 0x088a1708: opening brackets ( [ { and CJK openers (kinsoku: may not end a line)
+0x08848bb0,system,system_font_measure_unbreakable_run,M,sums glyph advances until a break class allows a break, handling $R/$f/$F/$C codes and small-caps scaling 10/12; caller system_font_layout_line
+0x08849bec,system,system_font_draw_glyph_sprite_8x8,M,emits a through-mode 2-vertex sprite (VTYPE 0x800102) with an 8x8 cell from code-0x3040 at (x>>6, y>>6) into list 0x08d9ea80; caller system_font_flush_glyphs
+# family fpu
+0x088181e0,system,system_fpu_sign_of_zero,M,returns +1 for +0.0 bits, -1 for -0.0 bits ((x>>30)|1), 0 for any non-zero value; in the system_fpu_* block
+# family ge_lists
+0x08830638,system,system_ge_open_list_tgmodel,M,saves layer, syncs libgu list via 0x0883068c, reselects layer: same shape as system_ge_open_list_ehge; tag tgModel.c
+0x0883068c,system,system_ge_open_list_tgmodel_sync,M,commits layer pointer = list base + sceGuFinish() - 8, like system_ge_open_list_ehge_sync
+0x088306c0,system,system_ge_close_list_tgmodel,M,commits the raw pointer to the layer then restarts libgu (0x08830700), like system_ge_close_list_ehge
+0x08830700,system,system_ge_close_list_tgmodel_restart,M,system_ge_select_layer, system_ge_set_list_base, sceGuStart(2, list, size), like system_ge_close_list_ehge_restart
+0x08835b7c,system,system_ge_open_list_ygsys_sync,M,commits layer pointer = list base + sceGuFinish() - 8; called with tag ygsys.c by 0x08835ad0
+0x08835bb0,system,system_ge_close_list_ygsys_restart,M,system_ge_select_layer, set_list_base, sceGuStart(2); called by 0x08835ad0
+# family ge_sprite
+0x088295a4,system,system_ge_draw_sprite_flipped,M,emits BASE/VADDR, VTYPE 0x800102 (through), PRIM sprites x2; u/v and x/y extents from 0x08924a98..aa4, flip modes 0-3 for UV and XY; 27 UI callers
+0x0882979c,system,system_ge_set_sprite_extent,M,stores u/v width and x/y size in 0x08924a98..0x08924aa4 used by system_ge_draw_sprite_flipped; returns the list pointer
+# family gim
+0x088249b0,field_3d,field_3d_gim_walk_file,M,skips the GIM header (+0x10) with field_3d_gim_next_block then calls field_3d_gim_walk_blocks
+0x088249d8,field_3d,field_3d_gim_walk_blocks,M,recursive walk over GIM blocks (types 3,4,5,6, 0xff file info strings) via gim_first_child/gim_next_block; no visible output
+# family gum_matrix
+0x08825524,system,system_gum_get_perspective_params,M,returns four floats 0x0889f47c..0x0889f488 through optional out pointers; caller field_3d_test_model_visible, next to system_gum_perspective
+0x088258d4,system,system_gum_mark_current_dirty,H,sets dirty flag 0x08923188[mode 0x08923150] = 1 (ehgum matrix stack, system.md)
+0x088261e4,system,system_gum_mark_current_dirty_2,H,second copy: dirty flag 0x08923188[0x08923150] = 1, next to system_gum_clear_dirty_flags
+0x08831c50,system,system_gum_mark_current_dirty_3,H,third copy: dirty flag 0x08923188[mode 0x08923150] = 1
+# family heap
+0x088270ac,system,system_heap_relocate_block,M,moves a block with memmove/memcpy, splits with system_heap_split_block, flips 0x80000000 used bits, bumps a 2-bit counter; callers heap_alloc_ex, heap_free
+# family init
+0x08867a40,audio,audio_reset_stream_slots,M,0x08dc1a38 = 0x08dc1a3c = -1, 0x08dc1a34 = 0, clears the 32 8-byte slots at 0x08dd3010; caller audio_init
+# family list_window
+0x08834d58,ui,ui_draw_list_window_button,M,60x24 sprite button with pulsing highlight (frame % 0x21) and a label from table 0x088a0278[lang*0x14 + n*4]; caller ui_draw_list_window
+0x08835454,ui,ui_list_window_find_linked_field_a0,M,scans 16 entry pointers for one whose +8 == self+0x4c and returns that entry's +0xa0; caller ui_draw_list_window
+# family loading_overlay
+0x08835ad0,system,system_set_loading_overlay,M,arg 1: clear screen, rewind loading.ehf player 0x08aa56a0 to frames 0..0x35, set 0x08aa5698; arg 0 clears it; system_main and rel_story sub-module start/end
+0x08835bf0,system,system_draw_loading_overlay,M,draws ehf 0x08aa56a0 on a layer with the frame timing; save_tick_frame_counter calls it with 4 while 0x08aa5698 is set
+# family lookup_tables
+0x08836bf4,system,system_bsearch_table_088a0384,M,binary search of 0x6f six-byte entries at 0x088a0384 by u8 key; returns u16 +2 and low nibble of +1
+0x08836cd8,system,system_bsearch_table_088a0620,M,binary search of 0x65 six-byte entries at 0x088a0620 by u16 key; copies bytes +2, +3 and low nibble of +4, returns 1 when found
+# family mix_preset
+0x0886a03c,audio,audio_apply_mix_preset_to_sound,M,volume from preset row (cue byte 05 * 12 + slot) via audio_set_sound_volume, pause/flag bits 4/8 at +0x28, time at +0x210
+0x0886a1c4,audio,audio_apply_mix_preset_by_selector,M,applies 0x0886a03c to one sound or a selector set: fdfb all, fdfa BGM, fdf9 SE, fdf8 voice, fdf7 SE+voice, fe00, ff00
+0x0886a454,audio,audio_clear_mix_preset,M,resets 0x08dc1a34/38/3c and applies 0x0886a03c(.., 0, 0, 0, -1) to one or all sounds
+0x0886a488,audio,audio_push_mix_preset,M,flag 0x80 pushes/pops an 8-level stack of {table, selector, slot} at 0x08dc19d4, then applies through the 0x0886a1c4 body
+0x0886a5a4,audio,audio_apply_mix_mode_by_selector,M,same selector walk as 0x0886a1c4 with no preset table (0x0886a03c(.., 0, 0))
+# family module
+0x0885f834,system,system_module_stop,M,calls system_sys_free_heap_partition, returns 0; between system_module_start and system_user_main_thread
+# family modules
+0x08867920,audio,audio_clear_codec_module_block,M,zeroes five words; caller system_load_audio_modules, next to audio_load_codec_modules
+# family movie
+0x0882b8ac,system,system_movie_set_work_memory,M,stores base 0x08924ac0 and size 0x08924ac4; system_movie_create_player carves its mpeg buffers from 0x08924ac0
+0x0882c248,system,system_movie_test_event_flag_800,M,system_movie_get_event_flag_bits then returns -1 when bit 0x800 is set, else 0; caller system_movie_flush_video
+0x0882d0d8,system,system_movie_stub_noop_reader_device,M,empty body; called with the reader device by system_movie_create_player and system_movie_query_stream
+0x0882d53c,system,system_movie_init_decoder_context,M,stores mpeg handle, video stream, video AU and audio AU args into a 4-word block; called once by system_movie_create_player
+0x0882ded4,system,system_movie_reader_create,M,stores ringbuffer (+8) and control flags (+0xc) in the reader context; create step in system_movie_create_player before the threads
+0x0882dee4,system,system_movie_reader_reset,M,sets reader +4 = 1 and +0 = stream info; called with the display/pts resets before the threads start
+0x0882def8,system,system_movie_reader_destroy,M,returns 0; called where system_movie_create_player tears down the reader context (local_128)
+0x0882df9c,system,system_movie_stub_noop_reader_done,M,empty body; only caller system_movie_reader_is_done
+0x0882dfa4,system,system_movie_reader_set_event_flags_c00,M,system_movie_stub_set_event_flag(ctx +0xc, 0xc00); caller system_movie_feed_ringbuffer
+0x0882e2dc,system,system_movie_stub_noop_umd_retry_wait,M,empty body; callers system_movie_umd_open_retry and system_movie_umd_read_async_retry
+# family net
+0x08835a70,system,system_set_net_active_flag,M,stores 0x08aa5694; callers system_net_start and system_net_stop only
+0x08835a7c,system,system_get_net_active_flag,M,returns 0x08aa5694 written by system_net_start/stop; read by system_net_update, net_send_queue, net_wake_if_active
+# family net_api
+0x08850594,system,system_net_api_get_local_mac_string,H,system_net_get_local_mac_string(system_net_get_manager(), out)
+0x088505d0,system,system_net_api_copy_peer_string,M,strcpy(out, 0x08dbfbe4 + 6*n) through 0x08852560 on the net manager
+0x08850640,system,system_net_api_get_alive_peer_count,H,system_net_get_alive_peer_count(system_net_get_manager())
+0x0885070c,system,system_net_api_get_manager_state,M,system_net_get_state(system_net_get_manager())
+0x08850730,system,system_net_api_change_manager_state,M,system_net_change_state(system_net_get_manager(), state)
+0x08850760,system,system_net_api_get_room_list,M,0x0885152c(system_net_get_matching_block(manager), out)
+0x088507a4,system,system_net_api_host_room,M,0x088516e0(matching block, info): stores room name/info, room state 0x1d
+0x088507dc,system,system_net_api_join_room,M,0x0885176c(matching block, peer, info): selects the peer, room state 0xd
+0x08850824,system,system_net_api_join_room_tagged,M,0x08851840(matching block, peer, info): like join_room with a u16 tag in 0x08dbfbba
+0x0885086c,system,system_net_api_get_member_list,M,0x0885190c(matching block, out): member list in state 0x1e
+0x088508a4,system,system_net_api_toggle_ignore_member,M,0x08851a20(matching block, n): adds/removes member n's MAC in the 3-entry list
+0x088508dc,system,system_net_api_get_host_slots,M,0x08851b74(matching block, out): slot flags of the target host in state 0x15
+0x08850914,system,system_net_api_get_selected_room,M,0x08851c40(matching block, out): entry of the selected peer 0x08dbfbc0
+0x08850978,system,system_net_api_set_running_duel,H,system_net_set_running_duel(system_net_get_manager(), v)
+0x088509a8,system,system_net_api_send_queue,H,system_net_send_queue(system_net_get_manager(), a, b)
+0x088509e8,system,system_net_api_get_peer_buffer,H,system_net_get_peer_buffer(system_net_get_manager(), n); rel_title lobby packets (ui.md)
+0x08850a18,system,system_net_api_send_game_data,H,system_net_send_game_data(system_net_get_manager(), a, b, -1); rel_title lobby packets (ui.md)
+0x08850a5c,system,system_net_api_resend_own_buffer,H,system_net_resend_own_buffer(system_net_get_manager(), a)
+0x08850a8c,system,system_net_api_broadcast_duelist_value,H,system_net_broadcast_duelist_value then system_net_set_queue_tag with the same value
+0x08850ad0,system,system_net_api_get_peer_count,H,system_net_get_peer_count(system_net_get_manager())
+0x08850af4,system,system_net_api_get_local_peer_index,H,system_net_get_local_peer_index(system_net_get_manager())
+0x08850b18,system,system_net_api_check_peers_sync,H,system_net_check_peers_sync(system_net_get_manager(), a, b, c)
+0x08850dac,system,system_net_api_drop_unlisted_peers,M,0x08851ae4(system_net_get_matching_block(manager))
+0x08850dfc,system,system_net_api_stub_noop_0885293c,M,calls the empty 0x0885293c with the net manager (also called by system_net_start)
+0x08850e20,system,system_net_api_get_room_counters,H,system_net_get_room_counters(matching block, a, b)
+0x08850ef8,system,system_net_api_show_net_dialog_4,M,0x08852844(manager): system_show_net_text_dialog(4), state 10 or 0x21 on error; callers the ptp/adhoc error paths
+0x08850f1c,system,system_net_api_show_net_dialog_e,M,0x08852890(manager): system_show_net_text_dialog(0xe), state 10 or 0x26 on error; caller 0x0884b418 (state 0x25)
+0x08850f70,system,system_net_api_count_host_event,M,0x08851330(matching block, n); caller system_adhoc_handle_host_event
+0x08851094,system,system_net_api_stub_noop_08851094,M,empty body between system_net_has_error and system_net_api_get_state
+0x0885109c,system,system_net_api_stub_noop_0885109c,M,empty body between system_net_has_error and system_net_api_get_state
+# family net_room
+0x08851330,system,system_net_room_count_host_event,M,when 0x08dbfb94 == 1: +0x3dc += 1, and +0x3e0 += 1 when the peer's u16 (200-byte record +0xc6) equals tag 0x08dbfbba
+0x0885152c,system,system_net_room_get_list,M,clears 0x3d0 bytes; in net state 0xb copies each of 9 peers with state 2 (records 0x08dbfc38, 200 bytes) into 0x6c-byte entries
+0x088515e0,system,system_net_room_copy_entry,M,copies name (0x32 from +0x10), MAC (+8), info block (+0xa0 via 0x08851644), +0x9c and +0x94 of a peer record
+0x08851644,system,system_net_copy_room_info,M,copies 6 bytes, 16 u16 and the u16 at +0x26 (0x28-byte room info)
+0x088516e0,system,system_net_room_start_host,M,in net state 0xb stores name (0x08dbfb04) and info (0x08dbfb94), clears the block, room state 0x1d
+0x0885176c,system,system_net_room_join_peer,M,in net state 0xb and peer state 2: copies name/info to 0x08dbfb04/0x08dbfb9a, system_adhoc_select_peer, room state 0xd
+0x08851840,system,system_net_room_join_peer_tagged,M,as 0x0885176c but stores the caller's u16 tag in 0x08dbfbba
+0x0885190c,system,system_net_room_get_member_list,M,clears 0x388 bytes; in net state 0x1e copies count and 100-byte member entries (0x088519a0)
+0x088519a0,system,system_net_copy_member_entry,M,copies 4 words, 25 u16 and 16 u16 of a member entry
+0x08851a20,system,system_net_room_toggle_ignore_member,M,state 0x1e: if member MAC (0x388 + 6n) is listed, system_net_remove_ignored_peer, else append (max 3) at +0x3c4
+0x08851ae4,system,system_net_room_drop_unlisted_peers,M,system_net_prune_ignored_peers, system_adhoc_drop_peer for each state-5 peer not in the list, clears 0x08dbfbe0, room state 0x16
+0x08851b74,system,system_net_room_get_host_slots,M,clears 0x388 bytes; in state 0x15 finds the peer whose MAC equals 0x08dbfc1a and flags its +0x94 slots
+0x08851c40,system,system_net_room_get_selected_entry,M,clears 0x6c bytes, sets 1 and copies the room entry of selected peer 0x08dbfbc0
+0x08851ca8,system,system_net_room_cancel_selected_peer,M,system_adhoc_cancel_selected_peer(0x08dbfbc0), returns 1; caller system_net_cancel_selected_peer
+0x08852560,system,system_net_copy_peer_string,M,strcpy(out, 0x08dbfbe4 + 6*n)
+0x08852844,system,system_net_show_net_dialog_4,M,system_show_net_text_dialog(4) then system_net_change_state 10, or 0x21 on error; callers 0x08850ef8, system_net_check_beacons
+0x08852890,system,system_net_show_net_dialog_e,M,system_show_net_text_dialog(0xe) then system_net_change_state 10, or 0x26 on error
+# family newlib_libm
+0x08809fec,system,system_asinf,H,wrapper of system_ieee754_asinf; its matherr record names the function "asinf" (string 0x088779ac); was system_acosf
+# family newlib_syscall_stubs
+0x08804580,system,system_stub_return_minus1_sys_08804580,M,returns -1; sits between system_sys_rename and system_sys_free_heap_partition in the newlib syscall stub block
+0x08804588,system,system_stub_return_minus1_sys_08804588,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x08804590,system,system_stub_return_minus1_sys_08804590,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x08804598,system,system_stub_return_minus1_sys_08804598,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x088045a0,system,system_stub_return_minus1_sys_088045a0,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x088045a8,system,system_stub_return_minus1_sys_088045a8,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x088045b0,system,system_stub_return_minus1_sys_088045b0,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x088045b8,system,system_stub_return_minus1_sys_088045b8,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x088045c0,system,system_stub_return_minus1_sys_088045c0,M,returns -1; unsupported newlib syscall stub between system_sys_rename and system_sys_free_heap_partition
+0x08804658,system,system_stub_return_minus1_sys_08804658,M,returns -1; syscall stub after system_sys_gettimeofday, before sceGuInit
+0x08804660,system,system_stub_set_minus1_sys_08804660,M,writes -1 to *arg and returns 0; syscall stub after system_sys_gettimeofday
+0x08804670,system,system_stub_return_minus1_sys_08804670,M,returns -1; syscall stub after system_sys_gettimeofday, before sceGuInit
+# family notes
+0x0886f4c0,audio,audio_find_free_note_slot,M,first of six 12-byte note slots at +0x1c4 with a non-negative first byte, -1 when full
+0x0886f4f0,audio,audio_init_note_slot,M,slot bytes {0, 0xff, n, 0xff}, word +8 = 0
+0x0886f50c,audio,audio_set_note_voice_param,M,for active note slots whose SAS voice still matches: kind 0..4 sets voice bytes +0x11/+0x13, u16 +0xe/+0xc or flag 0x20, marks dirty 0x10
+0x0886f654,audio,audio_update_sound_notes,M,first call inits six note slots and channel state from cue data; then ticks note timers (+0xb4 step) and faders, keying voices off
+# family output_effect
+0x08870bc8,audio,audio_effect_filter_stereo_s16,M,saturating stereo s16 difference/feedback pass over a buffer with a 4-sample history; callers audio_mixer_thread, audio_apply_output_effect
+# family presentation_flags
+0x088369e0,system,system_clear_presentation_flags,M,memset 0x08aa5734, 0x60 bytes: the flag bytes ui_create_wait_object waits on
+0x088369f4,system,system_set_presentation_flag,M,byte 0x08aa5734 + id = 1 (ui_create_wait_object basis); callers system_net_update, system_net_send_game_data
+0x08836a0c,system,system_get_presentation_flag,M,returns byte 0x08aa5734 + id
+0x08836a20,system,system_any_presentation_flag_set,M,returns 1 if any of flag bytes 0..0x4e at 0x08aa5734 is set
+# family quat
+0x0881c258,system,system_quat_to_euler_asin_y,M,asin(2(wy-xz)) for the middle angle, atan2 for the other two, gimbal branch; asinf at 0x08809fec; before system_quat_identity
+0x0881c3b0,system,system_quat_to_euler_asin_x,M,asin(2(wx-yz)) for the first angle, atan2 for Y and Z, gimbal branch; counterpart of 0x0881c258 with another axis order
+# family sas_voices
+0x0886eaec,audio,audio_sas_release_voice_soft,M,unless flag 4: pause off, simple ADSR release for envelope > 3, key off, flags |= 0xc (voice table 0x08dce660)
+0x0886eb94,audio,audio_sas_key_off_voice_once,M,unless flag 8: pause off, key off, flags |= 8; caller audio_mixer_thread
+0x0886ed5c,audio,audio_release_sas_voice_wait,M,sceKernelWaitSema(0x08dce648) then audio_release_sas_voice
+# family save_task
+0x08835a88,save,save_set_task_status_flag,M,stores 0x08aa5690; called by every save task (load, autoload, getsize, space check, save, autosave); load sets 1 (save.md)
+0x08835a94,save,save_get_task_status_flag,M,returns 0x08aa5690 written by the save tasks through 0x08835a88
+# family scene
+0x0883de74,system,system_scene_set_field_8c,M,stores u16 at system_get_scene_stack() + 0x8c
+0x0883de9c,system,system_scene_get_field_8c,M,returns u16 at system_get_scene_stack() + 0x8c
+# family sort
+0x0885ce2c,deck,deck_compare_u16_ascending,M,returns *a - *b on u16; next to deck_compare_owner_key
+# family sound_3d
+0x08867f88,audio,audio_compute_distance_attenuation,M,piecewise-linear Q12 gain from distance and a {near, mid, far, gains} curve; caller audio_update_sound_3d
+0x0886caa4,audio,audio_update_listener_distance_scale,M,0x08dd315c = n (or default) * listener +0x10 * k1 / k2, 0x08dd3160 = +0x10 * k3; caller audio_set_listener_table
+0x0886cc2c,audio,audio_set_listener_source,M,enables VFPU thread attr 0x4000 once, stores listener table 0x08dd313c and count 0x08dd3164, updates the distance scale
+0x0886cc34,audio,audio_set_single_listener,M,fills one listener record at 0x08dd3140 from the args and audio_set_listener_table(record, 1)
+0x0886cc3c,audio,audio_clear_flags_except_4000,M,0x08dd3110 &= 0x4000
+# family sound_objects
+0x08867dfc,audio,audio_update_sound_rank,M,re-ranks byte +0x32 among sounds of the same SE/voice bit (0x100000) in list 0x08dce608; callers audio_start_sound, audio_stop_sound_object
+0x08868464,audio,audio_get_sound_flags_state,M,scans list 0x08dce608 for flag bits 0x10/0x8 at +0x28: 0 none, 2 only 0x10, 1 otherwise
+0x0886a644,audio,audio_key_off_sound,M,SAS sounds (type 2/3): pause off and key off every voice owned by the object; streams (4/5): +0xe3 = 1
+0x0886dcc8,audio,audio_start_sound_if_loaded,M,if 0x088676d0 says the id is loaded: audio_start_sound(key & ~0x300000, .., ms*10/58); else 0x08dd3120 = 0x80
+# family sound_script
+0x08870290,audio,audio_scale_by_q12_u16_10,M,(u16 +0x10 * v) >> 12, at least 1 when v != 0; caller audio_run_sound_script
+# family stop_selectors
+0x08841908,audio,audio_stop_sounds_all,M,audio_stop_sounds_by_selector(0xfffffdfb = all sounds, 0) (disassembly: li a0,-517; j)
+0x08841914,audio,audio_stop_sounds_all_arg,M,audio_stop_sounds_by_selector(0xfffffdfb, arg) (disassembly)
+0x08841920,audio,audio_stop_sounds_bgm,M,audio_stop_sounds_by_selector(0xfffffdfa = BGM, key&0x300000==0 per 0x0886a1c4; 0) (disassembly)
+0x0884192c,audio,audio_stop_sounds_bgm_arg,M,audio_stop_sounds_by_selector(0xfffffdfa = BGM, key&0x300000==0 per 0x0886a1c4; arg) (disassembly)
+0x08841938,audio,audio_stop_sounds_se_and_voice,M,audio_stop_sounds_by_selector(0xfffffdf7 = SE+voice, key&0x100000; 0) (disassembly)
+0x08841944,audio,audio_stop_sounds_se_and_voice_arg,M,audio_stop_sounds_by_selector(0xfffffdf7 = SE+voice, key&0x100000; arg) (disassembly)
+0x08841950,audio,audio_stop_sounds_se,M,audio_stop_sounds_by_selector(0xfffffdf9 = SE, key&0x300000==0x100000; 0) (disassembly)
+0x0884195c,audio,audio_stop_sounds_se_arg,M,audio_stop_sounds_by_selector(0xfffffdf9 = SE, key&0x300000==0x100000; arg) (disassembly)
+0x08841968,audio,audio_stop_sounds_voice,M,audio_stop_sounds_by_selector(0xfffffdf8 = voice, key&0x300000==0x300000; 0) (disassembly)
+0x08841974,audio,audio_stop_sounds_voice_arg,M,audio_stop_sounds_by_selector(0xfffffdf8 = voice, key&0x300000==0x300000; arg) (disassembly)
+0x0886d724,audio,audio_stop_sound_with_groups,M,audio_stop_sound(s, 0); on success stops groups 0xfffffec8 and 0xfffffeca, plus 0xfffffec9 when arg 3 is set
+0x088709c0,audio,audio_stop_sound_with_groups_2,M,identical body to 0x0886d724
+# family streams
+0x08869ae8,audio,audio_set_stream_bytes_e0_e1,M,for stream sounds (type 4/5) stores two bytes at +0xe0/+0xe1
+0x08869b60,audio,audio_set_stream_fader_target,M,stream sound (type 4/5): +0xe2 = 1, audio_fader8_set_target(+0xd8, v, time)
+0x08869be0,audio,audio_set_bgm_stream_fader_target,M,0x08869b60 on the current BGM object
+0x08869c38,audio,audio_set_stream_mode_2,M,stream sound (type 4/5): +0xe2 = 2
+0x08869c94,audio,audio_set_bgm_stream_mode_2,M,0x08869c38 on the current BGM object
+0x08869cc8,audio,audio_set_stream_mode_0,M,stream sound (type 4/5): +0xe2 = 0
+0x08869d20,audio,audio_set_bgm_stream_mode_0,M,0x08869cc8 on the current BGM object
+0x0886a750,audio,audio_get_stream_position_delta,M,stream sound (+0x33 type 4/5): +0xa8 - +0xb0, else -1; callers audio_run_sound_script, audio_update_frame
+# family stubs
+0x08817268,system,system_stub_noop_main_thread_hook,M,empty body; only caller is system_user_main_thread
+0x08836ae4,save,save_stub_return_3_sfo_param,M,returns 3; only caller save_fill_sfo_param
+0x08851d08,system,system_net_stub_noop_update_hook,M,empty body; caller system_net_update
+0x0885293c,system,system_net_stub_noop_start_hook,M,empty body; callers system_net_start and 0x08850dfc
+0x0885a6ac,system,system_net_stub_noop_receive_hook,M,empty body; caller system_net_receive_messages
+# family sync
+0x0886773c,audio,audio_wait_sema_08dce654,M,sceKernelWaitSema(0x08dce654, 1, 0); next to audio_wait_two_semas
+0x08867774,audio,audio_signal_sema_08dce648,M,sceKernelSignalSema(0x08dce648, 1); next to audio_signal_two_semas
+# family text
+0x0883a82c,ui,ui_draw_level_badge_text_fit,M,system_font_draw_text_fit_width(x<<6, y<<6, w<<6, text, -1); caller ui_draw_level_badge
+0x0883c3c0,ui,ui_draw_text_to_screen_edge_shadowed,M,saves font flags, system_font_enable_shadow(1), ui_draw_text_to_screen_edge, restores flags; callers ATK/DEF label and number drawers
+# family tgmodel
+0x08830154,field_3d,field_3d_render_edram_ramp_textures,M,renders two 64-wide ramps (keys: byte nibble colour, float*64 position, tables +0xc..+0x20) to EDRAM 0x1f0000; tgModel.c; caller field_3d_draw_model
+0x08830610,field_3d,field_3d_copy_vertex_s16x4,M,copies four u16 (one 8-byte vertex); only caller 0x08830154
+# family tracks
+0x0886d72c,audio,audio_set_track_fields_ac_b4,M,type-1 sound object: +0xb4 = u16 arg, +0xac = arg
+0x0886d7a0,audio,audio_get_track_state,M,type-1 sound object: 1 when +0xb8 bit 2, 2 when bit 1, else 0; -1 otherwise
+0x0886dad0,audio,audio_play_track_crossfade,M,audio_play_se; for a type-1 object sets +0xb0 and takes +0xb4/+0xb6 from other type-1 sounds, marking them +0xb8 |= 0x20
+# family vfpu_color
+0x0881b92c,system,system_vfpu_color_normalize,M,vsrt4/vsrt3 find the largest component, vrcp of it (0 guarded) scales all four; in the colour block after vector4_is_zero_2
+0x0881b960,system,system_vfpu_color_normalize_rgb,M,same as 0x0881b92c on three components with w set to 0
+# family vfpu_copies
+0x0881b508,system,system_vfpu_vzero_q_b,M,byte-identical, uncalled second copy of system_vfpu_vzero_q (0x08819970)
+0x0881b6d4,system,system_vfpu_vadd_q_b,M,identical uncalled copy of system_vfpu_vadd_q (0x08819a1c)
+0x0881b6f0,system,system_vfpu_vadd_t_b,M,identical uncalled copy of system_vfpu_vadd_t (0x08819a38)
+0x0881b70c,system,system_vfpu_vsub_q_b,M,identical uncalled copy of system_vfpu_vsub_q (0x08819a54)
+0x0881b728,system,system_vfpu_vsub_t_b,M,identical uncalled copy of system_vfpu_vsub_t (0x08819a70)
+0x0881b744,system,system_vfpu_vmul_q_b,M,identical uncalled copy of system_vfpu_vmul_q (0x08819a8c)
+0x0881b760,system,system_vfpu_vmul_t_b,M,identical uncalled copy of system_vfpu_vmul_t (0x08819aa8)
+0x0881b824,system,system_vfpu_vscl_t_b,M,identical uncalled copy of system_vfpu_vscl_t (0x08819c00)
+0x0881b844,system,system_vfpu_vclamp_q_b,M,identical uncalled copy of system_vfpu_vclamp_q (0x08819c20)
+0x0881b878,system,system_vfpu_vclamp_t_b,M,identical uncalled copy of system_vfpu_vclamp_t (0x08819c54)
+0x0881c5dc,system,system_vfpu_vadd_q_c,M,identical uncalled third copy of system_vfpu_vadd_q (0x08819a1c)
+0x0881c5f8,system,system_vfpu_vsub_q_c,M,identical uncalled third copy of system_vfpu_vsub_q (0x08819a54)
+0x0881c630,system,system_vfpu_vdot_q_b,M,identical uncalled copy of system_vfpu_vdot_q (0x08819cc0)
+# family vfpu_matrix
+0x0881a704,system,system_vfpu_matrix3_adjoint,M,nine vdot_t cross-product terms of a 3x3 matrix; between sceVfpuMatrix3Determinant and Normalize, like system_vfpu_matrix2_adjoint
+0x0881adf8,system,system_vfpu_matrix4_adjoint,M,4x4 cofactors via vmul/vsub/vtfm4 with sign flips (vneg); between sceVfpuMatrix4Determinant and sceVfpuMatrix4Normalize
+0x0881be70,system,system_vfpu_matrix4_build_projection,M,writes m[0], m[5], m[11]=m[14]=const, then multiplies by a matrix with near/far depth terms (n*f*(..)/(n-f)); after matrix4_ortho
+# family vfpu_rand
+0x0881b9f0,system,system_vfpu_rand_float_times_pi,M,(vrndf1 - 1) * vcst(9) = random in [0,PI); next to system_vfpu_rand_float
+0x0881ba18,system,system_vfpu_rand_float_times_cst5,M,(vrndf1 - 1) * vcst(5) (VFPU constant 5 = 2/PI); next to system_vfpu_rand_float
+# family viewer_class
+0x08865e64,card_db,card_db_classify_for_viewer,M,returns 1-3: spells (race 23) 2 if icon 5, traps (race 24) 3 if icon 1, monsters 2 for a fixed id list (0x1e36, 0xfe0 ...); caller ui_card_viewer_draw
+# family voice
+0x08836c78,audio,audio_get_voice_set_index,M,audio_get_voice_bank(n, 0); banks 0x1de..0x2be map to (bank - 0x1de) / 7, else -1
+# family voices
+0x08868148,audio,audio_set_voice_word_14,M,audio_find_voice_by_handle_strict then +0x14 = arg
+# family window
+0x08842da8,ui,ui_window_measure_content_bottom,M,finds the window, returns inner y + text height (system_font_measure_text_box of +0x38 with the window's scale/shadow/ruby) or the plain bottom

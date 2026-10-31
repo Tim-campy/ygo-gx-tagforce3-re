@@ -285,12 +285,6 @@ address,group,name
 0x08eb769c,ui,ui_list_widget_draw,M,background callback, clip rect (BOOT 0x0882ae8c), then visible items with item/cursor callbacks at the scroll offset
 0x08eb790c,ui,ui_list_widget_set_cursor,H,stores u16 cursor at +2 of a list widget
 # family module_imports
-0x08eb81c0,deck,deck_call_tutorial_draw,M,8-byte import stub outside the libehsys_rel block; called from the frame callback while 0x08ebf1dc bit 2 (deck tutorial running) is set
-0x08eb81c8,deck,deck_call_tutorial_start,M,import stub; deck_run_deck_tutorial passes the tutorial index (0x08ebee06 & 0xf) and {heap, archive} after starting module id 0x12
-0x08eb81d0,deck,deck_call_tutorial_update,M,import stub; deck_run_deck_tutorial polls it until non-zero, then stops and unloads module id 0x12
-0x08ebb278,deck,deck_call_recipe_viewer_start,M,import stub after the libehsys_rel block; deck_run_recipe_viewer passes mode 0x08ebee08, {heap, archive, callbacks} and the slot
-0x08ebb280,deck,deck_call_recipe_viewer_update,M,import stub; deck_run_recipe_viewer polls it while it returns -1
-0x08ebb288,deck,deck_call_recipe_viewer_draw,M,import stub; called from the frame callback while 0x08ebf1dc bit 1 (recipe viewer running) is set
 # family name_input
 0x08ea96c4,ui,ui_start_deck_name_input,M,0x08eb0b64(buffer, prompt, 16, arg); on success sets 0x08ebf1a0 bit 6 and clears 0x08ebf1dc bit 5
 0x08ea9730,ui,ui_update_deck_name_input,M,while 0x08ebf1dc bit 5 polls 0x08eb0d98(4) and clears 0x08ebf1a0 bit 6 when done, otherwise starts 0x08eb09b0
@@ -380,3 +374,31 @@ address,group,name
 # family undo
 0x08ea8f48,deck,deck_push_undo_move,M,pushes a 10-byte record on the 8-entry stack 0x08ebf0e2 (count 0x08ebf0e0), dropping the oldest when full
 0x08ea9014,deck,deck_pop_undo_move,M,pops the last 10-byte record of the stack 0x08ebf0e2; returns 0 when empty
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family deck_list
+0x08eaef80,ui,ui_draw_card_row_badges,M,up to three 12-byte badge records: icon atlas 0x08ebdb3c by kind, bar, number (ui_draw_text_number); caller ui_draw_card_row_detailed
+# family deck_stubs
+0x08eb81b8,deck,deck_stub_noop_save_stored_deck,M,jr ra; called from deck_save_to_stored_deck
+# family font_px_wrappers
+0x08ea39fc,ui,ui_filter_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_draw_filter_value_items
+0x08ea8384,ui,ui_command_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; next to ui_draw_command_item_label
+0x08eace0c,ui,ui_search_filter_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_draw_search_filter_label
+0x08eaf450,ui,ui_button_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_draw_labelled_button
+0x08eb0454,ui,ui_button_guide_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; caller ui_draw_button_guide
+0x08eb0470,ui,ui_button_guide_fit_text_scale_px,H,disassembly: a0 <<= 6, tail jump to thunk_system_font_fit_scale_to_width; caller ui_draw_button_guide
+0x08eb17c8,ui,ui_list_tab_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; callers draw_list_tab_label/editor_header
+0x08eb3af8,ui,ui_card_info_draw_text_fit_width,M,disassembly: t0 = -1, tail jump to thunk_system_font_draw_text_fit_width (no shift: caller passes 26.6 values); caller ui_draw_cursor_card_info
+0x08eb4a50,ui,ui_help_split_text_lines,H,disassembly: a2 = a3 = 0, tail jump to thunk_system_font_split_lines; caller ui_help_set_text
+0x08eb4bf4,ui,ui_help_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; caller ui_help_draw_text_view
+0x08eb5f8c,ui,ui_help_title_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_help_draw_title_bar
+0x08eb67a8,ui,ui_help_footer_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_help_draw_footer
+0x08eb6ec0,ui,ui_help_topic_list_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_help_draw_topic_list
+0x08eb7120,ui,ui_help_topic_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; caller ui_help_draw_topic_item
+0x08eb748c,ui,ui_help_topic_split_text_lines,H,disassembly: a2 = a3 = 0, tail jump to thunk_system_font_split_lines; caller ui_help_measure_topic_item
+0x08eb7d4c,ui,ui_help_chapter_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box; next to ui_help_draw_item_text
+0x08eb8124,ui,ui_help_chapter_split_text_lines,H,disassembly: a2 = a3 = 0, tail jump to thunk_system_font_split_lines; caller ui_help_measure_chapter_item
+# family help_stubs
+0x08eb4a5c,ui,ui_help_stub_noop_update_hook,M,jr ra; called from ui_help_update
+0x08eb5fe0,ui,ui_help_disable_ruby,H,disassembly: tail jump to thunk_system_font_enable_ruby with a0 = 0; caller ui_help_close
+0x08eb69b0,ui,ui_list_widget_stub_noop,M,jr ra (value 2: one thunk); between ui_list_widget_clear_result and ui_list_widget_handle_input

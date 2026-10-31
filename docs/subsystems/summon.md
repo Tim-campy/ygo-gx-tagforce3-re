@@ -46,7 +46,7 @@ The mask bit for action *n* is `1 << n`. This follows from the code (the hand ma
 | 6 | `0x40` | Set (monster) | `duel_core_begin_summon_from_hand(0, 0, 1)`. |
 | 7 | `0x80` | Set (spell/trap) | `duel_core_action_place_spell_trap(0, 0)`. |
 | 8, 9 | `0x100`, `0x200` | Change to Attack / Defense Position | `duel_core_action_change_position` → `duel_core_change_position(side, slot, 0, 0, 0, 0)` (the position is toggled). |
-| 10 | `0x400` | Deck action in Main Phase (L: probably surrender) | `0x09dcdbc0`: before turn 9 shows message `0x52`; otherwise a yes/no dialog, then command `0x22`. |
+| 10 | `0x400` | Surrender (H) | `duel_core_action_surrender` (`0x09dcdbc0`): while the turn counter + 1 < 10 it shows hint `0x52`; otherwise a yes/no dialog (`duel_core_ask_yes_no_by_side(side, 0, 6)`), and on "yes" command `0x22` with `a` = side, `b` = `0xc`. |
 | 11 | `0x800` | Confirm a selected card/zone | Read by the selection loops through `duel_core_is_selection_confirmed` (`0x09dcedec`). |
 | 12 | `0x1000` | Continue (Draw Phase) | Phase driver. |
 | `0x0d + p` | — | Phase menu choice | `duel_core_submit_phase_choice(p)` (`0x09dcfce4`); see `duel-phases.md`. |
@@ -224,7 +224,7 @@ The summon code changes the duel state only through engine commands (`duel_core_
 | `0x4e` | `0x09dbe814` | Fusion/Synchro summon announcement (`c & 0x200` = Synchro). |
 | `0x50` | `duel_core_cmd_summon_from_hand` (`0x09dbd5c0`) | `a` card id, `b = position << 15 | face_up << 14 | slot << 1 | side`, `c = ref << 1 | uses_normal_summon`. Moves the hand card to the monster zone (`duel_core_zone_remove` + `duel_core_zone_insert`), calls `duel_core_use_normal_summon` when `c & 1`, handles Cost Down; UI events `0x48`, `0x1a`, `0x1e` (set). |
 | `0x51` | `duel_core_cmd_place_spell_trap_from_hand` (`0x09dbda08`) | `a` card id, `b = face_up << 14 | zone << 1 | side`, `c` ref. |
-| `0x61` | handler not read | Summon declaration shown to the player (`a = ref | 0x8000`, `b` position, `c` 7 Normal / 4 Flip / 6 procedure / 8 Synchro). L |
+| `0x61` | `duel_core_cmd_show_summon_declaration` `0x09dbe9cc` (case `0x61` of `duel_core_execute_command`, as `tutorial.md` says) | Posts UI event `0x44` (side from bit 15, `b`, `c | d << 8`) once, waits until the event is no longer busy, then posts UI event 9 and clears the busy word. Summon declaration shown to the player (`a = ref | 0x8000`, `b` position, `c` 7 Normal / 4 Flip / 6 procedure / 8 Synchro). H |
 
 The field-card movements (`0x30`, `0x31`, `0x32`, `0x3c`, `0x3d`, `0x3f`, `0x40`, `0x45`) are described in `duel_core.md`.
 
@@ -322,11 +322,11 @@ The field-card movements (`0x30`, `0x31`, `0x32`, `0x3c`, `0x3d`, `0x3f`, `0x40`
 - Bit 20 (`0x00100000`) of the player flags word `+0x120` is set by a face-up Normal Summon together with bits 16, 17 and 21 (seen in PPSSPP, `verification/results/2026-10-26-sessionA-part1.md`); its meaning is unknown.
 
 - Confirm the action-code/bit mapping and the reason codes in PPSSPP (breakpoint on `0x09dcf950`, watch `0x09e2d288`), and find the `rel_duel_draw` code that calls `duel_core_get_card_action_mask` and turns the mask into menu entries.
-- Action 10 (`0x400` on the own deck, `0x09dcdbc0`): surrender or something else; what command `0x22` does.
+- ~~Action 10 and command `0x22`~~: answered on 2026-10-31. Action 10 is surrender; `duel_core_cmd_concede_duel` (`0x09dbfe9c`, command `0x22`) sets the side's LP to 0, stores the reason `b` in the opponent's block `+0x30` (where `duel_core_check_duel_end` stores win codes), latches `0x09e2d1d4 = 1` and sets `0x09e2d1f0` (1, or 2 when the conceding side is the local side), after UI event `0x35` unless `b` is `0xd`. Surrender posts `b = 0xc`; who posts `0xd` is not found yet.
 - Synchro: what card `0x1f32` is (not in the European cardinfo; may count as Level 2) and why slot flag bit 7 is reset when it is used as material (`0x09c276e0`); confirm in PPSSPP that the materials must sum exactly.
 - Fusion: the tie rules of `duel_effects_match_fusion_material` (ambiguous slot matches); the bodies of Future Fusion `0x09cbc3f4`, Fossil Fusion `0x09cbd3e4` and Miracle Contact `0x09cbd838`; the destination of `0x09c25a84` (contact fusions outside the Neos/Gladiator groups); how Rainbow Neos's "Rainbow Dragon" code `0x18` relates to its card text.
 - Ritual: the role of `0x09e28f68` for Machine Angel Ritual and the other exact-total spells should be confirmed in play; Samsara's (`0x19da`) effect on the tribute step; the card-specific ritual monsters' extra rules (the M1/M3 records of Relinquished, Paladin of White Dragon …).
 - The about 30 card-specific preparation routines called from `duel_core_summon_prepare`.
 - Slot flag bit 3 is set by a Gemini summon, while `duel_effects.md` describes bit 3 as disabling effect handlers; reconcile (Gemini monsters are effect-less until summoned twice).
 - Player word `+0x120` bits 20, 22 and 24 (set by several movement commands).
-- Command `0x61` handler and the summon-negation window `0x09c32e54`.
+- The summon-negation window `0x09c32e54` (the command `0x61` handler is read, table above).

@@ -211,3 +211,39 @@ address,group,name
 0x08eb5844,duel_core,thunk_duel_core_tutorial_update,H,import stub called every frame at rel_duel_mgr +0x427c in the tutorial state (tutorial.md)
 0x08eb584c,duel_core,thunk_duel_core_tutorial_shutdown,M,import stub called just before module 0xb (tutorial) is unloaded in system_duel_mgr_run_tutorial
 0x08eb588c,duel_core,thunk_duel_core_tutorial_is_busy,H,import stub read at rel_duel_mgr +0xfdcc (tutorial.md), result passed to 0989c6c4
+
+# Naming round 2026-10-31, round 2 (docs/subsystems/<group>.md, "Round 2"): rows carry confidence (H/M) and basis.
+# family duel_mgr_frame
+0x08e9ed38,system,system_duel_mgr_finish_display_list,H,system_ge_get_list_base + sceGuFinish, then system_ge_commit_layer_pointer(base+size-8); caller system_duel_mgr_frame_callback
+0x08e9ed6c,system,system_duel_mgr_begin_display_list,H,system_ge_select_layer, system_ge_set_list_base, sceGuStart(2, list, size); caller system_duel_mgr_frame_callback
+# family duel_mgr_stubs
+0x08eb5894,system,system_duel_mgr_stub_noop_frame_hook_a,M,jr ra; called from system_duel_mgr_frame_callback
+0x08eb589c,system,system_duel_mgr_stub_noop_tutorial_hook,M,jr ra; called from system_duel_mgr_run_tutorial
+0x08eb58a4,system,system_duel_mgr_stub_noop_deckswap_hook_a,M,jr ra; called from system_duel_mgr_run_deckswap
+0x08eb58ac,system,system_duel_mgr_stub_noop_deckswap_hook_b,M,jr ra; called from system_duel_mgr_run_deckswap
+0x08eb58b4,system,system_duel_mgr_stub_noop_frame_hook_b,M,jr ra; called from system_duel_mgr_frame_callback
+# family duel_start
+0x08e9fd58,ui,ui_duel_start_get_link_load_gate,M,1 unless link active, set-up +0x191 == 2 and tail block +0x34 != 0; then bit 1 of start work 0x08ebaa90 +0xc5; gates step_module_loading
+# family duel_versus
+0x08eac910,ui,ui_duel_versus_set_layout_position,H,when layout +0x7c+4*i of versus work 0x08ebaa98 exists, ui_ehf_set_position on it, else 0
+0x08eac9d8,ui,ui_duel_versus_is_link_tag_layout,M,kinds 8/9/10 -> 0; else versus work +0x10 set and system_net_api_get_peer_count > 2
+0x08eadab4,ui,ui_duel_versus_draw_team_plates,M,plates parts 0x15/0x1c with ui_duel_versus_build_team_label (kinds 8/9) or duelmenu message text; save byte 0x16e10 count
+# family duel_voice_lines
+0x08e9aa00,audio,audio_voice_get_cutin_side_flags,M,0 unless flag 0x08eba174 (set by UI event 70, cleared by 52); 0x10 when stored side 0x08eba176 == arg else 8; ORed into 0989d4c0 flags
+0x08e9b80c,audio,audio_voice_on_phase_banner,M,dispatch case 5 (UI event 5 = phase banner, tutorial.md); resets per-side counters, LP comparison, line 2 cut-in when phase arg == 3
+0x08e9c0ac,audio,audio_voice_on_card_moved,M,dispatch case 26 (UI event 0x1a = card moved, tutorial.md); key-card test, lines 0x10/0x1a/0x1d pushed to the voice queue
+0x08e9c3d0,audio,audio_voice_copy_event_halfword,H,*dst = *src (u16), returns dst; used by audio_voice_on_card_moved for event words +8/+0xc
+0x08e9c3e0,audio,audio_voice_on_activation_shown,M,dispatch case 34 (UI event 0x22 = activation shown); per-card-id exceptions, cut-in line 6/7 via 0989d434, flags from audio_voice_get_cutin_side_flags
+0x08e9c6bc,audio,audio_voice_on_draw,M,dispatch case 67 (UI event 0x43 = draw, tutorial.md); duel_core_was_deck_stacked_this_turn selects line 3 or 4
+0x08e9d03c,audio,audio_voice_on_turn_end,M,dispatch case 76 (UI event 0x4c = end-of-turn bookkeeping, tutorial.md); turn-side duellist line 0xd, cut-in 0x13
+0x08e9d324,audio,audio_voice_on_ui_event_39,M,dispatch case 39; arg +0xc 0xd/0x11 for characters 6/0x12 (variant != 3), once per turn (0x08eba19e), line 0x1c
+# family font_px_wrappers
+0x08e9fcf4,ui,ui_duel_start_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width
+0x08ea4b54,ui,ui_duel_result_split_text_lines,H,disassembly: a2 = a3 = 0, tail jump to thunk_system_font_split_lines; caller ui_duel_result_measure_rows
+0x08ea581c,ui,ui_duel_result_fit_text_scale_px,H,disassembly: a0 <<= 6, tail jump to thunk_system_font_fit_scale_to_width
+0x08ea5824,ui,ui_duel_result_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width
+0x08ea61ec,ui,ui_duel_result_draw_text_to_screen_edge,H,disassembly: font_draw_text(x<<6, y<<6, (480-x)<<6, text): width runs to the right screen edge
+0x08ea6614,ui,ui_duel_result_draw_text_box_px,H,disassembly: a0-a3 <<= 6, t1 = -1, t2 = 0, tail jump to thunk_system_font_draw_text_box
+0x08ea9cc4,ui,ui_duel_result_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; caller ui_duel_result_draw_item
+0x08eaf4dc,ui,ui_duel_versus_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width
+0x08eaf554,ui,ui_duel_versus_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; caller ui_duel_versus_draw_text_plain

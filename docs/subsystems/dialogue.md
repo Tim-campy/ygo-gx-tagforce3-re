@@ -15,13 +15,18 @@ Basis and method: `system.md`, same section. 205 names (183 in `rel_story`, 22 i
 | `text_expand`, `sysmsg`, `card_rewards` | 15 | Text expansion, system messages, card rewards. |
 | `field_requests` (`rel_field`) | 5 | Field requests that open dialogue. |
 
-Differences with `story.md` found by reading the handlers (to reconcile there):
+Differences with `story.md` found by reading the handlers, and how they were settled on 2026-10-31 (round 2):
 
-- 50160/50161 (`npc_place`): handler `0x08ea99c4` writes record `+0x40` (the event variant) from `world_get_character_key(row)`, which matches `world.md`'s `+0x40`, rather than converting a location to a position through `0x0885ad14`.
-- 50112/50113: the fade sense is the other way round; 50112 passes `on = 1` (fade in), 50113 passes 0.
-- 50030: handler `0x08ea7d50` skips to `0xc38e`, the endif of 50029, not to `0xc38f`. It looks like a bug in the game; it matters only if the opcode is used.
+- 50160/50161 (`npc_place`): **changed.** Handler `0x08ea99c4` writes record `+0x40` (the event variant) from `world_get_character_key(row a2)` through `world_set_record_event_variant(char a1, …)`; nothing converts a location. Renamed `dialogue_op_npc_set_variant`; the opcodes are `npc_set_variant`/`npc_set_variant_b` with arguments (char, row) in `story.md` and `tools/story.py`.
+- 50112/50113: **story.md changed, opcode names kept.** `dialogue_op_fade` passes `on = 1` for 50112 and 0 for 50113. `on = 1` is a fade in: `world_state_enter_location` and `world_state_staff_roll_movie` call `world_fade_screen(1, …)` after the set-up, `world_leave_field_scene`, `world_state_sleep_to_next_day` and `world_state_return_from_story` call `world_fade_screen(0, …)` before leaving, and `world_field_req_fade` (`rel_field` request 22) calls `system_start_fade_in` for 1 and `system_start_fade_out` for 0. So `fade_in`/`fade_out` were right; only the "on = 0 / 1" column of `story.md` was swapped.
+- 50030: **kept, recorded.** Handler `0x08ea7d50` skips to `0xc38e`, the `endif` of 50029, not to `0xc38f`. It is a slip in the game that matters only if the opcode is used; `story.md` now says so and a port should keep it.
+
+## Sub-module states (2026-10-31, round 2)
+
+`rel_story` runs the game's library sub-modules from 24 small states at `0x08ea2e44`–`0x08ea3800` (family `sub_module_states`). Each pair is `world_state_start_<module>` (calls the module's start export once, then `system_set_loading_overlay(0)`) and `world_state_update_<module>` (calls update; while it returns 0 calls draw; otherwise `system_set_loading_overlay(1)`, stores a result code in `0x08ecd974`, fades and picks the next story state in `0x08ecd978`). Result codes: 1 shop, 2 recipe viewer, 3 password, 4 select card, 5 conversion machine, 6 card album, 7 character list, 8 limit list, 9 tutorial list, 10 deck tutorial, 11 duel record. Two special cases: the character list with system flag `0x14` set opens in mode 3 and afterwards resets the location (`0xe`), calendar and character records and selects the partner event (the start of a new game), and a tutorial-list choice of 8–`0x17` sets duel set-up mode 0–15 and starts a default duel. Three further states drive the field module itself (`world_state_init_field_module`, `world_state_run_field_frame`, `world_state_shutdown_field_module`).
+
+The import stubs they call are named from `re/game-libs.csv` (see `system.md`, "Game-library imports").
 
 ## Open questions
 
-- 32 import stubs of `rel_story` (`0x08eadfc4`–`0x08eae074`, `0x08eb115c`–`0x08eb1214`) point at libraries whose module is not resolved, and the 21 mini-game and mode state functions `0x08ea2e44`–`0x08ea3800` that call only them are unnamed.
-- Opcodes 50042 (`0x08ea8170`, tests `0x088578c0`), 50100 (`0x08ea87dc`, decompiles empty) and 50154 (`0x08ea980c`).
+- Opcodes 50042, 50100 and 50154 are read (`dialogue_op_if_setting_b0_bit3`, `dialogue_op_mark_card`, `dialogue_op_prefetch_bgm`; `story.md`). BOOT `0x08835ad0(0/1)` around every sub-module run is `system_set_loading_overlay` (round 2: it restarts the `loading.ehf` player; M), so the open point is only what its argument selects.
