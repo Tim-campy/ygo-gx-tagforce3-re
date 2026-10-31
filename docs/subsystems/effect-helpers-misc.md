@@ -300,7 +300,65 @@ Named while reducing the `partial` and `engine_only` cards of `tools/card_effect
 | `0x0886354c` (BOOT) | `card_db_get_special_summon_condition_class` | `int (int card_id)` | Special summoning condition class 0-5 per card id (the class table behind `card_db_can_be_normal_summoned`). The meaning of each class is open. | import stubs | L |
 | `0x088544f8` (BOOT) | `save_set_card_milestone_flag` | `void (int card_id, int offset)` | Writes 1 to a per-card byte of the save state (`save_get_state() + 0x153e4 + offset + k`) for 13 card ids. Bookkeeping, not an effect. | import stubs | M |
 | `0x08866870` (BOOT) | `card_db_is_fusion_substitute` | `int (int card_id)` | 1 for the eight Fusion-substitute monsters (Goddess with the Third Eye, Beastking of the Swamps, Versago the Destroyer, Mystical Sheep #1 ...). | import stubs | M |
-| `0x088669a0` (BOOT) | `card_db_is_control_locked` | `int (int card_id)` | 1 for four ids (Blindly Loyal Goblin, Mataza the Zapper ...); hypothesis: control of these cannot switch. | import stubs | L |
+| `0x088669a0` (BOOT) | `card_db_is_control_locked` | `int (int card_id)` | 1 for four ids (Blindly Loyal Goblin, Mataza the Zapper ...): control of these cannot switch. Raised from L to M: its only engine consumer is `duel_core_is_control_change_blocked` under `duel_effects_can_take_control`. | import stubs | M |
+
+### Second round: functions that blocked the most cards
+
+The unnamed functions were ranked by how many `partial`/`engine_only` cards they would unblock under the engine-mapped rule (a greedy cover over the cards whose only blockers are unnamed functions). Each was decompiled in Ghidra (`-readOnly`); the owner of a record handler (a function with no callers) comes from the effect records that point to it. A semantic row of `tools/engine_ref_semantics.csv` was added only where the decompiled branch supports the tag; where one function holds both the card's own rule and ids that another card's effect names, the new `operand` column separates them (`docs/formats/card-refs.md`, "Semantics"). Functions marked D are also in `re/documented-duel_eng.tsv` with prototype, side effects and callers.
+
+| Address | Name | Meaning | Callers | Conf. |
+| --- | --- | --- | --- | --- |
+| `0x09da3dfc` | `duel_core_filter_procedure_material` (D) | Material filter of the one-monster Special Summon procedures, chosen by the card being summoned (`0x09e290c0`): Metalzoa (Zoa + Metalmorph), Red-Eyes Black Metal Dragon, Plasma Warrior Eitom (Level 7+), Masked Beast Des Guardius, Dark Eradicator Warlock, Red-Eyes Darkness Dragon ... Returns `0x800` for a valid slot. | `0x09d9fe24`, `0x09da4314`, `0x09da446c` | H |
+| `0x09da3bec` | `duel_core_filter_moth_procedure_material` (D) | Petit Moth with a Cocoon of Evolution link at least 2/4/6 turns old for Larvae Moth / Great Moth / Perfectly Ultimate Great Moth. | `0x09d9fce4` | H |
+| `0x09da9470` | `duel_core_filter_familiar_possessed_material` (D) | The Charmer of each Familiar-Possessed plus a monster of its Attribute. | `duel_core_get_special_summon_mask` | H |
+| `0x09da784c` | `duel_core_summon_step_cost_procedure` | `summon_prepare` state machine for hand costs: The Tricky and Dark Grepher discard, Izanagi sends a card, Montage Dragon sends 3 and sums their Levels into `0x09e290c8`. | `duel_core_summon_prepare` | H |
+| `0x09da0510` | `duel_core_get_procedure_banish_count` (D) | Graveyard cards banished by each banish-cost procedure (Spirit of Flames, Soul of Purity and Light, Fenrir, Earth Giant Gaia Plate, Megarock Dragon, Spell Striker, Beast Machine King Barbaros Ur ...). | `0x09da7b84`, `0x09daaad8` | H |
+| `0x09da7b84` | `duel_core_summon_step_banish_procedure` | `summon_prepare` states that open the Graveyard list filtered by the summoned card's Attribute or Type and banish the picks (or the hand/field copy). | `duel_core_summon_prepare` | H |
+| `0x09da60f8` | `duel_core_summon_step_necroshade` | Asks with Elemental Hero Necroshade's name and adds player marker `0x197f` (Tribute Summon without Tributes once while it is in the Graveyard). | `duel_core_summon_prepare` | M |
+| `0x09daa470` | `duel_core_summon_step_swift_gaia` | Asks with Swift Gaia's name when the summon-set masks allow its no-Tribute Normal Summon. | `duel_core_summon_prepare` | M |
+| `0x09ddd544` | `duel_core_queue_spirit_return_triggers` (D) | End Phase return of Spirit monsters; none while Spiritual Energy Settle Machine is active, optional with Izanagi or Mirror of Yata. | function pointer | H |
+| `0x09dd11dc` | `duel_core_is_attack_optional` | 0 when the monster must attack (Dark Arena, Berserk Gorilla, Ultimate Tyranno, Evil Hero Malicious Fiend, Attribute Gravity, markers `0x15ff`/`0x14a6`/`0x1669`/`0x1eee` ...). | `duel_core_battle_step_declare_attack`, CPU | M |
+| `0x09dd0b88` | `duel_core_can_end_battle_phase` | 0 while a monster that must attack can still attack (same card set). | `duel_core_get_phase_menu_mask`, `duel_core_step_main_phase`, `duel_core_battle_step_select_attack`, CPU | M |
+| `0x09c0da14` | `duel_core_get_hand_size_limit` (D) | Hand limit 6 / none (Infinite Cards) / 5 (Enervating Mist) / 7 (Hieroglyph Lithograph). | `duel_core_enforce_hand_limit`, CPU | H |
+| `0x09db7db8` | `duel_core_cmd_destroy_by_effect` | Engine command `0x30` (`duel_core.md`). | `duel_core_execute_command` | H |
+| `0x09db8a50` | `duel_core_cmd_destroy_by_battle` | Engine command `0x31`; per-card markers for Dark Ruler Ha Des, Element Soldier, Boss Rush. | `duel_core_execute_command` | H |
+| `0x09db9f40` | `duel_core_cmd_banish_field_card` | Engine command `0x32`; listed marker keys (Dark Lucius LV8, Ultimate Insect LV7 ...) are re-attached to the player. | `duel_core_execute_command` | H |
+| `0x09db4d34` | `duel_core_cmd_send_field_card` | Engine command `0x3f`. | `duel_core_execute_command` | H |
+| `0x09db561c` | `duel_core_cmd_place_list_card` | Engine command `0x40`. | `duel_core_execute_command` | H |
+| `0x09db9878` | `duel_core_cmd_tribute_card` | Engine command `0x45`. | `duel_core_execute_command` | H |
+| `0x09db6cc0` | `duel_core_cmd_change_face` | Engine command `0x34`; attaches effect 7 from each active Judgment of the Desert. | `duel_core_execute_command` | H |
+| `0x09c00a50` | `duel_core_add_active_card_count` (D) | Adds to the slot value of every active copy of a card (Fatal Abacus, Skull Invitation counts). | the card-move commands | H |
+| `0x09c00b94` | `duel_core_flag_active_card` (D) | Sets slot flag bit 7 of every active copy of a card. | the card-move commands | H |
+| `0x09cde754` | `duel_effects_resolve_counted_damage` (D) | Converts those counts into damage: Fatal Abacus 500, Skull Invitation 300 per card. | function pointer | H |
+| `0x09cde168` | `duel_effects_resolve_discard_damage` (D) | 500 per counted card to the opponent (Magical Thorn). | function pointer | H |
+| `0x09bfe878` | `duel_core_is_control_change_blocked` (D) | `card_db_is_control_locked` plus Element Valkyrie / Element Soldier while a WATER monster is on the field. | `duel_effects_can_take_control`, `0x09c146f0` | H |
+| `0x09db315c` | `duel_core_apply_attack_declaration` | Bookkeeping of an attack declaration: per-card markers (Dizzy Tiger), the Ultimate Tyranno flag, player/duel flags. | `duel_core_cmd_declare_attack`, `_declare_direct_attack` | M |
+| `0x09be6ac4` | `duel_core_init_battle_phase_attack_state` | Phase 3: detaches the per-card attack-count effects (Chimeratech Overdragon, Chain Thrasher, Ben Kei ...), marks the opponent's monsters when it controls two or more, sets the must-attack word of Ultimate Tyranno; phase 0 attaches `0x1911`. | `duel_core_cmd_enter_phase`, `0x09d12a24` | M |
+| `0x09bee500` | `duel_core_record_attack_done` (D) | After an attack: attacked bits and the per-card attack-count effects. | `duel_core_cmd_attack_done`, `duel_core_cmd_negate_attack` | H |
+| `0x09c1be50` | `duel_core_send_field_card_body` | 13,844-byte body of `duel_core_send_field_card`: per-card markers when a field card is removed (Makyura, Mokey Mokey Smackdown ...). | `duel_core_send_field_card` | M |
+| `0x09c147f0` | `duel_core_check_targeting_links` | Walks the links that point at a monster: negates and destroys targeting Spells/Traps for Freed, Ryu Senshi, Tyrant Dragon, Fiend Skull Dragon, Ancient Gear Engineer, Frontier Wiseman, Obsidian Dragon, Arcana Force 0 (unless Splendid Venus); ends links whose condition fails (Limit Reverse, Soul Devouring Bamboo Sword, Rare Metalmorph, Alien Hypno, Option tokens, equips failing their filter). | `0x09ce2558` | M |
+| `0x09befe58` | `duel_core_get_battle_destruction_countdown` (D) | Smallest Zone Eater / Steel Scorpion countdown on a slot. | function pointer | M |
+| `0x09c2796c` | `duel_core_is_damage_converted_to_gain` (D) | Rainbow Life / Prime Material Dragon conversion, blocked by the opponent's LP-gain reversers. | 7 (damage posting, CPU) | H |
+| `0x09c0c4c8` | `duel_core_can_use_deck` (D) | 0 while Deck Lockdown is active. | `duel_effects_collect_deck_candidates`, CPU | H |
+| `0x09bf0e20` | `duel_core_substitute_covers_slot` (D) | Which monsters a destruction substitute protects (Plant Type for Nettles, Six Samurai ...). | `duel_core_battle_step_damage_calc`, `duel_core_send_batch_step` | M |
+| `0x09bf0d68` | `duel_core_is_destruction_substitute` (D) | Whether a slot's card can be destroyed instead (BOOT list `0x08861d2c`, Nettles, `0x1f0d`). | same | M |
+| `0x09be4648` | `duel_core_record_duel_result` | End of duel: result words, save milestones (`save_set_card_milestone_flag` for 0x1468 / Exodia), duel-condition check. | function pointer | M |
+| `0x09be3bc0` | `duel_core_check_duel_condition` | Switch on the duel-condition index (`+0x290` of the duel record): damage thresholds (`0x09dcb734`) or "card X was used" tests. Bookkeeping, not an effect. | `duel_core_record_duel_result` | M |
+| `0x09dcbbcc` | `duel_core_was_card_used_in_duel` | 1 when an instance of the card id is flagged in the bit set `0x09e02f24`. | `duel_core_check_duel_condition`, `0x09be2eac` | M |
+| `0x09beefb4` | `duel_effects_is_archfiend_roll_success` (D) | Die results that trigger each Archfiend's negation. | `duel_core_chain_step`, `duel_core_action_dice_roll` | H |
+| `0x09c3dd68` | `duel_effects_filter_target_by_source` (D) | Shared target filter with a per-source condition (Tail Swipe, Lone Wolf, Staunch Defender, Defense Maiden, Jam Defender ...). | six records | H |
+| `0x09c355c4` | `duel_effects_filter_target_by_source_b` | A second shared target filter switching on the source id (Orca Mega-Fortress of Darkness: Torpedo Fish / Cannonball Spear Shellfish ...). | six handlers | M |
+| `0x09c55b90` | `duel_effects_is_negated_by_active_locks` (D) | Lock-state negation of Spells, Traps and monsters; Royal Decree spares itself. | `duel_effects_is_negated_on_resolution` | M |
+| `0x09cdcdc0` | `duel_effects_update_field_spell_override` (D) | Active Field Spell, Umi while Maiden of the Aqua is face-up. | `duel_effects_check_rule_list` | H |
+| `0x09cdeb90`, `0x09ce0724` | `duel_effects_check_self_destruct_rules`, `_b` | Per-card "destroy this card when its condition fails" checks on the argument id (Thunder Nyan Nyan, Exodia Necross, Sanguine Swamp ...). | function pointers | M |
+| `0x09c02b48` | `duel_effects_is_candidate_allowed_by_locks` | Candidate filter: no monster while an opposing monster has a Metalsilver Armor link; Lightsworn lock `0x1e74`. | 10+ candidate filters | M |
+| `0x09bf2910` | `duel_effects_is_activatable_in_window` | Switch on the response window with per-card lists. | `duel_effects_can_respond_in_window` | M |
+| `0x09cba5dc` | `duel_effects_check_fusion_materials` | Fusion material check of an Extra Deck card: F.G.D. and `0x1e7e` need 5, `0x1ab3`/`0x19ef` 4; other Fusions use the 138-entry recipe table at `0x09debe98`. | `duel_core_get_special_summon_mask`, `duel_effects_collect_extra_deck_candidates`, 4 more | M |
+| `0x09c34b18` | `duel_effects_filter_time_stream_target` (D) | Time Stream's target: the next Fossil Knight form in the Extra Deck. | record of Time Stream | H |
+| `0x09c6b9d4` | `duel_effects_filter_instant_fusion_candidate` (D) | Instant Fusion candidate filter; none while Non-Fusion Area is active. | record of Instant Fusion | H |
+| `0x09cbd068` | `duel_effects_cond_time_stream` (D) | Time Stream condition; false while Non-Fusion Area is active. | record of Time Stream | H |
+
+Rows without a name: other cards' record handlers that only name the blocked card (Dragon Piper `0x09c34cf4`, Desrook Archfiend `0x09c61e38`, Orca Mega-Fortress of Darkness `0x09c3b904`, The First Sarcophagus `0x09c497e8`/`0x09c9af3c`, Silent Magician LV4 `0x09c64eac`, Machiners Force `0x09c66200`, Burst Stream of Destruction / Evolution Burst `0x09c997f4`, the shared link handler `0x09c36bdc`, the shared resolve `0x09c4c140`) get `named_reference`; `0x09be2eac` (whose body `0x09be2fb8`-`0x09be3bb8` Ghidra cut off) gets `save_record` like `duel_core_check_duel_condition`. Arguments in the id range passed to `duel_effects_target_filter` are flag words (`effect-tables.md`) and get the new generic tag `not_card_id`; this removed false card references for Hayabusa Knight (`0x1411`), Mad Sword Beast (`0x1416`) and Alchemic Kettle - Chaos Distill (`0x1444`).
 
 ## Open questions
 
@@ -312,5 +370,9 @@ Named while reducing the `partial` and `engine_only` cards of `tools/card_effect
 - `duel_core_raise_attack_event`: the meaning of timing event `0x12` (raised with the packed attacker and target).
 - `duel_core_get_slot_activation_kind` and `duel_core_flag_face_up_copies` (slot flag 7): the meaning of the returned kinds and of the flag.
 - The 87 records still partial reach no effect category; they need categories (new `effect_categories.csv` rows or per-card reading), not names.
-- `card_db_get_special_summon_condition_class` (BOOT `0x0886354c`): what classes 1-5 mean, and `card_db_is_control_locked` (`0x088669a0`): whether the four ids really cannot change control. Both stay L until a caller is read.
+- `card_db_get_special_summon_condition_class` (BOOT `0x0886354c`): what classes 1-5 mean (stays L until a caller is read).
+- `0x09be2eac`: Ghidra ends the function at 268 bytes; the code at `0x09be2fb8`-`0x09be3bb8` (jump-table cases that call `duel_core_was_card_used_in_duel`) has no function. Re-create the function body and check whether it is a second duel-condition table.
+- `duel_core_check_duel_condition` / `duel_core_was_card_used_in_duel`: which game feature the condition index at `+0x290` belongs to (duel bonuses or story challenges), and what sets the bit set `0x09e02f24`.
+- `duel_core_is_destruction_substitute`: the BOOT list `0x08861d2c` and card `0x1f0d` (unreleased) are not identified.
+- The 24 cards whose engine references carry only L descriptive tags (`duel_core_battle_resolve`, `duel_core_battle_step_*`, `duel_core_get_battle_flip_trigger` ...) need those named functions read branch by branch before their rows can be raised.
 - `duel_core_begin_select_tributes`: the meaning of its arguments `a`/`b` and of selection state 8 outside Ritual and Tribute selections.

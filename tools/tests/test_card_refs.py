@@ -251,6 +251,14 @@ class CardRefs(unittest.TestCase):
         self.assertEqual(next(cr.describe_rows(refs, [0x1600]))["description"], "generic: named_reference")
         bad = [dict(rules[0], confidence="X", kinds="both")]
         self.assertEqual(len(cr.rule_problems(bad)), 2)
+        extra = dict(rules[0])
+        extra[None] = ["extra"]  # csv.DictReader's restkey: an unquoted comma in the basis
+        self.assertEqual(len(cr.rule_problems([extra])), 1)
+        # operand filter: a glob list on the compare's other operand
+        row = dict(refs[0x12EC][0], operand="u16 load")
+        self.assertTrue(cr._rule_matches(dict(rules[0], operand="computed|u16 load"), row))
+        self.assertFalse(cr._rule_matches(dict(rules[0], operand="result of *"), row))
+        self.assertIn("not_card_id", cr.GENERIC_TAGS)
         self.assertEqual(cr.parse_values("1=a;none=b;*=c {value}"), {1: "a", "none": "b", "*": "c {value}"})
 
     def test_group_of(self):
