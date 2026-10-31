@@ -162,7 +162,7 @@ address,group,name
 0x08eb008c,duel_core,thunk_duel_core_count_active_links_from
 0x08eb0094,duel_core,thunk_duel_core_count_links_to
 0x08eb009c,duel_core,thunk_duel_core_count_links_since
-0x08eb00a4,,thunk_FUN_09be7d90
+0x08eb00a4,duel_core,thunk_duel_core_count_links_of_slot_card
 0x08eb00ac,duel_core,thunk_duel_core_count_links_from_card_if_affected
 0x08eb00b4,duel_core,thunk_duel_core_count_link_sources
 0x08eb00bc,,thunk_FUN_09be7fe8
@@ -259,7 +259,7 @@ address,group,name
 0x08eb0394,duel_effects,thunk_duel_effects_is_control_changing_card
 0x08eb039c,,thunk_FUN_09bf5890
 0x08eb03a4,duel_effects,thunk_duel_effects_is_spell_trap_negator
-0x08eb03ac,,thunk_FUN_09bf5b40
+0x08eb03ac,duel_effects,thunk_duel_effects_get_link_affected_sides
 0x08eb03b4,,thunk_FUN_09bf65b8
 0x08eb03bc,,thunk_FUN_09bf6708
 0x08eb03c4,ai,thunk_ai_is_special_summon_effect
@@ -533,7 +533,7 @@ address,group,name
 0x08eb0c24,,thunk_FUN_09be5d4c
 0x08eb0c2c,,thunk_FUN_09be5dd8
 0x08eb0c34,,thunk_FUN_09be5e2c
-0x08eb0c3c,,thunk_FUN_09be5eb8
+0x08eb0c3c,duel_core,thunk_duel_core_detach_effects_of_moved_card
 0x08eb0c44,duel_core,thunk_duel_core_expire_turn_effects
 0x08eb0c4c,duel_core,thunk_duel_core_init_battle_phase_attack_state
 0x08eb0c54,duel_core,thunk_duel_core_apply_phase_start_attack_rules
@@ -798,7 +798,7 @@ address,group,name
 0x08eb146c,,thunk_FUN_09c54658
 0x08eb1474,,thunk_FUN_09cdccec
 0x08eb147c,duel_core,thunk_duel_core_apply_forced_positions
-0x08eb1484,,thunk_FUN_09cdcebc
+0x08eb1484,duel_core,thunk_duel_core_mark_face_up_copies
 0x08eb148c,,thunk_FUN_09cdcf88
 0x08eb1494,duel_core,thunk_duel_core_flag_face_up_copies
 0x08eb149c,,thunk_FUN_09cdd204
@@ -880,7 +880,7 @@ address,group,name
 0x08eb16fc,duel_effects,thunk_duel_effects_resolve_ritual_summon
 0x08eb1704,,thunk_FUN_09ccdf64
 0x08eb170c,,thunk_FUN_09ccdf84
-0x08eb1714,,thunk_FUN_09ccdfec
+0x08eb1714,duel_effects,thunk_duel_effects_get_ritual_monster_for_spell
 0x08eb171c,,thunk_FUN_09cce96c
 0x08eb1724,duel_effects,thunk_duel_effects_resolve_destroy_target_b
 0x08eb172c,duel_effects,thunk_duel_effects_destroy_valid_targets
@@ -954,7 +954,7 @@ address,group,name
 0x08eb194c,duel_core,thunk_duel_core_begin_select_target_ex
 0x08eb1954,,thunk_FUN_09dcee18
 0x08eb195c,,thunk_FUN_09dcee68
-0x08eb1964,,thunk_FUN_09dcc1e0
+0x08eb1964,duel_effects,thunk_duel_effects_get_default_target_side
 0x08eb196c,duel_core,thunk_duel_core_is_selection_confirmed
 0x08eb1974,duel_core,thunk_duel_core_get_card_action_mask
 0x08eb197c,duel_core,thunk_duel_core_submit_player_action

@@ -330,5 +330,175 @@ class SymbolicEvaluatorTest(unittest.TestCase):
             ev.paths(a, {})
 
 
+def slt(rd, rs, rt):
+    return rs << 21 | rt << 16 | rd << 11 | 0x2A
+
+
+def sll(rd, rt, sa):
+    return rt << 16 | rd << 11 | sa << 6
+
+
+S3, T4 = 19, 12
+COUNT, SUM, FIND, DIAMONDS, LOOP_CHAIN = 0x09C70000, 0x09C70100, 0x09C70200, 0x09C70300, 0x09C70800
+LOOP_SIDE = 0x09C70C00
+LOOP_FUNCTIONS = [COUNT, SUM, FIND, DIAMONDS, LOOP_CHAIN, LOOP_SIDE, LOOP_SIDE + 0x10]
+CARD_A, CARD_B = range(0x1301, 0x1305), range(0x1305, 0x1309)
+
+
+def loop_body(body):
+    """v0 = 0, t0 = 0, t2 = arg0; do { t1 = u16[t2]; <body>; t0++ } while (t0 < arg1), t2 += 2 in the delay
+    slot; return v0. `body` is a list of words, "skip" is a beq t1, zero over the rest of the body."""
+    head = [addiu(V0, ZERO, 0), addiu(T0, ZERO, 0), addu(T2, A0, ZERO)]
+    words = [lhu(T1, T2, 0)] + body + [addiu(T0, T0, 1), slt(T3, T0, A1), "back", addiu(T2, T2, 2), JR_RA, 0]
+    return head, words
+
+
+def place(img, at, head, words):
+    code = list(head)
+    h = at + 4 * len(head)
+    for k, w in enumerate(words):
+        pc = h + 4 * k
+        if w == "back":
+            w = branch(5, T3, ZERO, pc, h)
+        elif w == "skip":  # over the next delay slot and one instruction
+            w = branch(4, T1, ZERO, pc, pc + 12)
+        code.append(w)
+    img.put(at, *code)
+
+
+def build_loops():
+    """COUNT: v0 = number of non-zero u16 at arg0[0..arg1); SUM: v0 = their sum; FIND: 1 when one of them is
+    0x1234, else 0; DIAMONDS: 20 tests of u8[arg0+k] that each call LOOP_SIDE (paths rejoin); LOOP_CHAIN: a
+    compare chain inside a loop over u16[arg0 + 2i], i < arg1, that counts CARD_A ids in s2 and CARD_B ids in s3."""
+    img = Image()
+    place(img, COUNT, *loop_body(["skip", 0, addiu(V0, V0, 1)]))
+    place(img, SUM, *loop_body([addu(V0, V0, T1)]))
+    found = FIND + 4 * 14
+    words = [lhu(T1, T2, 0), addiu(T4, ZERO, 0x1234), "found", 0, addiu(T0, T0, 1), slt(T3, T0, A1), "back",
+             addiu(T2, T2, 2), JR_RA, addiu(V0, ZERO, 0)]
+    head = [addiu(T0, ZERO, 0), addu(T2, A0, ZERO)]
+    code = list(head)
+    h = FIND + 4 * len(head)
+    for k, w in enumerate(words):
+        pc = h + 4 * k
+        if w == "back":
+            w = branch(5, T3, ZERO, pc, h)
+        elif w == "found":
+            w = branch(4, T1, T4, pc, found)
+        code.append(w)
+    img.put(FIND, *code)
+    img.put(found, JR_RA, addiu(V0, ZERO, 1))
+    code = [addiu(SP, SP, -8), sw(RA, SP, 4), addu(S0, A0, ZERO)]
+    for k in range(20):
+        pc = DIAMONDS + 4 * len(code)
+        code += [lbu(T1, S0, k), branch(4, T1, ZERO, pc + 4, pc + 20), 0, jump(3, LOOP_SIDE), 0]
+    code += [lw(RA, SP, 4), addiu(SP, SP, 8), JR_RA, addiu(V0, ZERO, 7)]
+    img.put(DIAMONDS, *code)
+    img.put(LOOP_SIDE, JR_RA, 0)
+    # the loop chain
+    code = [addiu(S1, ZERO, 0), addiu(S2, ZERO, 0), addiu(S3, ZERO, 0)]
+    head = LOOP_CHAIN + 4 * len(code)
+    code += [sll(T0, S1, 1), addu(T0, T0, A0), lhu(S0, T0, 0)]
+    tests = []
+    for cid in list(CARD_A) + list(CARD_B):
+        tests.append((LOOP_CHAIN + 4 * len(code) + 4, cid))
+        code += [addiu(V1, ZERO, cid), 0, 0]
+    case_a = LOOP_CHAIN + 4 * len(code) + 8
+    case_b, latch = case_a + 12, case_a + 24
+    code += [branch(4, ZERO, ZERO, LOOP_CHAIN + 4 * len(code), latch), 0]
+    code += [addiu(S2, S2, 1), branch(4, ZERO, ZERO, case_a + 4, latch), 0]
+    code += [addiu(S3, S3, 1), branch(4, ZERO, ZERO, case_b + 4, latch), 0]
+    code += [addiu(S1, S1, 1), slt(T1, S1, A1), branch(5, T1, ZERO, latch + 8, head), 0,
+             JR_RA, addu(V0, S2, S3)]
+    img.put(LOOP_CHAIN, *code)
+    for at, cid in tests:
+        img.put(at, branch(4, S0, V1, at, case_a if cid in CARD_A else case_b))
+    return img.elf()
+
+
+class LoopSummaryTest(unittest.TestCase):
+    """Loop summaries (LoopSummary) and path merging; every summarised value is checked against a concrete run
+    of its transition system (effect_params.concrete) on several memories."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.module = ep.Module(build_loops())
+
+    def evaluator(self, loops):
+        ev = ep.SymbolicEvaluator(self.module, LOOP_FUNCTIONS)
+        ev.loop_mode = loops
+        return ev
+
+    def run_paths(self, start, loops=True):
+        return self.evaluator(loops).paths(start, {A0: ("arg", 0), A1: ("arg", 1)})
+
+    @staticmethod
+    def env(values, n):
+        base = 0x08800000
+        mem = {base + 2 * k: v for k, v in enumerate(values)}
+        return {"arg": [base, n, 0, 0], "reg": {}, "load": lambda a, size, sgn: mem.get(a, 0)}
+
+    def check_concrete(self, value, expect):
+        for values in ([3, 0, 5, 0, 7], [0, 0, 0, 0, 0], [1, 2, 3, 4, 5], [0x1234, 9, 0, 0, 1]):
+            for n in (1, 2, 3, 5):
+                self.assertEqual(ep.concrete(value, self.env(values, n)), expect(values[:max(n, 1)]) & 0xFFFFFFFF,
+                                 (values, n))
+
+    def test_unrolling_fails_without_summaries(self):
+        for f in (COUNT, SUM, FIND):
+            with self.assertRaises(ep.EvalFail) as e:
+                self.run_paths(f, loops=False)
+            self.assertIn(e.exception.args[0], ("path_limit", "step_limit"))
+
+    def test_count(self):
+        outs = self.run_paths(COUNT)
+        self.assertEqual(len(outs), 1)
+        v = outs[0]["v0"]
+        self.assertEqual(v[0], "loopout")
+        self.assertTrue(ep.grounded(v))
+        self.assertTrue(ep.render(v).startswith(f"count_of(loop@{COUNT + 12:#x}: "), ep.render(v))
+        self.assertEqual(v[1].recurrence(T0), ("induction", 1))
+        self.check_concrete(v, lambda xs: sum(1 for x in xs if x))
+
+    def test_sum(self):
+        v = self.run_paths(SUM)[0]["v0"]
+        self.assertTrue(ep.render(v).startswith(f"sum_of(loop@{SUM + 12:#x}: u16[t2@{SUM + 12:#x}+0x0]"),
+                        ep.render(v))
+        self.check_concrete(v, sum)
+
+    def test_find_is_conditional(self):
+        outs = self.run_paths(FIND)
+        self.assertEqual(sorted(o["v0"] for o in outs), [0, 1])
+        desc = next(c for o in outs for c in [o["cond"]] if c and c[0] == "exit")[1]
+        self.assertEqual(len(desc.steps), 1)
+
+    def test_merging_rejoins_diamonds(self):
+        outs = self.run_paths(DIAMONDS, loops=False)
+        self.assertEqual([o["v0"] for o in outs], [7])
+        self.assertEqual(len(outs[0]["calls"]), 1)  # the 20 call sites have the same (target, args)
+
+    def test_liveness(self):
+        ev = self.evaluator(False)
+        self.assertFalse(ev.live_mask(DIAMONDS + 4 * 8) >> V0 & 1)  # v0 is written before it is read
+        self.assertTrue(ev.live_mask(DIAMONDS + 4 * 8) >> S0 & 1)
+        self.assertEqual(ev._call_args(LOOP_SIDE), 1 << SP)  # the callee reads no argument
+
+    def test_regions(self):
+        ev = self.evaluator(True)
+        (lo, hi, back), = ev.regions(COUNT)
+        self.assertEqual((lo, hi), (COUNT + 12, COUNT + 12 + 4 * 8))
+        self.assertEqual(ev.regions(DIAMONDS), [])
+
+    def test_chain_inside_a_loop_is_an_iteration(self):
+        res = {r["card_id"]: r for r in ep.resolve_chain(self.module, LOOP_CHAIN, LOOP_SIDE, LOOP_FUNCTIONS)}
+        self.assertEqual(len(res), 8)
+        for cid, r in res.items():
+            reg = "s2" if cid in CARD_A else "s3"
+            self.assertEqual((r["kind"], r["method"]), ("iteration", "loops"))
+            self.assertEqual(r["values"], [("next", ((reg, ("op", "+", ("reg", reg), 1)),))])
+            self.assertEqual(ep.case_summary(r), f"next: {reg}=(?{reg} + 1)")
+        self.assertEqual(ep.chain_class(list(res.values()), None), "iteration")
+
+
 if __name__ == "__main__":
     unittest.main()

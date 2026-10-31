@@ -24,6 +24,7 @@ import argparse
 import bisect
 import collections
 import csv
+import heapq
 import importlib.util
 import struct
 import sys
@@ -305,6 +306,14 @@ def evaluate(module, start, regs=None, delay=None, limit=200):
 #   ("load", base, off, size, sgn)   memory read of size bytes at base + off
 #   ("call", target, args)           result of a call; args are the a0-a3 expressions
 #   ("op", sym, a, b)                arithmetic; b is None for unary forms
+#   ("lv", head, loc)                loop variable: the value of location loc (a register number, or ("stk", off)
+#                                    for a stack slot) at the start of an iteration of the loop entered at head
+#   ("loopout", summary, group, loc) the value of location loc after the loop described by `summary` (a
+#                                    LoopSummary), when the loop leaves through an exit path of exit group `group`
+#
+# Path conditions (only needed by loop summaries) are separate nodes: None (true), ("lit", taken, test, a, b) for
+# a branch test (`eq`, `lez`, `gtz`, `ltz`, `gez`; b is 0 for the one-operand tests) taken or not, ("and", c, d),
+# ("or", c, d) for two merged paths, and ("exit", summary, exit) for the path that left a summarised loop.
 
 ARG_REGS = (4, 5, 6, 7)
 CALL_CLOBBER = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 24, 25)
@@ -358,10 +367,12 @@ def grounded(v):
     k = v[0]
     if k == "reg":
         return False
-    if k in ("arg", "sp", "call"):
+    if k in ("arg", "sp", "call", "lv"):
         return True
     if k == "load":
         return grounded(v[1])
+    if k == "loopout":
+        return v[1].grounded
     return grounded(v[2]) and (v[3] is None or v[1] in ("ext", "ins") or grounded(v[3]))
 
 
@@ -379,6 +390,10 @@ def render(v, names=None, depth=0):
         return f"?{v[1]}"
     if k == "sp":
         return f"sp{v[1]:+#x}"
+    if k == "lv":
+        return f"{loc_name(v[2])}@{v[1]:#x}"
+    if k == "loopout":
+        return render_loopout(v, names, depth)
     if k == "load":
         base = f"{v[1]:#010x}" if _isint(v[1]) else render(v[1], names, depth + 1)
         return f"{'s' if v[4] else 'u'}{8 * v[3]}[{base}{v[2]:+#x}]"
@@ -405,6 +420,384 @@ def render(v, names=None, depth=0):
     return f"({render(a, names, depth + 1)} {sym} {rb})"
 
 
+def loc_name(loc):
+    """Text of a loop location: a register name, or `sp+0x74` for a stack slot."""
+    return REG[loc] if _isint(loc) else f"sp{loc[1]:+#x}"
+
+
+def cond_and(c, d):
+    return d if c is None else c if d is None else ("and", c, d)
+
+
+def cond_or(c, d):
+    return None if c is None or d is None else c if c == d else ("or", c, d)
+
+
+def cond_not(c):
+    return ("lit", not c[1]) + c[2:]
+
+
+def render_cond(c, names=None, depth=0):
+    """Text of a path condition."""
+    if c is None:
+        return "true"
+    if depth > 8:
+        return "..."
+    k = c[0]
+    if k == "lit":
+        _, taken, test, a, b = c
+        ra = render(a, names, depth + 1)
+        if test == "eq":
+            return f"{ra} {'==' if taken else '!='} {render(b, names, depth + 1)}"
+        sym = {"lez": ("<=", ">"), "gtz": (">", "<="), "ltz": ("<", ">="), "gez": (">=", "<")}[test]
+        return f"{ra} {sym[0] if taken else sym[1]} 0"
+    if k == "exit":
+        return f"exit{c[2]}@{c[1].head:#x}"
+    sep = " and " if k == "and" else " or "
+    return f"({render_cond(c[1], names, depth + 1)}{sep}{render_cond(c[2], names, depth + 1)})"
+
+
+def _mentions(v, head):
+    """True when an expression or path condition reads a loop variable of the loop entered at `head`."""
+    if v is None or _isint(v):
+        return False
+    if isinstance(v, LoopSummary):
+        return v.mentions(head)
+    if type(v) is not tuple or not v:
+        return False
+    k = v[0]
+    if k == "lv":
+        return v[1] == head
+    if k in ("arg", "reg", "sp"):
+        return False
+    if k == "load":
+        return _mentions(v[1], head)
+    if k == "call":
+        return any(_mentions(a, head) for a in v[2])
+    if k == "loopout":
+        return v[1].mentions(head)
+    if k == "op":
+        return _mentions(v[2], head) or (type(v[3]) is tuple and v[1] not in ("ext", "ins") and _mentions(v[3], head))
+    if k == "lit":
+        return _mentions(v[3], head) or _mentions(v[4], head)
+    if k in ("and", "or"):
+        return _mentions(v[1], head) or _mentions(v[2], head)
+    if k == "exit":
+        return v[1] is not None and v[1].mentions(head)
+    return False
+
+
+def _lv_uses(v, head, acc, seen=None):
+    """Add to acc the locations whose loop variable (of the loop entered at `head`) the expression or condition
+    reads. Expressions share subtrees, so every node is visited once (by identity)."""
+    seen = set() if seen is None else seen
+    todo = [v]
+    while todo:
+        v = todo.pop()
+        if v is None or _isint(v) or id(v) in seen:
+            continue
+        seen.add(id(v))
+        if isinstance(v, LoopSummary):
+            todo += [x for _, x in v.inits]
+            for c, nx in v.steps:
+                todo.append(c)
+                todo += [x for _, x in nx]
+            for c, _, xs in v.exits:
+                todo.append(c)
+                todo += [x for _, x in xs]
+            continue
+        if type(v) is not tuple or not v:
+            continue
+        k = v[0]
+        if k == "lv":
+            if v[1] == head:
+                acc.add(v[2])
+        elif k == "load":
+            todo.append(v[1])
+        elif k == "call":
+            todo += list(v[2])
+        elif k == "op":
+            todo.append(v[2])
+            if v[1] not in ("ext", "ins"):
+                todo.append(v[3])
+        elif k == "lit":
+            todo += [v[3], v[4]]
+        elif k in ("and", "or"):
+            todo += [v[1], v[2]]
+        elif k in ("loopout", "exit") and v[1] is not None:
+            todo.append(v[1])
+
+
+def _cond_grounded(c):
+    if c is None:
+        return True
+    if c[0] == "lit":
+        return grounded(c[3]) and grounded(c[4])
+    if c[0] == "exit":
+        return c[1].grounded
+    return _cond_grounded(c[1]) and _cond_grounded(c[2])
+
+
+class LoopSummary:
+    """A loop summarised as a guarded transition system instead of being unrolled (docs/formats/
+    card-effect-spec.md, "Loop summaries"). `head` is the iteration point (the address where the path entered the
+    loop); `inits` is ((loc, value), ...) for every carried location; `steps` is ((cond, ((loc, next), ...)), ...),
+    one per path from `head` back to `head`, where cond and next are over the loop variables ("lv", head, loc);
+    `exits` is ((cond, group, ((loc, value), ...)), ...), one per path that leaves the loop, with the values (over
+    the loop variables of its last iteration) of the locations that its exit group gives as ("loopout", summary,
+    group, loc). Paths that leave for the same address with the same values that read no loop variable form one
+    group. At each iteration exactly one step or exit condition holds (they come from forked paths)."""
+
+    __slots__ = ("head", "inits", "steps", "exits", "grounded", "_hash", "_mentions")
+
+    def __init__(self, head, inits, steps, exits):
+        self.head, self.inits, self.steps, self.exits = head, tuple(inits), tuple(steps), tuple(exits)
+        self._hash = hash((head, self.inits))
+        self._mentions = {}
+        used, seen = set(), set()
+        for c, nx in self.steps:
+            _lv_uses(c, head, used, seen)
+            for _, n in nx:
+                _lv_uses(n, head, used, seen)
+        for c, _, xs in self.exits:
+            _lv_uses(c, head, used, seen)
+            for _, x in xs:
+                _lv_uses(x, head, used, seen)
+        # an initial value matters only when its loop variable is read
+        self.grounded = all(grounded(v) for loc, v in self.inits if loc in used) and all(
+            _cond_grounded(c) and all(grounded(n) for _, n in nx) for c, nx in self.steps) and all(
+            _cond_grounded(c) and all(grounded(x) for _, x in xs) for c, _, xs in self.exits)
+
+    def __hash__(self):
+        return self._hash
+
+    def __repr__(self):
+        return f"LoopSummary({self.head:#x}, {len(self.steps)} steps, {len(self.exits)} exits)"
+
+    def __eq__(self, other):
+        return self is other or (isinstance(other, LoopSummary) and (self.head, self.inits, self.steps, self.exits)
+                                 == (other.head, other.inits, other.steps, other.exits))
+
+    def mentions(self, head):
+        m = self._mentions.get(head)
+        if m is None:
+            m = self._mentions[head] = any(_mentions(v, head) for _, v in self.inits) or any(
+                _mentions(c, head) or any(_mentions(n, head) for _, n in nx) for c, nx in self.steps) or any(
+                _mentions(c, head) or any(_mentions(x, head) for _, x in xs) for c, _, xs in self.exits)
+        return m
+
+    def init(self, loc):
+        return dict(self.inits).get(loc)
+
+    def exit_values(self, group, loc):
+        return [dict(xs)[loc] for _, g, xs in self.exits if g == group and loc in dict(xs)]
+
+    def recurrence(self, loc):
+        """How a carried location changes per iteration: ("induction", step); ("count", cond): +1 on the paths
+        where cond holds, else unchanged; ("sum", ((cond, term), ...)); ("flag", value, cond): set to a constant
+        on the paths where cond holds, else unchanged; or ("other",)."""
+        lv = ("lv", self.head, loc)
+        nexts = [(c, dict(nx).get(loc, lv)) for c, nx in self.steps]
+        deltas = []
+        for c, n in nexts:
+            if n == lv:
+                deltas.append((c, 0))
+            elif type(n) is tuple and n[0] == "op" and n[1] == "+" and lv in (n[2], n[3]) and n[2] != n[3]:
+                deltas.append((c, n[3] if n[2] == lv else n[2]))
+            else:
+                deltas.append((c, None))
+        if deltas and all(d is not None for _, d in deltas):
+            values = {d for _, d in deltas}
+            if len(values) == 1 and _isint(next(iter(values))) and values != {0}:
+                return ("induction", signed(next(iter(values))))
+            if values <= {0, 1}:
+                cond = None
+                for c, d in deltas:
+                    if d == 1:
+                        cond = c if cond is None else ("or", cond, c)
+                return ("count", cond)
+            return ("sum", tuple((c, d) for c, d in deltas if d != 0))
+        consts = {n for _, n in nexts if n != lv}
+        if len(consts) == 1 and _isint(next(iter(consts))):
+            k = next(iter(consts))
+            cond = None
+            for c, n in nexts:
+                if n == k:
+                    cond = c if cond is None else ("or", cond, c)
+            return ("flag", k, cond)
+        return ("other",)
+
+    def is_final(self, group, loc):
+        """True when every exit of the group leaves `loc` as a step would: unchanged, or with one of the steps'
+        next values. The loop result is then the location's value after the loop, and renders by recurrence."""
+        if loc not in dict(self.inits):
+            return False
+        lv = ("lv", self.head, loc)
+        nexts = {dict(nx).get(loc, lv) for _, nx in self.steps} | {lv}
+        xs = self.exit_values(group, loc)
+        return bool(xs) and all(x in nexts for x in xs)
+
+
+def render_loopout(v, names=None, depth=0):
+    """Text of a loop result ("loopout", summary, group, loc): the location's final value as `count_of(loop@H:
+    cond)`, `sum_of(loop@H: term if cond, ...)`, `last(loop@H: s3 from 0 step +1)` or `(any_of(loop@H: cond) ? 1 :
+    0)` (a count or sum whose initial value is not 0 is preceded by it), else `at_exit(loop@H: s3 = value | ...)`
+    with the values of the exit paths over the loop variables."""
+    _, desc, group, loc = v
+    tag = f"loop@{desc.head:#x}"
+    if depth > 6:
+        return f"loop({tag})"
+    if desc.is_final(group, loc):
+        init = desc.init(loc)
+        init_s = render(init, names, depth + 1)
+        rec = desc.recurrence(loc)
+        pre = "" if init == 0 else f"{init_s} + "
+        if rec[0] == "induction":
+            return f"last({tag}: {loc_name(loc)} from {init_s} step {rec[1]:+d})"
+        if rec[0] == "count":
+            return f"{pre}count_of({tag}: {render_cond(rec[1], names, depth + 1)})"
+        if rec[0] == "sum":
+            terms = ", ".join(f"{render(t, names, depth + 1)} if {render_cond(c, names, depth + 1)}"
+                              for c, t in rec[1])
+            return f"{pre}sum_of({tag}: {terms})"
+        if rec[0] == "flag":
+            return f"(any_of({tag}: {render_cond(rec[2], names, depth + 1)}) ? {render(rec[1])} : {init_s})"
+    xs = " | ".join(dict.fromkeys(render(x, names, depth + 1) for x in desc.exit_values(group, loc)))
+    return f"at_exit({tag}: {loc_name(loc)} = {xs})"
+
+
+def concrete(v, env, lv=None):
+    """Concrete value of an expression, for tests and checks. `env` has `arg` (list of four), `reg` (name ->
+    int), `load` (address, size, signed -> int), optionally `call` (target, args -> int) and `sp` (int). A loop
+    result is computed by running its summary's transition system. Raises KeyError or EvalFail when a value is
+    not given or a form is not modelled."""
+    lv = {} if lv is None else lv
+    if _isint(v):
+        return v
+    k = v[0]
+    if k == "arg":
+        return env["arg"][v[1]] & 0xFFFFFFFF
+    if k == "reg":
+        return env["reg"][v[1]] & 0xFFFFFFFF
+    if k == "sp":
+        return (env.get("sp", 0x0A000000) + v[1]) & 0xFFFFFFFF
+    if k == "lv":
+        return lv[(v[1], v[2])]
+    if k == "load":
+        return env["load"]((concrete(v[1], env, lv) + v[2]) & 0xFFFFFFFF, v[3], v[4]) & 0xFFFFFFFF
+    if k == "call":
+        return env["call"](v[1], tuple(concrete(a, env, lv) for a in v[2])) & 0xFFFFFFFF
+    if k == "loopout":
+        return _simulate(v[1], v[2], v[3], env, lv)
+    sym, a, b = v[1], v[2], v[3]
+    x = concrete(a, env, lv)
+    if sym == "ext":
+        return (x >> b[0]) & ((1 << b[1]) - 1)
+    if b is None:
+        if sym == "seb":
+            return ((x & 0xFF) - (0x100 if x & 0x80 else 0)) & 0xFFFFFFFF
+        if sym == "seh":
+            return ((x & 0xFFFF) - (0x10000 if x & 0x8000 else 0)) & 0xFFFFFFFF
+        raise EvalFail("unmodelled")
+    if sym == "ins":
+        raise EvalFail("unmodelled")
+    y = concrete(b, env, lv)
+    ops = {"+": lambda: x + y, "-": lambda: x - y, "&": lambda: x & y, "|": lambda: x | y, "^": lambda: x ^ y,
+           "nor": lambda: ~(x | y), "<": lambda: int(signed(x) < signed(y)), "<u": lambda: int(x < y),
+           "<<": lambda: x << (y & 31), ">>": lambda: x >> (y & 31), ">>s": lambda: signed(x) >> (y & 31),
+           "*": lambda: signed(x) * signed(y), "max": lambda: max(signed(x), signed(y)),
+           "min": lambda: min(signed(x), signed(y))}
+    if sym not in ops:
+        raise EvalFail("unmodelled")
+    return ops[sym]() & 0xFFFFFFFF
+
+
+def concrete_cond(c, env, lv):
+    """Concrete truth of a path condition (see concrete)."""
+    if c is None:
+        return True
+    k = c[0]
+    if k == "lit":
+        _, taken, test, a, b = c
+        x = signed(concrete(a, env, lv))
+        if test == "eq":
+            r = x == signed(concrete(b, env, lv))
+        else:
+            r = {"lez": x <= 0, "gtz": x > 0, "ltz": x < 0, "gez": x >= 0}[test]
+        return r == taken
+    if k == "and":
+        return concrete_cond(c[1], env, lv) and concrete_cond(c[2], env, lv)
+    if k == "or":
+        return concrete_cond(c[1], env, lv) or concrete_cond(c[2], env, lv)
+    raise EvalFail("unmodelled")  # an exit condition belongs to a path that is already past its loop
+
+
+def _simulate(desc, group, loc, env, outer, limit=100000):
+    """Run a loop summary concretely: the value of `loc` after the loop, which must leave through an exit path of
+    exit group `group` (EvalFail("other_exit") otherwise)."""
+    lv = dict(outer)
+    for at, init in desc.inits:
+        try:
+            lv[(desc.head, at)] = concrete(init, env, outer)
+        except KeyError:  # an initial value that is not given; an error only if it is read
+            pass
+    for _ in range(limit):
+        for c, g, xs in desc.exits:
+            if concrete_cond(c, env, lv):
+                if g != group:
+                    raise EvalFail("other_exit")
+                return concrete(dict(xs)[loc], env, lv)
+        for c, nexts in desc.steps:
+            if concrete_cond(c, env, lv):
+                lv.update({(desc.head, loc): concrete(nv, env, lv) for loc, nv in nexts})
+                break
+        else:
+            raise EvalFail("no_path")
+    raise EvalFail("step_limit")
+
+
+BRANCH_TEST = {4: "eq", 0x14: "eq", 5: "eq", 0x15: "eq", 6: "lez", 0x16: "lez", 7: "gtz", 0x17: "gtz"}
+
+
+def branch_cond(i, s, t):
+    """The path-condition literal that holds when the branch is taken."""
+    test = BRANCH_TEST.get(i.op)
+    if test == "eq":
+        return ("lit", i.op in (4, 0x14), "eq", s, t)
+    if test:
+        return ("lit", True, test, s, 0)
+    return ("lit", True, "ltz" if i.rt in (0, 2, 0x10, 0x12) else "gez", s, 0)
+
+
+ALL_REGS = (1 << 32) - 2  # every register but zero
+RETURN_LIVE = (1 << V0) | (1 << SP) | (1 << RA) | (1 << 30) | sum(1 << r for r in range(16, 24))
+CALL_ARGS = sum(1 << r for r in ARG_REGS) | (1 << SP)
+CLOBBER_MASK = sum(1 << r for r in CALL_CLOBBER) | (1 << RA)
+MAX_LOOP_DEPTH = 3
+UNKNOWN_REG = [("reg", name) for name in REG]  # what SymbolicEvaluator.get returns for a register not set
+
+
+def defs(i):
+    """Registers an instruction writes (Insn.writes, plus ext/ins and seb/seh)."""
+    out = set()
+    if i.writes:
+        out.add(i.writes)
+    if i.op == 0x1F and i.fn in (0, 4):
+        out.add(i.rt)
+    if i.op == 0x1F and i.fn == 0x20:
+        out.add(i.rd)
+    out.discard(0)
+    return out
+
+
+def _mask(regs):
+    m = 0
+    for r in regs:
+        if r:
+            m |= 1 << r
+    return m
+
+
 class SymbolicEvaluator:
     """Path-exploring evaluator of MIPS code with symbolic values (see the comment above)."""
 
@@ -412,6 +805,8 @@ class SymbolicEvaluator:
         self.m, self.max_paths, self.max_steps = module, max_paths, max_steps
         self.functions = functions or []
         self._insn, self._inline, self._leaf = {}, {}, {}
+        self._live, self._regions, self._heads, self._live_busy, self._live_regs = {}, {}, {}, set(), {}
+        self.loop_mode = False  # summarise loops (LoopSummary) instead of unrolling them
 
     def insn(self, pc):
         i = self._insn.get(pc)
@@ -559,7 +954,8 @@ class SymbolicEvaluator:
             base = self.get(regs, i.rs)
             if i.rt:
                 if type(base) is tuple and base[0] == "sp":
-                    regs[i.rt] = st["stack"].get(base[1] + i.simm, ("reg", REG[i.rt]))
+                    off = base[1] + i.simm  # an unknown slot reads as its own unknown input, `?sp-0x10`
+                    regs[i.rt] = st["stack"].get(off, ("reg", f"sp{off:+#x}"))
                 else:
                     regs[i.rt] = ("load", base, i.simm, LOAD_SIZE[i.op], SIGNED_LOAD[i.op])
             return
@@ -625,65 +1021,400 @@ class SymbolicEvaluator:
                 return (st["bind"][x] == y) == (i.op in (4, 0x14))
         return None
 
-    def paths(self, start, regs, delay=None, bind=None, stack=None, stop=None, top=True):
+    def paths(self, start, regs, delay=None, bind=None, stack=None, stop=None, top=True, bounds=None,
+              active=frozenset(), enclose=None, limits=None):
         """Every path from `start` to `jr ra` (or to an address in `stop`, not counting `start` itself).
-        Returns a list of {"v0", "regs", "calls", "end"} (end: None for a return, else the stop address).
-        Raises EvalFail when a path cannot be followed."""
-        st0 = {"regs": dict(regs), "calls": [], "bind": bind or {}, "stack": dict(stack or {})}
+        Returns a list of {"v0", "regs", "stack", "calls", "cond", "end"} (end: None for a return, else the stop
+        address). Raises EvalFail when a path cannot be followed.
+
+        Paths that reach the same address with the same live registers, stack slots and card-id binding are
+        merged (their calls are joined and their conditions or-ed): they have the same future, so the results
+        are exactly those of separate paths. `bounds` (lo, hi): a path that leaves [lo, hi) ends at the address
+        it reaches. `enclose` (resolve_chain in loop mode): a path that reaches a back edge of the loop around
+        the case ends with ("next", head), one that leaves it with ("leave", address). With `loop_mode`, a path
+        that enters a loop is replaced by the paths that leave its LoopSummary (`active` are the loops being
+        summarised). `limits` (steps, paths) overrides the defaults."""
+        st0 = {"regs": dict(regs), "calls": [], "bind": bind or {}, "stack": dict(stack or {}), "cond": None}
         st0["regs"].setdefault(SP, ("sp", 0))
         if delay is not None:
             self.apply(delay, st0)
-        todo, outs, forks, steps = [(start, st0)], [], 1, 0
-        max_steps = self.max_steps if top else 120
-        max_paths = self.max_paths if top else 8
-        while todo:
-            pc, st = todo.pop()
-            first = True
-            while True:
-                steps += 1
-                if steps > max_steps:
-                    raise EvalFail("step_limit")
-                if stop and not first and pc in stop:
-                    outs.append({"v0": None, "regs": st["regs"], "calls": st["calls"], "end": pc})
-                    break
-                first = False
-                i = self.insn(pc)
-                if i.kind == "jr":
-                    if i.rs != RA:
-                        raise EvalFail("jump_table")
-                    nxt = self.insn(pc + 4)
-                    if nxt.writes not in (None, SP):
-                        self.apply(nxt, st)
-                    outs.append({"v0": st["regs"].get(V0, ("reg", "v0")), "regs": st["regs"], "calls": st["calls"],
-                                 "end": None})
-                    break
-                if i.kind == "jalr":
-                    raise EvalFail("indirect_call")
-                if i.op == 3:
-                    self.apply(self.insn(pc + 4), st)
-                    self.call(i.target, st)
-                    pc += 8
+        max_steps, max_paths = limits or ((self.max_steps, self.max_paths) if top else (120, 8))
+        heap, outs = [(start, 0, 2, None, st0)], []  # 2: the start, 1: a fork's fall-through, 0: other
+        counters = {"seq": 1, "alive": 1, "steps": 0}
+
+        def push(pc, st, frm, first=0):
+            heapq.heappush(heap, (pc, counters["seq"], first, frm, st))
+            counters["seq"] += 1
+
+        def out(st, end, v0=None):
+            outs.append({"v0": v0, "regs": st["regs"], "stack": st["stack"], "calls": st["calls"],
+                         "cond": st["cond"], "end": end})
+
+        while heap:
+            pc, _, first, frm, st = heapq.heappop(heap)
+            group = [(first, frm, st)]
+            while heap and heap[0][0] == pc:
+                e = heapq.heappop(heap)
+                group.append((e[2], e[3], e[4]))
+            if len(group) == 1:
+                entries = [(first, self._entering(frm, pc, active), st)]
+            else:
+                merged = {}
+                for f2, fr2, s2 in group:
+                    region = self._entering(fr2, pc, active)
+                    key = (f2, region, self._state_key(pc, s2))
+                    m = merged.get(key)
+                    if m is None:
+                        merged[key] = [f2, region, s2]
+                    else:
+                        ms = m[2]
+                        m[2] = dict(ms, calls=ms["calls"] + [c for c in s2["calls"] if c not in ms["calls"]],
+                                    cond=cond_or(ms["cond"], s2["cond"]))
+                counters["alive"] -= len(group) - len(merged)
+                entries = [tuple(v) for v in merged.values()]
+            for first, region, st in entries:
+                if first != 2:
+                    if stop and pc in stop and not first:  # as before merging: not at a fork's fall-through
+                        out(st, pc)
+                        continue
+                    if bounds and not bounds[0] <= pc < bounds[1]:
+                        out(st, pc)
+                        continue
+                    if enclose:
+                        e = self._enclose_end(enclose, pc)
+                        if e:
+                            out(st, e)
+                            continue
+                if region is not None:
+                    conts, rets = self._summarise(region, pc, st, active)
+                    outs.extend(rets)
+                    for xpc, xst in conts:
+                        push(xpc, xst, region[0])
+                    counters["alive"] += len(conts) + len(rets) - 1
+                    if counters["alive"] > max_paths:
+                        raise EvalFail("path_limit")
                     continue
-                if i.op == 2 or i.is_branch:
-                    taken = True if i.op == 2 else self.decide(i, st)
-                    nxt = self.insn(pc + 4)
-                    if taken is None:
-                        forks += 1
-                        if forks > max_paths:
-                            raise EvalFail("path_limit")
-                        other = {"regs": dict(st["regs"]), "calls": st["calls"], "bind": st["bind"],
-                                 "stack": st["stack"]}
-                        if not i.likely:
-                            self.apply(nxt, other)
-                        todo.append((pc + 8, other))
-                        taken = True
-                    if taken or not i.likely:
-                        self.apply(nxt, st)
-                    pc = i.target if taken else pc + 8
-                    continue
-                self.apply(i, st)
-                pc += 4
+                self._run(pc, st, stop, bounds, enclose, push, out, counters, max_steps, max_paths)
         return outs
+
+    def _run(self, pc, st, stop, bounds, enclose, push, out, counters, max_steps, max_paths):
+        """Straight-line execution of one path from `pc` up to its next control transfer (see paths)."""
+        start, joins = pc, self._join_set(pc)
+        while True:
+            counters["steps"] += 1
+            if counters["steps"] > max_steps:
+                raise EvalFail("step_limit")
+            if pc != start:
+                if stop and pc in stop or bounds and not bounds[0] <= pc < bounds[1]:
+                    out(st, pc)
+                    return
+                if enclose:
+                    e = self._enclose_end(enclose, pc)
+                    if e:
+                        out(st, e)
+                        return
+                if pc in joins:  # falls into a branch target: merged (and loop entry decided) from the heap
+                    push(pc, st, pc - 4)
+                    return
+            i = self.insn(pc)
+            if i.kind == "jr":
+                if i.rs != RA:
+                    raise EvalFail("jump_table")
+                nxt = self.insn(pc + 4)
+                if nxt.writes not in (None, SP):
+                    self.apply(nxt, st)
+                out(st, None, st["regs"].get(V0, ("reg", "v0")))
+                return
+            if i.kind == "jalr":
+                raise EvalFail("indirect_call")
+            if i.op == 3:
+                self.apply(self.insn(pc + 4), st)
+                self.call(i.target, st)
+                pc += 8
+                continue
+            if i.op == 2 or i.is_branch:
+                taken = True if i.op == 2 else self.decide(i, st)
+                nxt = self.insn(pc + 4)
+                if taken is None:
+                    counters["alive"] += 1
+                    if counters["alive"] > max_paths:
+                        raise EvalFail("path_limit")
+                    lit = branch_cond(i, self.get(st["regs"], i.rs), self.get(st["regs"], i.rt))
+                    other = {"regs": dict(st["regs"]), "calls": st["calls"], "bind": st["bind"],
+                             "stack": st["stack"], "cond": cond_and(st["cond"], cond_not(lit))}
+                    if not i.likely:
+                        self.apply(nxt, other)
+                    push(pc + 8, other, pc, 1)
+                    st["cond"] = cond_and(st["cond"], lit)
+                    taken = True
+                if taken or not i.likely:
+                    self.apply(nxt, st)
+                push(i.target if taken else pc + 8, st, pc)
+                return
+            self.apply(i, st)
+            pc += 4
+
+    # -- merging, loops
+
+    def _state_key(self, pc, st):
+        """What decides a path's future at `pc`: the live registers, the stack slots and the card-id binding."""
+        live, regs = self._live_regs.get(pc), st["regs"]
+        if live is None:
+            m = self.live_mask(pc)
+            live = self._live_regs[pc] = tuple(r for r in range(1, 32) if m >> r & 1)
+        return (tuple(regs.get(r, UNKNOWN_REG[r]) for r in live), frozenset(st["stack"].items()),
+                frozenset(st["bind"].items()))
+
+    def live_mask(self, pc):
+        """Registers live at `pc` (bit r set for register r): a backward dataflow over the function that holds
+        `pc`. At `jr ra` v0, sp, ra and the callee-saved registers are live; a call reads a0-a3 and sp and clobbers
+        the caller-saved registers; a jump table, an indirect call and code outside the function keep every
+        register live. Without function bounds every register is live."""
+        if not self.functions:
+            return ALL_REGS
+        f = containing(self.functions, pc)
+        if f is None:
+            return ALL_REGS
+        table = self._live.get(f)
+        if table is None:
+            table = self._live[f] = self._liveness(f, function_end(self.functions, f))
+        return table.get(pc, ALL_REGS)
+
+    def _call_args(self, target):
+        """The argument registers (and sp) a call to `target` reads: those live at the callee's entry, when the
+        callee is a function of the module (all four otherwise, and while its own liveness is being computed)."""
+        if not (self.functions and self.m.base <= target < TEXT_END) or target in self._live_busy or \
+                len(self._live_busy) > 64:
+            return CALL_ARGS
+        if containing(self.functions, target) != target:
+            return CALL_ARGS
+        return (self.live_mask(target) & CALL_ARGS) | (1 << SP)
+
+    def _liveness(self, lo, hi):
+        self._live_busy.add(lo)
+        try:
+            return self._liveness_of(lo, hi)
+        finally:
+            self._live_busy.discard(lo)
+
+    def _liveness_of(self, lo, hi):
+        n = (hi - lo) // 4
+        if n <= 0 or n > 40000:
+            return {}
+        ins = [self.insn(lo + 4 * k) for k in range(n)]
+        rd = [_mask(reads(i)) for i in ins] + [0]
+        wr = [_mask(defs(i)) for i in ins] + [0]
+        live = [0] * n
+
+        def at(pc):
+            return live[(pc - lo) >> 2] if lo <= pc < hi else ALL_REGS
+
+        changed = True
+        while changed:
+            changed = False
+            for k in range(n - 1, -1, -1):
+                i, pc = ins[k], lo + 4 * k
+                dr, dw = rd[k + 1], wr[k + 1]  # the delay slot
+                if i.kind == "jr":
+                    v = rd[k] | dr | ((RETURN_LIVE if i.rs == RA else ALL_REGS) & ~dw)
+                elif i.kind == "jalr":
+                    v = ALL_REGS
+                elif i.op == 3:
+                    v = dr | ((self._call_args(i.target) | (at(pc + 8) & ~CLOBBER_MASK)) & ~dw)
+                elif i.op == 2:
+                    v = dr | (at(i.target) & ~dw)
+                elif i.is_branch:
+                    if i.likely:
+                        v = rd[k] | at(pc + 8) | dr | (at(i.target) & ~dw)
+                    else:
+                        v = rd[k] | dr | ((at(i.target) | at(pc + 8)) & ~dw)
+                else:
+                    v = rd[k] | (at(pc + 4) & ~wr[k])
+                v |= live[k]
+                if v != live[k]:
+                    live[k] = v
+                    changed = True
+        return {lo + 4 * k: live[k] for k in range(n)}
+
+    def regions(self, pc):
+        """Loops of the function that holds `pc`: (lo, hi, back edges) for every address H that a backward branch
+        or jump in the function targets and that reaches one of those back edges inside [H, last back edge + 8)."""
+        if not self.functions:
+            return ()
+        f = containing(self.functions, pc)
+        if f is None:
+            return ()
+        out = self._regions.get(f)
+        if out is None:
+            end = function_end(self.functions, f)
+            heads = collections.defaultdict(list)
+            for b in range(f, end, 4):
+                i = self.insn(b)
+                if (i.op == 2 or i.is_branch) and f <= i.target <= b:
+                    heads[i.target].append(b)
+            out = []
+            for h, backs in sorted(heads.items()):
+                seen = self._reach_within(h, h, max(backs) + 8)
+                kept = [b for b in backs if b in seen]
+                if kept:
+                    out.append((h, max(kept) + 8, frozenset(kept)))
+            self._regions[f] = out
+        return out
+
+    def _reach_within(self, start, lo, hi):
+        seen, todo = set(), [start]
+        while todo:
+            pc = todo.pop()
+            while lo <= pc < hi and pc not in seen:
+                seen.add(pc)
+                i = self.insn(pc)
+                if i.kind in ("jr", "jalr"):
+                    break
+                if i.op == 2 or i.is_branch:
+                    seen.add(pc + 4)
+                    if i.op != 2:
+                        todo.append(pc + 8)
+                    pc = i.target
+                    continue
+                pc += 8 if i.op == 3 else 4
+        return seen
+
+    def _join_set(self, pc):
+        """Branch and jump targets inside the function that holds `pc` (where paths can meet)."""
+        f = containing(self.functions, pc) if self.functions else None
+        joins = self._heads.get(f)
+        if joins is None:
+            if f is None:
+                joins = frozenset()
+            else:
+                end = function_end(self.functions, f)
+                joins = frozenset(t for t in (self.insn(b).target for b in range(f, end, 4)
+                                              if self.insn(b).op == 2 or self.insn(b).is_branch) if f <= t < end)
+            self._heads[f] = joins
+        return joins
+
+    def _entering(self, frm, pc, active):
+        """The outermost loop that a transfer from `frm` to `pc` enters (loop mode only), unless it is active."""
+        if not self.loop_mode or frm is None or len(active) >= MAX_LOOP_DEPTH:
+            return None
+        best = None
+        for region in self.regions(pc):
+            lo, hi, _ = region
+            if lo <= pc < hi and not lo <= frm < hi and region not in active and \
+                    (best is None or hi - lo > best[1] - best[0]):
+                best = region
+        return best
+
+    @staticmethod
+    def _enclose_end(enclose, pc):
+        lo, hi, back = enclose
+        if pc in back:
+            return ("next", lo)
+        if not lo <= pc < hi:
+            return ("leave", pc)
+        return None
+
+    def _summarise(self, region, entry, st, active):
+        """Replace a path that enters a loop at `entry` by the paths that leave it: ([(address, state)],
+        [return outs]). Every register written in the loop (all caller-saved ones when it calls) and every stack
+        slot stored in it becomes a loop variable; one exploration from `entry` back to `entry` gives the steps,
+        the paths that leave [lo, hi) or return give the exits (LoopSummary). Locations that no step changes keep
+        their entry value (one refinement round). Exit paths are grouped by continuation address and by their
+        values that read no loop variable; one continuation per group, in which every location whose value reads
+        a loop variable becomes ("loopout", summary, group, loc)."""
+        lo, hi, _ = region
+        act = active | {region}
+        sp = st["regs"].get(SP)
+        spd = sp[1] if type(sp) is tuple and sp[0] == "sp" else None
+        mregs, mslots, calls = set(), set(), False
+        for pc in range(lo, hi, 4):
+            i = self.insn(pc)
+            mregs |= defs(i)
+            calls = calls or i.op == 3 or i.kind == "jalr"
+            if i.kind == "store" and i.rs == SP and spd is not None:
+                mslots.add(spd + i.simm)
+        if calls:
+            mregs |= set(CALL_CLOBBER)
+        mregs -= {0, SP, RA}
+        live = self.live_mask(entry)  # a register that is dead at the iteration point carries nothing
+        carried = sorted(r for r in mregs if live >> r & 1) + [("stk", o) for o in sorted(mslots)]
+
+        def init(loc):
+            return self.get(st["regs"], loc) if _isint(loc) else st["stack"].get(loc[1], ("reg", f"sp{loc[1]:+#x}"))
+
+        def after(o, loc):
+            return self.get(o["regs"], loc) if _isint(loc) else o["stack"].get(loc[1], ("reg", f"sp{loc[1]:+#x}"))
+
+        def explore(locs):
+            regs, stack = dict(st["regs"]), dict(st["stack"])
+            for loc in locs:
+                if _isint(loc):
+                    regs[loc] = ("lv", entry, loc)
+                else:
+                    stack[loc[1]] = ("lv", entry, loc)
+            return self.paths(entry, regs, None, st["bind"], stack, stop={entry}, bounds=(lo, hi), active=act,
+                              limits=(self.max_steps, self.max_paths))
+
+        outs = explore(carried)
+        steps = [o for o in outs if o["end"] == entry]
+        fixed = [loc for loc in carried if all(after(o, loc) == ("lv", entry, loc) for o in steps)]
+        if steps and fixed:
+            carried = [loc for loc in carried if loc not in fixed]
+            outs = explore(carried)
+            steps = [o for o in outs if o["end"] == entry]
+        if not steps:  # never comes back: an ordinary forward region
+            outs = explore(())
+            if any(o["end"] == entry for o in outs):
+                raise EvalFail("loop")
+            conts, rets = [], []
+            for o in outs:
+                cond = cond_and(st["cond"], o["cond"])
+                calls = st["calls"] + [c for c in o["calls"] if c not in st["calls"]]
+                if o["end"] is None:
+                    rets.append(dict(o, calls=calls, cond=cond))
+                else:
+                    conts.append((o["end"], {"regs": o["regs"], "calls": calls, "bind": st["bind"],
+                                             "stack": o["stack"], "cond": cond}))
+            return conts, rets
+        exits = [o for o in outs if o["end"] != entry]
+        # exit groups: the same continuation address and the same values that read no loop variable
+        groups = {}
+        for o in exits:
+            fixed_regs = tuple(sorted(((r, v) for r, v in o["regs"].items() if not _mentions(v, entry)),
+                                      key=lambda x: x[0]))
+            fixed_stack = tuple(sorted(((k, v) for k, v in o["stack"].items() if not _mentions(v, entry)),
+                                       key=lambda x: x[0]))
+            groups.setdefault((o["end"], fixed_regs, fixed_stack), []).append(o)
+        group_of, varying = {}, []
+        for g, (key, os) in enumerate(groups.items()):
+            locs = sorted({r for o in os for r, v in o["regs"].items() if _mentions(v, entry)})
+            locs += [("stk", k) for k in sorted({k for o in os for k, v in o["stack"].items() if _mentions(v, entry)})]
+            varying.append(locs)
+            for o in os:
+                group_of[id(o)] = g
+        desc = LoopSummary(entry, [(loc, init(loc)) for loc in carried],
+                           [(o["cond"], tuple((loc, after(o, loc)) for loc in carried)) for o in steps],
+                           [(o["cond"], group_of[id(o)], tuple((loc, after(o, loc)) for loc in varying[group_of[id(o)]]))
+                            for o in exits])
+        calls_all = list(st["calls"])
+        for o in outs:
+            calls_all += [c for c in o["calls"] if c not in calls_all]
+        conts, rets = [], []
+        for g, ((end, fixed_regs, fixed_stack), os) in enumerate(groups.items()):
+            regs, stack = dict(fixed_regs), dict(fixed_stack)
+            for loc in varying[g]:
+                if _isint(loc):
+                    regs[loc] = ("loopout", desc, g, loc)
+                else:
+                    stack[loc[1]] = ("loopout", desc, g, loc)
+            cond = cond_and(st["cond"], ("exit", desc, g))
+            if end is None:
+                rets.append({"v0": self.get(regs, V0), "regs": regs, "stack": stack, "calls": calls_all,
+                             "cond": cond, "end": None})
+            else:
+                conts.append((end, {"regs": regs, "calls": calls_all, "bind": st["bind"], "stack": stack,
+                                    "cond": cond}))
+        return conts, rets
 
     # -- liveness and reach (for join states)
 
@@ -868,14 +1599,26 @@ def resolve_chain(module, start, end, functions=None, evaluator=None):
         res = {"card_id": cid, "target": b.target, "kind": "computed", "value": None, "values": [],
                "method": "", "reason": "", "join": [], "calls": []}
         straight = case_value(module, b)
+        enclosing = [r for r in ev.regions(b.pc) if r[0] <= b.pc < r[1]]
+        enclose = min(enclosing, key=lambda r: r[1] - r[0]) if enclosing else None
+        looped = False
         try:
-            outs = ev.paths(b.target, regs, delay, bind, stack)
+            try:
+                outs = ev.paths(b.target, regs, delay, bind, stack)
+            except EvalFail as error:
+                if error.args[0] not in LOOP_RETRY:
+                    raise
+                looped = True
+                outs = _loop_paths(ev, b.target, regs, delay, bind, stack, enclose=enclose)
             vals = []
             for o in outs:
-                v = o["v0"]
+                v = _norm(o["v0"])
                 if v not in vals:
                     vals.append(v)
-            if any(v == ("reg", "v0") for v in vals):
+            if any(o["end"] is not None for o in outs):  # the case ends inside the loop around the chain
+                res["kind"] = "iteration"
+                res["values"] = sorted({iteration_effect(ev, o, regs, stack) for o in outs}, key=repr)
+            elif any(v == ("reg", "v0") for v in vals):
                 res["reason"] = "v0_not_set"
             elif not all(grounded(v) for v in vals):
                 res["reason"] = "unknown_input"
@@ -886,12 +1629,17 @@ def resolve_chain(module, start, end, functions=None, evaluator=None):
                 res["values"] = sorted(vals, key=lambda v: (not _isint(v), signed(v) if _isint(v) else render(v)))
         except EvalFail as error:
             res["reason"] = error.args[0]
-        if res["kind"] == "constant":
+        if res["kind"] != "computed":
+            res["method"] = "loops" if looped else "paths"
+        if res["kind"] == "constant" and not looped:
             res["method"] = "straight" if straight is not None else "paths"
-        elif res["kind"] != "computed":
-            res["method"] = "paths"
         try:
-            own = ev.paths(b.target, regs, delay, bind, stack, stop=shared)
+            try:
+                own = ev.paths(b.target, regs, delay, bind, stack, stop=shared)
+            except EvalFail as error:
+                if error.args[0] not in LOOP_RETRY:
+                    raise
+                own = _loop_paths(ev, b.target, regs, delay, bind, stack, stop=shared)
             joins, calls = [], []
             for o in own:
                 state = {}
@@ -911,7 +1659,86 @@ def resolve_chain(module, start, end, functions=None, evaluator=None):
         except EvalFail:
             pass
         out.append(res)
+    _drop_common_effects(out)
     return out
+
+
+LOOP_RETRY = ("path_limit", "step_limit")
+LOOP_LIMITS = (32, 800)  # paths, steps of each exploration in loop mode (the case, and each loop body)
+
+
+def _norm(v):
+    """A result with the call arguments that are not grounded replaced by `?_`: such arguments print as `_` and
+    do not count for `grounded`, so results that differ only there are the same result."""
+    if _isint(v) or type(v) is not tuple or not v:
+        return v
+    k = v[0]
+    if k == "call":
+        return ("call", v[1], tuple(_norm(a) if grounded(a) else ("reg", "_") for a in v[2]))
+    if k == "load":
+        return ("load", _norm(v[1])) + v[2:]
+    if k == "op":
+        return ("op", v[1], _norm(v[2]), v[3] if v[1] in ("ext", "ins") else _norm(v[3]))
+    return v
+
+
+def _loop_paths(ev, start, regs, delay, bind, stack, stop=None, enclose=None):
+    """ev.paths in loop mode (loops summarised; with `enclose`, the case ends at the back edges and exits of the
+    loop around the chain)."""
+    ev.loop_mode = True
+    limits = ev.max_paths, ev.max_steps
+    ev.max_paths, ev.max_steps = LOOP_LIMITS
+    try:
+        return ev.paths(start, regs, delay, bind, stack, stop=stop, enclose=enclose,
+                        active=frozenset([enclose]) if enclose else frozenset())
+    finally:
+        ev.loop_mode = False
+        ev.max_paths, ev.max_steps = limits
+
+
+def iteration_effect(ev, o, regs, stack):
+    """What one path of a case inside a loop leaves for the rest of the loop: (end, ((location, value), ...)).
+    end is `next` (the path reaches a back edge of the loop around the chain), `leave` (it leaves that loop) or
+    `return`; the locations are the registers live there that the path changed (sp and `lui` address halves
+    excepted) and the stack slots it changed; for `return`, v0."""
+    end = o["end"]
+    if end is None:
+        return ("return", (("v0", o["v0"]),))
+    tag, at = end
+    mask = ev.live_mask(at)
+    items = []
+    for r in range(1, 32):
+        if not mask >> r & 1 or r in (SP, RA):
+            continue
+        v, e = ev.get(o["regs"], r), ev.get(regs, r)
+        if v != e and v != ("reg", REG[r]) and not (_isint(v) and v > 0xFFFF and not v & 0xFFFF):
+            items.append((REG[r], v))
+    for off in sorted(o["stack"]):
+        if o["stack"][off] != stack.get(off):
+            items.append((f"sp{off:+#x}", o["stack"][off]))
+    return (tag, tuple(items))
+
+
+def _drop_common_effects(results):
+    """Drop from the iteration effects of a chain's cases the (location, value) pairs that every such case has
+    on every path (the loop's own increments), when at least two cases are iterations."""
+    its = [r for r in results if r["kind"] == "iteration"]
+    if len(its) < 2:
+        return
+    common = None
+    for r in its:
+        for tag, items in r["values"]:
+            s = set(items)
+            common = s if common is None else common & s
+    if common:
+        for r in its:
+            r["values"] = sorted({(tag, tuple(x for x in items if x not in common)) for tag, items in r["values"]},
+                                 key=repr)
+
+
+def render_iteration(effect, names=None):
+    tag, items = effect
+    return f"{tag}: " + (", ".join(f"{k}={render(v, names)}" for k, v in items) if items else "no change")
 
 
 def case_summary(res, names=None):
@@ -920,6 +1747,8 @@ def case_summary(res, names=None):
         return render(res["value"], names)
     if res["kind"] == "conditional":
         return "one of " + ", ".join(render(v, names) for v in res["values"])
+    if res["kind"] == "iteration":
+        return "; ".join(render_iteration(e, names) for e in res["values"])
     parts = []
     for end, state in res["join"]:
         if state:
@@ -945,7 +1774,7 @@ def returns_value(module, functions):
     return used
 
 
-CHAIN_CLASSES = ("parameter", "predicate", "mixed", "expression", "behaviour", "unresolved")
+CHAIN_CLASSES = ("parameter", "predicate", "mixed", "expression", "iteration", "behaviour", "unresolved")
 
 
 def own_key(res):
@@ -965,20 +1794,26 @@ def chain_class(results, returns=None):
 
     behaviour: no direct caller reads the return value (`returns` False) and at least half the cases have own
     code (a join state or a call); parameter / predicate / mixed: at least half the cases constant, with the
-    rules of schema 4; expression: at least half the cases resolve to a value (constant, conditional or
+    rules of schema 4; iteration: at least half the cases are `iteration` (the chain sits in a loop and each case
+    is one iteration's effect); expression: at least half the cases resolve to a value (constant, conditional or
     expression); else unresolved."""
     n = len(results)
     if not n:
         return "unresolved"
+    iterations = sum(r["kind"] == "iteration" for r in results)
     if returns is False:
-        return "behaviour" if sum(own_key(r) is not None for r in results) >= n / 2 else "unresolved"
+        if sum(own_key(r) is not None for r in results) >= n / 2:
+            return "behaviour"
+        return "iteration" if iterations >= n / 2 else "unresolved"
     values = collections.Counter(signed(r["value"]) for r in results if r["kind"] == "constant")
     constant = sum(values.values())
     if constant >= n / 2:
         if len(values) >= 2 and not set(values) <= {0, 1}:
             return "parameter"
         return "predicate" if set(values) <= {0, 1} else "mixed"
-    if sum(r["kind"] != "computed" for r in results) >= n / 2:
+    if iterations >= n / 2:
+        return "iteration"
+    if sum(r["kind"] in ("constant", "conditional", "expression") for r in results) >= n / 2:
         return "expression"
     return "unresolved"
 
@@ -1297,7 +2132,8 @@ def case_row(function, res, names=None):
     return {"function": f"{function:#010x}", "card_id": f"{res['card_id']:#x}", "kind": res["kind"],
             "value": signed(v) if res["kind"] == "constant" else "",
             "expression": render(v, names) if res["kind"] == "expression" else "",
-            "values": " | ".join(render(x, names) for x in res["values"]),
+            "values": " | ".join(render_iteration(x, names) if res["kind"] == "iteration" else render(x, names)
+                                 for x in res["values"]),
             "method": res["method"], "reason": res["reason"],
             "own": case_summary(dict(res, kind="computed"), names), "target": f"{res['target']:#010x}"}
 
