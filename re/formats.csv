@@ -37,6 +37,8 @@ recipe_names,recipe_name_<l> string table,deck,documented,
 recipe_owner_table,Recipe owner table (BOOT.BIN 0x08915f28),deck,documented,0x7e0
 recipe_level_table,Recipe level table (BOOT.BIN 0x089143f0),deck,documented,924
 recipe_variant_table,Owner deck variant table (BOOT.BIN 0x08916730),deck,documented,804
+recipe_card_list,Recipe card list (BOOT.BIN 0x089150b8; 462 x 8-byte count and pointer),deck,documented,0xe70
+duel_setup_duellist,Duel set-up duellist record (0x1ac bytes; recipe field and set-up codes 462-466),deck,named,0x1ac
 deck_struct,In-memory deck struct (0xc0 bytes),deck,documented,0xc0
 same_card_tbl,sameCardTbl.dat alternative artworks,deck,documented,200
 file_tbl,fileTbl.dat card id list (deck editor thumbnails),deck,documented,7006

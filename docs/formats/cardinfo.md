@@ -136,6 +136,10 @@ A second accessor, `card_db_has_genre_mapped(id, k)` (`0x08833638`), maps `k` th
 
 `DLG_Indx` is 802 `u32` byte offsets, ascending, into `DLG_Text`, a pool of NUL-terminated UTF-16LE strings with `$C<digit>` colour escapes (for example selection prompts during a duel).
 
+Layout details (all five languages): every string starts on a 4-byte boundary; after its NUL the pool holds 0 or 2 zero bytes of padding up to the next string, and the last string (plus padding) ends the member. There is no count field and no end marker: the entry count is `len(DLG_Indx) / 4`. 158 of the 802 entries are empty strings (the same numbers in every language), about 400 contain `$C` escapes and 84 contain a `printf` conversion (`%s` 68 times, `%d` 26 times), filled in by the caller. `$` occurs only as `$C<digit>`. `card_db_get_dialog_string(n)` (`0x08832c94`) returns `DLG_Text + DLG_Indx[n]` without a bounds check, so every entry must be a valid string start.
+
+Dump: `python3 -I tools/cardinfo.py <USRDIR>/duelsys/cardinfo_<lang>.ehp --dialog [--format csv|json] -o <scratch>/dlg_<lang>.csv` (columns `number`, `offset`, `text`; text unchanged, escapes kept). `--dialog --check` verifies the layout above; on the disc it prints, for English, `ok: 802 DLG strings (158 empty, 402 with $C colour escapes, 84 with %s/%d), 59232 bytes`, and passes for all five languages.
+
 ## Open questions
 
 - The meaning of word 1 bits 22–24 (read only through the export `0x08832bdc`; trace a module caller).

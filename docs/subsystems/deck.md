@@ -21,6 +21,10 @@
 | `0x0885cc80` | `deck_get_owner_recipe(owner, n)` | H | Same search; returns `first + n` when 0 ≤ n < count, else −1. Callers `0x088541f0`, `0x0885cd14`. |
 | `0x0885cd2c` | `deck_select_owner_variant(owner, stage)` | M | Searches the 67 × 12-byte table at `0x08916730`; mode from `0x0885aeb0`; special case for owner 8. |
 | `0x0885ccfc` | `deck_get_owner_current_recipe(owner, stage)` | M | `deck_get_owner_recipe(owner, deck_select_owner_variant(owner, stage))`. Caller `0x08854244`. |
+| `0x08836358` | `duel_setup_load_decks(setup)` | H (code), M (name) | Copies the 0x858-byte duel set-up block to a static buffer (`0x0883634c`) and, for each of the four 0x1ac-byte duellist records at `+0x1a4`, sets the duellist name and fills the deck from record `+0x8`: a recipe below 462, or one of the set-up codes 462–466 (keep, stored deck, none, player's deck, own deck slot); 467 and above clear the deck (`docs/formats/deck.md`, "Who uses which recipe"). Callers: the set-ups of `rel_story` (`0xa284`, `0xa2ec`), `rel_title` (`0x595c`, `0x5e58`, `0xcae4`), `rel_tutorial` (`0x614c`), `rel_underground` (`0xdc14`), `rel_debug_menu` (`0x13b8`), all through their `libehsys_rel` import stub. Not yet in Ghidra. |
+| `0x088367bc` | `deck_is_player_deck_recipe(recipe) → 0/1` | M | Loads `recipe` and deck slot 1 into two heap buffers of 0xc0 bytes, sorts the main and extra lists of both (`0x08836750`) and returns 1 when the counts and ids are equal; side deck ignored. Only caller: the handler of story condition 50030 (`rel_story` `0xd350`), which no record uses. |
+| `0x0885c528` | `deck_get_recipe_card_list(recipe, out)` | M | `out = {u32 count, u16 ids[46]}` from the 462 × 8-byte table at `0x089150b8` (count clamped to 46); no bounds check on `recipe`. Callers `duel_setup_load_decks`, `0x08854064`, `0x088542d4`, and `rel_recipeviewer` (2). Meaning of the list: hypothesis (low, key cards). |
+| `0x0885600c` | `save_get_stored_deck(n)` | M | `save_get_state() + 0x20 + 0x174 · n`: a stored deck record (`+0` flag, `+4` name 0x40, `+0x54` deck 0xc0, `+0x114` card list 0x60, from the copies in `duel_setup_load_decks`). Used for set-up code 463. Group `save`. |
 | `0x0885ce3c` | `deck_compare_owner_key(a, b)` | H | `*(u32*)a − *(u32*)b`; comparison callback of the owner-table search. |
 
 `0x08854218(owner, stage)` picks the current recipe of an owner, stores owner, stage and recipe in a per-owner 0x16c-byte record (offsets `0x48c8`–`0x48d0`, that is `+4`–`+0xc` of deck slot `owner`) and loads the deck; not yet named. The deck slots are therefore indexed by owner: slot 1 is the player's starting deck (owner 1 = recipe 0) and slots 2–126 belong to the partner characters (`save.md`). `0x08856730(x)` returns slot 1 for `x == 0`; the wrappers `0x088567b8`, `0x0885681c`, `0x088568a4` use it to reach the player's slot.
@@ -29,10 +33,10 @@
 
 - Restriction list: `docs/formats/limit-list.md`.
 - Deck recipes, recipe names, owners, levels and variants, `sameCardTbl.dat`, `fileTbl.dat` and the deck-tutorial scripts: `docs/formats/deck.md`.
-- Opponent decks are the 661 `.ydc` recipes embedded in `BOOT.BIN`; 462 of them are named and assigned to 126 owners (the starting deck plus 125 characters).
+- Opponent decks are the `.ydc` recipes embedded in `BOOT.BIN`: the 462 named ones, assigned to 126 owners (the starting deck plus 125 characters). The other 199 are never loaded; values 462–466 of the set-up's recipe field select other deck sources (`deck.md`, "Who uses which recipe").
 
 ## Open questions
 
 - What deck slot 0 holds, and how `0x08856730(x)` chooses a slot for `x != 0` (`0x088550c8`).
-- Who uses recipes 462–660, what `stage` and the mode of `deck_select_owner_variant` are, and whether the owner id is the global character id.
+- Answered 2026-10-30: recipes 462–660 are never loaded (set-up codes and draft blocks, `deck.md`), and the owner id is the story character id. Still open: what `stage` and the mode of `deck_select_owner_variant` are.
 - See also the list at the end of `docs/formats/deck.md`.

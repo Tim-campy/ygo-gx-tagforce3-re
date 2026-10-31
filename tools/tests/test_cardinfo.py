@@ -119,6 +119,37 @@ class CardInfoTest(unittest.TestCase):
         problems = cardinfo.CardInfo(broken, "E").check_sorting()
         self.assertTrue(problems and problems[0].startswith("CARD_Sort differs"))
 
+    def test_dialog_dump_and_check(self):
+        # The disc's layout: strings start on 4-byte boundaries and the gap after each NUL is zero padding.
+        strings = ["", "$C3Summon$C0?", "Pay %d LP", "ok"]
+        text, offsets = bytearray(), []
+        for string in strings:
+            offsets.append(len(text))
+            text += string.encode("utf-16-le") + b"\0\0"
+            text += bytes(-len(text) % 4)
+        indx, text = struct.pack(f"<{len(offsets)}I", *offsets), bytes(text)
+        self.assertEqual(cardinfo.dialog_strings(indx, text), list(zip(range(4), offsets, strings)))
+        problems, counts = cardinfo.dialog_check(indx, text)
+        self.assertEqual(problems, [])
+        self.assertEqual((counts["empty"], counts["colour"], counts["format"]), (1, 1, 1))
+        bad_offsets = struct.pack("<4I", 0, 6, offsets[2], offsets[3])  # misaligned start
+        # entry 1 is misaligned, and entry 0 is now followed by more than alignment padding
+        self.assertEqual(len(cardinfo.dialog_check(bad_offsets, text)[0]), 2)
+        dollar = text.replace("$C0".encode("utf-16-le"), "$X0".encode("utf-16-le"))
+        self.assertEqual(len(cardinfo.dialog_check(indx, dollar)[0]), 1)
+        members = dict(cardinfo.ehp.parse(archive()))
+        members.update({"DLG_Indx_E.bin": indx, "DLG_Text_E.bin": text})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cardinfo_eng.ehp"
+            path.write_bytes(cardinfo.ehp.build(sorted(members.items(), key=lambda item: item[0].lower())))
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(cardinfo.main([str(path), "--dialog", "--check"]), 0)
+                self.assertEqual(cardinfo.main([str(path), "--dialog", "--format", "json"]), 0)
+        check, dump = out.getvalue().split("\n", 1)
+        self.assertTrue(check.startswith("ok: 4 DLG strings (1 empty"))
+        self.assertEqual([row["text"] for row in json.loads(dump)], strings)
+
     def test_collation_key(self):
         names = ["zeta", "Alpha-Beta", "Alphabet", "Al Gamma", "Éclair", "Eclat", "Echo",
                  "9 Lives", "10 Lives", "#1 Fan", "¿Qué?", "Coeur", "Cœur", "Cofre",

@@ -3,18 +3,22 @@
 """Read and check the game's deck data. See docs/formats/deck.md.
 
   decks.py recipes  <SYSDIR>/BOOT.BIN             the 661 built-in deck recipes (RCP%03d.ydc) and their owners
+  decks.py owners   <SYSDIR>/BOOT.BIN [--story <USRDIR>/script/story_scr_b.ehp]
+                                                  owner, evidence and game use of every recipe 0-660 (JSON)
   decks.py samecard <USRDIR>/deck/all_e.ehp       sameCardTbl.dat and fileTbl.dat
   decks.py tutorial <USRDIR>/deck/tutorial.ehp    the deck-tutorial scripts (deck_tutorial%02d.bin)
 
-`--check` runs the structural checks and prints a summary; otherwise the data is written as CSV
-(stdout or -o FILE). The output is game data: keep it under extracted/, never in git.
+`--check` runs the structural checks and prints a summary; otherwise the data is written as CSV (JSON for
+`owners`) to stdout or -o FILE. The output is game data: keep it under extracted/, never in git.
 """
 
 import argparse
 import csv
 import importlib.util
+import json
 import struct
 import sys
+from collections import Counter
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -191,6 +195,144 @@ def check_recipes(recipes, ids_known=None):
     return problems
 
 
+# --- recipe owners and users -------------------------------------------------------------------------------------
+
+# Duel set-up records (0x1ac bytes, four per set-up) carry a u16 "recipe" at +0x8. FUN_08836358 (BOOT, called by
+# rel_story, rel_title, rel_tutorial, rel_underground and rel_debug_menu) loads RCP<n>.ydc only for n < 462; these
+# five values select another deck source instead, and every value >= 467 leaves the duellist without a deck.
+SETUP_CODES = {
+    462: "keep the deck already stored in the set-up record",
+    463: "the player's saved deck number +0xa (save state +0x20 + 0x174 * n)",
+    464: "no deck (cleared)",
+    465: "the player's current deck (deck slot 1)",
+    466: "the duellist's own deck slot (slot = character +0x0)",
+}
+SETUP_FIRST_REJECTED = 467
+# Recipes 462-660 repeat the decks of owners 87-126 in five-slot blocks: block k = recipes 461 + 5k .. 465 + 5k
+# belongs to owner 87 + k (the first block starts inside the named range, so owner 87 has only 462 and 463).
+DRAFT_FIRST_RECIPE, DRAFT_FIRST_OWNER, DRAFT_STRIDE = 461, 87, 5
+PLACEHOLDER_REPEATS = 3  # an unnamed deck body seen this often in 462-660 is a filler, not a real deck
+STORY_DUEL_OPCODES = {50119: "duel_single", 50120: "duel_tag_opponent_a", 50121: "duel_tag_opponent_b"}
+STORY_NPC_DECK = 50162  # npc_deck(char, n): during an event the character duels with deck_get_owner_recipe(char, n)
+
+
+def deck_body(deck):
+    """All card ids of a deck (main, extra and side) as a sorted tuple: equal tuples are the same deck."""
+    return tuple(sorted(deck["main"] + deck["extra"] + deck["side"]))
+
+
+def similarity(a, b):
+    """Multiset Jaccard index of two deck bodies (1.0 = same cards with the same counts)."""
+    left, right = Counter(a), Counter(b)
+    union = sum((left | right).values())
+    return sum((left & right).values()) / union if union else 0.0
+
+
+def story_opponents(events):
+    """From an EveB program (story.Events): {char: number of duel set-ups naming it} and the npc_deck (char, n)."""
+    duels, npc_decks = Counter(), Counter()
+    for _, _, opcode, a1, a2, _, _ in events.rows():
+        if opcode in STORY_DUEL_OPCODES:
+            duels[a1] += 1
+        elif opcode == STORY_NPC_DECK:
+            npc_decks[(a1, a2)] += 1
+    return duels, npc_decks
+
+
+def recipe_owners(recipes, story=None):
+    """One entry per recipe: owner, the evidence for it, how the game uses the recipe, and a confidence."""
+    decks = recipes["decks"]
+    owners = recipes["owners"]
+    by_owner = {owner: (first, count) for owner, first, count, _ in owners}
+    owner = owner_of(owners)
+    named = len(owner)
+    bodies = [deck_body(d) for d in decks]
+    first_copy = {}
+    for index, body in enumerate(bodies):
+        first_copy.setdefault(body, index)
+    unnamed = Counter(bodies[named:])
+    stages = {}
+    for who, stage, variant in recipes["variants"]:
+        if who in by_owner:
+            stages.setdefault(by_owner[who][0] + variant, []).append(stage)
+    duels, npc_decks = story if story else (Counter(), Counter())
+    entries = []
+    for index, body in enumerate(bodies):
+        entry = {"recipe": index, "owner": None, "role": None, "evidence": [], "confidence": None,
+                 "loaded_by_game": index < named, "setup_code": SETUP_CODES.get(index)}
+        if index in owner:
+            who = owner[index]
+            entry.update(owner=who, role="starting_deck" if index == 0 else "character", confidence="high")
+            entry["evidence"].append("owner_table")
+            entry["level"] = recipes["levels"][index] if index < len(recipes["levels"]) else None
+            entry["evidence"].append("underground_level_pool")  # rel_underground 0xde88 draws among 0..461 by level
+            if index in stages:
+                entry["variant_stages"] = sorted(stages[index])
+                entry["evidence"].append("variant_table")
+            n = index - by_owner[who][0]
+            if duels.get(who):
+                entry["story_duels"] = duels[who]
+                entry["evidence"].append("story_duel_opponent")
+            if npc_decks.get((who, n)):
+                entry["evidence"].append("story_npc_deck")
+        else:
+            block, slot = divmod(index - DRAFT_FIRST_RECIPE, DRAFT_STRIDE)
+            who = DRAFT_FIRST_OWNER + block
+            entry.update(owner=who if who in by_owner else None, draft_slot=slot)
+            if entry["owner"] is not None:
+                entry["evidence"].append("draft_block")
+            best = max(range(named), key=lambda j: similarity(body, bodies[j]))
+            score = similarity(body, bodies[best])
+            entry["nearest_named"] = {"recipe": best, "owner": owner[best], "similarity": round(score, 2)}
+            if first_copy[body] != index:
+                entry["copy_of"] = first_copy[body]
+            if unnamed[body] >= PLACEHOLDER_REPEATS:
+                entry.update(role="placeholder", confidence="low")
+            else:
+                entry["role"] = "draft"
+                agrees = owner[best] == entry["owner"]
+                if agrees:
+                    entry["evidence"].append("content_similarity")
+                entry["confidence"] = "medium" if agrees and score >= 0.5 else "low"
+        entries.append(entry)
+    return entries
+
+
+def check_owners(entries, recipes, story=None):
+    """Structural checks of the owner mapping; returns (problems, summary)."""
+    problems = []
+    named = sum(count for _, _, count, _ in recipes["owners"])
+    by_owner = {o[0] for o in recipes["owners"]}
+    for entry in entries:
+        if entry["recipe"] < named and entry["owner"] is None:
+            problems.append(f"recipe {entry['recipe']}: inside the owner table but without owner")
+        if entry["recipe"] >= named and entry["owner"] is None:
+            problems.append(f"recipe {entry['recipe']}: its draft block names owner outside the owner table")
+    if set(SETUP_CODES) != set(range(named, SETUP_FIRST_REJECTED)):
+        problems.append(f"the set-up codes no longer start right after the {named} owned recipes")
+    drafts = [e for e in entries if e["role"] == "draft"]
+    agree = [e for e in drafts if "content_similarity" in e["evidence"]]
+    if drafts and len(agree) * 2 < len(drafts):
+        problems.append(f"only {len(agree)} of {len(drafts)} unnamed decks resemble a deck of their block's owner")
+    duels, _ = story if story else (Counter(), None)
+    missing = sorted(c for c in duels if c not in by_owner)
+    if missing:
+        problems.append(f"story duel opponents without a recipe owner: {missing}")
+    tail = [e for e in entries if e["recipe"] >= named]
+    confidence = Counter(e["confidence"] for e in drafts)
+    placeholders = sum(e["role"] == "placeholder" for e in tail)
+    with_owner = sum(e["owner"] is not None for e in entries)
+    span = f"{tail[0]['recipe']}-{tail[-1]['recipe']}" if tail else "none"
+    summary = (f"ok: {with_owner} of {len(entries)} recipes have an owner: {named} from the owner table (high); "
+               f"{len(tail)} unnamed ({span}) by draft block: {len(drafts)} decks, {len(agree)} resembling a deck "
+               f"of the same owner (medium {confidence['medium']}, low {confidence['low']}), {placeholders} "
+               f"placeholders (low); no unnamed recipe is loaded by the game; set-up codes "
+               f"{min(SETUP_CODES)}-{max(SETUP_CODES)}")
+    if story and not missing:
+        summary += f"; {len(duels)} story duel opponents, all in the owner table"
+    return problems, summary
+
+
 # --- deck/all_<l>.ehp ------------------------------------------------------------------------------------------
 
 def read_same_card(blob):
@@ -272,17 +414,35 @@ def card_tools(path):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Read the game's deck recipes, artwork tables and tutorial scripts.")
-    parser.add_argument("table", choices=("recipes", "samecard", "tutorial"))
+    parser.add_argument("table", choices=("recipes", "owners", "samecard", "tutorial"))
     parser.add_argument("file", type=Path, help="BOOT.BIN, deck/all_<l>.ehp or deck/tutorial.ehp")
-    parser.add_argument("-o", "--output", type=Path, help="write CSV here (keep it out of git)")
+    parser.add_argument("-o", "--output", type=Path, help="write CSV (owners: JSON) here (keep it out of git)")
     parser.add_argument("--check", action="store_true", help="only run the structural checks")
     parser.add_argument("--cardinfo", type=Path, help="duelsys/cardinfo_eng.ehp: check ids against the real database")
     parser.add_argument("--lang", default="e", help="recipe-name language for CSV output (e f g i j s)")
+    parser.add_argument("--story", type=Path, help="owners: script/story_scr_b.ehp, to mark story duel opponents")
     args = parser.parse_args(argv)
 
     data = args.file.read_bytes()
     known, samepict = card_tools(args.cardinfo)
     rows = []
+    if args.table == "owners":
+        recipes = read_recipes(data)
+        story = story_opponents(_load("story").Events(args.story.read_bytes())) if args.story else None
+        entries = recipe_owners(recipes, story)
+        problems, summary = check_owners(entries, recipes, story)
+        problems = check_recipes(recipes, known) + problems
+        if args.check:
+            print("\n".join(problems) if problems else summary)
+            return 1 if problems else 0
+        out = open(args.output, "w", encoding="utf-8") if args.output else sys.stdout
+        try:
+            json.dump(entries, out, indent=1)
+            out.write("\n")
+        finally:
+            if args.output:
+                out.close()
+        return 0
     if args.table == "recipes":
         recipes = read_recipes(data)
         problems = check_recipes(recipes, known)
