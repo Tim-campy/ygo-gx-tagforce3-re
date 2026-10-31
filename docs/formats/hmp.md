@@ -1,6 +1,6 @@
 # Field walk grid (`.hmp`)
 
-Status: `documented` (layout checked on all 31 files by `tools/world.py hmp <USRDIR>/field/map --check`, `failing: 0`; the meaning of the cell byte is medium confidence, static analysis only).
+Status: `reimplemented` (reader and writer, round trip at the end; layout checked on all 31 files by `tools/world.py hmp <USRDIR>/field/map --check`, `failing: 0`; the meaning of the cell byte is medium confidence, static analysis only).
 
 Every free-roam map archive `field/map/bg_NN_MM.ehp` holds one `bg_NN_MM.hmp` member (`bg_09_01.ehp` holds `bg_09_01_a.hmp`). It is the walk grid and floor height of the map. The field module picks it up by extension: `world_bind_map_archive` (`rel_field` `0x090d9f48`) walks the archive members and keeps the member whose extension matches the string at `0x090fd168`.
 
@@ -46,6 +46,10 @@ Walkability: the field also blocks a few cells by code before it reads the cell 
 ## Tool
 
 `python3 -I tools/world.py hmp <USRDIR>/field/map --check` parses every grid and checks the header arithmetic and the regular 0.5 spacing; `--grid` prints a grid (`#` walkable). Tests: `tools/tests/test_world.py` (synthetic grids).
+
+## Writer and round trip
+
+`world.build_hmp(grid)` writes the header (counts from the grid size, offsets `0x14` and `0x14 + 12 × vertex_count`), the `f32` vertices and the cell bytes. All 32 grids on the disc (the 31 maps and `minigame/connection/data.ehp/mini_sn01.hmp`, same layout) rebuild byte for byte (`hmp` is `reimplemented`): `python3 -I tools/roundtrip.py --check <PSP_GAME> --only hmp`.
 
 ## Open questions
 

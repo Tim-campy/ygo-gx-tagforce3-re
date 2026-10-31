@@ -27,7 +27,7 @@ Lines starting with `#` and blank lines are ignored. A missing file counts as an
 | `unknown` | Tool default name (`FUN_…`, `sub_…`), not analysed. | Seen but not identified. |
 | `named` | Meaningful name backed by evidence. | Located and named. |
 | `documented` | Signature, purpose, side effects and callers recorded in Ghidra and `docs/`. | Layout written down in `docs/formats/`. |
-| `reimplemented` | A clean reimplementation exists. | A parser or extractor handles it. |
+| `reimplemented` | A clean reimplementation exists. | A tool reads and writes it, and writing the parsed model reproduces every instance on the disc (or every save) byte for byte (`tools/roundtrip.py --check`), with synthetic unit tests. (Rows raised before 2026-10-31 under the older "a parser or extractor handles it" rule keep their status.) |
 | `verified` | Checked against the original's behaviour in PPSSPP. | Round-trips or matches the original on real data. |
 
 When `status` is blank, a function whose name matches a tool default is `unknown` and anything else is `named`. This is the only automatic inference; every higher stage must be set by hand.

@@ -6,9 +6,9 @@ Module offsets are unrelocated (`+0x0`). `rel_duel_eng` addresses are also given
 
 | Structure | Where | Status |
 | --- | --- | --- |
-| `.ydq` duel setup (`[DUEL QUESTION]` text) | `d_tutorial/tutorial.ehp`, 50 members | documented (every key, from the parser) |
-| `tuto_cmd_NN.bin` tutorial script | same archive, 17 members | documented (record layout, all 21 tutorial opcodes, all 16 duel-engine codes and 11 UI events the scripts use) |
-| `tuto_text_<l>.bin` text table | same archive, 6 members | documented |
+| `.ydq` duel setup (`[DUEL QUESTION]` text) | `d_tutorial/tutorial.ehp`, 50 members | reimplemented (every key, from the parser) |
+| `tuto_cmd_NN.bin` tutorial script | same archive, 17 members | reimplemented (record layout, all 21 tutorial opcodes, all 16 duel-engine codes and 11 UI events the scripts use) |
+| `tuto_text_<l>.bin` text table | same archive, 6 members | reimplemented |
 | Legacy set `NN_duel_command.bin`, `NN_field_set.txt`, `field_reset_NN.txt`, `NN_message_res.bin` | `tutorial/tutorial_all.ehp`, `tutorial/tutorial_<l>.ehp` | not loaded by the game (confidence high); framing documented, see "The `tutorial/` directory" |
 
 ## Archive and lessons
@@ -287,6 +287,18 @@ The set looks like the tutorial data of an earlier engine revision left on the d
 | `tuto_duel01.gim`, `tuto_bigwin01.gim`, `tuto_duelimg01`–`06.gim` | GIM images (`gim.md`); `tuto_duelimg*` differ per language. | — |
 
 `tutorial.py <USRDIR>/tutorial/tutorial_*.ehp --check` checks this framing (record count, codes within the dispatcher, message indices within the table, the setups). The meaning of the `0x68` sub-operations is not recoverable from TF3: command `0x68` only relays them as UI event `0x42`.
+
+## Writers and round trip
+
+- `.ydq`: `tutorial.ydq_decode()` keeps every line as `{section}`, `{key, value, comment}` (value an int when written as one, otherwise the text, so `0012` stays `0012`) or a blank line; `tutorial.ydq_encode()` writes `key=value`, a tab and `//comment` when present, CRLF after every line, Shift-JIS.
+- `tuto_cmd_NN.bin`: `tutorial.cmd_decode()` gives `{kind, code, side, a, b, c}` (`kind` tutorial for `0x4000`, engine otherwise, end for word 0); `tutorial.cmd_build()` inverts it.
+- `tuto_text_<l>.bin`: `tutorial.text_build(lines, language)` writes the `(offset, size)` pairs and each line followed by zero bytes up to the next multiple of 4: at least one in Shift-JIS, at least **four** in UTF-16 (a line of 4n + 2 bytes gets 6 zero bytes, one of 4n bytes gets 4), as on the disc.
+
+All 50 `.ydq`, 17 scripts and 6 text tables rebuild byte for byte (`ydq`, `tuto_cmd`, `tuto_text` are `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only ydq,tuto_cmd,tuto_text
+```
 
 ## Open questions
 

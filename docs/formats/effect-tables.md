@@ -1,6 +1,6 @@
 # Card effect tables (`gmodule/rel_duel_eng.prx`)
 
-Status: `documented` (layout, lookup and dispatch); the meaning of the five handler slots is only partly known. Addresses are runtime addresses with the module loaded at `0x09be1400` (see `docs/subsystems/duel_effects.md`); file offset = address − `0x09be1400` + `0x54`.
+Status: `reimplemented` (layout, lookup and dispatch; writer and round trip at the end); the meaning of the five handler slots is only partly known. Addresses are runtime addresses with the module loaded at `0x09be1400` (see `docs/subsystems/duel_effects.md`); file offset = address − `0x09be1400` + `0x54`.
 
 ## Record: 24 bytes
 
@@ -195,6 +195,16 @@ The meaning of the context fields `+0x0c`, `+0x12`, `+0x15`, `+0x16` is not yet 
 | `0x09c11ea0`, `0x09dabf4c` | 332, 916 | 16, 49 | `0x30000`–`0x1d0000` | — | Return module offsets (pointers), not numbers | M |
 
 Function sizes from this scan agree with `re/functions.csv` for all listed functions except `0x09bf6f50` (1,116 against 1,080).
+
+## Writer and round trip
+
+`effect_params.read_effect_model(module)` returns the four 24-byte tables (card id and the five handler words as stored, module offsets), the 8-byte lists L1 and L4 and the 20-word counter type table at `0x09deb97c`; `effect_params.write_effect_model(prx, model)` writes them back (each table keeps the record count the code hard-codes). L2 and L3 are the AI tables (`ai-tables.md`). The round trip overwrites the records (`effect_params.effect_spans`) with a filler, writes the model and compares the whole module: byte-identical (`effect_tables`, `effect_lists`, `counter_type_table` are `reimplemented`). The 24 bytes after each 24-byte table are not part of the counted records and are left alone.
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only effect_tables,effect_lists,counter_type_table
+```
+
+The archetype predicate table at `BOOT.BIN` `0x0889e2d8` (63 words) is read and written by `search_filters.read_boot_word_tables()` / `write_boot_word_tables()` (`--only archetype_predicates`, `reimplemented`).
 
 ## Open questions
 

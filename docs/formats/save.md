@@ -280,6 +280,19 @@ Each experiment: save in PPSSPP with `EncryptSave = False`, do one action, save 
 | 15 | Unknown `0x1b108`, `0x1bf18`, record table `+0x292` (—) | Diff every pair above. | Any non-zero byte here locates a field the static pass missed. |
 | 16 | Title words `0x1bf0c` (M) | Change options on the title screen / extras menu. | The three words at `0x1bf0c`. |
 
+## Writer and round trip (lossless JSON model)
+
+`save.to_model(DATA0)` gives a JSON-ready model with one entry per region of the map (the story block per sub-region); `save.from_model(model)` rebuilds the 0x20000 bytes. Regions with an established layout have a codec whose fields cover all their bytes, stale bytes included as explicit fields: a UTF-16 field is `{text, tail}` (`tail` = runs of non-zero bytes after the terminator), a counted list is `{values, stale}` (`stale` = non-zero slots past the count), bits no reader uses get their own field (for example `settings.nibbles_high`, `recipes[].bits9_15`). Regions without a layout are stored as runs of non-zero bytes. Codecs: header, stored decks, deck slots, profile, settings, character records, recipe table, duel record, record table, collection, card list, packs, partner word, picture bits, minigame and title words, character flags.
+
+```
+python3 -I tools/save.py model DATA0 -o <scratch>/model.json    # the model (the player's data: keep it out of git)
+python3 -I tools/save.py build <scratch>/model.json -o <scratch>/DATA0
+python3 -I tools/save.py roundtrip external/ppsspp/saves/*.bin   # to_model -> JSON text -> from_model
+python3 -I tools/roundtrip.py --check <PSP_GAME> --saves external/ppsspp/saves --only save_data,save_header,save_stored_decks,save_character_records,save_recipe_table,save_duel_record,save_picture_bits
+```
+
+All seven plaintext saves rebuild byte for byte, region by region. `save_character_records`, `save_duel_record`, `save_stored_decks`, `save_recipe_table` and `save_picture_bits` are `reimplemented`. In those saves the stored decks are all empty, no recipe is unlocked and no picture bit is set, so for these three the real-data round trip only covers zero content; the stored-deck codec shares its deck-struct, key-card and text codecs with the deck slots (126 non-empty slots with stale name bytes and stale list slots), and the synthetic tests (`tools/tests/test_roundtrip.py`, including a buffer of random bytes) cover non-zero content.
+
 ## Open questions
 
 - The meaning of the unknown collection and option bits.

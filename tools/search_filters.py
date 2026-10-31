@@ -24,6 +24,7 @@ import argparse
 import collections
 import csv
 import importlib.util
+import struct
 import sys
 from pathlib import Path
 
@@ -525,6 +526,39 @@ def archetype_predicates(boot_bytes):
     pi = _load("re_prx_imports", "prx_imports.py")
     boot = pi.Elf(boot_bytes, pi.BOOT_BASE)
     return {i: v + pi.BOOT_BASE for i, v in enumerate(boot.u32(ARCHETYPE_TABLE - pi.BOOT_BASE, ARCHETYPE_COUNT))}
+
+
+GENRE_MAP_TABLE, GENRE_MAP_COUNT = 0x0889F980, 35  # card_db_has_genre_mapped: k -> CARD_Genre bit
+
+
+def _boot_word_table(boot_bytes, address, count):
+    pi = _load("re_prx_imports", "prx_imports.py")
+    boot = pi.Elf(boot_bytes, pi.BOOT_BASE)
+    return boot.offset(address - pi.BOOT_BASE), list(boot.u32(address - pi.BOOT_BASE, count))
+
+
+def read_boot_word_tables(boot_bytes):
+    """{'archetype_predicates': 63 words (module offsets of the predicates), 'genre_map': 35 genre bits}."""
+    return {"archetype_predicates": _boot_word_table(boot_bytes, ARCHETYPE_TABLE, ARCHETYPE_COUNT)[1],
+            "genre_map": _boot_word_table(boot_bytes, GENRE_MAP_TABLE, GENRE_MAP_COUNT)[1]}
+
+
+def boot_word_spans(boot_bytes, key):
+    address, count = {"archetype_predicates": (ARCHETYPE_TABLE, ARCHETYPE_COUNT),
+                      "genre_map": (GENRE_MAP_TABLE, GENRE_MAP_COUNT)}[key]
+    return [(_boot_word_table(boot_bytes, address, count)[0], 4 * count)]
+
+
+def write_boot_word_tables(boot_bytes, model):
+    """Inverse of read_boot_word_tables() into a copy of BOOT.BIN (the keys present in `model`)."""
+    out = bytearray(boot_bytes)
+    for key, (address, count) in (("archetype_predicates", (ARCHETYPE_TABLE, ARCHETYPE_COUNT)),
+                                  ("genre_map", (GENRE_MAP_TABLE, GENRE_MAP_COUNT))):
+        if key in model:
+            if len(model[key]) != count:
+                raise ValueError(f"{key}: {count} entries, not {len(model[key])}")
+            struct.pack_into(f"<{count}I", out, _boot_word_table(boot_bytes, address, count)[0], *model[key])
+    return bytes(out)
 
 
 def predicate_members(boot_bytes, address, end):

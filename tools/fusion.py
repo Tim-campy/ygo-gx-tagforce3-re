@@ -142,6 +142,40 @@ def rituals(module):
     raise ValueError(f"ritual table not terminated within {RITUAL_MAX} records")
 
 
+def recipe_span(module):
+    return module.offset(RECIPES), 8 * RECIPE_COUNT
+
+
+def ritual_span(module, count):
+    """The records and the terminating 0 word."""
+    return module.offset(RITUALS), 4 * (count + 1)
+
+
+def write_recipes(data, records):
+    """Inverse of recipes(): 138 x (u16 fusion, 3 x u16 material code; 0 pads a two-material record)."""
+    if len(records) != RECIPE_COUNT:
+        raise ValueError(f"the readers loop over {RECIPE_COUNT} records, not {len(records)}")
+    module = Module(data)
+    out = bytearray(data)
+    start, _ = recipe_span(module)
+    for i, record in enumerate(records):
+        codes = tuple(record.materials) + (0,) * (3 - len(record.materials))
+        struct.pack_into("<4H", out, start + 8 * i, record.fusion, *codes)
+    return bytes(out)
+
+
+def write_rituals(data, records):
+    """Inverse of rituals(): one word per record (monster bits 0-13, spell bits 14-27, level bits 28-31),
+    then a 0 word."""
+    module = Module(data)
+    out = bytearray(data)
+    start, _ = ritual_span(module, len(records))
+    for i, record in enumerate(records):
+        struct.pack_into("<I", out, start + 4 * i, record.monster | record.spell << 14 | record.level << 28)
+    struct.pack_into("<I", out, start + 4 * len(records), 0)
+    return bytes(out)
+
+
 def material_count(module, fusion):
     """What duel_effects_get_fusion_material_count returns: 0 for an unknown Fusion."""
     if fusion in HARDCODED:

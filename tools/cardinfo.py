@@ -320,6 +320,196 @@ class CardInfo:
         return problems
 
 
+# ---------------------------------------------------------------------- writers (round trip)
+#
+# decode_archive() turns a cardinfo archive into plain values (no byte offsets that the writer could not
+# recompute) and encode_archive() rebuilds it; on the disc the result is byte-identical for all five
+# languages (tools/roundtrip.py --only cardinfo_ehp).
+
+NAME_POOL_LEAD = 4  # CARD_Name starts with 4 zero bytes; record 0's empty name is at offset 4
+DICT_GAP = 4  # DICT leaves 4 zero bytes between its offset table and its strings
+
+
+def pack_prop(fields):
+    """Inverse of unpack_prop(): the (word 0, word 1) of one CARD_Prop record."""
+    w0 = fields["id"] | (fields["atk"] // 10) << 14 | (fields["def"] // 10) << 23
+    w1 = (fields["kind"] | fields["attribute"] << 6 | fields["level"] << 10 | fields["icon"] << 14
+          | fields["race"] << 17 | fields["unknown_22"] << 22)
+    return w0, w1
+
+
+def build_prop(records):
+    return b"".join(struct.pack("<II", *pack_prop(r)) for r in records)
+
+
+def parse_prop(blob):
+    return [unpack_prop(*struct.unpack_from("<II", blob, 8 * k)) for k in range(len(blob) // 8)]
+
+
+def build_genre(masks):
+    """CARD_Genre: three u16 per record from 48-bit masks."""
+    return b"".join(struct.pack("<3H", m & 0xFFFF, m >> 16 & 0xFFFF, m >> 32 & 0xFFFF) for m in masks)
+
+
+def parse_genre(blob):
+    return [low | mid << 16 | high << 32 for low, mid, high in struct.iter_unpack("<3H", blob)]
+
+
+def utf16_aligned_pool(strings, lead=b"", align=4):
+    """UTF-16LE NUL-terminated strings, each starting on an `align` boundary (zero padding); returns
+    (pool, offsets). Used by CARD_Name (lead of 4 zero bytes) and DLG_Text (no lead)."""
+    pool, offsets = bytearray(lead), []
+    for text in strings:
+        offsets.append(len(pool))
+        pool += text.encode("utf-16-le") + b"\0\0"
+        pool += bytes(-len(pool) % align)
+    return bytes(pool), offsets
+
+
+def huffman_codes(huff):
+    """{code unit: bit string} from a CARD_Huff tree (first leaf wins for a repeated symbol)."""
+    words = struct.unpack(f"<{len(huff) // 2}H", huff)
+    codes = {}
+    stack = [(0, "")]
+    while stack:
+        node, path = stack.pop()
+        left, right = words[node], words[node + 1]
+        if left == 0 and right == 0:
+            codes.setdefault(words[node + 2], path)
+            continue
+        # A node with one zero child is a leaf for that bit; the game never builds such a node.
+        if left == 0 or right == 0:
+            raise ValueError(f"Huffman node {node} has a single child")
+        stack.append((right >> 1, path + "1"))
+        stack.append((left >> 1, path + "0"))
+    return codes
+
+
+def build_descriptions(texts, huff):
+    """CARD_Desc from raw (unexpanded) description texts: each text plus symbol 0, concatenated MSB first and
+    padded to a whole byte. Returns (stream, start bits, total bit length)."""
+    codes = huffman_codes(huff)
+    bits, starts = [], []
+    length = 0
+    for text in texts:
+        starts.append(length)
+        for char in text + "\0":
+            code = codes.get(ord(char))
+            if code is None:
+                raise ValueError(f"character {char!r} has no Huffman code")
+            bits.append(code)
+            length += len(code)
+    joined = "".join(bits)
+    joined += "0" * (-len(joined) % 8)
+    stream = int(joined, 2).to_bytes(len(joined) // 8, "big") if joined else b""
+    return stream, starts, length
+
+
+def build_dictionary(words, gap=DICT_GAP):
+    """DICT: u32 count, u32 12, u32 string base, count u32 offsets, `gap` zero bytes, packed strings."""
+    body, offsets = bytearray(), []
+    for word in words:
+        offsets.append(len(body))
+        body += word.encode("utf-16-le") + b"\0\0"
+    base = 12 + 4 * len(words) + gap
+    return struct.pack(f"<3I{len(words)}I", len(words), 12, base, *offsets) + bytes(gap) + bytes(body)
+
+
+def parse_dictionary(blob):
+    count, table, base = struct.unpack_from("<3I", blob, 0)
+    offsets = struct.unpack_from(f"<{count}I", blob, table)
+    return {"words": [utf16z(blob, base + o) for o in offsets], "gap": base - table - 4 * count}
+
+
+def build_pairs(pairs):
+    """CARD_SamePict / CARD_Top: u16 count, then (u16, u16) pairs."""
+    return struct.pack("<H", len(pairs)) + b"".join(struct.pack("<HH", a, b) for a, b in pairs)
+
+
+def parse_pairs(blob):
+    count, = struct.unpack_from("<H", blob, 0)
+    return [struct.unpack_from("<HH", blob, 2 + 4 * k) for k in range(count)]
+
+
+def build_dialog(strings):
+    """(DLG_Indx, DLG_Text) from the prompt strings (4-byte aligned starts, zero padding)."""
+    text, offsets = utf16_aligned_pool(strings)
+    return struct.pack(f"<{len(offsets)}I", *offsets), text
+
+
+def decode_archive(archive_bytes):
+    """A cardinfo archive as plain values: member order, the language suffix and one entry per table."""
+    members = ehp.parse(archive_bytes)
+    by_name = dict(members)
+    suffix = next(n[len("CARD_Indx_"):-4] for n in by_name if n.startswith("CARD_Indx_"))
+    info = CardInfo(archive_bytes, suffix)
+    descriptions = [info.huffman(info.entry(i)[1])[0] for i in range(info.count)]
+    model = {
+        "suffix": suffix, "order": [name for name, _ in members],
+        "prop": parse_prop(info.prop), "pass": list(info.passes), "intid": list(info.intid),
+        "names": [info.name(i) for i in range(info.count)],
+        "huff": list(struct.unpack(f"<{len(info.huff) // 2}H", info.huff)),
+        "descriptions": descriptions, "dict": parse_dictionary(info.dict),
+    }
+    if info.genre is not None:
+        model["genre"] = parse_genre(info.genre)
+    if info.sort is not None:
+        model["sort"] = list(struct.unpack(f"<{len(info.sort) // 2}H", info.sort))
+    if info.top is not None:
+        model["top"] = parse_pairs(info.top)
+    samepict = by_name.get(f"CARD_SamePict_{suffix}.bin")
+    if samepict is not None:
+        model["samepict"] = parse_pairs(samepict)
+    if info.dlg_indx and info.dlg_text:
+        model["dialog"] = info.dialog
+    return model
+
+
+def encode_members(model):
+    """{member name: bytes} for a decode_archive() model."""
+    s = model["suffix"]
+    huff = struct.pack(f"<{len(model['huff'])}H", *model["huff"])
+    names, name_offsets = utf16_aligned_pool(model["names"], lead=bytes(NAME_POOL_LEAD))
+    desc, starts, length = build_descriptions(model["descriptions"], huff)
+    indx = b"".join(struct.pack("<II", n, d) for n, d in zip(name_offsets + [len(names)], starts + [length]))
+    out = {
+        f"CARD_Desc_{s}.bin": desc, f"CARD_Huff_{s}.bin": huff, f"CARD_Indx_{s}.bin": indx,
+        "CARD_IntID.bin": struct.pack(f"<{len(model['intid'])}H", *model["intid"]),
+        f"CARD_Name_{s}.bin": names,
+        "CARD_Pass.bin": struct.pack(f"<{len(model['pass'])}I", *model["pass"]),
+        "CARD_Prop.bin": build_prop(model["prop"]),
+        f"DICT_{s}.bin": build_dictionary(model["dict"]["words"], model["dict"]["gap"]),
+    }
+    if "genre" in model:
+        out["CARD_Genre.bin"] = build_genre(model["genre"])
+    if "sort" in model:
+        out[f"CARD_Sort_{s}.bin"] = struct.pack(f"<{len(model['sort'])}H", *model["sort"])
+    if "top" in model:
+        out[f"CARD_Top_{s}.bin"] = build_pairs(model["top"])
+    if "samepict" in model:
+        out[f"CARD_SamePict_{s}.bin"] = build_pairs(model["samepict"])
+    if "dialog" in model:
+        out[f"DLG_Indx_{s}.bin"], out[f"DLG_Text_{s}.bin"] = build_dialog(model["dialog"])
+    return out
+
+
+def encode_archive(model):
+    members = encode_members(model)
+    order = model.get("order") or sorted(members, key=str.lower)
+    return ehp.build([(name, members[name]) for name in order])
+
+
+def roundtrip_problems(archive_bytes):
+    """Per-member and whole-archive differences after decode/encode; [] when byte-identical."""
+    model = decode_archive(archive_bytes)
+    rebuilt = encode_members(model)
+    problems = [f"{name}: member differs after the round trip"
+                for name, blob in ehp.parse(archive_bytes) if rebuilt.get(name) != blob]
+    if not problems and encode_archive(model) != archive_bytes:
+        problems.append("archive differs after the round trip")
+    return problems
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Decode the card database of cardinfo_<lang>.ehp.")
     parser.add_argument("archive", type=Path, help="duelsys/cardinfo_<lang>.ehp")

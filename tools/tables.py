@@ -75,8 +75,40 @@ def read_packs(prx):
             address, count = pairs[2 * tier], pairs[2 * tier + 1]
             ids = struct.unpack_from(f"<{count}H", prx, to_offset(segments, address)) if count else ()
             tiers.append(ids)
-        packs.append({"pack": index, "a": a, "price": b & 0xFFFF, "flags": b >> 16, "tiers": tiers})
+        packs.append({"pack": index, "a": a, "price": b & 0xFFFF, "flags": b >> 16, "tiers": tiers,
+                      "descriptor": descriptor, "tier_addresses": [pairs[2 * t] for t in range(TIERS)]})
     return packs
+
+
+def pack_spans(prx, packs):
+    """(file offset, size) of every byte the pack table owns: the 48 records, each descriptor and each
+    non-empty card id list."""
+    segments = elf_segments(prx)
+    spans = [(to_offset(segments, PACK_TABLE), PACK_RECORD.size * len(packs))]
+    for pack in packs:
+        spans.append((to_offset(segments, pack["descriptor"]), 8 * TIERS))
+        for address, ids in zip(pack["tier_addresses"], pack["tiers"]):
+            if ids:
+                spans.append((to_offset(segments, address), 2 * len(ids)))
+    return spans
+
+
+def write_packs(prx, packs):
+    """Inverse of read_packs(): writes the records, descriptors and id lists back into a copy of the
+    module at the addresses the model carries (a port can relocate them by changing the addresses)."""
+    segments = elf_segments(prx)
+    out = bytearray(prx)
+    table = to_offset(segments, PACK_TABLE)
+    for index, pack in enumerate(packs):
+        b = pack["price"] | pack["flags"] << 16
+        PACK_RECORD.pack_into(out, table + PACK_RECORD.size * index, pack["a"], b, pack["descriptor"])
+        pairs = []
+        for address, ids in zip(pack["tier_addresses"], pack["tiers"]):
+            pairs += [address, len(ids)]
+            if ids:
+                struct.pack_into(f"<{len(ids)}H", out, to_offset(segments, address), *ids)
+        struct.pack_into(f"<{2 * TIERS}I", out, to_offset(segments, pack["descriptor"]), *pairs)
+    return bytes(out)
 
 
 def read_draw_constants(prx):
@@ -244,6 +276,21 @@ def read_limits(boot):
     sections = elf_sections(boot)
     start = to_offset(sections, LIMIT_TABLE, BOOT_BASE)
     return [struct.unpack_from("<HH", boot, start + 4 * k) for k in range(LIMIT_COUNT)]
+
+
+def limit_span(boot):
+    return to_offset(elf_sections(boot), LIMIT_TABLE, BOOT_BASE), 4 * LIMIT_COUNT
+
+
+def write_limits(boot, limits):
+    """Inverse of read_limits(): the (card id, status) pairs written back into a copy of BOOT.BIN."""
+    if len(limits) != LIMIT_COUNT:
+        raise ValueError(f"the table holds {LIMIT_COUNT} entries, not {len(limits)}")
+    out = bytearray(boot)
+    start, _ = limit_span(boot)
+    for k, pair in enumerate(limits):
+        struct.pack_into("<HH", out, start + 4 * k, *pair)
+    return bytes(out)
 
 
 def known_ids(cardinfo_path):

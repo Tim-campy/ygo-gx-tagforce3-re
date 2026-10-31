@@ -1889,6 +1889,59 @@ def list_records(module):
             yield name, index, cid, module.pointer(handler)
 
 
+# Writers (round trip, tools/roundtrip.py): the tables as plain values, handler words kept as the module
+# offsets the file stores (the PRX relocations turn them into addresses at load time).
+
+EFFECT_LISTS = ("L1", "L4")  # L2 and L3 are the AI priority tables (tools/ai_tables.py writes them)
+COUNTER_TYPES = 0x09DEB97C  # 20 x u32: card id that defines each counter type (duel_core_get_counter_type_card)
+COUNTER_TYPE_COUNT = 20
+
+
+def read_effect_model(module):
+    """{'tables': {name: [(card id, 5 handler offsets)]}, 'lists': {L1/L4: [(card id, handler offset)]},
+    'counter_types': [20 words]}."""
+    tables = {name: [tuple(module.words(address + 24 * i, 6)) for i in range(count)]
+              for name, address, count in TABLES}
+    lists = {name: [tuple(module.words(address + 8 * i, 2)) for i in range(count)]
+             for name, address, count in LISTS if name in EFFECT_LISTS}
+    return {"tables": tables, "lists": lists, "counter_types": list(module.words(COUNTER_TYPES, COUNTER_TYPE_COUNT))}
+
+
+def effect_spans(module, part):
+    """(file offset, size) of the records `part` ('tables', 'lists' or 'counter_types') owns."""
+    if part == "tables":
+        return [(module.offset(address), 24 * count) for _, address, count in TABLES]
+    if part == "lists":
+        return [(module.offset(address), 8 * count) for name, address, count in LISTS if name in EFFECT_LISTS]
+    return [(module.offset(COUNTER_TYPES), 4 * COUNTER_TYPE_COUNT)]
+
+
+def write_effect_model(data, model):
+    """Inverse of read_effect_model() into a copy of the module (the parts present in `model`); every table
+    keeps its record count, which the code hard-codes."""
+    module = Module(data)
+    out = bytearray(data)
+    for name, address, count in TABLES:
+        records = model.get("tables", {}).get(name)
+        if records is None:
+            continue
+        if len(records) != count:
+            raise ValueError(f"table {name}: {count} records in the code, {len(records)} given")
+        for i, record in enumerate(records):
+            struct.pack_into("<6I", out, module.offset(address + 24 * i), *record)
+    for name, address, count in LISTS:
+        records = model.get("lists", {}).get(name)
+        if records is None:
+            continue
+        if len(records) != count:
+            raise ValueError(f"list {name}: {count} records in the code, {len(records)} given")
+        for i, record in enumerate(records):
+            struct.pack_into("<2I", out, module.offset(address + 8 * i), *record)
+    if "counter_types" in model:
+        struct.pack_into(f"<{COUNTER_TYPE_COUNT}I", out, module.offset(COUNTER_TYPES), *model["counter_types"])
+    return bytes(out)
+
+
 def filter_stub(module, address):
     """Decode a target-filter stub at `address`: (form, flags) or None.
 

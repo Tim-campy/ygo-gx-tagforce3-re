@@ -811,6 +811,157 @@ def read_fixed_spots(story):
             "sellers": entries(SELLER_SPOTS, 3)}
 
 
+# --- writers (round trip; tools/roundtrip.py) ----------------------------------------------------------------
+#
+# Each read_*_model() returns plain values (pointers kept as module offsets where the table holds them),
+# *_spans() the (file offset, size) ranges the table owns, and write_*() writes a model back into a copy of the
+# module. The round trip blanks the spans, writes the model and compares the whole module with the original.
+
+def _file(offset):
+    return PRX_FILE_OFFSET + offset
+
+
+def _pack(out, offset, fmt, *values):
+    struct.pack_into(fmt, out, _file(offset), *values)
+
+
+def read_map_table_model(field):
+    """[{archive: (pointer, name), meshes: [(pointer, name or None) x 2]}] for the 32 map indices."""
+    rows = []
+    for index in range(MAP_COUNT):
+        pointer = _u32s(field, MAP_ARCHIVES + 4 * index, 1)[0]
+        meshes = [(p, _ptr_string(field, p)) for p in _u32s(field, MAP_MESHES + 8 * index, 2)]
+        rows.append({"archive": (pointer, _ptr_string(field, pointer)), "meshes": meshes})
+    return rows
+
+
+def map_table_spans(rows):
+    spans = [(_file(MAP_ARCHIVES), 4 * MAP_COUNT), (_file(MAP_MESHES), 8 * MAP_COUNT)]
+    for row in rows:
+        for pointer, name in [row["archive"]] + row["meshes"]:
+            if pointer:
+                spans.append((_file(pointer), len(name) + 1))
+    return spans
+
+
+def write_map_table(field, rows):
+    """The two pointer tables and the NUL-terminated names at their pointers."""
+    out = bytearray(field)
+    for index, row in enumerate(rows):
+        _pack(out, MAP_ARCHIVES + 4 * index, "<I", row["archive"][0])
+        _pack(out, MAP_MESHES + 8 * index, "<2I", *(p for p, _ in row["meshes"]))
+        for pointer, name in [row["archive"]] + row["meshes"]:
+            if pointer:
+                raw = name.encode("ascii") + b"\0"
+                out[_file(pointer):_file(pointer) + len(raw)] = raw
+    return bytes(out)
+
+
+def read_lighting_model(field):
+    return {"maps": read_map_lighting(field), "sky_gradients": read_sky_gradients(field)}
+
+
+def lighting_spans():
+    return [(_file(MAP_LIGHTING), 8 * len(PERIODS) * MAP_COUNT), (_file(SKY_GRADIENTS), 12 * SKY_GRADIENT_COUNT)]
+
+
+def write_lighting(field, model):
+    """32 maps x 5 periods x (light mode, sky gradient), then the 6 sky gradients (top, middle, bottom)."""
+    out = bytearray(field)
+    for index, periods in enumerate(model["maps"]):
+        for period, pair in enumerate(periods):
+            _pack(out, MAP_LIGHTING + 0x28 * index + 8 * period, "<2I", *pair)
+    for i, colours in enumerate(model["sky_gradients"]):
+        _pack(out, SKY_GRADIENTS + 12 * i, "<3I", *colours)
+    return bytes(out)
+
+
+def island_spans():
+    return [(_file(ISLAND_POSITIONS), 8 * ISLAND_AREAS)]
+
+
+def write_island_positions(field, positions):
+    out = bytearray(field)
+    for area, (x, y) in enumerate(positions):
+        _pack(out, ISLAND_POSITIONS + 8 * area, "<2i", x, y)
+    return bytes(out)
+
+
+def read_exit_model(story):
+    """{'selector': records as read_exit_selector, 'cells': [(key, x, y)] up to the zero triple} (the cell
+    list keeps every triple, including the x/y words of key records, which the game does not read)."""
+    cells, offset = [], EXIT_CELLS
+    while True:
+        triple = struct.unpack_from("<3H", story, _file(offset))
+        offset += 6
+        if triple == (0, 0, 0):
+            break
+        cells.append(triple)
+    return {"selector": read_exit_selector(story), "cells": cells}
+
+
+EXIT_SELECTOR_FIELDS = ("location", "group", "stage_test", "stage", "story_flag", "story_flag_mode", "record_char",
+                        "record_bit", "record_mode")
+
+
+def exit_spans(model):
+    return [(_file(EXIT_SELECTOR), EXIT_RECORD * (len(model["selector"]) + 1)),
+            (_file(EXIT_CELLS), 6 * (len(model["cells"]) + 1))]
+
+
+def write_exits(story, model):
+    """Selector records (9 x u16) and a zero record; exit-cell triples and a zero triple."""
+    out = bytearray(story)
+    for i, record in enumerate(model["selector"] + [dict.fromkeys(EXIT_SELECTOR_FIELDS, 0)]):
+        _pack(out, EXIT_SELECTOR + EXIT_RECORD * i, "<9H", *(record[f] for f in EXIT_SELECTOR_FIELDS))
+    for i, triple in enumerate(model["cells"] + [(0, 0, 0)]):
+        _pack(out, EXIT_CELLS + 6 * i, "<3H", *triple)
+    return bytes(out)
+
+
+def fixed_spot_spans():
+    return [(_file(FIXED_SPOTS), 16 * len(FIXED_SPOT_CHARS)), (_file(CHAR139_SPOTS), 16 * CHAR139_SPOT_COUNT),
+            (_file(SELLER_SPOTS), 16 * 3)]
+
+
+def write_fixed_spots(story, model):
+    """Inverse of read_fixed_spots(): the 13 fixed spots (in FIXED_SPOT_CHARS order), 72 character-139 spots
+    and 3 seller spots, each {i32 location, x, y, direction}."""
+    out = bytearray(story)
+    for offset, entries in ((FIXED_SPOTS, [model["fixed"][c] for c in FIXED_SPOT_CHARS]),
+                            (CHAR139_SPOTS, model["char139"]), (SELLER_SPOTS, model["sellers"])):
+        for i, entry in enumerate(entries):
+            _pack(out, offset + 16 * i, "<4i", *entry)
+    return bytes(out)
+
+
+def character_row_words(row):
+    """Inverse of CharacterRow(): the 57 words of one row."""
+    return [row.character, *row.event_keys, row.no_free_roam, row.no_pairing, *row.tastes]
+
+
+def character_table_spans():
+    return [(_file(CHAR_TABLE), 4 * CHAR_COLUMNS * CHAR_ROWS)]
+
+
+def write_character_table(story, rows):
+    out = bytearray(story)
+    for r, row in enumerate(rows):
+        _pack(out, CHAR_TABLE + 4 * CHAR_COLUMNS * r, f"<{CHAR_COLUMNS}i", *character_row_words(row))
+    return bytes(out)
+
+
+def build_hmp(grid):
+    """Inverse of WalkGrid(): header, f32 vertices, one byte per cell."""
+    vertex_columns, vertex_rows = grid.columns + 1, grid.rows + 1
+    vertex_count = vertex_columns * vertex_rows
+    if len(grid.vertices) != vertex_count or len(grid.cells) != grid.columns * grid.rows:
+        raise ValueError("hmp: vertex or cell count does not match the grid size")
+    header = HEADER.pack(vertex_count, vertex_columns, vertex_rows, grid.columns * grid.rows, grid.columns, grid.rows,
+                         HEADER.size, HEADER.size + 12 * vertex_count)
+    return header + b"".join(struct.pack("<3f", *v) for v in grid.vertices) + bytes(grid.cells)
+
+
 def island_area_of_map(map_id):
     """rel_field 0x090e47d0: map id -> (area, sub-point); the dorm rooms belong to area 0; unknown -> (4, 0)."""
     if 13 <= map_id <= 21 or map_id in (37, 38):

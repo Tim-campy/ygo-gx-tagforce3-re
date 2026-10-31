@@ -1,6 +1,6 @@
 # Booster packs (`gmodule/rel_shop.prx`)
 
-Status: `documented` (table and draw procedure). The 48 booster packs sold in the shop are a static table inside the shop module `rel_shop.prx`, not a data file. Tools: `tools/tables.py packs` (CSV export, `--check`) and `tools/tables.py odds` (draw odds; `--check` replays the draw). `rel_story.prx` contains the same lists at other addresses (157 card-id runs in both modules); it is not decoded yet.
+Status: `reimplemented` (table: reader and writer, round trip below; the draw procedure `pack_draw` is `verified`). The 48 booster packs sold in the shop are a static table inside the shop module `rel_shop.prx`, not a data file. Tools: `tools/tables.py packs` (CSV export, `--check`) and `tools/tables.py odds` (draw odds; `--check` replays the draw). `rel_story.prx` contains the same lists at other addresses (157 card-id runs in both modules); it is not decoded yet.
 
 Addresses below are virtual addresses inside the module. The PRX has one loadable segment with `vaddr = file offset − 0x54`; pointers in the table are unrelocated module addresses (the module's relocation table fixes them up at load time).
 
@@ -62,6 +62,14 @@ For every pack except 15 and 47 (and for those too when the player owns all of a
 ### Story-side draws
 
 `give_random_card` / `give_booster` (story opcodes 50098/50099, `docs/formats/story.md`) use the copies of these lists inside `rel_story.prx` with their own rarity range; they do not touch the shop's rarity box (`rel_story` never calls `save_get_pack_entries` or `save_set_pack_entry`).
+
+## Writer and round trip
+
+`tables.read_packs()` keeps each pack's descriptor address and tier list addresses with the values; `tables.write_packs(prx, packs)` writes the 48 records, the 48 descriptors and the card id lists back at those addresses (a port can relocate them by changing the addresses), and `tables.pack_spans()` lists the bytes the table owns. The round trip overwrites those bytes with a filler, writes the model back and compares the whole module: byte-identical (`pack_table` is `reimplemented`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only pack_table
+```
 
 ## Open questions
 

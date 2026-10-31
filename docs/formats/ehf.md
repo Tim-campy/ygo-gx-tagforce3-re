@@ -193,6 +193,10 @@ Unknown-field census from `ehf.py json --check` over the whole disc (1,225 conve
 
 So 10 kinds are tracked and 5 still carry data whose meaning is unknown: `stage.field_08`, `track.flag_bit5`, the `add` channel, `.tmf` bit 4 and one stray padding pattern. The zero-only kinds (`field_0c`, the three pads) are recorded so a rebuilt file can be checked byte for byte. Gaps total 149,960 bytes, all zero except one case: `start_duel10.ehf`, present identically in the 12 `duel/basic_*.ehp` archives, has the 4 bytes `0b 80 7f 7f` in the 16-byte alignment padding after the shape at object `0x1e0` (its animation block ends at object offset `0x12c`, the next object starts at `0x130`). No structure points there; they are most likely stale buffer bytes left by the converter (hypothesis, low), and they are kept raw in `gaps`.
 
+## `.tmf` writer and round trip
+
+`ehf.decode_tmf()` gives `{additive, bit4, other}` per slot and `ehf.build_tmf()` writes one byte per slot. All 689 `.tmf` on the disc rebuild byte for byte (`tmf` is `reimplemented`): `python3 -I tools/roundtrip.py --check <PSP_GAME> --only tmf`.
+
 ## Open questions
 
 - What `ui_bind_ehf` writes into words 4–5 of each primitive and how the callback `0x088227d0` resolves texture names (presumably `container_ehp_find_member(ehp, name + ".gim")`).
