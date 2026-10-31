@@ -65,6 +65,10 @@ Basis and method: `system.md`, same section. 2,611 new `duel_effects` names in `
 
 `card_effects.py --check` still passes; the only change in its summary is that three engine-only references moved from `unnamed` to `ai`.
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/duel_effects.md`](functions/duel_effects.md).
+
 ## Open questions
 
 - What each handler slot and each of the four tables means; which wrapper serves which duel phase. Slots `+04`, `+10`, `+14` and the selector are now explained by the chain machinery (`chain.md`): `+10` is the activation step, selector 0 = activation of a spell/trap card, 1 = field monster effect, 2 = hand/Graveyard trigger, 3 = ignition effect.

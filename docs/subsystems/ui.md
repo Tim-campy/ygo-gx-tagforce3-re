@@ -105,6 +105,10 @@ Several modules contain 8–28-byte functions that Ghidra shows as empty but tha
 
 Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 274 new `ui` names. `rel_duel_draw` (about 150): the duel UI mode table `0x098d1f5c` (`0x14`-byte rows: enter, draw, update, exit) gives mode 1 field cursor, 5 card viewer, 6 cut-in, 7 flag message, 8 help, 9 options, 10 tag-duel partner switch, `0xb` movie; draw command handlers `0x39`–`0x40` (`0x3a` Fusion/Synchro, posted by `duel_core_cmd_announce_fusion_synchro_summon`; `0x3c` coin; `0x3d` dice; `0x40` with reason 4 plays the Destiny Board movie); the Attribute/Type grid dialog (12). `BOOT.BIN`: the 21 counter-badge drawers (`ui_draw_counter_badge_<n>`, icon index from the `li a3, n` of each body) and card-view helpers. Scene modules: 51 text-draw tail calls (`font_px_wrappers`, see the note above) and `stub_noop` hooks named after their callers. Not yet functions in Ghidra (left for a later boundary pass): about 26 handlers of the mode table (`0x098a20e4`…`0x098a4250`) and five cut-in set-up labels (`0x098b5ff0`, `0x098b8898`, `0x098b8ddc`, `0x098b932c`, `0x098b95e8`).
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/ui.md`](functions/ui.md).
+
 ## Open questions
 
 - Which menu state uses which of the 41 `rel_title` functions that read `tushin_msg`, and the selector `k` of the 25 `ui_title_get_message` calls whose table is chosen at runtime (a PPSSPP breakpoint on `0x08e9cbf0` would give `(index, k)` per screen).

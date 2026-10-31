@@ -197,6 +197,10 @@ Field-spell extras: the switch of `field_3d_backdrop_start_extra` (`0x0985c324`)
 
 Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 109 new `field_3d` names, 99 in `rel_duel_draw`. The effect tasks that the first round knew only by sound id are named after the UI event that starts them, with the sound in the basis (family `card_fx_tasks`, 36): card set (`0x7a17`), summon (`0x7a1c`), destroy (`0x7a18`), Tribute (`0x7a3c`), Fusion/Synchro material (`0x7a38`/`0x7a3c`), card travelling between zones, card pop-up. The event → sender map comes from the draw command table `0x098d0180` and the `jal duel_core_post_ui_event` sites with a constant `a0` in `rel_duel_eng` (read from the module files). Events `0x3c`/`0x3d` are the coin and the dice (object table `0x098d0960`: models `coin01`, `dice01`), event `0x40` the Destiny Board letters (`duel_ouija.gim`), case 7 of the duel-end dispatcher `0x0989bdb0` Final Countdown (win reason 7). Fourteen more per-character cut-in callbacks were tied to characters by disassembling `field_3d_cutin_get_chara_setup`.
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/field_3d.md`](functions/field_3d.md).
+
 ## Open questions
 
 - Answered 2026-10-31 (static, high): `field_3d_update_model` advances 1.0 frame per game frame for backdrops and cut-ins, at a game rate capped at 29.97 per second ("Frame timing and playback rate"); the backdrop loops (flags 2), the cut-in plays once (flags 0). Still to confirm in PPSSPP (F10): the effective rate during a duel, which may drop under load.

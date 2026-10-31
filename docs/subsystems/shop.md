@@ -26,6 +26,10 @@ Facts established while naming:
 
 Method as in the first round (`system.md`): the still-unnamed functions were re-dumped from Ghidra with the current names, read in packs with full bodies (up to 160 lines), and named H/M with a basis in `re/names*.csv` under "round 2". 17 new `shop` names: the three `libshop_rel` exports that had no function (`shop_lib_start` `0x090d8280`, `shop_lib_draw` `0x090d8330`, `shop_lib_shutdown_step` `0x090d8338`; `system.md`, "Game-library imports"), the five former "empty" text functions, matrix helpers and result icons.
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/shop.md`](functions/shop.md).
+
 ## Open questions
 
 - What bit 0 of `0x090facf6` changes in the pack states.

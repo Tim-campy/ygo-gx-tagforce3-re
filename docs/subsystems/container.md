@@ -71,7 +71,7 @@ Basis and method: `system.md`, same section. 32 new `container` names: `ehp_load
 
 - What the disc wrappers `0x0881e2c4`, `0x0881e378`, `0x0881e448` add over plain `sceIo` calls (retries, sector alignment?).
 - Contents of the root-directory table at `*0x08920cac` (filled at runtime by `0x0881d574` and `0x0881d63c`); root index 5 is used for `cardinfo`.
-- `0x08822774` returns a pointer into a member name from which the four-character extension is read; confirm whether it is `strrchr(name, '.')`.
+- ~~`0x08822774` returns a pointer into a member name from which the four-character extension is read; confirm whether it is `strrchr(name, '.')`.~~ It is: `container_find_extension` returns a pointer to the last `.` of the name (documented in `functions/container.md`).
 - The file-index comparator `0x0881dfd4` also calls `system_strcasecmp`, so disc paths are probably matched case-insensitively; confirm by reading the comparator.
 - Who calls `container_gzip_decompress` (through which pointer table), and who inflates the loose `field/*.gz` EHP files.
 - Ghidra cannot create the function PPSSPP reports at `0x0881d8f4`, 8 bytes before `container_resolve_path`; check whether it is a real 8-byte function or a misdetection.

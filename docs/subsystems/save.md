@@ -17,6 +17,10 @@ Basis and method: `system.md`, same section. 120 names (115 in `BOOT.BIN`, 5 in 
 | `save_paths`, `save_player` | 6 | Save paths and player record. |
 | `field_save` (`rel_field`) | 5 | Save dialog opened from the field. |
 
+## Documented functions
+
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/save.md`](functions/save.md).
+
 ## Open questions
 
 - The meaning of the `ms_import` records for the game (download, trade or another save) is not established.
