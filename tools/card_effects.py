@@ -53,7 +53,7 @@ ci = _load("re_cardinfo", "cardinfo.py")
 cr = _load("re_card_refs", "card_refs.py")
 fs = _load("re_family_split", "family_split.py")
 
-SCHEMA = 7  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
+SCHEMA = 8  # 2 = 1 plus engine_refs, params.chains[].class/source and the status engine_only;
 #             3 = 2 plus slots.resolve.categories_refined / .refinement (tools/family_split.py);
 #             4 = 3 plus effects[].inert, spec_basis and the engine-mapped `full` rule;
 #             5 = 4 plus the symbolic chain cases (params.chains[].method/values/expression/reason/own, kinds
@@ -62,6 +62,9 @@ SCHEMA = 7  # 2 = 1 plus engine_refs, params.chains[].class/source and the statu
 #                 expressions (count_of/sum_of/last/any_of/at_exit) and generated rows for iteration cases
 #             7 = 6 plus the `state_effect:<kind>` slot categories (tools/effect_categories.csv root rows for
 #                 handlers whose written state has a traced rule reader; docs/formats/card-effect-spec.md)
+#             8 = 7 plus the category `player_reveal`, effects[].completed_by / .evidence (activation-only records
+#                 completed by a read engine rule, filter-only records completed by their named consumer), the
+#                 card-level name_alias_only flag (per-card name-alias list) and the generic tag `dead_code`
 FIRST_CARD, LAST_CARD = ep.FIRST_CARD, ep.LAST_CARD
 
 # Token table read by duel_effects_find_token_entry (0x09befee0, 68 bytes): 46 records of four u16
@@ -88,6 +91,36 @@ RETURN_ZERO_STUB = (0x03E00008, 0x00001021)
 # aliases, references made by another card's effect, and save-file bookkeeping. `unclassified` is not here: an
 # untagged test in a named function is part of the card's behaviour that the spec cannot describe yet.
 LOCATING_TAGS = cr.GENERIC_TAGS - {"unclassified"}
+# References inside a function that nothing calls (card_refs.DEAD_CODE) can never affect a duel; the engine-mapped
+# and activation rules skip their groups explicitly (docs/formats/card-effect-spec.md, "Dead code").
+DEAD_CODE_TAG = cr.DEAD_CODE
+
+# Filter-only records (a slot +08 target filter and nothing else) whose filter a named handler consumes: handler
+# address -> (effect table whose record the handler reads, evidence). The record counts as complete when the card
+# has that handler in one of its lists and the handler is named (docs/formats/card-effect-spec.md, "Filter-only
+# records").
+FILTER_CONSUMERS = {
+    0x09DDE7C0: ("M1", "duel_core_end_phase_destroy_filtered_monsters builds a link of the card with table selector "
+                       "1 (byte +3 = 0x10), passes it to duel_effects_get_target_filter_mask (the M1 record's slot "
+                       "+08 filter) and destroys that mask with duel_core_request_destroy_mask_by_card"),
+}
+
+# Functions that return a per-card parameter to the card's own effect-record handler (they take the link). A test
+# of the card there belongs to its records, not to an engine rule that applies while the card is active, so the
+# activation rule neither needs nor accepts it as evidence.
+RECORD_PARAMETER_FUNCTIONS = frozenset({
+    "duel_effects_get_draw_count", "duel_effects_get_lp_change_amounts", "duel_effects_get_candidate_param"})
+
+# Cards whose whole text is a name alias (judged against the card text, locally): the `name_alias` tag, which only
+# locates other cards, is their effect. Each needs a read engine_branches row `name_becomes` of confidence H/M.
+NAME_ALIAS_ONLY = {
+    0x1477: "Cyber Harpie Lady: its text is only the alias to Harpie Lady (card_db_is_same_name / "
+            "card_db_get_next_alias_id)",
+    0x19BC: "Proto-Cyber Dragon: its text is only the alias to Cyber Dragon while face-up on the field "
+            "(duel_core_get_slot_name_id)",
+    0x1C1B: "Elemental Hero Neos Alius: the Gemini clauses of its kind plus the alias to Elemental Hero Neos; "
+            "the alias branch of duel_core_get_slot_name_id applies the Gemini test itself",
+}
 
 SEARCH_LIST = "L1"  # the 8-byte list 0x09dec554 (search / summon-from-deck builders)
 OWN_LISTS = ("L1", "L4")  # L2 and L3 are the AI tables (reported under "ai")
@@ -440,8 +473,85 @@ def record_confidence(rec, handler_cards):
 
 
 def record_complete_out(rec):
-    """An output effect record reaches an effect category and its resolve closure has no unnamed callee."""
+    """An output effect record reaches an effect category and its resolve closure has no unnamed callee, or (schema
+    8) a rule of build_specs completed it (`completed_by`: activation_rule or filter_consumer)."""
+    if rec.get("completed_by"):
+        return True
     return rec["unnamed_resolve_callees"] == 0 and any(sl["categories"] for sl in rec["slots"].values())
+
+
+def is_filter_only(rec):
+    """A record whose only slot is the +08 target filter and which reaches no effect category."""
+    return set(rec["slots"]) == {"target_filter"} and not any(sl["categories"] for sl in rec["slots"].values())
+
+
+def is_activation_only(rec):
+    """A record with condition/activation slots only, none reaching an effect category: the activation of a
+    continuous card, whose effect lies elsewhere (its other records, or engine rules that test its id)."""
+    slots = set(rec["slots"])
+    return bool(slots) and slots <= {"condition", "activation"} and \
+        not any(sl["categories"] for sl in rec["slots"].values())
+
+
+def filter_consumer(s, rec):
+    """Evidence that a named list handler of the card consumes this filter-only record's filter, or None."""
+    if not is_filter_only(rec):
+        return None
+    for lst in s["lists"]:
+        known = FILTER_CONSUMERS.get(int(lst["handler"], 16)) if lst["handler"] else None
+        if known and known[0] == rec["table"] and lst["name"] and not ec.DEFAULT_NAME.match(lst["name"]):
+            return [f"{lst['list']}[{lst['index']}] {lst['name']}: {known[1]}"]
+    return None
+
+
+def read_branch_functions(s, levels=("H", "M")):
+    """Functions that have a read engine_branches row (confidence in levels) for this card."""
+    return {b["function"] for b in s.get("engine_branches", ()) if b["source"] == "read" and b["confidence"] in levels}
+
+
+def rule_groups(s):
+    """The card's effect-bearing engine-reference groups (effect_engine_groups) outside its own records: groups in
+    one of its own slot handlers or list handlers, or in a record-parameter function, are part of the records."""
+    own = {sl["handler"] for e in s["effects"] for sl in e["slots"].values()}
+    own |= {lst["handler"] for lst in s["lists"] if lst["handler"]}
+    return [g for g in effect_engine_groups(s)
+            if g["function"] not in own and g["function_name"] not in RECORD_PARAMETER_FUNCTIONS]
+
+
+def activation_rule(s):
+    """Evidence that the engine rules testing the card while it is active are read, or None. Every rule group must
+    be in a named function, carry a descriptive semantic tag of confidence H or M, and have a read engine_branches
+    row (H/M) for the card; at least one rule group must exist."""
+    groups = rule_groups(s)
+    if not groups:
+        return None
+    read = read_branch_functions(s)
+    for g in groups:
+        desc = [x for x in g["semantics"] if x["tag"] not in cr.GENERIC_TAGS and x["confidence"] in ("H", "M")]
+        if not g["named"] or not desc or g["function"] not in read:
+            return None
+    return [f"{g['function_name']} ({', '.join(sorted({x['tag'] for x in g['semantics']}))})" for g in groups]
+
+
+def name_alias_only(s):
+    """The card is in NAME_ALIAS_ONLY and a read engine_branches row `name_becomes` (H/M) gives its alias."""
+    return s["card_id_dec"] in NAME_ALIAS_ONLY and any(
+        b["source"] == "read" and b["effect"] == "name_becomes" and b["confidence"] in ("H", "M")
+        for b in s.get("engine_branches", ()))
+
+
+def complete_by_rules(s):
+    """Schema 8: mark the live records that the record rule leaves incomplete but a filter consumer (proposal (c))
+    or the read engine rules of the active card (proposal (b)) complete (`completed_by`, `evidence`)."""
+    for e in s["effects"]:
+        if e.get("inert") or record_complete_out(e):
+            continue
+        evidence, rule = filter_consumer(s, e), "filter_consumer"
+        if evidence is None and is_activation_only(e):
+            evidence, rule = activation_rule(s), "activation_rule"
+        if evidence:
+            e["completed_by"], e["evidence"] = rule, evidence
+            e["confidence"] = "medium"
 
 
 def build_specs(src):
@@ -572,6 +682,9 @@ def build_specs(src):
                                         "reason": f"no own record; icon {ident['icon_name']}",
                                         "complete": record_complete_out(rec)}
     for cid, s in specs.items():
+        if name_alias_only(s):
+            s["name_alias_only"] = True
+        complete_by_rules(s)
         s["spec_status"], basis = spec_status_basis(s)
         if basis:
             s["spec_basis"] = basis
@@ -610,12 +723,14 @@ def strong_engine_refs(s):
 
 
 def effect_engine_groups(s):
-    """Strong engine-reference groups that belong to the card's own behaviour: not AI functions, and not groups
-    whose every tag only locates the card (LOCATING_TAGS)."""
+    """Strong engine-reference groups that belong to the card's own behaviour: not AI functions, not groups in dead
+    code (a `dead_code` tag: the function has no caller), and not groups whose every tag only locates the card
+    (LOCATING_TAGS). For a card of NAME_ALIAS_ONLY with its alias row, `name_alias` does not count as locating."""
+    locating = LOCATING_TAGS - {"name_alias"} if s.get("name_alias_only") else LOCATING_TAGS
     out = []
     for g in strong_engine_refs(s):
         tags = {x["tag"] for x in g["semantics"]}
-        if g["group"] == "ai" or (tags and tags <= LOCATING_TAGS):
+        if g["group"] == "ai" or DEAD_CODE_TAG in tags or (tags and tags <= locating):
             continue
         out.append(g)
     return out
@@ -631,8 +746,9 @@ def engine_mapped(s):
     if not groups:
         return False
     strong = False
+    generic = cr.GENERIC_TAGS - {"name_alias"} if s.get("name_alias_only") else cr.GENERIC_TAGS
     for g in groups:
-        desc = [x for x in g["semantics"] if x["tag"] not in cr.GENERIC_TAGS]
+        desc = [x for x in g["semantics"] if x["tag"] not in generic]
         if not g["named"] or not desc:
             return False
         strong |= any(x["confidence"] in ("H", "M") for x in desc)
@@ -698,7 +814,8 @@ def field_confidence(s):
 
 def spec_status(s):
     """unreleased: no cardinfo record; vanilla: a kind without effect text and no effect data;
-    full: every live effect record reaches an effect category and its resolve closure has no unnamed callee, or
+    full: every live effect record reaches an effect category and its resolve closure has no unnamed callee or is
+    completed by a schema-8 rule (complete_by_rules: filter consumer, read activation rules), or
     the card has no live record and its engine-side behaviour is engine-mapped (engine_mapped);
     partial: effect records not all complete, or only side data (lists, chains, stat mods, ...) that is not
     engine-mapped;
@@ -782,6 +899,11 @@ def join_report(src, specs):
     lines.append(f"full by basis: records {basis['records']}, fallback {basis['fallback']}, engine {basis['engine']}; "
                  f"cards with inert records: {len(inert)} "
                  f"({sum(1 for s in inert if all(e.get('inert') for e in s['effects']))} with no live record)")
+    by_rule = collections.Counter(e["completed_by"] for s in specs.values() for e in s["effects"]
+                                  if e.get("completed_by"))
+    lines.append(f"records completed by rule: activation_rule {by_rule['activation_rule']}, filter_consumer "
+                 f"{by_rule['filter_consumer']}; name-alias-only cards: "
+                 f"{sum(1 for s in specs.values() if s.get('name_alias_only'))}")
     missing = [s for s in released if s["spec_status"] == "missing"]
     lines.append("missing cards by kind: " + (", ".join(
         f"{k} {n}" for k, n in sorted(collections.Counter(s["identity"]["kind_name"] for s in missing).items()))

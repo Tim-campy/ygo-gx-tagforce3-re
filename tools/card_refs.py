@@ -32,7 +32,9 @@ Semantics: tools/engine_ref_semantics.csv maps the engine functions (registry na
 range of unnamed functions) to a semantic tag, a template phrase and an optional per-card parameter read from
 the value of the matched path (the branch taken when the id compares equal). Every eq/switch/arg reference
 gets a `semantics` dict; describe() merges them per card; --check reports the coverage over the engine_only
-cards of card_effects.csv (--spec).
+cards of card_effects.csv (--spec). A `dead_code` rule (a function without any caller) also tags the range
+references (bound/range) of its function, so that the ids of an uncalled list carry the tag whatever the
+pattern that names them.
 
 Library: card_refs(prx_bytes, functions=None, names=None, base=0x09be1400, module="rel_duel_eng")
 -> {card id: [dict]}. Outputs (game data: keep them under extracted/, never in git): card_refs.csv (one row per
@@ -450,7 +452,7 @@ def card_refs(prx_bytes, functions=None, names=None, base=BASE, module="rel_duel
         row["calls"] = calls
         row["constants"] = nearby_constants(scanner, row)
         row["group"] = group_of(row["function_name"])
-        row["semantics"] = classify(row, rules) if row["kind"] in STRONG else None
+        row["semantics"] = classify(row, rules) if row["kind"] in STRONG else dead_code_semantics(row, rules)
         del row["case"]
         out[cid].append(row)
     return dict(sorted(out.items()))
@@ -475,8 +477,11 @@ SEMANTICS = HERE / "engine_ref_semantics.csv"
 # Tags that locate a card without describing its effect: AI knowledge, archetype membership, name aliases,
 # references made by another card's effect, save-file bookkeeping, constants in the id range that are not card
 # ids (flag words), and functions without a rule.
+# `dead_code` marks references inside a function that nothing calls (card_db_is_card_in_unused_list, BOOT.BIN
+# 0x0885fe2c: exported, no jal in BOOT.BIN or any gmodule PRX): such a test can never affect a duel.
+DEAD_CODE = "dead_code"
 GENERIC_TAGS = {"ai_hint", "archetype", "name_alias", "named_reference", "save_record", "not_card_id",
-                "unclassified"}
+                DEAD_CODE, "unclassified"}
 CONFIDENCE_ORDER = {"H": 0, "M": 1, "L": 2}
 # How the helper that receives an `arg` id qualifies the rule of the calling function.
 MODALITY = [
@@ -563,6 +568,13 @@ def classify(row, rules):
                     "label": value_label(rule, row["value"]), "rule": rule["pattern"]}
     return {"tag": "unclassified", "phrase": "card-specific test in " + row["function_name"], "modality": mod,
             "confidence": "L", "param": "", "value": row["value"], "label": "", "rule": ""}
+
+
+def dead_code_semantics(row, rules):
+    """Semantics of a reference that is not eq/switch/arg (a range bound, a store ...): only a `dead_code` rule
+    applies, because the whole function is unreachable; every other non-strong reference gets None."""
+    dead = [r for r in rules if r["tag"] == DEAD_CODE]
+    return classify(row, dead) if dead and any(_rule_matches(r, row) for r in dead) else None
 
 
 def describe(refs, card_id):

@@ -261,6 +261,27 @@ class CardRefs(unittest.TestCase):
         self.assertIn("not_card_id", cr.GENERIC_TAGS)
         self.assertEqual(cr.parse_values("1=a;none=b;*=c {value}"), {1: "a", "none": "b", "*": "c {value}"})
 
+    def test_dead_code_tags_bounds_too(self):
+        """A dead_code rule (a function without callers) also tags the range bounds of its function; other rules
+        never tag a bound, and dead_code is a generic tag."""
+        bound = cr.card_refs(build(), FUNCTIONS, NAMES, semantics=[])[0x1400][0]
+        fn = bound["function"]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rules.csv"
+            path.write_text("pattern,kinds,callee,tag,phrase,param,values,confidence,basis,operand\n"
+                            f"{fn:#010x},any,,dead_code,tested only by an uncalled function,,,H,test,\n",
+                            encoding="utf-8")
+            dead = cr.load_semantics(path)
+            path.write_text(path.read_text(encoding="utf-8").replace("dead_code", "archetype"), encoding="utf-8")
+            other = cr.load_semantics(path)
+        self.assertIn(cr.DEAD_CODE, cr.GENERIC_TAGS)
+        refs = cr.card_refs(build(), FUNCTIONS, NAMES, semantics=dead)
+        self.assertEqual((refs[0x1400][0]["kind"], refs[0x1400][0]["semantics"]["tag"]), ("bound", "dead_code"))
+        self.assertIsNone(cr.card_refs(build(), FUNCTIONS, NAMES, semantics=other)[0x1400][0]["semantics"])
+        self.assertIsNone(cr.dead_code_semantics(dict(bound, function=fn + 0x1000), dead))  # other function
+        entry = cr.describe(refs, 0x1400)[0]
+        self.assertEqual((entry["tag"], entry["generic"]), ("dead_code", True))
+
     def test_group_of(self):
         self.assertEqual(cr.group_of("duel_effects_get_x"), "duel_effects")
         self.assertEqual(cr.group_of("ai_choose_slot"), "ai")

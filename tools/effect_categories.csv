@@ -148,6 +148,12 @@ addr,0x09cc73fc,state_effect:declared_attribute,effect,duel_effects_choose_decla
 addr,0x09c7d4a4,state_effect:turn_countdown,effect,duel_effects_resolve_set_turn_countdown stores turn + 1 (+ 2 on its controller's turn) as the slot value: read by duel_core_compute_base_stats (Hourglass of Courage halves then doubles ATK/DEF) (H)
 addr,0x09c84ea8,state_effect:skip_draw,effect,duel_effects_resolve_skip_opponent_draw sets player flag bit 0 of the opponent: read and cleared by duel_core_step_draw_phase which then posts no draw command (Time Seal / Fenrir) (H)
 addr,0x09c84fa8,state_effect:hand_reveal,effect,duel_effects_resolve_reveal_opponent_hand refreshes the opponent's hand-public state (command 0x53 / player flag bit 1 via duel_core_post_set_hand_reveal): the state is computed by duel_core_is_hand_revealed (The Eye of Truth) and read by duel_core_get_hand_public_flag (M)
+# --- player_reveal (seventh round; card-effect-spec.md "Information-only records", schema 8): slot handlers whose whole
+#     effect is information shown to the player who resolves them (a card revealed or a card list opened for viewing);
+#     nothing in the duel state changes and no rule reads it. Root rows (the slot handler's own address); the note
+#     names what the handler shows. The handler is still descended into, so its meta categories (reveal, select_ui) stay.
+addr,0x09c80bb4,player_reveal,effect,duel_effects_resolve_reveal_opponent_hand_card: the resolving player selects 1 opponent hand card (duel_core_begin_select_cards) which is shown (duel_core_post_reveal_card: command 0x28) and marked as known to its viewer (duel_core_post_reveal_hand_card: command 0x52); nothing else is written (The Inexperienced Spy) (H)
+addr,0x09c811c0,player_reveal,effect,duel_effects_resolve_view_opponent_deck_top: duel_core_open_card_list(side mode 5 card id 0) builds the card's list (its L1 builder: the opponent's Deck top) and posts UI event 0x37 for viewing; skipped when the per-player flag 0x09e02998 is set; no duel state is written (Ancient Telescope) (H)
 # --- callbacks the classifier does not follow (a stop-row callee receives them)
 addr,0x09c8ca84,gain_lp,effect,duel_effects_resolve_life_absorbing_machine hands duel_effects_life_absorbing_machine_gain_step (0x09c8ca28: duel_core_gain_lp of half each 0x14c0 marker) to duel_core_find_slot_marker (a find_ stop row) (H)
 # --- named helpers: meta (not counted for coverage)

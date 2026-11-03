@@ -263,6 +263,22 @@ class ClassifyTest(unittest.TestCase):
         self.assertEqual(mapping.lookup(0x09C84EA8, "duel_effects_resolve_skip_opponent_draw"),
                          ("state_effect:skip_draw", "effect"))
 
+    def test_player_reveal_rows_of_the_mapping(self):
+        """player_reveal rows (card-effect-spec.md, schema 8) are root addr rows with role effect whose note says
+        what the handler shows and that it writes no duel state."""
+        path = Path(__file__).resolve().parents[1] / "effect_categories.csv"
+        lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+        rows = [r for r in csv.DictReader(lines) if r["category"] == "player_reveal"]
+        self.assertEqual(len(rows), 2)
+        for r in rows:
+            self.assertEqual((r["kind"], r["role"]), ("addr", "effect"))
+            self.assertIn("written", r["note"])
+        mapping = ec.Mapping.load(path)
+        self.assertEqual(mapping.lookup(0x09C80BB4, "duel_effects_resolve_reveal_opponent_hand_card"),
+                         ("player_reveal", "effect"))
+        self.assertEqual(mapping.lookup(0x09C811C0, "duel_effects_resolve_view_opponent_deck_top"),
+                         ("player_reveal", "effect"))
+
     def test_first_name_row_wins(self):
         mapping = ec.Mapping.load_text(MAPPING)
         self.assertEqual(mapping.lookup(DRAW, "duel_core_draw_cards"), ("draw", "effect"))

@@ -504,7 +504,97 @@ class EngineBranches(unittest.TestCase):
         bare = specs[BARE]["params"]["chains"][0]
         self.assertEqual((bare["value"], bare["confidence"]), (7, "medium"))  # paths constants are at most medium
         self.assertEqual(specs[EQUIP]["params"]["chains"][0]["expression"], "helper(arg0, 5)")
-        self.assertEqual(ce.SCHEMA, 7)
+        self.assertEqual(ce.SCHEMA, 8)
+
+
+def branch(card, function, effect="rule", confidence="H"):
+    return {"card_id": card, "function": f"{function:#010x}", "when": "continuous", "effect": effect, "amount": "",
+            "condition": "", "confidence": confidence, "basis": "test", "source": "read"}
+
+
+class Schema8Rules(unittest.TestCase):
+    """Filter-only, activation-only and name-alias rules and the dead_code tag (card-effect-spec.md, schema 8)."""
+
+    COND = slot(0x09C6062C, "duel_effects_cond_test")
+    RULE = 0x09C0BDEC
+
+    def build(self, refs=None, records=(), lists=(), branches=(), **over):
+        return ce.build_specs(sources(**{"stat_mods": [], "chain_cases": [], "engine_refs": refs or {},
+                                         "records": sources()["records"] + list(records), "lists": list(lists),
+                                         "tokens": [], "engine_branches": list(branches), **over}))
+
+    def test_filter_only_record_needs_its_named_consumer(self):
+        live = record("S/T", 20, BARE, {"resolve": slot(H_DRAW, "duel_effects_resolve_draw", ["draw"])})
+        filt = record("M1", 21, BARE, {"target_filter": slot(0x09C379AC, "duel_effects_filter_test")})
+        consumer = ("L4", 58, BARE, 0x09DDE7C0, "duel_core_end_phase_destroy_filtered_monsters")
+        s = self.build(records=[live, filt], lists=[consumer])[BARE]
+        self.assertEqual((s["spec_status"], s["spec_basis"]), ("full", "records"))
+        rec = s["effects"][1]
+        self.assertEqual((rec["completed_by"], rec["confidence"]), ("filter_consumer", "medium"))
+        self.assertIn("duel_core_end_phase_destroy_filtered_monsters", rec["evidence"][0])
+        unnamed = consumer[:4] + ("FUN_09dde7c0",)
+        self.assertEqual(self.build(records=[live, filt], lists=[unnamed])[BARE]["spec_status"], "partial")
+        other_table = record("M3", 21, BARE, {"target_filter": slot(0x09C379AC, "duel_effects_filter_test")})
+        self.assertEqual(self.build(records=[live, other_table], lists=[consumer])[BARE]["spec_status"], "partial")
+        other = ("L4", 9, BARE, 0x09DDE000, "duel_core_some_handler")
+        self.assertEqual(self.build(records=[live, filt], lists=[other])[BARE]["spec_status"], "partial")
+
+    def test_activation_only_record_needs_read_rules(self):
+        act = record("S/T", 30, BARE, {"condition": self.COND})
+        rule = tagged("arg", self.RULE, "duel_core_is_summon_kind_allowed", "summon_lock", "M", detail="x")
+        own = tagged("eq", 0x09C6062C, "duel_effects_cond_test", "unclassified", "L")      # its own handler
+        param = tagged("eq", 0x09C779BC, "duel_effects_get_draw_count", "unclassified", "L")  # record parameter
+        ai = tagged("eq", 0x09D00000, "ai_test", "ai_hint", "M")
+        refs = {BARE: [rule, own, param, ai]}
+        s = self.build(refs, records=[act], branches=[branch(BARE, self.RULE)])[BARE]
+        self.assertEqual((s["spec_status"], s["spec_basis"]), ("full", "records"))
+        self.assertEqual(s["effects"][0]["completed_by"], "activation_rule")
+        self.assertEqual(s["effects"][0]["evidence"], ["duel_core_is_summon_kind_allowed (summon_lock)"])
+        # blockers: no read row, an L row, a low tag, an unnamed rule function, a second unread rule function
+        for refs_, branches in (({BARE: [rule]}, []), ({BARE: [rule]}, [branch(BARE, self.RULE, confidence="L")]),
+                                ({BARE: [dict(rule, semantics=sem("summon_lock", "L"))]}, [branch(BARE, self.RULE)]),
+                                ({BARE: [dict(rule, function_name="FUN_09c0bdec")]}, [branch(BARE, self.RULE)]),
+                                ({BARE: [rule, tagged("eq", 0x09C00000, "duel_core_other", "negation", "H")]},
+                                 [branch(BARE, self.RULE)])):
+            self.assertEqual(self.build(refs_, records=[act], branches=branches)[BARE]["spec_status"], "partial")
+        # no rule group at all (only its own handler and a record parameter): stays partial
+        s = self.build({BARE: [own, param]}, records=[act], branches=[branch(BARE, 0x09C779BC)])[BARE]
+        self.assertEqual(s["spec_status"], "partial")
+        # a record with a resolve slot is not activation-only
+        res = record("S/T", 30, BARE, {"condition": self.COND, "resolve": slot(0x09C00100, "duel_effects_x")})
+        self.assertEqual(self.build(refs, records=[res], branches=[branch(BARE, self.RULE)])[BARE]["spec_status"],
+                         "partial")
+
+    def test_name_alias_only_list(self):
+        alias = next(iter(ce.NAME_ALIAS_ONLY))
+        cards = {**sources()["cards"], alias: ident("Alias", 3)}
+        refs = {alias: [tagged("eq", 0x0885FB5C, "card_db_is_same_name", "name_alias", "H", module="BOOT.BIN"),
+                        tagged("eq", 0x08861418, "card_db_is_harpie", "archetype", "H", module="BOOT.BIN")]}
+        row = branch(alias, 0x0885FB5C, effect="name_becomes")
+        s = self.build(refs, cards=cards, branches=[row])[alias]
+        self.assertEqual((s["spec_status"], s["spec_basis"], s["name_alias_only"]), ("full", "engine", True))
+        self.assertEqual(self.build(refs, cards=cards)[alias]["spec_status"], "engine_only")  # no alias row
+        low = dict(row, confidence="L")
+        self.assertEqual(self.build(refs, cards=cards, branches=[low])[alias]["spec_status"], "engine_only")
+        # a card outside the list keeps name_alias as a locating tag
+        refs_bare = {BARE: refs[alias]}
+        s = self.build(refs_bare, branches=[branch(BARE, 0x0885FB5C, effect="name_becomes")])[BARE]
+        self.assertEqual(s["spec_status"], "engine_only")
+        self.assertNotIn("name_alias_only", s)
+
+    def test_dead_code_groups_are_ignored(self):
+        self.assertIn("dead_code", ce.cr.GENERIC_TAGS)
+        live = tagged("eq", 0x09BED2D8, "duel_core_get_direct_attack_mode", "direct_attack")
+        dead = tagged("eq", 0x0885FE2C, "card_db_is_card_in_unused_list", "dead_code", "H", module="BOOT.BIN")
+        self.assertEqual(self.build({MAT: [live, dead]})[MAT]["spec_status"], "full")
+        self.assertEqual(self.build({MAT: [dead]})[MAT]["spec_status"], "engine_only")
+        # a dead_code group is skipped even when it also carries a descriptive tag
+        mixed = [dead, dict(dead, address=0x0885FE40, semantics=sem("negation", "H"))]
+        self.assertEqual(ce.effect_engine_groups(self.build({MAT: mixed})[MAT]), [])
+        # retagging archetype -> dead_code changes no status
+        arche = dict(dead, semantics=sem("archetype", "M"))
+        self.assertEqual(self.build({MAT: [live, arche]})[MAT]["spec_status"],
+                         self.build({MAT: [live, dead]})[MAT]["spec_status"])
 
 
 if __name__ == "__main__":
