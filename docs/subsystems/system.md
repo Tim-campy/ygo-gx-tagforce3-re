@@ -155,10 +155,40 @@ Method: every program in `ghidra/TF3.gpr` was dumped read-only with the current 
 
 Module import stubs whose target is documented are documented with the target's prototype; they are listed in [`functions/import-stubs.md`](functions/import-stubs.md).
 
+## Registry hygiene (2026-11-03)
+
+Before this round 53 own functions had no group and 13 sat in Ghidra pseudo-namespaces `switchD_<jr address>`. Each was read in the disassembly (capstone) and the Ghidra decompilation.
+
+**Not functions: 15 fragments folded into their parents.** The PPSSPP symbol import (`re/names-ppsspp.csv`, "create only" rows) had created functions at blocks that are only reached from inside another function: they use the parent's saved registers (`$s0`, `$s1`, `$t0`, `$t1`) and return through the parent's stack frame or jump back into it. `tools/ghidra/MergeFragments.java` removes such a function and re-derives the parent body from its flow (`CreateFunctionCmd.fixupFunctionBody`); it restores the fragment if the parent does not reach it. Applied to `BOOT.BIN`:
+
+| Parent | Fragments (old names) | Evidence | Parent body |
+| --- | --- | --- | --- |
+| `sceGuFinishId` `0x08804a1c` | `0x08804b3c`, `0x08804b90` (`caseD_1`, `caseD_2`) | cases of the `jr` at `0x08804a74` (table `0x08876cd8`, 5 entries); use `$s0`, jump back to `0x08804ab4` | 288 → 420 bytes |
+| `sceGuSync` `0x088055e4` | `0x0880562c`, `0x08805644` (`caseD_3`, `caseD_4`) | cases of the `jr` at `0x08805608` (table `0x08876cec`, 5 entries); return through the parent's frame (`0x0880561c`) | 72 → 108 |
+| `dl_write_light_color` `0x08807a00` | `0x08807ac0` (`caseD_6`) | case of the `jr` at `0x08807a20` (table `0x08876d58`, 7 entries); uses the parent's `$t0` | 192 → 260 |
+| `audio_init_voice` `0x08867b30` | `0x08867c94`, `0x08867d08`, `0x08867d10` (`caseD_4`, `caseD_2`, `caseD_1`) | cases of the `jr` at `0x08867c3c` (table `0x0889e3f4`, 6 entries); restore the parent's `$s0`–`$s5` | 356 → 556 |
+| `system_mbrtowc_r` `0x0880dbe4` | `0x0880dc40` (`FUN_0880dc40`) | target of the parent's `beqz $a2` at `0x0880dbf8`, jumps back to `0x0880dc0c` | 92 → 120 |
+| `audio_set_note_voice_param` `0x0886f50c` | `0x0886f520` (`FUN_0886f520`) and `0x0886f5c8`, `0x0886f5dc`, `0x0886f5f0`, `0x0886f604`, `0x0886f618` (`caseD_0`–`caseD_4`) | loop of the parent (`j 0x0886f530`, back edge to `0x0886f520`) and cases of its `jr` at `0x0886f5b8` (table `0x0889e508`, 5 entries) | 20 → 328 |
+
+The registry loses these 15 rows (28,182 → 28,167 functions). The documented summary of `audio_set_note_voice_param` already described the whole loop and the five cases, so it stands. The empty `switchD_*` namespaces remain in Ghidra and export nothing.
+
+**Grouped, name kept: 51 functions.** None of them has a name with an H/M basis, so they keep the Ghidra default name; a row in `re/names*.csv` that repeats the default name (`FUN_<address>`) gives the group only (`ApplyNames.java` leaves a default name as it is). Evidence and confidence per row are in the name files (section "registry hygiene 2026-11-03"):
+
+- `system` (14): the global setters/getters next to the frame services (`0x088359dc`/`e8` on `0x08ac2574`, `0x0883744c`/`58` on `0x08ac2578`), the display-flip swap `0x08823dac` (`0x089229b0`, read by `system_display_flip`), two empty stubs in the start-up and movie ranges (`0x08817270`, `0x0882d338`) and six net-API functions: the wrappers `0x08850610`, `0x08850664`, `0x08850694` (each `system_net_get_manager()` then a manager method) and the methods `0x08852584` (copies the ad-hoc string `0x08dbfbcc`), `0x088525a4` (+`0xbafc`, +`0xbb00`) and `0x088525c4` (+`0xbb00`).
+- `world` (15): the 13 constant-address getters `0x0885bd4c`–`0x0885bddc` return parameter blocks `0x08dc16a8`–`0x08dc1740` for the mini-game scenes; `rel_story` `world_exit_story_scene` and `rel_title` `ui_minigame_menu_launch_game` fill them (partner, variant, light period, −1 slots) before `system_scene_call` with scenes `0xf`, `0x11`, `0x13`, `0x15`, `0x19`, `0x1c`. `rel_field` `0x090cf0b8` (empty debug switch, caller `world_field_debug_main`) and `0x090d0c80` (maps 1–4 to 0/1/2/2, caller `world_bind_map_archive`).
+- `audio` (4): `0x08867f7c` / `0x0886d86c` (setter/getter of words that `audio_init` uses) and two `return 1` stubs among the audio functions.
+- `field_3d` (4): `0x0882ef28`, `0x0882ef3c` (word swaps between the field-3D draw functions; L), `rel_duel_draw` `0x098419b4` (caller `field_3d_cutin_reset_current`) and `0x0985345c` (word read by `field_3d_board_sync_zone`).
+- `duel_core` (6): `0x09be1dc4` (candidate-list word `0x09e29918` in 7..`0x48`), `0x09be26f4` (decompilation fails; called by `duel_core_record_duel_result`), the pair `0x09be4bd8`/`0x09be4bf4` (`0x09e01eb4`–`0x09e01ebc`, set from `rel_duel_mgr` `duel_core_setup_engine_for_duel`), the `return 0` stub `0x09be5000` and the view wrapper `rel_duel_draw` `0x0989ddb8`.
+- `duel_effects` (1): `0x09cdfbac`, a predicate on a card id + kind nibble (card `0x1598` for kind 2) among the rule-update functions, without a direct caller.
+- `ui` (7): `rel_duel_draw` message-window and info-panel accessors `0x098a35a0`, `0x098a3db8`, `0x098a6194`, `0x098a61a0`, `0x098a6550`, `0x098a655c`, `0x098a6a8c`, `0x098a6d44` (the last toggles the info-panel state `0x09bdd6b4` 1↔2 / 3↔4).
+
+Their import stubs take the group of the target at the next `prx_imports.py` run. Two stub targets in `BOOT.BIN` still have no function at all (`0x0881d8f4`, `0x08832a4c`; stubs `thunk_FUN_0881d8f4`, `thunk_FUN_08832a4c` in every module) and a few `rel_duel_mgr` stubs point at `rel_duel_draw` addresses without a function (`0x0989c464`–`0x0989d4c0`); they are listed under "Open questions".
 ## Documented functions
 
 The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/system.md`](functions/system.md).
 
 ## Open questions
+
+- Import stubs whose target has no function in Ghidra (registry hygiene 2026-11-03): `BOOT 0x0881d8f4`, `0x08832a4c` and the `rel_duel_draw` targets `0x0989c464`-`0x0989d4c0` of `rel_duel_mgr` stubs. Create the functions (a create-only row) and read them.
 
 - Heap size and placement (needed later for memory-budget estimates on 3DS).

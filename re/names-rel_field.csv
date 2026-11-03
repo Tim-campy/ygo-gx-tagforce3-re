@@ -644,3 +644,6 @@ address,group,name
 0x090dbcbc,field_3d,field_3d_draw_stencil_pulse_overlay,M,full-screen sprite 0x1e0x0x110 where stencil test 4, colour 0x8080ff with alpha pulsing over frame timing %40
 # family sandwich
 0x090e1dc4,world,world_get_sandwich_roulette_entry,M,returns &table 0x090f831c[8*i]; callers world_sandwich_roulette_start/draw_icon/spin
+# registry hygiene 2026-11-03: group only, default name kept (no name has an H/M basis); evidence per row
+0x090cf0b8,world,FUN_090cf0b8,M,switch over 0..0x20 with empty cases (debug stub); only caller world_field_debug_main
+0x090d0c80,world,FUN_090d0c80,M,maps 1..4 to 0/1/2/2; only caller world_bind_map_archive

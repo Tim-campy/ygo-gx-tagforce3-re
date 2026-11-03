@@ -58,7 +58,11 @@ public class ApplyNames extends GhidraScript {
 				namespace = currentProgram.getSymbolTable().createNameSpace(null, f[1], SourceType.USER_DEFINED);
 			}
 			function.setParentNamespace(namespace);
-			function.setName(f[2], SourceType.USER_DEFINED);
+			// A row may repeat the default name (FUN_<address>) to give the function a group only; Ghidra
+			// reserves those names, so the name is left as it is.
+			if (!function.getName().equals(f[2])) {
+				function.setName(f[2], SourceType.USER_DEFINED);
+			}
 			applied++;
 		}
 		println("applied " + applied + " names, created " + created + " functions");
