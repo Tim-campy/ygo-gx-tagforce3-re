@@ -171,11 +171,11 @@ tgm_model_instance,Runtime TGM model instance (BOOT.BIN 0x0882fa94: meshes/anima
 tgm_vtmt,.vtmt voice node animation (9 nodes; role unknown),field_3d,named,
 ui_resource_table,UI resource record {u32 id; void *cache; char *member format} looked up by id (rel_deck 0x08ebd84c and siblings; docs/subsystems/ui.md),ui,documented,12
 save_header,Save header: version / frame counter / OpenPSID (game state +0x0; 0x20 bytes),save,verified,32
-save_stored_decks,Stored deck records (game state +0x20; 50 x 0x174),save,reimplemented,372
-save_recipe_table,Recipe unlock table (game state +0x10b74; 462 x u16),save,reimplemented,924
+save_stored_decks,Stored deck records (game state +0x20; 50 x 0x174),save,documented,372
+save_recipe_table,Recipe unlock table (game state +0x10b74; 462 x u16),save,documented,924
 save_record_table,Record table: record values / new bits / duel-bonus states (game state +0x113a4; 0x800 bytes),save,documented,2048
 save_flag_bytes,Per-index flag bytes: gallery / card milestones / pack first purchase (game state +0x153e4; 3600 bytes),save,documented,3600
 save_card_list,Card list with per-entry states (game state +0x161f4; 2 + 99 x 2 + 99 x 2 bytes),save,documented,398
 save_progress_bytes,Monotonic progress bytes (game state +0x16de4; 38 bytes),save,documented,38
-save_picture_bits,Picture-seen bit array (game state +0x1b0fc),save,reimplemented,12
+save_picture_bits,Picture-seen bit array (game state +0x1b0fc),save,documented,12
 save_minigame_blocks,Minigame blocks and high scores (game state +0x1be0c-0x1bf0b; record table +0xa0),save,named,256
