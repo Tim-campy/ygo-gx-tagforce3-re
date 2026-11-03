@@ -83,7 +83,7 @@ Writers of `0x09e2d1e8`: `duel_core_set_phase` (`0x09dc8208`), `duel_core_cmd_en
 Turn step 3 in detail (`0x09e2d214` values):
 
 - 0: if the player-block flag `+0x120` bit 23 is set the step is skipped; with card `0x13b1` the phase menu is shown instead (sub-steps 10, 11, 0x14). Otherwise posts command 12 (enter Main Phase 1).
-- 2: waits for the turn player's decision. CPU (`0x09e02998[side] == 1`): `0x09d9db38` returns the next phase. Human: `duel_core_begin_player_input(side, 2)` opens free Main Phase control. The decision goes to `0x09de0cac`: 3 (Battle) is accepted when `duel_core_can_enter_battle_phase(side)` holds → sub-step 0x15 and Battle index 0; 5 (End) when `0x09dd0b88(side)` holds → sub-step 0x1e.
+- 2: waits for the turn player's decision. CPU (`0x09e02998[side] == 1`): `0x09d9db38` returns the next phase. Human: `duel_core_begin_player_input(side, 2)` opens free Main Phase control. The decision goes to `0x09de0cac`: 3 (Battle) is accepted when `duel_core_can_enter_battle_phase(side)` holds → sub-step 0x15 and Battle index 0; 5 (End) when `duel_core_can_end_battle_phase(side)` (`0x09dd0b88`) holds → sub-step 0x1e.
 - 3: human menu answer, `0x09e2d26c - 0x0d` = requested phase; a refused request reopens the phase menu with mask `1 << phase | 8 (Battle allowed) | 0x20 (End allowed)`.
 - 0x15: raises timing event 3 (leaving Main Phase for Battle). 0x16: runs `duel_core_run_battle_steps` until it is done; then posts command 14 (enter Main Phase 2) and returns to sub-step 2, unless `0x09e2d228` asks to skip to the End Phase.
 - 0x1e: raises timing event 4 (leaving Main Phase for End) and finishes the step.
@@ -203,6 +203,6 @@ So the phase is not passed to the handlers; there is no per-phase handler slot. 
 - Battle steps 2–10, timing events `0x0d`–`0x14` and the timing-queue consumer are now documented in `battle.md`; the remaining battle questions are listed there.
 - Whether the first player's draw on turn 0 is skipped (not seen in `duel_core_step_draw_phase`; the skip conditions there are card- and flag-based). Confirm in PPSSPP. **Answered for tag duels in PPSSPP (2026-10-27, Session B): the first player draws on turn 0.**
 - The meaning of player-block flag `+0x120` bit 23 (skips Draw and Main steps; hypothesis: "skip this turn") and bit 0 (skips the draw).
-- `0x09dd0b88`: condition for ending the Main/Battle Phase (checks cards `0x16a1`, `0x1502`, `0x15ff`); not named.
+- ~~`0x09dd0b88`: not named~~: `duel_core_can_end_battle_phase`, documented in the 2026-11-03 round (`battle.md`, "Large procedures documented in the 2026-11-03 round"): returns 0 while a monster is forced to attack (cards `0x16a1`, `0x1502`, `0x15ff`); it drives mask bit `0x20` of the phase menu.
 - The turn-limit mechanism around `0x09e2d1e4` and duel mode 2.
 - Confirm the phase values and the Battle-step index at runtime (PPSSPP breakpoint on writes to `0x09e2d1e8` and `0x09e2d220`).

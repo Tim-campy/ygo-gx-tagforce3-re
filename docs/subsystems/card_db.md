@@ -85,7 +85,18 @@ Basis and method: `system.md`, same section. 22 new names in `BOOT.BIN`: `cip_re
 
 ## Documented functions
 
-The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/card_db.md`](functions/card_db.md).
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round and in the 2026-11-03 round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/card_db.md`](functions/card_db.md).
+
+## Functions documented in the 2026-11-03 round
+
+The summon-class predicates in `BOOT.BIN` (`0x08863a34`–`0x08865e64`) are inlined id tables, one copy per function, with no shared data. Two tables cover everything:
+
+- **The fusion class table**, read through `card_db_get_fusion_summon_class` (`0x08863a34`): 3 for four ids (Fossil Fusion), 2 for six ids (Dark Fusion), 5 for `0x1d11` and `0x1c06`, 4 for 21 ids that use their own procedure, 1 for 30 Polymerization-only ids, 4 for any Synchro frame and 0 otherwise. Three wrappers derive booleans from it: `card_db_is_summoned_without_polymerization` (`0x088648d4`) is "class 4"; `card_db_is_fusion_class_summonable` (`0x08864c60`) is "class 0–3"; `card_db_is_extra_deck_unrestricted` (`0x08865ad8`) is "Synchro, or class 0".
+- **The special-summon condition table** for Main Deck monsters, read through `card_db_get_special_summon_condition_class` (`0x0886354c`). It gives classes 5, 4 (22 ids), 3 (2 ids), 2 (about 42 ids) and 1 (about 33 ids). `card_db_can_be_normal_summoned` (`0x08864300`) rejects any non-zero class, spells and traps (kinds 13 and 14), Fusion, Ritual and Synchro frames, and two extra ids (`0x1dac`, `0x17c4`).
+
+`card_db_can_be_special_summoned` (`0x08864ff8`) combines both tables. It rejects Spirit monsters (kind 7) and a 41-id list of monsters that can never be Special Summoned. Extra Deck monsters pass only with fusion class 0 or 4. Main Deck monsters fail with condition class 2 or 4. What each condition class means (for example, whether 2 means "only by its own effect" and 4 means "only by a named card") is still an open question. A port can copy the tables as data.
+
+`card_db_classify_for_viewer` (`0x08865e64`) actually returns the **spell speed** used by the chain engine (`chain.md`, "Spell speed"): spells 1 (Quick-Play 2), traps 2 (Counter 3), monsters 1, except about 60 quick-effect monsters, which give 2. The card viewer (`ui_card_viewer_draw`) uses the same value. A rename to `card_db_get_spell_speed` is suggested. `card_db_is_neos_or_elemental_hero` (`0x08862968`) is the predicate for fusion material code `0x1e` (archetype `0x39`). It is the union of seven inlined id lists.
 
 ## Open questions
 

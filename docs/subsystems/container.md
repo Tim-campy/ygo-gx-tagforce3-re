@@ -69,6 +69,12 @@ Layout tables of the file-thread state block, the request ring and the root path
 
 Basis and method: `system.md`, same section. 32 new `container` names: `ehp_loader` 14 (member lookup by name, address or index, the extension-handler table, the registered archive paths at `0x08921964`, at most 16), `disc_io` 5 (UMD retry wrappers around `sceIoOpen`/`Read`/`Getstat`, waiting through `container_wait_umd_ready`), `file_thread` 4, and the `rel_story` archive helpers (4). `container_read_file_from_start` and `container_wait_umd_ready` are documented (`system.md`).
 
+## Functions documented in the 2026-11-03 round
+
+`container_on_story_archive_loaded` (`rel_story 0x08eadf94`) is the load-completion callback that `container_load_story_archive` (`0x08eade28`) passes to `container_load_file`. It binds the buffer at `0x08ececa0` with `container_ehp_bind_with_callback(NULL, buffer)` and sets the flag `0x08ececa8`, which the loader polls frame by frame. It always binds the pointer at `0x08ececa0` (entry 2 of the slot table `0x08ecec98`), whatever slot index the loader was given. Open question: does the loader only ever use that slot, or does a later slot load bind the wrong buffer?
+
+`container_io_lseek` (`0x0881e448`) is a plain 32-byte call to `sceIoLseek`. Unlike `container_io_getstat_retry` (`0x0881e468`) it adds no UMD retry. That answers part of the open question on the disc wrappers: `0x0881e448` adds nothing over `sceIo`, and `0x0881e2c4` and `0x0881e378` remain unread.
+
 ## Open questions
 
 - What the disc wrappers `0x0881e2c4`, `0x0881e378`, `0x0881e448` add over plain `sceIo` calls (retries, sector alignment?).
