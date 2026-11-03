@@ -45,7 +45,42 @@ Basis and method: `system.md`, same section. 434 new `deck` names (39 in `BOOT.B
 
 ## Documented functions
 
-The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/deck.md`](functions/deck.md).
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round and in the 2026-11-03 round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/deck.md`](functions/deck.md).
+
+## Functions documented in the 2026-11-03 round
+
+The deck editor (`rel_deck`) moves cards between six lists: 0 main, 1 extra, 2 side, 3 trunk, 4 an alias of 2 used by the second pane, and 5 the pool of save "card list" items. An entry is 6 bytes: id, image index, copies (bits 0–6 of byte 4) and flags. Byte 4 bit 7 marks a card-list item, byte 5 bit 5 a key card, and byte 5 bit 6 a card from the owner's recipe. All moves use the 0x250-byte move record `*0x08ebe3b0`. It holds the source pane and list, up to three candidate targets with "full" flags, the selected target, a copy of the entry, the Bézier points `+0x230`/`+0x238`/`+0x240` and the drawn position `+0x248`/`+0x24a`, and the menu window descriptor `+0x24c`. `deck_update_card_move` (`0x08e9ee94`) runs the record's state machine (low nibble of byte 0); sub-steps sit in the high nibble:
+
+- **1:** `deck_animate_card_move_flight` (`0x08e9f608`) flies the card from its list to the menu over 10 frames on a quadratic Bézier curve, and removes it from the source list.
+- **2:** the menu window opens.
+- **3:** `deck_handle_card_move_input` (`0x08e9f27c`) handles input. Left and Right cycle the targets, Up and Down scroll the target pane. Confirm pushes an undo record and goes to 6; cancel goes to 4.
+- **4:** cancel. The card is put back at its old view position.
+- **6, then 5:** the window closes once the target slot is placed.
+- **7:** `deck_finish_card_move` (`0x08e9fa64`) flies the card to its target slot and drops it (`deck_drop_card_move`).
+- **8:** the move is freed, and the last target is remembered in `0x08ebe3b4`/`0x08ebe3b6`.
+
+There are three ways to start a move:
+
+- **Confirm in browse mode**, `deck_start_card_move` (`0x08e9d310`). It builds the menu targets and enforces the rules: 3 copies per name, the card limits (`deck_get_card_limit`), the forbidden-card allowance (1 after progress flag `e9` bit 0), "full" at 20 extra or side cards and at more than 64 main cards, and no moving the owner's recipe cards while editing another character's deck. A non-zero result is shown as deck message 2.
+- **R + confirm**, `deck_start_card_transfer` (`0x08e9e720`). It sends the card straight to its default list (trunk or pool, or main or extra) and enters state 7 directly.
+- **Undo**, `deck_start_undo_move` (`0x08e9e23c`). It pops the 8-entry undo stack and replays the record backwards.
+
+`deck_editor_handle_browse_input` (`0x08ea0b60`) maps the browse-mode buttons:
+
+| Input | Action |
+| --- | --- |
+| D-pad | Moves the cursor. |
+| Hold L | Scrolls the pane. |
+| Hold R | Tool input (`deck_editor_handle_tool_input`). |
+| Confirm | Starts a card move. |
+| Cancel | Runs the legality check (`deck_check_deck_legality`) before leaving. |
+| Triangle | Opens the command menu. |
+| Square | Cycles the list. |
+| Select | Toggles between grid and list layout. |
+
+The session is loaded by the list builders (`deck_build_main_deck_list` `0x08e9ad8c`, `deck_build_side_deck_list` `0x08e9aff0`). They re-mark the save card-list items, matching save card-list state 1 to the main deck and state 2 to the side deck. `deck_commit_editor_to_slot` (`0x08e9cbd0`) writes the session back when the editor closes. The deck goes to the slot. Card-list items get state 1 (main), 2 (side) or 3 (extra), and pool items get state 4. The "new" state of every card that was looked at is cleared. The edit block and the layout are also saved.
+
+The recipe viewer and the deck tutorial are separate modules (files `0x1b` and `0x12`), run as editor sub-screens by `deck_run_recipe_viewer` (`0x08ea9cc4`) and `deck_run_deck_tutorial` (`0x08ea9fc8`). The recipe viewer receives `deck_save_to_stored_deck` and `deck_load_deck_into_editor` (`0x08e9c760`) as callbacks. `deck_load_deck_into_editor` first returns the current deck to the trunk (`deck_return_deck_cards_to_trunk`, `0x08e9c258`), then takes each card from the trunk or the pool and silently skips cards the player does not have. In `BOOT.BIN`, `deck_check_deck_valid` (`0x0885c660`) is the stand-alone validity check that `rel_title` uses. It returns 0 for an invalid deck, 1 for a valid one, and 2 when the deck is valid only by counting save card-list items. `duel_setup_load_decks` (`0x08836358`) fills the duellist records (see `formats/deck.md`). For a player record it also writes the deck to block `+0` and 99 `u16` values to block `+0xc0`, taken from save state `+0x162bc` for code 465 or set to 4 otherwise. This header part of the 0x858-byte set-up block was unmapped until now. Open question: the meaning of those 99 values.
 
 ## Open questions
 

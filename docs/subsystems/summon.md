@@ -136,7 +136,7 @@ Other per-turn bits of `+0x120` seen in the summon code: bit 16 set when a summo
 ## Flip Summon, Gemini summon and battle positions
 
 - `duel_core_can_flip_summon_slot(side, slot)` (`0x09bfdca0`): the card is face-down, `duel_core_can_change_position` holds, `duel_core_can_flip_summon(side)` holds, card-specific checks (Phantom Dragon needs two zones, `0x1691` needs a matching face-up monster, the six "cannot be summoned while … is on the field" cards), and `0x09c0c584` (summon locks). (H)
-- `duel_core_action_flip_summon` → `duel_core_init_flip_summon(side, slot)` (`0x09db2578`): record kind 2, type 2. `duel_core_summon_step_flip` posts command `0x61` (type 4), sets player flag 16, posts command `0x34 (slot, 1, 2)` (turn face-up) and `0x33 (slot, 1, 1)` (to Attack Position), command `0x2b` (type 1), command `0x44`, then raises timing event `0x21` (Flip Summon). (H for the commands)
+- `duel_core_action_flip_summon` → `duel_core_init_flip_summon(side, slot)` (`0x09db2578`): record kind 2, type 2. `duel_core_summon_step_flip` posts command `0x61` (type 4), sets player flag 16, posts **either** command `0x34 (slot, 1, 2)` (a face-down Attack Position monster turns face-up) **or** `0x33 (slot, 1, 1)` (a face-down Defense Position monster turns face-up in Attack Position), never both (corrected in the 2026-11-03 round from the full reading of `duel_core_summon_step_flip`, `0x09dafc90`), command `0x2b` (type 1), command `0x44`, then raises timing event `0x21` (Flip Summon). (H for the commands)
 - Gemini: `duel_core_can_gemini_summon(side, slot)` (`0x09bfe0ac`): face-up, slot flag bit 8 clear, Gemini kind (`BOOT.BIN 0x0886019c`), not already Gemini-summoned (`0x09bf0158`), `duel_core_can_normal_summon(side)`, not prevented, the card can be Normal Summoned, and either `0x09bff2e8` or Tualatin allows it; the caller also requires `duel_core_has_normal_summon`. `duel_core_action_gemini_summon(1)` → `duel_core_init_gemini_summon(side, slot, uses_normal)` (`0x09db281c`, kind 3, type 8); command `0x2b` with type 2 sets slot flags `0x200008` and consumes the Normal Summon. (M)
 - Position changes: `duel_core_can_change_position(side, slot)` (`0x09bfd584`) is false when slot flag **bit 21** is set (reason 3), during duel mode 8 (`0x09e02cac`), when one of about 20 card ids applies (`0x12ce`, `0x131e` Curse of Fiend, `0x17b3`, `0x1990`, `0x1b69`, … tested with `0x09be9168`/`0x09be7d00`; reason `0x12`), or for a face-down card under specific rules. Bit 21 is set **when a card is placed in a monster zone** (`duel_core_place_in_monster_zone`), **when the monster attacks** (`0x09bee500`, called from the attack commands), and **when its position is changed manually** (`duel_core_change_position` with `by_effect = 0` posts `duel_core_post_set_slot_flag(side, slot, 21, 1)`); command 2 clears it at the start of the turn. So a monster may change position once per turn, not in the turn it arrived, and not after attacking. (H)
 - `duel_core_change_position(side, slot, flip, a4, by_effect, a6)` (`0x09c16540`): refuses a slot whose flag bit 2 is set; with `by_effect` it first asks `duel_effects_can_change_position`. Posts command `0x33 (slot, flip, by_effect == 0)`; the handler toggles slot `+0x06` (position) and XORs slot `+0x08` (face) with `flip`. Flipping a face-down monster face-up runs its FLIP effect (`BOOT.BIN 0x08863438`) and raises timing event 9 (flipped) or `0x0b` (position changed). (M–H)
@@ -193,7 +193,7 @@ Details established from the material code (H unless noted):
 
 ### Contact fusion and other extra-deck procedures: `duel_core_summon_prepare_contact_fusion` (`0x09da868c`)
 
-For the monsters of BOOT `0x088648d4` (summoned from the extra deck by their own procedure: Elemental Hero Storm Neos and the other Neos contact fusions, the Gladiator Beast fusions, Chimeratech Fortress Dragon, XY-Dragon Cannon and the other Union-machine fusions …). Sub-step 0 loads the material codes from the recipe table and shows message `0x4c` (Neos/Gladiator), `0x3a` (Chimeratech Fortress Dragon) or `0x46`; sub-steps 1–2 select materials with variant 4 (`duel_core_filter_contact_fusion_material`, `0x09da8654`) until the count is reached (Fortress Dragon: two or more); sub-step 3 sends them away in one batch: **back into the deck** for the Neos and Gladiator Beast monsters (`0x09c262bc`), to the graveyard for Chimeratech Fortress Dragon (`0x09c274a4`), otherwise `0x09c25a84` (presumably banished, M); sub-step 5 posts command `0x4e` with `count | 0x100`. The record then continues as a kind-5 Special Summon. (H for the flow, M for the `0x09c25a84` destination.)
+For the monsters of BOOT `0x088648d4` (summoned from the extra deck by their own procedure: Elemental Hero Storm Neos and the other Neos contact fusions, the Gladiator Beast fusions, Chimeratech Fortress Dragon, XY-Dragon Cannon and the other Union-machine fusions …). Sub-step 0 loads the material codes from the recipe table and shows message `0x4c` (Neos/Gladiator), `0x3a` (Chimeratech Fortress Dragon) or `0x46`; sub-steps 1–2 select materials with variant 4 (`duel_core_filter_contact_fusion_material`, `0x09da8654`) until the count is reached (Fortress Dragon: two or more); sub-step 3 sends them away in one batch: **back into the deck** for the Neos and Gladiator Beast monsters (`0x09c262bc`), to the graveyard for Chimeratech Fortress Dragon (`0x09c274a4`), otherwise they are banished (`0x09c25a84` is `duel_core_request_banish_mask`, settled in the 2026-11-03 round); `0x1ceb` sends them to the Graveyard; sub-step 5 posts command `0x4e` with `count | 0x100`. The record then continues as a kind-5 Special Summon. (H.)
 
 ### Ritual Summon (the generic ritual record)
 
@@ -316,6 +316,106 @@ The field-card movements (`0x30`, `0x31`, `0x32`, `0x3c`, `0x3d`, `0x3f`, `0x40`
 | `0x09cbac10` | `duel_effects_cond_fusion_summon(ctx)` | M | Their activation condition. |
 
 `BOOT.BIN` card predicates used here (not renamed in this pass): `0x0885fef0` is a monster; `0x0885f864` summon class from the kind (0 normal, 1 effect/toon/spirit/union/gemini/tuner, 2 ritual, 3 fusion, 7 spell, 8 trap, 9 token, 10 synchro, gods `id − 0x1382`); `0x08860084` is Synchro (class 10); `0x08860060` is Fusion (class 3); `0x088601c0` is Tuner (kind 31/33); `0x08866870` fusion substitute; `0x088668e4` Fusion accepts substitutes; `0x0885fb5c` card counts as a named card (aliases); `0x088648d4` summoned from the extra deck by its own procedure; `0x08863d98` cannot be Normal Summoned/Set; `0x0886019c` Gemini; `0x08860af8` Elemental Hero; `0x08861298` Ancient Gear; `0x08866594` effect usable from the hand; `0x08866a1c` Toy Magician; `0x08866820` usable by either player; `0x088621c4` Arcana Force; `0x08863438` FLIP effect (genre `0x16`). Basis: the decompiled id lists checked against card names.
+
+## Large procedures documented in the 2026-11-03 round
+
+Basis: full reads of the Ghidra decompilations of 34 large `duel_core` functions of `rel_duel_eng` (`0x09d00000`–`0x09dbffff`): the summon preparation and execution stages, the hand Special Summon mask, the summoned-card trigger queueing and the engine command handlers. Static analysis only; nothing below has been traced in PPSSPP. Confidence H unless marked.
+
+### Summon record: fields seen in this round
+
+Additions to the table of the summon record `0x09e290bc` (`summon.md`):
+
+| Offset | Address | Use |
+| --- | --- | --- |
+| `+0x0c` | `0x09e290c8` | First tribute reference; also reused as scratch: the saved instance of Grinder Golem (`0x1cda`) while its tokens are made, the number of banished cards for `0x18b4`, and the multiplier of the summon value of `0x1e20` (×300), `0x1d62` (×600), `0x18b4` (×700). |
+| `+0x20 + 2i` | `0x09e290dc` | The `side | slot << 8` word of tribute *i*, written when the tributes are paid (`duel_core_summon_step_normal`, `_procedure`). |
+| `+0x37` | `0x09e290f3` | Loop counter of a preparation routine (cards still to banish, tokens made). |
+| `+0x38` | `0x09e290f4` | Pass/mode byte: second banish pass of the two-Attribute procedures (`0x1c2b`, `0x1c2a`, `0x1bc9`, `0x1bc8` …), also set around `duel_effects_count_candidates` by `duel_core_get_special_summon_mask`. |
+| `+0x39` | `0x09e290f5` | Flip Summon from Defense Position (1) or from face-down Attack Position (0); read for card `0x1005` by `duel_core_queue_summoned_card_triggers`. |
+
+The summon type `+0x06` bit 0 means "summoned by its proper procedure" (Fusion, Synchro or own procedure): `duel_core_summon_step_procedure` posts `0x2c` with bit 6, `duel_core_cmd_summon_finalize` uses it to mark special-summon-only monsters as properly summoned (entry bit 15), and the trigger summary carries it in bit 17.
+
+### The execution stages share one step layout
+
+`duel_core_summon_step_normal` (`0x09daea0c`, kind 1), `duel_core_summon_step_flip` (`0x09dafc90`, kind 2), `duel_core_summon_step_special` (`0x09db00f8`, kind 4) and `duel_core_summon_step_procedure` (`0x09db1334`, kind 5) are state machines on the sub-step byte `+0x36` (`0x09e290f2`) with the same numbering. Each returns 0 while it still runs and 1 when the summon is over.
+
+| Step | Work |
+| --- | --- |
+| 0–1 | Position: a position of 2 ("ask") is taken from the answer `0x09e2d248` (Special: dialog `0xf7` through `duel_core_ask_summon_position`; forced to Attack when `duel_core_is_monster_set_allowed` fails). A face-up summon posts `0x61` (summon declaration: `a = ref | 0x8000`, `b` position, `c` = tribute count for Normal, 4 Flip, 5 effect, 6 procedure, 8 Synchro) and player flag 16. Tributes are paid here: command `0x49 (slot)` per tribute, then `duel_core_tribute_monsters(side, mask)` with mask bit `slot + side × 16`. |
+| 2 | Zone: if `duel_core_filter_summon_zone` accepts no slot, the card is sent to the Graveyard from wherever it is (banished `duel_core_return_banished_card_to_graveyard`, extra deck, Deck, hand) and the stage ends; otherwise zone selection with filter `0x09dac660`. A card without an instance (an effect-created monster) is given one first: index `side + 2 × player word +0x04`, card id written to `0x09e2bbcc`. |
+| 3 | Placement command: Normal/Set `0x50`; Special `0x2c` (token `0x47`); procedure `0x2c` with bit 6. Card-specific bookkeeping (markers, slot word `+0x0c`) is posted right after it. |
+| 4 | Normal: `0x2b (id, slot, 0)` for a face-up summon (→ `0x0a`), or `0x44` directly for a Set (→ `0x15`). Flip uses step 1 for `0x2b (id, slot, 1)`. |
+| `0x0a`–`0x0e` | `duel_core_summon_raise_trigger(code)`: negation window, then timing event `0x20` Normal, `0x21` Flip, `0x22` Special/procedure. |
+| `0x14` | Ends if the slot is empty (the summon was negated); otherwise `0x44 (slot, type, tribute count)`. Special also clears slot flag 3 and adds the per-summoning-card markers here. |
+| `0x15` | `duel_effects_update_negated_slots_default`, then `duel_core_queue_summon_event_triggers(event)`: 6 face-up Normal/Tribute, 9 Set, 7 Flip (after slot flag 21), 8 Special. |
+| `0x16` | Card-specific self-destruction (`0x13e8`/`0x133d` summoned face-up; a Level ≤ 2 Flip Summon while `0x1255` is active), otherwise `duel_core_enforce_slot_controller` and `duel_core_queue_summoned_card_triggers(event)`. |
+
+Kind 5 runs steps 0–3 itself, then hands steps `0x14`–`0x16` to `duel_core_summon_step_special`; when that finishes it shuffles the Deck after a summon from the Deck for `0x196b`–`0x196e`, `0x128c` and `0x112e`.
+
+Correction to `summon.md`: the Flip Summon posts **either** `0x34 (slot, 1, 2)` (face-down Attack Position) **or** `0x33 (slot, 1, 1)` (face-down Defense Position, which also turns it to Attack), not both.
+
+**Slot flag 3 during a summon.** The placing commands set slot flag bit 3 (effects off): `0x50` for a face-up summon, the `0x2c` handler always, `0x33` with `b` and `c` set and `0x34` with `c` bit 1 (Flip Summon). `0x44` (`duel_core_cmd_summon_finalize`) and step `0x14` of the Special stage clear it. So a monster's effect handlers stay disabled between placement and the end of the summon (negation window included). This explains the "Gemini bit 3" open question only in part: command `0x2b` type 2 sets `0x200008`, and the later `0x44` clears bit 3 again.
+
+### Preparation dispatch: `duel_core_summon_prepare` (`0x09dab210`)
+
+Dispatches on the card id `+0x04`. The card-specific routines are listed in its row; the default route is Synchro → `duel_core_summon_prepare_synchro`, extra-deck procedure → `duel_core_summon_prepare_contact_fusion`, a procedure summon (`+0x34` bit 1) → `duel_core_summon_select_tributes`, Elemental Hero → `duel_core_summon_step_necroshade`, Ancient Gear → `duel_core_summon_step_gear_castle_tribute`, Dinosaur (race 9) → `duel_core_summon_step_big_evolution_pill`, else `duel_core_summon_select_tributes`. A routine returns 1 (done), 0 (again) or a negative value (cancelled: flag `+0x34` bit 3, UI event `0x2b`). On 1 the record is rebuilt with `duel_core_init_procedure_summon` or `duel_core_init_normal_summon`.
+
+- **Synchro** (`0x09da8ca4`): the flow in `summon.md` is confirmed; additions: material instances are collected in the ring `0x09e28e50` (index `0x09e28e4c + 0x09e29064`), the materials go to the Graveyard with `duel_core_request_send_mask_to_graveyard_as_cost`, and command `0x4c` is `(slot, material instance, Synchro instance)`. Card `0x1f32` is offered "Level 2" only while its slot flag bit 8 is clear; the choice is stored with `duel_core_set_slot_flag_bit(…, 7, answer)`.
+- **Contact fusion** (`0x09da868c`): material destination settled: Neos and Gladiator Beast monsters return the materials to the Deck (face-down materials are turned face-up first with `duel_core_post_set_face`) with `duel_core_request_return_mask_to_deck`; `0x1ceb` (hint `0x3a`, two or more materials) sends them to the Graveyard; **every other procedure banishes them** (`duel_core_request_banish_mask`, the former `0x09c25a84`). Then the searched Decks are shuffled, each material is remembered as instance marker `0x15b4` (kind 3) on the Fusion, and `0x4e (id, instance, count | 0x100)` is posted.
+- **Banish procedures** (`0x09da7b84`): count from `duel_core_get_procedure_banish_count`; the hint names the required Attribute or Type; a candidate list is opened with `duel_core_open_card_list` (mode count + 6) and each pick is banished from the Graveyard, hand or field; two-Attribute cards make a second pass (`+0x38` = 1).
+- **Ancient Gear** (`0x09da63c8`): card `0x19b2` may stand in for a tribute (asked with message `0xfa` when optional), the marker `0x19ad` on the player slot whose value is the summoned instance allows a summon without tributes, and card `0x1e03` lowers a Level 7+ monster to one tribute and a lower one to none.
+- **Grinder Golem** (`0x09db19e0`, `0x1cda`): makes two `0xf60` tokens on the summoner's side (commands `0x47` and `0x44 (slot, 5, 0)`, event 8 each) inside one timing batch, then retargets the record to the opponent's side with source location hand.
+
+`duel_core_get_special_summon_mask` (`0x09da19b4`) is the "can this hand card use its own procedure" test (action bit 4). Besides the ~120-id compare chain it probes the procedure filters by writing a temporary summon record (side, controller, id, tribute count 0, flag `+0x34` bit 1) and counting accepted slots. `duel_core_get_procedure_material_rule` (`0x09dabf4c`) gives the AI the same per-card filter and material count.
+
+### Queueing the summoned card's own trigger
+
+`duel_core_queue_summoned_card_triggers(event)` (`0x09dac78c`) runs at step `0x16` for events 6, 7, 8. It builds a 32-bit summary of the summon: bits 0–8 instance, 9 controller, 10–13 slot, 14 position, 15 face-up, 16 summoned to the other side, 17 proper summon, 18–19 distinct tributes (max 3), 20–23 source location; and, when per-card id lists say the card has a "when summoned" effect for that event, calls `duel_core_chain_queue_trigger(id | slot << 16 | controller << 31 | event << 25 | 0x200000, instance, summary)`. FLIP monsters (`thunk_card_db_get_flip_kind`) queued on event 7 also post command `0x62 (id)`. The trigger decision is therefore hard-coded per card id, like the rest of summoning (M for completeness of the lists' meaning).
+
+### Engine command handlers: common frame
+
+All `duel_core_cmd_*` handlers are called by `duel_core_execute_command` with the current command in globals and are re-entered every frame until done:
+
+| Address | Meaning |
+| --- | --- |
+| `0x09e290f8` | `op` (`u16`): bit 15 the side, low 12 bits the code. |
+| `0x09e290fa`, `0x09e290fc`, `0x09e290fe` | `a`, `b`, `c` (`u16` each). Some handlers overwrite `c` as scratch (`0x3d`). |
+| `0x09e29908` | Sub-step of the handler (0 on entry). |
+| `0x09e2990c` | Scratch counter (frame waits, source location of `0x2c`). |
+| `0x09e29910` | Copy of the moved 4-byte list entry / first slot word. |
+| `0x09e29904` | Busy word: the handler clears it when it is finished, which lets the queue advance. |
+
+Typical shape: step 0 posts a presentation event (`duel_core_post_ui_event`), the next step waits until `duel_core_is_ui_event_busy(event)` is 0, then the state change is made in one step, a closing step calls `duel_core_normalize_effect_records` and clears `0x09e29904`. Every card move uses the same sequence: rewrite entry bits, `system_copy_word` to `0x09e29910`, `duel_core_zone_remove`, `duel_core_zone_insert`, `duel_core_detach_effects_of_moved_card`, then UI event `0x1a (instance | kind << 16, from, to)`. `from`/`to` are 16-bit location summaries `side | location << 1 | index << 6`, bit 14 face-up, bit 15 position. Kinds seen: 1 Normal Summon, 2 Special Summon placement, 3 spell/trap activated from the hand, 4 Set, 5 destroyed by an effect, 7 destroyed by battle, 8 Tributed, 0 other moves.
+
+**Destruction bookkeeping** (identical code in `0x30`, `0x31`, `0x3f`, `0x45`) for a non-token card sent to the Graveyard: player flag bit 24 of the owner for its own monster leaving a monster zone, a `0x165a` record on the player slot for Level 8+, active-card counts `0x14bf` and `0x1361`, `0x1574` for the other side, Wind monsters flag `0x1762`, BES monsters refresh `0x1972`, card `0x1c4c` keeps entry bit 15, slots with `0x1f19` set entry `+2` bit 6. Banishment counts `0x16da`. Statistics (`duel_core_add_statistic`) are kept only for the local player.
+
+### Command argument packing (additions and corrections)
+
+| Cmd | Handler | `a` | `b` | `c` |
+| --- | --- | --- | --- | --- |
+| `0x2c` (H, jump table) | `duel_core_cmd_place_trap_monster` `0x09dbf23c` | `position << 15 | face_up << 14 | proper << 6 | slot << 1 | side` | card instance | value written to slot `+0x0c` |
+| `0x30` | `0x09db7db8` | low byte location, high byte index | low byte destination, bits 8–11 flags (bit 8 by the opponent), bits 12+ clear entry bit 15 | **card instance** (used to find hand, extra-deck and Deck sources; correction of "event word") |
+| `0x33` | `0x09db67f0` | slot | flip value XORed into `+0x08` | manual/summon change; with `b` also sets slot flag 3 |
+| `0x34` | `0x09db6cc0` | slot | target face value | flags: bit 0 remember/announce, bit 1 slot flag 3, bit 2 activation reveal (slot flag 1, player flags 25/26), bit 3 do not toggle |
+| `0x44` | `0x09dbdedc` | slot | type flags: bit 0 proper, 1 Flip, 2 Special, 3 Gemini, 4 to the opponent's side | tribute count |
+| `0x43` (H, jump table) | `duel_core_cmd_create_token` `0x09dbb398` | `index << 6 | location << 1 | side`, bit 14 face-up, bit 15 position | card id (bits 0–13), instance flags (bits 14–15) | not read by the handler |
+| `0x50` | `0x09dbd5c0` | card id | `position << 15 | face_up << 14 | slot << 1 | side` | `instance << 1 | uses_normal_summon` |
+| `0x51` | `0x09dbda08` | card id | `face_up << 14 | zone << 1 | side` | card instance; face-up card `0xfee` consumes the Normal Summon |
+
+`0x45` (`duel_core_cmd_tribute_card`): `a` slot, `b` destination, `c` instance. `0x3c`/`0x3d`/`0x3e`/`0x3f`/`0x40`/`0x32`/`0x31` match the table in `duel_core.md`; `0x3e` additionally aborts when the card has left the source between steps, and leaving the Graveyard or banished zone increments the instance's 2-bit counter.
+
+Other handlers read in this round: `duel_core_cmd_shuffle_monster_zones` (`0x09dbea78`, `c` = zone mask, Fisher–Yates with `duel_core_random`, UI event `0x29`), `duel_core_cmd_attack_done` (`0x09db3b1c`, `a` slot, `b` = 0 clears slot flag 22, `c` ≠ 0 runs the after-attack records `0x1505`, `0x15ff` and `duel_core_clear_battle_scoped_effects`), `duel_core_cmd_show_duel_result` (`0x09dbbf38`, `a` result 1/2 relative to the side, `b`/`c` win reasons of sides 0/1 written to player `+0x30`; reason 4 highlights the five cards of the table `0x09e00930` in the spell/trap zones), and `duel_core_step_apply_lp_change(gain)` (`0x09dbffd8`, no direct caller): `a` amount, `b` cause, `c` card id; UI events `0x10`, `0x4d` and a wait of 11 frames before the LP word changes; a loss clamps at 0 and a gain is ignored at 0 LP; special-victory monsters store their id in the opponent's `+0x2c`.
+
+`duel_core_apply_attack_declaration(attacker_side, attacker_slot, target_side, target_slot)` (`0x09db315c`) fills the battle globals: `0x09e28620`/`0x09e2863c` attacker, `0x09e28624`/`0x09e28640` target, `0x09e28628` direct attack (target slot ≥ 5), `0x09e2864c` attacker instance, `0x09e28644` target position, and two 0x48-byte battle records at `0x09e28650` (side, slot, `+0x0c` instance, `+0x10` instance counter).
+
+### Open questions from the 2026-11-03 round
+- ~~The command codes of the handlers without a known poster~~: read from the jump table `0x09e00944`: `duel_core_cmd_show_duel_result` `0x05`, `duel_core_cmd_attack_done` `0x19`, `duel_core_cmd_place_trap_monster` `0x2c`, `duel_core_cmd_create_token` `0x43`, `duel_core_cmd_shuffle_monster_zones` `0x48`. The token command `0x47` posted by the summon steps is `duel_core_cmd_special_summon_token` (`0x09dbf9e0`), not `0x43`. Command `0x43` is posted by the `.ydq` loader `duel_core_load_ydq` (`0x09dc94e4`), which places the scripted field cards with it (`docs/formats/tutorial.md`); its `c` argument is unused. `duel_core_step_apply_lp_change` is not in the table (not a command handler).
+- `duel_core_step_apply_lp_change`: who calls it (thunks of the LP commands `0x23`/`0x24`/`0x25`?) and what cause `b` = 2 means (it records `0x14c0` for the turn player; payment of a cost is the guess).
+- `duel_core_get_procedure_material_rule`: confirm that the filter address is returned in `v0` (Ghidra shows `void`).
+- Card `0x1f32`: slot flag bit 8 gates the "Level 2" question and bit 7 stores the choice; confirm in PPSSPP.
+- Player flag bits 22 (more than 99 Special Summon placements, counter `0x09e2d240`), 24 (own monster sent to the Graveyard), 25/26 (spell/trap activated from the hand), and slot flag bits 10, 13, 15, 19, 28, 30: purposes beyond "set by these commands" are open.
+- The statistic indices of `duel_core_add_statistic` (`0x11`–`0x40`) should be mapped to the duel-record screen.
+- The step-0x16 controller check `duel_core_enforce_slot_controller` (returns non-zero while it is still working; what it enforces is not read).
 
 ## Open questions
 

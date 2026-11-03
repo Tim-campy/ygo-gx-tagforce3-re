@@ -54,7 +54,11 @@ Method as in the first round (`system.md`): the still-unnamed functions were re-
 
 ## Documented functions
 
-The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/tag_duel.md`](functions/tag_duel.md).
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round and in the 2026-11-03 round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/tag_duel.md`](functions/tag_duel.md).
+
+## Functions documented in the 2026-11-03 round
+
+`tag_duel_start_partner_switch` (`rel_duel_draw 0x0989c674`) is the draw module's export that `rel_duel_mgr`'s `tag_duel_handle_partner_swap` calls on a tag turn change. It converts the engine side to the view side (`duel_core_engine_side_to_view`) and forwards it, with the other three arguments, to `tag_duel_push_partner_switch_mode`, which pushes duel UI mode 10. The meaning of the three other arguments (the slot pairs that `tag_duel_handle_partner_swap` passes) is still open.
 
 ## Open questions
 

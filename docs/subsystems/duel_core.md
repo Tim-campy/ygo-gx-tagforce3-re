@@ -68,7 +68,7 @@ Commands that move field cards: `0x30` field/list → graveyard or banished (`0x
 
 | Cmd | Handler | `a` | `b` | `c` | Effect | Conf. |
 | --- | --- | --- | --- | --- | --- | --- |
-| `0x30` | `0x09db7db8` | low byte location (field slot 0–10, or `0x0b`/`0x0c`/`0x0d` with the index recomputed), high byte index | low byte destination (`0x0b`–`0x0f`, `0x10` = token vanishes, < `0x0b` = a field slot); bits 8–11 flags (bit 8 by opponent, copied to the entry's bit 3; non-zero shows UI event `0x4e`), bits 12+ keep the entry's bit 15 (M) | event word | Card destroyed by an effect (or a token sent): `zone_remove` + `zone_insert`, deck insertion at the top, UI event `0x1a` (move) and `0x4e` | H |
+| `0x30` | `0x09db7db8` | low byte location (field slot 0–10, or `0x0b`/`0x0c`/`0x0d` with the index recomputed), high byte index | low byte destination (`0x0b`–`0x0f`, `0x10` = token vanishes, < `0x0b` = a field slot); bits 8–11 flags (bit 8 by opponent, copied to the entry's bit 3; non-zero shows UI event `0x4e`), bits 12+ keep the entry's bit 15 (M) | card instance (used to find hand, extra-deck and Deck sources; corrected in the 2026-11-03 round, formerly read as an event word) | Card destroyed by an effect (or a token sent): `zone_remove` + `zone_insert`, deck insertion at the top, UI event `0x1a` (move) and `0x4e` | H |
 | `0x31` | `0x09db8a50` | slot | destination | bit 0 by opponent | Card destroyed by battle (UI event `0x20`), then the same move | H |
 | `0x32` | `0x09db9f40` | low byte location (< `0x0b` field slot, high byte its index; otherwise the index is found from `c`) | flags: bit 0 by opponent, bits 4–5 counter state, bits 6–7 "remember the field slot" | card instance | Card banished (destination always `0x0f`, appended); field markers listed in the handler are carried over as player markers | H |
 | `0x3c` | `0x09db5db4` | `side | slot << 8` (source) | `side | slot << 8` (target, side may differ) | new face-up value (`u16 slot +0x08`) | Moves the 20-byte slot to an empty slot, possibly of the other player (control change); clears slot bit 25, sets bit 10 and clears bit 21 when the side changes; moves markers (`0x09be7908`); for a spell/trap target clears the position and the word at `+0x0c` and sets slot bit 20 when face-down | H |
@@ -163,7 +163,152 @@ Method as in the first round (`system.md`): the still-unnamed functions were re-
 
 ## Documented functions
 
-The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/duel_core.md`](functions/duel_core.md).
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round and in the 2026-11-03 round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/duel_core.md`](functions/duel_core.md).
+
+## Large procedures documented in the 2026-11-03 round
+
+Basis: full reads of the Ghidra decompilations of 47 `duel_core` functions of `rel_duel_eng` below `0x09d00000` (the largest still undocumented ones, 100 to 13,844 bytes) and four `rel_duel_draw` wrappers. Per-function rows are in `functions/duel_core.md`. Confidence is high for control flow and the addresses named; card readings stay at the ids. Nothing here was traced in PPSSPP.
+
+### The field-card send pipeline
+
+Every field card that leaves its zone through an effect, a cost, a Tribute or battle passes through the same five functions:
+
+1. A `duel_core_request_*` function fills the send-batch request (`effect-helpers-movement.md`).
+2. `duel_core_send_batch_step` (`0x09c232bc`), polled by `duel_core_run_turn_flow`, works through it frame by frame. State 1 clears the masks. State 2 handles battle-only banish rules. State 3 filters the slot mask with `duel_core_can_send_field_card` and runs a pre-pass. States 10–12 offer the replacement prompts; each prompt is answered in state + 100 (`0x6e`–`0x70`). State 100 opens a timing batch and moves every slot for real. States `0x65`–`0x67` handle Crystal Beast placement, the post-battle `0x1df5` discard and the end of the batch.
+3. `duel_core_send_field_card` (`0x09c20ad0`) does one slot. The executor state selects one of three modes:
+   - **Pre-pass** (state ≠ 2 and < 100): runs the immunity and replacement checks and records the slot in `0x09e2bba8`, and in `0x09e2bbb8` when an effect destroys it. Replacements are taking counters off, the substitutes already chosen, and equip-linked cards destroyed instead.
+   - **Dry run** (state 2): returns the final destination after all redirects and does nothing else.
+   - **Real** (state ≥ 100): builds the event word and posts one of `0x31`, `0x30`, `0x3c`, `0x32`, `0x3f` or `0x45`.
+4. `duel_core_send_field_card_body` (`0x09c1be50`) runs after a real move. It queues the leaving card's own "sent/destroyed" trigger: a compare chain over about 170 card ids picks the trigger kind and argument. It also queues the watchers of other cards (field, hand and Graveyard triggers, face-up-copy flags, player markers, burn damage). For a battle event it then calls `duel_core_apply_destroyed_by_battle_rules` (`0x09c1b224`). That function handles the destroyer's "when this card destroys a monster by battle" trigger, its markers, and the equip cards of the destroyer that trigger on event `0x16`.
+5. `duel_core_apply_leave_field_rules` (`0x09c1fb50`) runs after every mode except the dry run. It handles cascades:
+   - cards that take other cards with them, such as link sources sending every linked card to the Graveyard, set pieces, Toon and Spirit rules;
+   - for every record in the leaving slot's effect list, `duel_core_get_linked_card_leave_rule` decides whether the record's source (for example an equip spell) follows the card to the Graveyard.
+
+   The per-card flag bits that these follow-up sends carry (`0x80000` destroyed, `0x100000` battle, `0x200000` Tribute, `0x400000` to the Graveyard, `0x800000`/`0x1000000` the source's controller moved it to Deck/Extra Deck or hand, `0x2000000` always) are the same bits that `send_field_card_body` tests for the per-card triggers of equip cards.
+
+Monsters destroyed by battle skip state 3. `duel_core_send_battle_destroyed_cards` (`0x09c2215c`) runs in both passes and does three things:
+
+- sends each battle record's monster whose slot flag bit 2 marks it as destroyed, to the Graveyard, the banished zone or the Deck by destroyer rules;
+- destroys the cards that die with it (effects `0x1b35`, `0x1e28`, `0x15b3`) and the attacker destroyed by a defender's rule;
+- shuffles any Deck that received a card.
+
+Cards in lists do not use the batch. `duel_core_send_hand_entry_to_graveyard` (`0x09c2b394`), `duel_core_send_deck_card_to_graveyard` (`0x09c2b3b4`) and `duel_core_send_extra_card_to_graveyard` (`0x09c2b420`) are thin wrappers of `duel_core_send_list_card_to_graveyard` for locations `0x0b`, `0x0d` and `0x0c`.
+
+On the command side, the move handlers call `duel_core_detach_effects_of_moved_card(from, to, entry)` (`0x09be5eb8`). It frees the effect records that refer to the moved card's instance. One group of records is freed when the card leaves the Graveyard or banished zone, or goes to the hand, Deck or Extra Deck. Another group is freed on any move.
+
+**Event word of a field card leaving its zone** (built by `send_field_card`, low 9 bits passed as command `c`, all 32 bits passed to the body and to timing events `0x16`/`0x1c`):
+
+| Bits | Meaning |
+| --- | --- |
+| 0–8 | Card instance |
+| 9 | Controller side |
+| 10–13 | Slot |
+| 14 | Defense Position (slot `+0x06` bit 0) |
+| 15 | Destroyed (flag `0x2`) |
+| 16 | By battle (flag `0x4`) |
+| 17 | Was face-up (slot `+0x08` bit 0) |
+| 18 | Side of the cause (controller XOR by-opponent) |
+| 19–22 | Final destination location |
+| 23 | Activation-negated flag `0x8` |
+| 24 | Gemini monster with its effect enabled |
+| 25, 27, 28, 30 | Type-specific bits (Type `0x14`; battle in Defense Position with lower ATK than DEF (H for the condition, M for the reading); Type `0x15` by battle; Type 9) |
+| 26 | The card is the cause of its own removal (cause link `0x09e2d2a4` instance) |
+| 29 | Redirected to the banished zone by a card of the other side |
+
+`duel_core_flip_card_face` and `duel_core_move_field_card_to_slot` build the same word for timing events 9/`0xc` and `0x19`, using the same low bits. The meaning of bits 16–23 changes per event: for example, bit 16 is "by the opponent" in a flip, and bits 19–22 are the target slot in a control change.
+
+**Executor masks** (closes part of the open question in `duel-runtime.md`). All masks use bit `slot + 16 × side`.
+
+| Address | Meaning |
+| --- | --- |
+| `0x09e2bba8` | Slots taken in by the pre-pass; cleared one by one when they are really sent |
+| `0x09e2bbac` | A destruction substitute was chosen for the slot; the field zone uses it as "cancelled" |
+| `0x09e2bbb0` | The 0x1e28 replacement applies |
+| `0x09e2bbb4` | Crystal Beasts that will be placed in a spell/trap zone instead |
+| `0x09e2bbb8` | Slots destroyed by an effect |
+| `0x09e2bbbc` | Slots that were handled (replaced, or actually moved) |
+| `0x09e2bbc0` | Slots that reached the requested destination |
+| `0x09e2bbc4` | `duel_core_get_banish_redirect_mask()` saved at the start of the real pass |
+
+### Attack legality
+
+The attack checks are spread over six predicates that the battle steps, the action menu and the AI call:
+
+| Function | Address | Question it answers |
+| --- | --- | --- |
+| `duel_core_check_attack_restrictions(side, slot, full)` | `0x09bea7a8` | Can this monster declare an attack at all? It reads the stat block, the slot flags and about 90 card rules. With `full` it also checks the per-attack rules and the attack costs (Toons 500 LP, 1000 LP cards, `0x1320` adding 500 per copy), which must stay below the LP. On refusal it writes reason `0x13` (or `0x10` for a prohibited card) to `0x09e2d288`. |
+| `duel_core_has_no_attacks_left(side, slot)` | `0x09bea184` | Has the monster used up its attacks this turn? Slot flag bit 22 = has attacked, bit 23 = no further attack (M), plus the per-card attack counts kept as effect records (`0x1505` family, `0x1a4e`, `0x19c1`, `0x186c`). |
+| `duel_core_is_direct_attack_allowed(side, slot)` | `0x09becb60` | May it attack the player at all? Blocked, for example, by the opponent's forced-target monsters `0x17fc` and by `0x1ad2`/`0x1cd4`. |
+| `duel_core_get_direct_attack_mode(side, slot, check_card)` | `0x09bed2d8` | 0 no; 1 may attack directly by an effect (step 2 then asks "attack directly?"); 2 must attack directly. |
+| `duel_core_is_valid_attack_target(atk side, atk slot, tgt side, tgt slot, mode)` | `0x09beb8cc` | May it attack this monster? `mode` 0 applies only the attacker-side and forced-target rules, non-zero also the target's "cannot be attacked" protections, 2 skips the `0x1318` rule. Selection filters `duel_core_filter_attack_target_slot` and `duel_core_filter_valid_attack_target` (`0x09c11d64`) wrap it. |
+| `duel_core_has_piercing(side, slot)` | `0x09bedf1c` | Does it inflict piercing damage? Read by `duel_core_battle_resolve` and the AI. |
+
+All six follow one pattern: a gate on the card's own effect (`duel_core_is_effect_active` plus slot flag bit 2 clear), per-card compare chains, and global rules gated by the immunity words of the stat block (bit `(side ≠ source side) + 1`).
+
+At the declaration, three functions record the attack:
+
+- `duel_core_raise_attack_event(mode)` (`0x09c17ec4`) raises timing event `0x12` and queues the triggers. Its event word holds the attacker, the target, the direct flag and `mode > 0`.
+- `duel_core_attach_attack_markers` (`0x09c17aa4`), at the start of the Damage Step, records the first-attack value `0x1505` and the attacker-to-target link through command `0x35`.
+- `duel_core_apply_phase_start_attack_rules(new, old)` (`0x09be6d90`, run by `duel_core_cmd_enter_phase`) clears those records at the next phase change, together with slot flag bit 27.
+
+### Current Level, Attribute, Type and name
+
+`duel_core_get_level_ex` (`0x09c0a6ac`), `duel_core_get_attribute` (`0x09c0b204`), `duel_core_get_race_ex` (`0x09c0ac6c`) and `duel_core_get_slot_name_id` (`0x09bf0328`) apply modifiers in the same order:
+
+1. Card data value (`card_db_get_*`); an empty slot gives 0.
+2. Only a face-up card in a monster zone with slot flag bit 3 clear is modified. Name rules apply to spell/trap zones too.
+3. Copy rules: `0xf57` takes the value of its linked monster (recursive call); a trap monster takes the matching word of `duel_core_apply_trap_monster_stats`. Name copies are kind-2 records (`0x1f0e`, `0x1dc2`, `0x1d43`, `0x1a74`) whose value is a monster that is not prohibited.
+4. Overrides. Attribute and Type use "newest wins": each candidate carries a timestamp, either the placement serial (slot `+0x04`) of a continuous card on the field or the record timestamp (`+0x06`) of an effect record, and the newest one replaces the value. The kind-5 records `0xf49`/`0xf47` act only while no other override applied. `get_race_ex(…, skip)` ignores the override whose timestamp equals `skip`, so a caller can evaluate "the Type without this card's effect".
+5. Level only: additive deltas from link records (kinds 7/10) and temporary records (kinds 1–3), and `0x1ec1` sets the Level and discards the earlier deltas. A non-zero Level is clamped at 1. `base_only` skips the temporary part.
+6. Name only: when no copy record is newer than the card's placement, built-in "treated as" rules apply (4 monsters, and `0xecd` → `0x12be` in a spell/trap zone).
+
+Each source is accepted only if the monster's spell or trap immunity word does not block that source's side. The getters read the immunity words with the nesting counter `0x09e2d244` raised, which suggests the immunity functions use it to avoid recursing into these getters (M).
+
+### Negation, targeting links and forced positions
+
+- `duel_core_set_slot_negated(side, slot, negated)` (`0x09c19d1c`) is called only by `duel_effects_update_negated_slots`. It owns slot flag bit 8 = "effect negated", which explains why many predicates test bit 8. When a card becomes negated, it removes the card's own records (commands `0x36`/`0x37`), resets slot values, destroys monsters equipped through kind-12 records, and removes every counter.
+- `duel_core_check_targeting_links(side, slot)` (`0x09c147f0`) is run for every slot by `duel_effects_rule_check_all_targeting_links`. It makes at most one correction per call:
+  - destroys a source whose link the target's shield negates;
+  - drops links whose condition no longer holds;
+  - destroys equips that `duel_effects_filter_equip_target` no longer accepts.
+- `duel_core_apply_forced_positions` (`0x09cdd74c`), called from the chain builder, enforces the seven continuous position-changing cards of table `0x09dedadc`, oldest source first.
+
+`set_slot_negated` and `apply_forced_positions` share the counter `0x09e2d238`: after about 10 repetitions they destroy the card instead of changing it again. This is presumably a guard against endless negate/flip loops (L).
+
+### Pending actions and selections
+
+`duel_core_run_pending_action` (`0x09c0e8b8`) is the single driver of the pending-action block `0x09e2d2e0`. It dispatches 21 kinds to their workers and synchronises link duels (packets `0x1e` request, `0x1f` result). The request finishes only when the worker reports done **and** the engine command queue is empty.
+
+Workers documented in this round:
+
+- coin toss, kind `0x12` (`0x09c0decc`, with the Arcana Force call and the retoss);
+- `duel_core_pending_select_with_hint`, kind 10;
+- `duel_core_card_request_select_list_cards_step`, kind `0xe`;
+- inline negation of chain links, kind `0xc`. It sets bits in link byte `+0x04` unless `duel_effects_cannot_be_negated`.
+
+### Response windows
+
+- `duel_core_timing_event_allows_card_response(side, card)` (`0x09ccacdc`) filters by event code. A card is offered in a window only when a queued timing event is one it can react to.
+- `duel_core_has_activatable_response(link, side, strict)` (`0x09ccb534`) asks whether any field or hand card can be activated in response. In strict mode, a player responding to their own link is limited to 21 listed cards, unless they hold one of five cards that lift the limit.
+- `duel_core_format_response_window_text` (`0x09ccba44`) picks the window's prompt text from the first queued event.
+- `duel_core_chain_collect_auto_responses` (`0x09c2ddbc`) adds the automatic responders (`0x148e`, `0x1aa5`, `0x1cb0`, …) to the chain being built.
+
+### Other procedures
+
+- **Drawing.** `duel_core_draw_cards_ex(side, count, by_effect, quiet)` (`0x09c28f44`) is the body behind every draw. It returns 1 when the cards are drawn, −1 when the Deck is too small (command `0x56` still sets the lost flag), and 0 when the draw is replaced by a mill or blocked (commands `0x2e`/`0x2f`). It raises timing event `0x1a` per card, and the triggers that react to drawing run only when `quiet` is 0.
+- **Summon gate.** `duel_core_is_summon_kind_allowed(side, kind_mask, card)` (`0x09c0bdec`) is shared by the five `can_*_summon` checks. It covers rule modes 4, 5 and 6 of `0x09e02cac` (no Normal Summon or Set, no Special Summon, no Set) and about 40 lock cards.
+- **End of duel.** `duel_core_record_duel_result` (`0x09be4648`, exported to `rel_duel_mgr`) writes the result block, experience and save statistics. It calls `duel_core_check_duel_condition` (`0x09be3bc0`), which evaluates the challenge selected by the save's record table word `0xa4`: about 115 conditions over duel statistics, results, turn counts, cards used and save progress.
+- **View wrappers.** `duel_core_view_get_zone_highlight_states` returns the slot relation table of `duel_core_build_slot_relation_table` (`0x09c0a174`). The values are 7 blocked, 6 marked by the card, a link kind, and `| 0x100` targeted.
+
+### Open questions from the 2026-11-03 round
+- Slot flag bits 22, 23 and 27: "has attacked", "no attack left" and a per-phase flag are inferred from their readers (M); find the writers.
+- Event-word bits 25–30: the Type-specific bits are set for Types `0x14`, `0x15` and 9, but their readers were not identified.
+- The Type `0x15` test on the opponent's battle record in send-batch state 2 and in `send_battle_destroyed_cards`: the banish-by-battle cards it gates (`0x1ade`, `0x18e6`, `0x15d9`, `0x14b7`, `0x147a`, `0x16f8`) do not obviously share that Type. Check the meaning of record `+0x2c` in this path.
+- The counter `0x09e2d238` (limit 10) in `set_slot_negated` and `apply_forced_positions`, and `0x09e2d23c`, `0x09e2d240`: loop guards or a real rule?
+- The direction of each forced position in `apply_forced_positions` (which cards force Attack and which force Defense) is read from the compare logic (M); confirm in PPSSPP.
+- `timing_event_allows_card_response` returns at once on event codes 1 and 5 (duelist kind 1, the CPU), so it does not look at later events in the queue. Is that intended?
+- The last two arguments that `duel_core_filter_valid_attack_target` passes to `is_valid_attack_target`, and the pass-through arguments of `duel_core_view_can_activate_slot_card` and `duel_core_call_face_change_hook`, are hidden by the decompiler; read the disassembly.
+- The extra duel result values 1–3 used by `record_duel_result` (`0x09e02cb0`) and the function `0x09be26f4` it calls.
 
 ## Open questions
 

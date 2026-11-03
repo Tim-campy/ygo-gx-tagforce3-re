@@ -291,6 +291,82 @@ Consumers:
 | `0x09becad4` | `duel_core_count_attack_targets(side, slot)` | H | Counts valid targets among the 5 opposing slots. |
 | `0x09db30f0` … `0x09db44a8` | battle commands | H/M | Table above. |
 
+## Large procedures documented in the 2026-11-03 round
+
+All 27 functions below were read in full from the read-only Ghidra export (`rel_duel_eng` at `0x09be1400`, plus one `rel_duel_mgr` function). No VFPU instructions appear in any of them, including the 11,616-byte `duel_core_battle_compute_stats`; all battle arithmetic is integer. Evidence is static; nothing here was traced in PPSSPP in this round.
+
+### How a step function is built
+
+Every turn, phase and Battle step is a resumable state machine. It reads its sub-step (`0x09e2d214` for turn steps, `0x09e2d224` for Battle steps, `0x09e2d22c` for the Last Turn flow, `0x09e29908` for commands), does one unit of work, writes the next sub-step and returns 0; it returns 1 only when it is finished, and the driver then advances the index. A sub-step that posts a prompt (`duel_core_request_yes_no`, `duel_core_ask_yes_no_by_side`, `duel_core_begin_select_cards`, `duel_core_request_card_selection`, `duel_core_open_card_list`, `duel_core_request_prompt_kind4/8`) moves to an "answer" sub-step that reads the result from `0x09e2d248` (yes/no), `0x09e2d2d8`/`0x09e2d2da` (prompt answer), `0x09e2d2fa` (selection), or `0x09e2d258`/`0x09e2d26c`/`0x09e2d27c + 0x09e2d280` (human cursor input). Interrupt sub-steps use values of 100 and above (`0x64`–`0x73`, `0x8c`–`0x96`, 200, `0x480`), so the normal path stays in 0–10. A "scan" over field slots keeps its position in `0x09e2d21c` (and the side or pass in `0x09e2d218`) so that it can stop on a prompt and resume at the next slot.
+
+Many steps follow the same window pattern: raise a timing event, clear `0x09e28e40`, and on the next call go back and raise it again while `0x09e28e40` shows that new events were queued in the meantime (Standby sub-steps 1–3, End 1–2, Draw 8–9, Battle step 5 sub-step 4). Steps that queue field triggers for a list of cards set slot flag bit 27 on each one whose trigger was queued (`0x09e28e48`), and skip flagged slots, so that each card triggers once per step.
+
+The player-block flag `+0x120` bit 23 is read by the Draw, Standby, Main and End steps: when it is set they skip their phase-entry command, timing event and the destructions at the end of turn counters (Main returns 1 at once). Bit 0 skips only the draw.
+
+### Battle steps
+
+- **Step 1, `duel_core_battle_step_select_attack(side)` (`0x09dd23fc`)**: command `0x14`; the CPU's choice is the return value of `ai_battle_choose_attacker`; the human gets input mode 3. Leaving the Battle Phase sets index 11 with `0x09e2d228` = 0 (to Main Phase 2) or 1 (to End). A Last Turn battle bypasses the choice (`duel_core_find_last_turn_marker_slot`).
+- **Step 2, `duel_core_battle_step_declare_attack(side)` (`0x09dd2a6c`)**: target choice (sub-steps 0–5, defender's choice at 10/`0x0b`), then command `0x17` or `0x18`. The target is chosen by the defender instead of the attacker when the defender controls a card from a small set (`0x1318` links force the target; `0x1cd4`, `0xe9f`, `0x1bad`, `0x139c`, `0x1443`, player record `0x177a` hand over the choice).
+- **Step 3, `duel_core_battle_step_attack_costs()` (`0x09dd3574`)**: takes the replay snapshot, pays the declaration costs (`0x131d` Deck-to-Graveyard, `0x1320` 500 LP per copy on either side, attacker `0x18a4`/`0x11cd` 1,000 LP, `0x12a5`/`0x127f`/`0x127e`/`0x127d` 500 LP, `0x1115` coin call and LP halving, `0x12a0`/`0x128f` Tribute), sets `0x09e28630` and runs `duel_core_battle_check_replay`.
+- **Step 5, `duel_core_battle_step_damage_start()` (`0x09dd4530`)**: command `0x19 (slot, 1)`, a fresh snapshot, start-of-Damage-Step triggers (event `0x14`), the face-down target flipped, then `compute_stats_live(0)` and the "during damage calculation" amounts of both monsters turned into kind-4 markers carrying the amount (`duel_core_battle_get_damage_calc_bonus`), timing event `0x14`.
+- **Step 6, `duel_core_battle_step_damage_calc()` (`0x09dd5454`)**: markers (0, 1), command `0x15` + `compute_stats_live(2)` + timing `0x0d` (2), final stats (3), the dry run `resolve_live(0)` followed by interrupt prompts (destruction substitutes `0x6e`, `0x1e28` `0x6f`, `0x1e3b` `0x70`, `0x1ba7` `0x71`, `0xecd` `0x72`, `0xead` `0x73`/`0x480`), the real `resolve_live(1)` (4), command `0x16` (5), commands `0x20` (6). Sub-steps 0, 2 and 3 each re-verify the snapshot and end the attack (index 10) if the attacker or the target changed.
+- **Step 9, `duel_core_battle_step_damage_end()` (`0x09dd82b4`)**: refreshes record `+0x44`, sets record `+0x38` for the two cards that handle their own destruction (`0x147a`, `0x13a4`), advances `0x1529`'s turn counter, queues `0x1b1c` equip triggers, then `duel_core_request_battle_destruction()`. Direct attacks skip it.
+- **Step 10, `duel_core_battle_step_attack_end(side)` (`0x09dd889c`)**: sub-step 0 (only when `0x09e2bba0` bit 1 is set) runs the after-battle card effects of attacker, equips, field zone and target inside one timing batch; sub-step 1 posts command `0x1c` and picks the next index: 1 (next attack), 2 or 3 (a second attack for a monster with a kind-4 `0x16cb` marker; `0x1e35` re-attacks its linked monster with a preset target), 11 (Last Turn or player-0 record `0x19b3`), or ends the turn (player-0 record `0x15db`: commands `0x1a (1, 5)` and `0x0f`).
+
+`duel_core_battle_check_replay()` (`0x09dd177c`) is the common "did the field change?" test; it compares the 12-word snapshot with a freshly built one in the same layout (`memcmp`, `0x30` bytes). A replay sends the attack back to step 2 with `0x09e28638 = 1`; step 2 then asks "continue the attack?" (message `0xdf`).
+
+`duel_core_can_end_battle_phase(side)` (`0x09dd0b88`, 9 callers, formerly the unnamed `0x09dd0b88` in `duel-phases.md`) returns 0 while a monster is forced to attack (cards `0x15ff`, `0x1669`, `0x14a6`, `0x1443`, `0x1b0a`+`0x1a4b`, `0xec7`, `0x16bf`, `0x1eee`, `0x1a79`, opposing `0x1bad`/`0x1cd4`/`0xe9f`, `0x1d32` links); `0x16a1` and a current-turn `0x1502` always allow leaving. The step-1 menu and the Main Phase menu use it for mask bit `0x20`.
+
+### Damage computation order
+
+1. `duel_core_battle_compute_stats(apply, simulate)` (`0x09dc15c8`) builds both battle records. Per side: stat block (live from `duel_core_compute_card_stats(..., 1, 0)` or from the AI snapshot `0x09e0308c`), then three per-side modifiers that are applied to every later amount: an ATK halving counter, a DEF halving counter and a zero flag (`stat-modifiers.md`). The attacker's battle-only amounts are summed (own effect, `duel_core_battle_get_damage_calc_bonus`, `0x1846` equips, `0x1ef2` records, A-Counters, `0x1b5b`, Amulet-style Level difference `0x1c38`, attached records), shifted by the counters (halving rounds up, a negative counter doubles), zeroed by the flag, signed by Reverse Trap (`0x1257` on player 0) and added to ATK/DEF (stat words 6/7). The target follows the same pattern. Only for a non-direct attack: half-the-target's-ATK bonuses (`0x1238`, `0x1ac8`), the "+1000 when weaker" field cards for Elemental/Destiny Heroes (`0x18ff`/`0x1a66`), the `0x159e` +2500 equip, then the two "becomes" monsters `0x1bb3` and `0xec2` in placement-serial order (they run last because their value depends on the opponent's final ATK). Last: `0x150a` equips are destroyed at ATK > 1299, the record fields `+0x1c`–`+0x28` are clamped at 0, statistic `0x0b` is updated.
+2. `duel_core_battle_resolve(apply, simulate)` (`0x09dc5a4c`, `battle.md`) compares the records. For each pending destruction it asks `duel_core_battle_is_destroyed(attacker, apply, simulate)` (`0x09dc4594`): a per-card "cannot be destroyed by battle" chain (skipped when slot flag bit 8 is set), common rules (player records, equips, links), then the substitutes that keep the monster on the field (once-per-turn counters via `0xfb6`, counter type `0x13` with `0xeb8`, Union and other equips marked `0x15b3`); a substitution sets the new record field **`+0x3c` = 1**. For each damage record it asks `duel_core_battle_is_damage_prevented(damage, attacker)` (`0x09dc555c`): the monster's own "no battle damage" effects, the damaged player's records, field spells, Last Turn (`0x151e` kind-4 marker on the attacking player). Doubling, halving and the other amount rules follow in `resolve` (`battle.md`, "Damage calculation").
+3. Step 6 runs `resolve` twice: `resolve_live(0)` before the interrupt prompts (so that the prompts can test which monster would be destroyed and who would take damage) and `resolve_live(1)` after them.
+4. Step 6 sub-step 5 posts command `0x16` with the damage of each side (clamped to `0xffff`); step 7 applies it (`duel_core_apply_battle_damage`); step 9 hands the destroyed monsters to the pending-work destruction.
+
+Battle record fields established in this round (relative to `0x09e28650 + side × 0x48`): `+0x38` "destruction handled by the card's own effect" is also written by step 9 for `0x147a` and `0x13a4`; `+0x3c` "destruction replaced by a substitute" is written by `duel_core_battle_is_destroyed` and read by `duel_core_battle_is_damage_prevented` (`0x1989`); `+0x44` is recomputed by steps 9 and 10 from `duel_core_find_field_slot_by_ref` and the generation bits.
+
+### Phase steps
+
+- **Draw, `duel_core_step_draw_phase()` (`0x09ddb090`)**: command 10, hand discards for `0x1504`, pre-draw triggers (`0x14fd`, `0x1bea`, `0x14c4`/`0x1a97`/`0x1e76`, Graveyard `0x1984`), the optional double draw of `0x1dcf` (yes/no), input mode 1 confirmation (answer `0x0c`), `duel_core_draw_cards_ex(side, 1 or 2, 0, 0)` at sub-step 7, post-draw trigger `0x1da5`, timing event 1. A skipped draw for a CPU with nothing left while the opponent holds `0x14ff` posts command `0x22 (5)`.
+- **Standby, `duel_core_step_standby_phase()` (`0x09de2460`)**: command 11; the 102-entry `(function, argument)` table at `0x09e0155c` (run at sub-step 1 and again at 100 with `0x09e28f84 = 1`); timing event 2; maintenance costs (LP cost from `duel_effects_get_standby_lp_cost`, Tributes, counters, Graveyard banishing); sub-step 200 advances the turn counters of continuous cards and the countdowns of player-list records `0x12c8` (4 turns) and `0x1811` (2 turns), whose expiry returns a banished card with command `0x3e` and raises timing event `0x25`.
+- **Main, `duel_core_step_main_phase()` (`0x09de0240`)**: command 12, then a loop at sub-step 2 between the AI (`ai_main_phase` → `duel_core_main_phase_request_phase`) or input mode 2 and the phase menu; `0x15`/`0x16` are the Battle Phase (timing event 3, `duel_core_run_battle_steps`, command 14 afterwards), `0x1e` leaves to the End Phase (timing event 4).
+- **End, `duel_core_step_end_phase()` (`0x09ddf4dc`)**: command 15 (`0x0f`), timing event 5, per-card upkeep in three slot scans (sub-steps 3–6: `0x1eba`, `0x150e`, `0xfee`, `0x1c3d`, `0x149d`, `0x1aa3`/`0x1400`/`0x1102`, value countdowns `0x112f`/`0x1130` via command `0x46`), then the 143-entry `(function, argument)` table at `0x09e0107c` in two passes (`0x09e28f84` = pass; the first pass stops before `duel_core_clear_slot_effect_markers`), then the 8 checks at `0x09e014f4`. `duel_core_end_phase_set_marked_monsters_face_down(side, key)` (`0x09dde330`) has the shape of an entry of such a table.
+- **Last Turn, `duel_core_run_last_turn_flow()` (`0x09de07d0`)**: its own sub-step `0x09e2d22c`; Special Summon from the card list, a single battle through the Battle step table starting at index 1 (from the Battle Phase) or 0, re-entry of the saved phase (`0x09e2d1ec`) with command `10 + phase`, and a loop for several copies of the `0x151e` record.
+
+### Command executor
+
+`duel_core_execute_command()` (`0x09dc0974`) is a 104-case switch on `0x09e290f8 & 0xfff`; it sets `0x09e2d234 = 1` before dispatching, and an unknown code just clears `0x09e29904` (done). The handler names are listed in `functions/duel_core.md`; the table is the authoritative code-to-handler map for the port.
+
+### `.ydq` loader
+
+`duel_core_load_ydq(text)` (`0x09dc94e4`) and `duel_core_parse_ydq_line(line)` (`0x09dc82cc`) match `formats/tutorial.md` with two additions:
+
+- The `EquipActNNN_*` keys write effect record `NNN + 1` of the general effect pool `0x09e2c7cc` (`stat-modifiers.md`); the `_Type` names are the pool's kind nibble (`ONLYINTURN` 1, `ONLYFACETURN` 2, `ONLYFACE` 3, `FOREVER` 5, `PERMANENT` 6, `DURINGFACE` 7, `EQUIPMENT` 10, `UNION` 11, `CAPTURED` 12), so equip records in a `.ydq` are pre-built effect attachments. The loader posts command `0x35` per record and clears the kind afterwards so that the command re-creates it.
+- Command `0x43`'s `a` argument is `side | slot << 1 | face-up << 14 | position << 15` (bit 14 from slot `+0x08`, bit 15 from slot `+0x06`); `tutorial.md` currently states the two bits the other way round.
+
+### Link duels
+
+`duel_core_net_process_packet()` (`0x09dcc94c`, called once per frame by `duel_core_run_duel_flow`) receives one packet into `0x09e28760` and mirrors the remote engine: timing events and whole timing queues (types 7–10), timing batches (8), chain links (`0x10`, `0x12`, `0x16`–`0x1b`, copied as 24-byte links into `0x09e28cb4`), action state (`0x13`–`0x15`, 60 bytes at `0x09e290bc`), the remote player's answers (`0x0c`, `0x0f`, `0x1c`–`0x1f`) and stop/error handshakes (1–3). The packet counter `0x09e28998` is incremented on send and decremented for most received types (hypothesis: outstanding acknowledgements, confidence medium).
+
+### Duel setup in `rel_duel_mgr`
+
+`duel_core_setup_engine_for_duel()` (`rel_duel_mgr:0x08eaac94`) reads the setup buffer from `deck_get_duel_setup_buffer`: `+0x188` RNG seed, `+0x18c` first player, `+0x192` mode (1 single, 2 tag), `+0x194` index into a 12-byte audio table at `0x08eb9548`, `+0x1a0` turn counter, duelist records of `0x1ac` bytes from `+0x1a4` (kind at `+0x1a4`, deck at `+0x230`). In a tag duel the four decks are assigned to duelists 0–3 in an order that depends on the first player, and `duel_core_start_duel(1)` is used.
+
+### Open questions from the 2026-11-03 round
+- `0x09e2bba0`: bit 0 suppresses `duel_core_battle_get_damage_calc_bonus` in simulated stats; bit 1 enables the after-battle sub-step of step 10. Who writes it, and what the bits stand for, is not traced.
+- The meaning of `0x09e2d258` differs between readers: step 2 treats 0 as "cancelled", step 1 and the Main Phase treat 0 as "a menu/phase answer is pending in `0x09e2d26c`". Trace the input handler (`summon.md`) to name the flag.
+- Step 10: the attacker must already carry a kind-4 `0x16cb` marker to attack again, and the step posts the same marker again; whether the marker counts extra attacks or marks "second attack used" is open.
+- Battle record `+0x3c`: written by `duel_core_battle_is_destroyed`, read by `duel_core_battle_is_damage_prevented`; other readers not searched.
+- `0x09e29920` is used both as the `.ydq` equip-record count and as the count of the candidate list built by `duel_core_collect_list_activations` (`0x09e29928`/`0x09e2a128`); confirm that the two uses never overlap in time.
+- Player block `+0x108` (`0x09e2a630`), compared `> 3` for field card `0x1a0c` in `duel_core_battle_is_damage_prevented`, is not identified.
+- `0x09e2b168` (read as a side for card `0x1ba7` in step 6) lies inside player 1's block (`+0x104`); its meaning is open.
+- `duel_core_check_select_target_soul_exchange`: Ghidra shows the call to the saved filter `0x09e2d290` without arguments; the real argument pass-through (and whether the function takes a third parameter) needs the assembly.
+- `duel_core_end_phase_set_marked_monsters_face_down`: which table holds it (End Phase table `0x09e0107c` or the L4 list `0x09e010b0`) is not confirmed.
+- `duel_core_battle_check_replay` is decompiled without parameters although step 3 passes the attacking side; confirm in the assembly whether the argument is used.
+- Fix `formats/tutorial.md` (command `0x43` bits 14/15) after a PPSSPP check of one `.ydq` field card.
+- Link duel: packet type meanings are read from the receiver only; the sender side and the acknowledgement protocol are not documented.
+
 ## Open questions
 
 - Confirm at runtime (PPSSPP): LP at `0x09e2a528`/`0x09e2b064`, the step sequence through `0x09e2d220`, and the damage records at `0x09e286e0` for one ATK-vs-DEF attack with piercing.
