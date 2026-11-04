@@ -283,7 +283,7 @@ Two bytes per row of the `BOOT.BIN` character table (`character-table.md`; 174 r
 
 ### Minigame blocks (`0x1be0c`–`0x1bf0b`)
 
-Not yet laid out beyond the map rows above: the blocks are reached through pointers that the minigame modules keep in their own globals, which the map pass did not follow, so sizes other than block 3 (12 `u32`, from `save_reset_options`) rest on adjacency only (low). Differential save 7 (below) is the pending check.
+Laid out on 2026-11-04 in [`save-minigame-blocks.md`](save-minigame-blocks.md): the pointers kept in module globals were followed with capstone. Only block 3 (`rel_underground`, 12 `u32`) is read and written; `rel_blackjack`, `rel_dodge` and `rel_throw` fetch their block pointer and never dereference it, and blocks 2, 6 and 7 have no user. The same page maps the result routine's game index to the nine high scores. Differential saves 6 and 7 (below) remain the runtime check of the game-index mapping.
 
 ## Game-state accessors (`BOOT.BIN`)
 
@@ -351,8 +351,8 @@ All seven plaintext saves rebuild byte for byte, region by region. `save_charact
 ## Open questions
 
 - The meaning of the unknown collection and option bits.
-- The five unknown regions (4,850 bytes, listed in the map); the readers of the minigame blocks inside the modules (pointers kept in module globals were not followed).
-- Which minigame owns each of the nine high scores, and what the 49 record values and 108 duel-bonus entries are (text ids `0x1020` onwards in `rel_duelrecord` would name them).
+- The five unknown regions (4,850 bytes, listed in the map). (The readers of the minigame blocks were followed on 2026-11-04: `save-minigame-blocks.md`.)
+- Which minigame owns each of the nine high scores (the game index → record map is in `save-minigame-blocks.md`; the module → game index link is runtime data), and what the 49 record values and 108 duel-bonus entries are (text ids `0x1020` onwards in `rel_duelrecord` would name them).
 - What slot 0, the stored decks and the card list hold (deck editor), and the content of the `0x200`-byte edit block.
 - Whether `rel_title` rejects a save whose OpenPSID differs from the console's (the checksum only detects in-memory edits).
 - The meaning of the other save modes (7, 8, `0x16`).

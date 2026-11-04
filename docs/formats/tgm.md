@@ -297,8 +297,9 @@ The scalar tracks before the first one a node uses are scene parameters. Two lay
 | 4–9 | Constant 0, 1, 0, 0, 0, 0 in every file; not read by the cut-in camera (unknown; the same slots are the fog block of the 84-track layout). |
 | 10 + i (i = 0–31) | Visibility group *i*: `field_3d_update_visibility_mask` `0x09842900` sets mask bit *i* when the track's value is exactly 0, merges the result with two override masks of the cut-in object (`+0x184`, `+0x188`, bit 9/10 special case), and stores it with `field_3d_set_group_mask` `0x0882ffbc` (instance `+0x64`). Materials with flag bit 3 and group *i* (`+0xA0`) are hidden while bit *i* is set (medium-high: the setter and the material test are read, the hand-over from `+0x64` to the draw hook's mask was not traced). |
 
-`.vtmt` (88 files, `voice01.vtmt.gz` in each cut-in archive): flag 2, nine nodes, no leading tracks.
-Purpose unknown (lip or face animation driven by voice playback is a guess, low).
+`.vtmt` (88 files: `voice01.vtmt.gz` in 86 cut-in archives, `voice02.vtmt.gz` in 2): flag 2, nine nodes, no leading tracks.
+Role established 2026-11-04: the lip-sync (talking) animation of the cut-in face bones, sampled only while the
+duellist's voice is audible; see [`vtmt.md`](vtmt.md).
 
 ## Runtime model instance (`tgm_model_instance`, 0x68 bytes)
 
@@ -476,7 +477,7 @@ not applied. Keep exports out of git.
 - The 84-track `-etc` tracks 13–19 and the 42-track tracks 4–9; the direction convention of GE lights.
 - How the cut-in's group mask (`+0x64`) reaches the draw hook's mask (`hook+0x10`); which objects own the
   32 visibility groups (props, alternative hands or faces?).
-- The role of `.vtmt`.
+- ~~The role of `.vtmt`~~: lip-sync animation, [`vtmt.md`](vtmt.md) (2026-11-04).
 - Where the 828 textures without a same-archive `.gim` come from (character faces from `cutin_da_faces`,
   shared textures from `cutin_common.ehp`?).
 - The GE front-face setting (winding was established from normals, not from code).

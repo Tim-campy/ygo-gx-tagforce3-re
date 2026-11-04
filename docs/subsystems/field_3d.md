@@ -724,7 +724,7 @@ blocks) and `rel_field`'s field render state, stencil shadows and map stencil pa
 - ~~The change-over task `0x0987a604`~~: answered 2026-11-04 (batch 2 findings): 16 frames, a screen capture redrawn through a 31 × 21 swirl grid while fading to or from black; backdrop `0x169c` uses a plain 60-frame fade. The eight card-specific extras are described per card in the same findings (static read; not every float constant is read).
 - ~~Texture-mapping callbacks `0x0882ef50` / `0x0882f050`~~: answered 2026-11-04 (batch 1 findings, "Texture-map callbacks and the EDRAM ramp"): type 1 is camera-driven environment mapping with lights 2/3, type 2 light-0-driven mapping, optionally against a 64 × 32 EDRAM ramp (cel-shading hypothesis, medium).
 - ~~How the group mask `inst+0x64` reaches the draw hook~~: answered 2026-11-04: it is word 4 of the instance draw state `inst+0x54` passed to `field_3d_draw_pass`, and it is a hide mask.
-- The unread `-etc` tracks (84-track 13–19, 42-track 4–9) and the purpose of `.vtmt`.
+- The unread `-etc` tracks (84-track 13–19, 42-track 4–9). (The purpose of `.vtmt` is settled: lip-sync animation, `docs/formats/vtmt.md`.)
 - Role of `.tmf` (with `.ehf`, covered separately).
 - The remaining open fields listed in `docs/formats/tgm.md`.
 - The open questions of the 2026-11-04 batches (above, per batch): the state word of the cut-in effect random generators, float constants of the effect recipes, the possible `0x1c400`-byte slot overlap of generic characters' cut-in archives, and the latent `field_3d_pose_nodes_blend` track-index issue.
