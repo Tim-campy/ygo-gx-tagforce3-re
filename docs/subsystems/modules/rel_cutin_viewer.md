@@ -115,7 +115,7 @@ character with high confidence (no address-adjacency guess is needed, unlike in 
 
 | Set-up routine | Character | Block name used |
 | --- | --- | --- |
-| 0x0000c104 (batch A1) | 3, variant 2 | `chr03v2` |
+| 0x0000c104 (batch A1) | 3, variant 2 | `tbl098ce370` |
 | 0x0000c3c0 | 0x1d | `chr1d` |
 | 0x0000c67c | 0x15 | `chr15` |
 | 0x0000c938 | 0x26 | `chr26` |
@@ -128,7 +128,7 @@ character with high confidence (no address-adjacency guess is needed, unlike in 
 | 0x0002f7e0 | 2, variant 2 | `chr02v2` |
 | 0x0002fd24 | 2, variant 0 | `chr02v0` |
 | 0x00030274 | 3, variant 1 | `chr03v1` |
-| 0x00030530 | 3, variant 0 (also character 2 with variant > 2) | `chr03v0` |
+| 0x00030530 | 3, variant 0 | `chr03v0` |
 
 Other set-up routines of the switch lie in batch A1 (0x00003bd8 for 0x28, 0x00003edc for 0x24 variant != 0,
 0x00004e20 for 7, 0x000050c8 for 0x1e, 0x00005384 for 0x18, 0x00005640 for 0x1f, 0x000058fc for 0x1c, 0x00008144,
