@@ -2666,3 +2666,4 @@ Stubs: 13451, for 2660 targets.
 | `ui_is_cutin_mode_active` (`0x0989d3dc`) | rel_duel_draw | rel_duel_mgr `0x08eafccc` (1) |
 | `ui_preload_duel_movie` (`0x098a4304`) | rel_duel_draw | rel_duel_mgr `0x08eafd0c` (2) |
 | `ui_play_duel_movie` (`0x098a4350`) | rel_duel_draw | rel_duel_mgr `0x08eafd14` (1) |
+

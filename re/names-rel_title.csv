@@ -77,7 +77,7 @@ address,group,name
 0x08ed54f4,ui,ui_menu_ctx_begin_sprites,M,same chain of 13 BOOT GE-state calls as ui_partner_menu_begin_sprites
 0x08ed5630,ui,ui_menu_ctx_emit_sprite,M,BOOT 0x0882979c then 0x088295a4: one textured quad (same as ui_partner_menu_emit_sprite)
 0x08ed56e0,ui,ui_menu_ctx_draw_text,M,mode 0 left-aligned, mode 1 centred in the width using text width 0x08846168(str)>>6; colour/size then print stub
-0x08ed5860,ui,ui_stub_noop_menu_ctx_print,M,empty body called by ui_menu_ctx_draw_text with (x, y, width, string): the print call compiled out
+0x08ed5860,ui,ui_menu_ctx_draw_text_fit_width_px,H,round 4 rename from the disassembly: shifts x/y/width by 6 and tail-jumps to system_font_draw_text_fit_width (Ghidra showed an empty body); was ui_stub_noop_menu_ctx_print
 0x08ed5874,ui,ui_menu_ctx_draw_number,M,counts decimal digits of the value (10^n loop), splits the width per digit, draws each through ui_menu_ctx_draw_text
 # family mini_result
 0x08ed60f4,ui,ui_mini_result_create,M,heap_alloc 0x2c4 -> 0x09aee308, menu ctx at +0x54, game type at +0x20, applies the result data, then init
@@ -150,7 +150,7 @@ address,group,name
 0x08ed36c8,ui,ui_partner_menu_begin_sprites,M,chain of 13 BOOT GE-state calls (0x0882b3d4, 0x08828cfc 9/1/4, 0x0882a488 -1...) before the sprite draws
 0x08ed3804,ui,ui_partner_menu_emit_sprite,M,BOOT 0x0882979c(dl, tex w/h, size) then 0x088295a4(dl, x, y, 0, u, v, ...): one textured quad
 0x08ed38b4,ui,ui_partner_menu_draw_text,M,mode 0: 0x0884874c(dl), colour 0x08846124, glyph size 0x088460f4(w,h), print stub, 0x0884877c() returns dl
-0x08ed396c,ui,ui_stub_noop_partner_menu_print,M,empty body called by ui_partner_menu_draw_text with (x, y, width, string): the print call compiled out
+0x08ed396c,ui,ui_partner_menu_draw_text_fit_width_px,H,round 4 rename from the disassembly: shifts x/y/width by 6 and tail-jumps to system_font_draw_text_fit_width (Ghidra showed an empty body); was ui_stub_noop_partner_menu_print
 0x08ed3980,ui,ui_partner_menu_draw_faces,M,images 1/2 (mdl_bup01/02) by state; face tiles of player and partner via 0x08ed3b88; ids >= 0x2e use the common head
 0x08ed3b88,ui,ui_partner_menu_draw_face_icon,M,BOOT 0x0885b168(id, variant; 0x1b->1, 0x10->0) gives a tile index, drawn as a 64x64 cell of an 8-wide grid
 0x08ed3d64,ui,ui_partner_menu_draw_common_face,H,finds common_head.gim and common_body.gim in archive +4, clips to x<0x1e0, draws them via 0x08eca318
