@@ -82,5 +82,5 @@ address,group,name
 0x00006930,ui,ui_album_shift_pages_up
 0x000069e8,ui,ui_album_place_pages
 0x00006a78,ui,ui_album_find_page
-0x00006ab4,ui,ui_album_return_zero
+0x00006ab4,ui,ui_album_module_start
 0x00006da8,ui,ui_album_shutdown_step

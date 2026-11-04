@@ -134,8 +134,8 @@ address,group,name
 0x00005168,world,world_dodge_cpu_power_poll
 0x00005244,world,world_dodge_cpu_power_draw
 0x0000524c,world,world_dodge_human_draw
-0x000052a0,world,world_dodge_human_move_start
-0x000052ac,world,world_dodge_human_turn_begin
+0x000052a0,world,world_dodge_human_turn_begin
+0x000052ac,world,world_dodge_human_move_begin
 0x000052b8,world,world_dodge_human_move_poll
 0x00005420,world,world_dodge_human_move_draw
 0x00005428,world,world_dodge_human_item_start
@@ -215,7 +215,7 @@ address,group,name
 0x0000855c,ui,ui_dodge_poll_dialog
 0x000085a4,ui,ui_dodge_draw_dialog
 0x000085cc,ui,ui_dodge_init_window_list
-0x00008670,world,world_dodge_shutdown_stub
+0x00008670,world,world_dodge_free_window_list
 0x0000867c,world,world_dodge_draw_item_icon
 0x00008714,world,world_dodge_draw_item_name
 0x00008930,world,world_dodge_draw_angle_gauge
@@ -239,7 +239,7 @@ address,group,name
 0x00009bf0,world,world_dodge_ball_get_pos
 0x00009c04,world,world_dodge_ball_launch_base
 0x00009cb4,world,world_dodge_ball_collide_grid
-0x0000a214,world,world_dodge_ball_a_stop
+0x0000a214,world,world_dodge_ball_on_hit
 0x0000a234,world,world_dodge_ball_a_draw
 0x0000a2b8,world,world_dodge_ball_a_launch
 0x0000a2f0,world,world_dodge_ball_a_get_gravity

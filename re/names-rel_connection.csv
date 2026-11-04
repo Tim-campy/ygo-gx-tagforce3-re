@@ -281,7 +281,7 @@ address,group,name
 0x0000c66c,ui,ui_duel_result_reset_sprite_state
 0x0000c730,ui,ui_duel_result_draw_atlas_rect
 0x0000c7ac,ui,ui_connection_menu_ctx_draw_text
-0x0000c8d0,ui,ui_draw_level_badge_text_fit
+0x0000c8d0,ui,ui_connection_menu_ctx_draw_text_fit_width_px
 0x0000c8e4,ui,ui_connection_menu_ctx_draw_number
 0x0000cd84,ui,ui_connection_result_create
 0x0000ce20,ui,ui_connection_result_destroy
@@ -293,7 +293,7 @@ address,group,name
 0x0000d510,ui,ui_connection_result_handle_input
 0x0000d604,ui,ui_connection_result_poll_face_buttons
 0x0000d63c,ui,ui_connection_result_update_message_window
-0x0000d6fc,ui,ui_connection_result_is_layout_frame_101
+0x0000d6fc,ui,ui_connection_result_get_layout0_frame
 0x0000d710,ui,ui_connection_result_draw
 0x0000d834,ui,ui_connection_result_draw_header
 0x0000d8f0,ui,ui_connection_result_draw_panels

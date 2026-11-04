@@ -379,7 +379,6 @@ address,group,name
 # family deck_list
 0x08eaef80,ui,ui_draw_card_row_badges,M,up to three 12-byte badge records: icon atlas 0x08ebdb3c by kind, bar, number (ui_draw_text_number); caller ui_draw_card_row_detailed
 # family deck_stubs
-0x08eb81b8,deck,deck_stub_noop_save_stored_deck,M,jr ra; called from deck_save_to_stored_deck
 # family font_px_wrappers
 0x08ea39fc,ui,ui_filter_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; caller ui_draw_filter_value_items
 0x08ea8384,ui,ui_command_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width; next to ui_draw_command_item_label

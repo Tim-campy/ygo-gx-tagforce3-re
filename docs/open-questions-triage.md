@@ -742,7 +742,7 @@ Totals: 573 items: B 9, R 158, W 18, N 388. The platform API map (`platform-api.
 | 399 | Whether the three LCG copies share a state word. | N |  |
 | 400 | `field_3d_map_material_dd_callback`: which GE state is toggled (argument hidden) and what the four name substrings at `0x090fd16c`-`0x090fd184` are. | N |  |
 | 401 | `field_3d_set_map_variant_group_mask` (`rel_field:0x090da484`): body lost in the decompilation; read the disassembly. | N |  |
-| 402 | `field_3d_lookup_attach_offsets_a` (17 tables, `0x098d3e50`-`0x098d48b0`): which table is searched (hidden). | N |  |
+| 402 | `field_3d_lookup_attach_offsets_a` (17 tables): answered in the round 7 audit, the key (character << 3 \| variant) selects the table (`field_3d.md`). | N | closed |
 | 403 | Cut-in loading block: is the 0x1c400-byte overlap for generic characters real (buffer 0x20c00 + 0x17b000 > stride 0x17f800), or are generic cut-in … | N |  |
 | 404 | Backdrop archive slot `+0x10`: never set in the code read here, so the release-pending path may be dead. | N |  |
 | 405 | `field_3d_get_cutin_sound_fx_timing`: ids 0x1bf, 0x24c, 0x294 set a start frame that is then overwritten (start = previous sound frame + 8); a bug in … | N |  |
@@ -904,7 +904,7 @@ Totals: 573 items: B 9, R 158, W 18, N 388. The platform API map (`platform-api.
 | 511 | Tag-duel load gate: the 0xc0-byte block copied per player record for character category 5 (setup record +0x230) is presumably a custom … | N |  |
 | 512 | Turn-order seed `setup + 0x188`: is it the duel engine's RNG seed? A link duel shares it between peers, which suggests it is. | R | `battle.md` (`+0x188` RNG seed). |
 | 513 | Skipped tail-call wrappers (`*_draw_text_fit_width_px`, `*_draw_text_px`, `*_draw_text_box_px`, `ui_duel_result_draw_text_to_screen_edge`, … | N |  |
-| 514 | `ui_stub_noop_duel_hud_hook` (`0x09858afc`, 20 bytes): empty or a lost tail call to a text drawer? (check the instructions; the names are visibly … | N |  |
+| 514 | `ui_duel_hud_draw_text_fit_width_px` (`0x09858afc`, 20 bytes), formerly a suspected empty hook: answered, it is a tail call to `system_font_draw_text_fit_width` (round 7 audit). | N | closed |
 | 515 | `ui_draw_badge_number_at_position`: its callers pass only two visible arguments; where the badge number (third argument) comes from needs the … | N |  |
 | 516 | `ui_draw_card_texture_quad_scaled` (`0x09856400`, skipped) and `ui_duel_create_value_popup_task_moving` (`0x09871dcc`, skipped): argument order … | N |  |
 | 517 | `ui_create_wait_object`'s update callback `0x09863a94`, the card display callbacks `0x0986221c`/`0x09862214`, the arrow draw callback `0x0985d004` … | N |  |

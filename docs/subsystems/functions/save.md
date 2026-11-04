@@ -209,7 +209,7 @@ Functions: 192 (BOOT.BIN 184, rel_charalist 2, rel_dodge 1, rel_field 5).
 
 | Address | Prototype | Summary |
 | --- | --- | --- |
-| `0x09ef46f0` | `void save_set_default_team_name(void)` | Builds the default team name: player name (save_get_player_name), the 2-character separator at 0x09efc20c, and the partner name world_call_get_character_name_string(2, character, variant) with ruby stripped, terminated after 16 characters, and stores it with save_set_team_name. No return value. Side effects: save data. Callers: 1 (ui_charalist_init_partner_confirm). |
+| `0x09ef46f0` | `void save_set_default_team_name(void)` | Builds the default team name in a zeroed 0x200-byte buffer: player name (save_get_player_name), the separator string at 0x09efc20c (one character, 0x0026, and its terminator) and the partner name world_call_get_character_name_string(2, character, variant) with ruby stripped, and stores it with save_set_team_name. A last wcscat of an empty string at character 17 only rewrites a terminator that is already there, so the name is not cut (hypothesis, confidence medium: a length limit meant as buf[17] = 0). No return value. Side effects: save data. Callers: 1 (ui_charalist_init_partner_confirm). |
 | `0x09ef47a4` | `void save_commit_partner_choice(void)` | Calls save_copy_partner_field into a scratch word and save_set_partner(character, variant) from the confirm work area. No return value. Side effects: save data. Callers: 1 (ui_charalist_update_confirm_page). |
 
 ## `rel_dodge`

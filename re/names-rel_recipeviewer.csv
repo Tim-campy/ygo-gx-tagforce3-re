@@ -6,7 +6,7 @@ address,group,name
 0x00000484,deck,deck_recipe_viewer_update
 0x00002e60,deck,deck_recipe_viewer_draw
 # Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_recipeviewer.md and the function tables) or from identical machine code in a named module.
-0x00000000,deck,deck_recipe_viewer_return_zero
+0x00000000,deck,deck_recipe_viewer_module_start
 0x000007c8,deck,deck_recipe_viewer_release_resources
 0x000008f4,deck,deck_recipe_viewer_scan_imported_decks
 0x00000aa4,deck,deck_recipe_viewer_handle_list_input
@@ -32,7 +32,7 @@ address,group,name
 0x00002818,deck,deck_recipe_viewer_get_tab_count
 0x00002874,deck,deck_recipe_viewer_open_dialog
 0x00002bf8,deck,deck_recipe_viewer_update_dialog
-0x00002d70,ui,ui_card_list_draw_sort_menu
+0x00002d70,deck,deck_recipe_viewer_draw_dialog
 0x00002d9c,deck,deck_recipe_viewer_draw_menu_item
 0x00003338,deck,deck_recipe_viewer_draw_background
 0x000033f4,deck,deck_recipe_viewer_draw_title

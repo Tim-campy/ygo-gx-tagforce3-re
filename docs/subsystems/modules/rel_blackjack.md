@@ -65,8 +65,8 @@ A controller slot is 0xc bytes {object, character, variant} at game +0xa14 + i *
 
 | Vtable slot | Purpose | Human (0x00014adc) | AI (0x00014a4c) |
 | --- | --- | --- | --- |
-| +0x08 | init | 0x000047ac | not identified |
-| +0x0c | term | 0x000047cc | not identified |
+| +0x08 | init | 0x000047ac | 0x000015bc (`world_blackjack_ctrl_reset_phases`) |
+| +0x0c | term | 0x000047cc | 0x000015ec (`world_blackjack_ctrl_term_stub`) |
 | +0x10 | turn begin | 0x000047ec (empty) | 0x0000005c (form guesses) |
 | +0x14 | partner took a card | 0x000047f4 (empty) | 0x000002c8 (restart hint) |
 | +0x18/+0x1c/+0x20 | phase 0 pick | confirm with cursor 0-6 | deck plan or best field guess |
@@ -74,7 +74,7 @@ A controller slot is 0xc bytes {object, character, variant} at game +0xa14 + i *
 | +0x30/+0x34/+0x38 | phase 2 continue/stand | window word 0xe | threshold rule |
 | +0x3c/+0x40/+0x44 | phase 3 hint | returns 1 | stores cursor/card, draws guess |
 
-Slot mapping beyond +0x08, +0x0c, +0x10, +0x14 and the call sites is by the order of the methods in the binary (medium). The human object is 0x148 bytes (message window at +0x28, 0x120 bytes); the AI object 0x88 bytes: +0x24 character, +0x28..+0x38 five parameters from `world_get_character_bytes_44` (character table bytes +0x44..+0x48): +0x28 chance % of the deck strategy, +0x2c planned deck draws, +0x30 spread of that plan, +0x34 stand threshold (distance to 21), +0x38 guess accuracy %; +0x3c decide-once flag, +0x40 deck strategy, +0x44 planned draws, +0x48 draws done, +0x4c best guessed distance, +0x50 hint slot, +0x54 hint card, +0x58[6] guessed kinds, +0x70[6] guessed levels. Meaning of the five bytes from their use here: medium.
+The slot mapping is proven by data: the relocated words at 0x00014a54..0x00014a90 (AI) and 0x00014ae4..0x00014b20 (human) hold exactly these functions, and the phase runners confirm the roles. `world_blackjack_ctrl_reset_phases` is also slot +0x08 of the base vtable (word 0x00014a9c), which `world_blackjack_ctrl_create` calls through +8. `world_blackjack_ai_on_card_taken` is a tail jump to `world_blackjack_ctrl_finish_phase(ai, 3)`. The human object is 0x148 bytes (message window at +0x28, 0x120 bytes); the AI object 0x88 bytes: +0x24 character, +0x28..+0x38 five parameters from `world_get_character_bytes_44` (character table bytes +0x44..+0x48): +0x28 chance % of the deck strategy, +0x2c planned deck draws, +0x30 spread of that plan, +0x34 stand threshold (distance to 21), +0x38 guess accuracy %; +0x3c decide-once flag, +0x40 deck strategy, +0x44 planned draws, +0x48 draws done, +0x4c best guessed distance, +0x50 hint slot, +0x54 hint card, +0x58[6] guessed kinds, +0x70[6] guessed levels. Meaning of the five bytes from their use here: medium.
 
 ## Key structures
 
@@ -132,7 +132,7 @@ The following pack headers gave twin lines whose summaries do not fit the body (
 - Values of the float constants that shape the game: round multiplier C (0x00013680), flip angle (0x000135b4, 0x000135a8), card quad size (0x000135b0/0x000135ac), slot positions (0x00013888). Read them from the binary or PPSSPP.
 - Which of frames 7 and 8 is Spell and which Trap (doubling vs halving).
 - The resource member names at 0x00013e30 (only `strTbl.bin` and the language names were visible in the decompilation).
-- The AI controller's vtable slots +0x08/+0x0c and the third word of each popup-table entry (+0x08) were not identified.
+- The third word of each popup-table entry (+0x08) was not identified.
 - Whether 0x00014b60 (first-side selector) can ever be non-zero: as read, the opponents always open.
 - State 0xb of the main machine (score count-down after a loss) appears to finish at once because the floor equals the score; check in PPSSPP whether the score is reduced on a loss.
 - Exact meanings of the human window answers (2 = first choice?) for dictionary words 2, 8 and 0xe; needs the string table.

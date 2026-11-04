@@ -41,7 +41,7 @@ address,group,name
 0x00002698,deck,deck_tutorial_op_picture_off
 0x000026cc,deck,deck_tutorial_op_cursor
 0x000027f0,deck,deck_tutorial_op_end
-0x00002814,deck,deck_tutorial_on_menu_choice
+0x00002814,deck,deck_tutorial_apply_menu_step
 0x00002880,deck,deck_tutorial_draw_panel_picture_1
 0x00002960,deck,deck_tutorial_draw_panel_picture_2
 0x00002a40,deck,deck_tutorial_draw_panel_picture_3
@@ -58,7 +58,7 @@ address,group,name
 0x00003478,shop,shop_on_archive_loaded
 0x00003508,deck,deck_compare_u16_ascending
 0x00003518,shop,shop_bsearch_resource_table
-0x00003590,deck,deck_tutorial_stub_return_zero
+0x00003590,deck,deck_tutorial_module_start
 0x000038e0,deck,deck_tutorial_shutdown
 0x00003adc,ui,ui_set_editor_layout
 0x00003f5c,ui,ui_select_layout_index
@@ -278,7 +278,7 @@ address,group,name
 0x0001678c,ui,ui_draw_nine_slice_frame
 0x00016a3c,shop,shop_draw_button_help
 0x000170a0,ui,ui_window_draw_text_box_px
-0x000170bc,deck,deck_tutorial_stub_noop_fit_scale
+0x000170bc,shop,shop_button_help_fit_text_scale_px
 0x000170c4,deck,deck_slot_key_list_contains
 0x0001713c,deck,deck_load_slot_recipe
 0x00017194,deck,deck_get_other_deck_card_allowance

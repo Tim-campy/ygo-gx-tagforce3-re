@@ -67,7 +67,7 @@ address,group,name
 0x0000386c,world,world_throw_draw_world_sprite_scaled
 0x00003918,world,world_throw_draw_world_sprite_centered
 0x00003990,world,world_throw_init_message_box
-0x00003a34,world,world_throw_term_noop
+0x00003a34,world,world_throw_free_window_list
 0x00003a40,world,world_throw_draw_name_plate
 0x00003bf0,ui,ui_draw_level_badge_text_fit_3bf0
 0x00003c04,world,world_throw_draw_life_icons

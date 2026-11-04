@@ -6,7 +6,7 @@ address,group,name
 0x000001dc,deck,deck_swap_update
 0x0000cc7c,deck,deck_swap_draw
 # Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_deckswap.md and the function tables) or from identical machine code in a named module.
-0x00000000,deck,deck_swap_return_zero
+0x00000000,deck,deck_swap_module_start
 0x0000031c,deck,deck_swap_release_resources
 0x00000434,deck,deck_swap_alloc_list_buffers
 0x00000490,deck,deck_swap_init_lists
@@ -36,7 +36,7 @@ address,group,name
 0x000028f8,ui,ui_update_pane_cursor_rect
 0x00002a64,deck,deck_swap_open_message
 0x00002d80,deck,deck_swap_update_message
-0x00002ed4,ui,ui_card_list_draw_sort_menu
+0x00002ed4,deck,deck_swap_draw_message_window
 0x00002f00,deck,deck_swap_open_filter_menu
 0x0000319c,deck,deck_swap_update_filter_menu
 0x00003314,deck,deck_swap_handle_filter_value_window
@@ -72,8 +72,8 @@ address,group,name
 0x0000568c,deck,deck_swap_set_layout
 0x00005ab8,ui,ui_select_layout_index
 0x00005b90,deck,deck_swap_get_tab_position
-0x00005c2c,deck,deck_swap_get_tab_label_rect
-0x00005d64,deck,deck_swap_get_tab_count_rect
+0x00005c2c,deck,deck_swap_calc_list_tab_rect
+0x00005d64,deck,deck_swap_calc_list_tab_rect_narrow
 0x00005e64,deck,deck_swap_get_tab_frame
 0x00005ea0,deck,deck_swap_play_tab_frame
 0x00005ef8,deck,deck_swap_update_count_indicators
@@ -233,7 +233,7 @@ address,group,name
 0x00012afc,ui,ui_draw_nine_slice_frame
 0x00012dac,shop,shop_draw_button_help
 0x00013410,ui,ui_window_draw_text_box_px
-0x0001342c,shop,shop_stub_noop_button_help
+0x0001342c,shop,shop_button_help_fit_text_scale_px
 0x00013434,deck,deck_slot_key_list_contains
 0x000134ac,ui,ui_capture_screen_backdrop
 0x00013574,ui,ui_draw_captured_backdrop

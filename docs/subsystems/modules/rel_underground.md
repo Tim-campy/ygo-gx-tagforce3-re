@@ -16,8 +16,8 @@ Module document of the 2026-11-04 round 6 (all game modules imported; `../module
 
 | Address | Prototype | Summary (first sentence) |
 | --- | --- | --- |
-| `0x00002f84` | `void * world_underground_game_draw(void *game, void *list)` | Draws the game object on layer 1. |
-| `0x00003870` | `void world_underground_game_state_choose_column(void *game)` | State 9: while no slide runs, confirm (with follow mode +0x124) closes the message and either plays 0x7a05 and goes to state 0xc (+0x04 clear) or shows message 0xd and goes to state 10; cancel re-centres the view on the player; in follow mode left/right (repeat, mask 0x80/0x20) moves the target column 0..4 and starts a 5-frame slide (sound 0x7a04), the direction button opposite to the walking direction (0x10 or 0x40 by floor parity) leaves follow mode; outside follow mode the d-pad scrolls the view by 16 px (x 0..0x1e8, y 0..0x4f0). |
+| `0x00002f84` | `void * world_underground_game_draw(void *game, void *list)` | Draws the game object (the caller selects layer 1). |
+| `0x00003870` | `void world_underground_game_state_choose_column(void *game)` | State 9: while no slide runs, confirm (with follow mode +0x124) closes the text (world_underground_game_close_text) and either plays 0x7a05 and goes to state 0xc (+0x04 clear) or plays effect 0xd (world_underground_game_play_effect) and goes to state 10; cancel outside follow mode re-enters it, shows the text again (world_underground_game_set_text_visible) and re-centres the view on the player; in follow mode left/right (repeat, mask 0x80/0x20) moves the target column 0..4 and starts a 5-frame slide (sound 0x7a04), the direction button opposite to the walking direction (0x10 or 0x40 by floor parity) leaves follow mode; outside follow mode the d-pad hides the text and scrolls the view by 16 px (x 0..0x1e8, y 0..0x4f0). |
 | `0x000040c8` | `int world_underground_game_walk_player(void *game)` | Moves the player one step along the ladder. |
 | `0x00004668` | `bool world_underground_game_handle_cursor(void *game, int enabled)` | Map input while walking. |
 | `0x00005448` | `int world_underground_game_run_duel_event(void *game)` | Duelist event, substates +0x13c: 0 stops the BGM (fade 10) and shows text 0; 1 after 30 frames or confirm closes the text and starts a white fade-out; 2 when faded initialises (0x0000d99c) and starts (0x0000dadc(floor, LP, slot 0 > 3)) the duel object +0xa60; 3 when the duel ends (0x0000d9b0) reads deck_get_duel_setup_tail_block() +0x20 (result, 1 = won) into +0x150 and +0x28 (remaining LP) into LP +0x14 (capped at max) and the HUD; on a win increments the duels-won count +0x4c, deactivates the duelist (+0x134), recentres the view, restarts the floor music and resets the cursor (0x0000af34), on a loss sets player +0x38; ends the duel object (0x0000d9a8) and fades in; 4 on a win rolls a reward (world_underground_game_roll_duel_reward) into +0x144, picks a slot and applies it, then shows text 1 (results 2 and 8, substate 7), goes to 5 (result 0x10) or finishes; on a loss plays effect 0xe (substate 6); 5 shows text 1; 6 and 8 wait for the effect; 7 on confirm closes the text and refreshes the HUD, then plays the slot effect when result 8 raised a slot to its maximum. |
@@ -94,14 +94,17 @@ Upgrade slots (levels 0..4, raised by box/duel result 8, a slot at 4 is "maxed")
 | +0x1cc | 30 duelist records of 0x24 bytes |
 | +0x604 | 10 box records of 0x34 bytes |
 | +0x80c | map cursor |
-| +0x830 | HUD (LP, tools, timer bar, slot panel, floor label window +0x140) |
+| +0x830 | HUD (LP, tools +0x14, timer bar, slot panel, floor label window +0x140) |
 | +0xa60 | duel object; +0xa64 text window list |
+| +0xb28 | active word of the text window list (+0xa64 list, +0xc4 in it); hides the text while the view scrolls |
 | +0xb2c | darkness record (spotlight when the timer is 0) |
 | +0xb44 / +0xb50 / +0xbb0 | effect ehf / parameter block / effect id (0x16 none) |
 | +0xbb8 | 0x100-byte text buffer |
 | +0xcb8 / +0xcbc | current / wanted music track (0xc normal, 0xe timer out) |
 
-States: 0 init, 1-2 load sdchr slot 0 (character 1) and archives 2 and 3, 3 floor setup, 4-5 load the map archive of the tier, 6 hide loading, 7 fade in, 8 intro text, 9 choose column, 0xa wait, 0xb view map, 0xc start walking, 0xd play, 0xe recentre, 0xf event begin, 0x10 event run, 0x11 event end, 0x12 fade out, 0x13 next floor or leave, 0x14 free map, 0x15 free archives, 0x16 done.
+States: 0 init, 1-2 load sdchr slot 0 (character 1) and archives 2 and 3, 3 floor setup, 4-5 load the map archive of the tier, 6 hide loading, 7 fade in, 8 intro text, 9 choose column, 0xa wait effect, 0xb view map, 0xc start walking, 0xd play, 0xe recentre, 0xf event begin, 0x10 event run, 0x11 event end, 0x12 fade out, 0x13 next floor or leave, 0x14 free map, 0x15 free archives, 0x16 done.
+
+Effects and text are separate mechanisms. `world_underground_game_state_choose_column` and `world_underground_game_state_view_map` call `world_underground_game_play_effect(game, 0xd)` just before state 0xa, and `world_underground_game_draw` draws the effect in that state; `world_underground_game_begin_box_event` plays effects 0xb, 10 and 7. Text windows go through `world_underground_game_show_text` / `world_underground_game_close_text`. Effect 8 plays at the HUD timer position (`world_underground_hud_get_timer_x` / `_y`) and `world_underground_game_is_effect_done` waits for it on `world_underground_hud_is_timer_animating`.
 
 Controls (hypothesis medium for button names): confirm held = fast walk (6 px/frame instead of 0.5); d-pad scrolls the map and moves the cursor; pad bit 0x8000 uses a tool on the cursor cell (adds a rung, value 2); cancel recentres.
 
@@ -110,14 +113,14 @@ Controls (hypothesis medium for button names): confirm held = fast walk (6 px/fr
 - Line cells: 5 columns x 18 rows of words at 0x00019f0c + column * 0x48 + row * 4. Rows 0 and 0x11 are the end rows; values 1 plain, 4 stairs down, 5 stairs up, 6 exit. Even floors walk upward (start row 0x11, end row 0), odd floors downward.
 - Rung slots: 4 gaps x 18 rows at 0x0001a074 + gap * 0x48 + row * 4; values 0 empty, 1 fixed rung, 2 rung added with a tool, 3 blocked (rungs alternate rows between neighbouring gaps so two never meet).
 - Duelist placements 0x0001a194 (30 x 0x10: type, gap, column, row; count 0x0001a414); box placements 0x0001a374 (10 x 0x10: type, gap, column, row; count 0x0001a418). A placement is on a line (gap -1) or on a rung (column -1).
-- Generation per floor (`world_underground_ladder_generate`): 3..17 random rungs (none on floors 20/40/60/80); 10..14 duelists (20..24 on multiples of 25); 3..5 type-1 boxes plus 0..1 type-0 box (none on multiples of 30); floor 100 has five type-2 boxes on row 0 instead and no end-row features; end row: stairs up everywhere, plus N exits (N grows by one per floor change, max 3, none on the first floor of a visit) and a chance of one stairs-down cell of 0/25/50/75/100 % by floor band.
+- Generation per floor (`world_underground_ladder_generate`): 3..17 random rungs (none on floors 20/40/60/80); 10..14 duelists (20..24 on multiples of 25); 3..5 type-1 boxes plus 0..1 type-0 box (none on multiples of 30); floor 100 has five type-2 boxes on row 0 instead and no end-row features; end row: stairs up everywhere, plus N exits (N grows by one per floor change in `world_underground_ladder_add_exit`, count 0x0001a41c, max 3, none on the first floor of a visit) and a chance of one stairs-down cell of 0/25/50/75/100 % by floor band.
 - Pixel tables: column x 0x00017be0 (5 words), row y 0x00017bf4 (18 words), gap x 0x00017c3c (4 words).
 
 ## Boxes, duels and rewards
 
 - Box types: 1 always good (results 0..3), 0 random (good 4..8 or bad 9..0xd), 2 final prize (0xe). Result codes: 0 LP + 10 %, 1 timer + 100, 2 tool + 1, 3 card (class 0/1), 4 LP full, 5 timer full, 6 tools + 5, 7 card (class 3/4), 8 slot + 1, 9 LP - 10 %, 10 timer - 100, 0xb tool - 1, 0xc a maxed slot reset, 0xd floor - 1, 0xe final card (one of five ids at 0x00017a94, fewest owned first; ends the run as "cleared"), 0x10 duel card reward, 0x11 nothing.
 - Card rewards (`world_underground_game_award_random_card`) scan card ids 0xe88..0x1f39 that are valid, not tokens and not in the 25-id exclusion list 0x00017b58, filtered by `card_db_get_prop_bits22` (class value; hypothesis: rarity). Duel rewards use a per-rank percentage row from 0x00017aa8.
-- Duels: opponent LP is a random multiple of 10 between the bounds of 0x00018450 (pair per 5 floors), the opponent deck is a random recipe whose `deck_get_recipe_level` equals the floor rank from 0x000184f0 (per 5 floors). The 0x858-byte duel setup is passed to `duel_setup_load_decks`, then `system_duel_mgr_lib_start_duel_draw`; the module then calls the unnamed `rel_duel_mgr` exports 0x08e9dcb0 (ready test), 0x08e9dcb8 (start) and 0x08e9db84 (running test). The result comes back in `deck_get_duel_setup_tail_block()` +0x20 (1 = won) and +0x28 (remaining LP, which becomes the run LP).
+- Duels: opponent LP is a random multiple of 10 between the bounds of 0x00018450 (pair per 5 floors), the opponent deck is a random recipe whose `deck_get_recipe_level` equals the floor rank from 0x000184f0 (per 5 floors). The 0x858-byte duel setup is passed to `duel_setup_load_decks`, then `system_duel_mgr_lib_start_duel_draw`; the module then calls the `rel_duel_mgr` exports `system_duel_mgr_lib_poll_draw_loading` (0x08e9dcb0, ready test), `system_duel_mgr_lib_begin_duel` (0x08e9dcb8, start) and `system_duel_mgr_lib_update_duel` (0x08e9db84, running test). The result comes back in `deck_get_duel_setup_tail_block()` +0x20 (1 = won) and +0x28 (remaining LP, which becomes the run LP).
 
 ## Files
 
@@ -149,6 +152,7 @@ Language tables have one 0x80-byte block per language index (four 0x20-byte name
 - 0x00002764 / 0x00002774: pack twin `audio_heap_free` is a false positive; they are `world_underground_heap_alloc` / `world_underground_heap_free` on the module heap 0x00019ec4.
 - 0x000080ec: twin `shop_module_start` (rel_shop) has the same code but the name is wrong for this module; named `world_underground_module_start`.
 - 0x0000ce88 is a second copy of `ui_list_window_draw_text` in the same module; named `ui_list_window_draw_text_2`.
+- 0x00007934 (16 bytes in the registry) holds two pieces of code: the wrapper `world_underground_game_set_text_visible` (`j 0x793c; addiu a0, a0, 0xa64`) and an 8-byte helper at 0x0000793c (`jr ra; sw a1, 0xc4(a0)`), the set-active of the text window list. The helper has no function entry; the wrapper is its only `j`/`jal` reference.
 
 ## Open questions
 
@@ -156,5 +160,4 @@ Language tables have one 0x80-byte block per language index (four 0x20-byte name
 - Duelist type words come from a stack array that `world_underground_ladder_roll_duelist_count` does not visibly fill; whether duelists have types at all (confidence low).
 - `world_underground_title_measure_help_page` (0x0000d030) decompiles as an empty body; its return value is used as the page height (skipped).
 - The meaning of the `card_db_get_prop_bits22` classes (0, 1, 3, 4) used by the card rewards (rarity hypothesis).
-- The unnamed `rel_duel_mgr` exports 0x08e9dcb0, 0x08e9dcb8 and 0x08e9db84 used for the duel hand-off.
 - In-game names of the eight upgrade slots and of the result codes (dictionary words, not read).

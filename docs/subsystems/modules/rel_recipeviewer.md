@@ -56,7 +56,7 @@ BOOT.BIN `deck_load_recipe`, `deck_get_recipe_name`, `deck_get_recipe_level`, `d
 - The recipe list shows recipes 1-461 with a non-zero level and save recipe entry bit 0 set (recipe 0, the starting deck, is not listed).
 
 ## Name mismatches
-None.
+- 0x00002d70: twin `ui_card_list_draw_sort_menu` (a single `ui_draw_list_window` call matches many functions); this copy draws the dialog window, named `deck_recipe_viewer_draw_dialog`. The `rel_deckswap` copy 0x00002ed4 (message window 0x000196a4) has the same generic shape and probably deserves a module name too (not checked).
 
 ## Open questions
 - `deck_recipe_viewer_count_owned_copies` counts copy k of an id while the owned count differs from k; this looks like an off-by-one-tolerant "owned copies" count but gives odd results for 1 owned / 3 listed (check in PPSSPP).

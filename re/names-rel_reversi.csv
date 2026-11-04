@@ -162,7 +162,7 @@ address,group,name
 0x00008838,ui,ui_reversi_result_handle_input
 0x0000892c,ui,ui_reversi_result_poll_face_buttons
 0x00008964,ui,ui_reversi_result_update_message_window
-0x00008a24,ui,ui_reversi_result_is_layout_frame_101
+0x00008a24,ui,ui_reversi_result_get_layout0_frame
 0x00008a38,ui,ui_reversi_result_draw
 0x00008b5c,ui,ui_reversi_result_draw_header
 0x00008c18,ui,ui_reversi_result_draw_panels

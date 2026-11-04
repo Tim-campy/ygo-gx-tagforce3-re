@@ -973,7 +973,7 @@ id,name,group,status,size
 0x0882cfa4,system_movie_reader_read,system,documented,116
 0x0882d018,system_movie_reader_read_async,system,documented,116
 0x0882d08c,system_movie_host_read_async_wait,system,documented,76
-0x0882d0d8,system_movie_stub_noop_reader_device,system,documented,8
+0x0882d0d8,system_movie_stream_lseek,system,documented,8
 0x0882d0e0,system_movie_call_umd_io_term,system,documented,32
 0x0882d100,system_movie_video_pts_queue_create,system,documented,124
 0x0882d17c,system_movie_video_pts_queue_reset,system,documented,32
@@ -982,13 +982,13 @@ id,name,group,status,size
 0x0882d1cc,system_movie_video_pts_queue_push,system,documented,96
 0x0882d22c,system_movie_video_pts_queue_pop,system,documented,68
 0x0882d270,system_movie_get_av_sync_state,system,documented,200
-0x0882d338,system_stub_noop_0882d338,system,documented,12
+0x0882d338,system_movie_set_event_flag_bits_3,system,documented,12
 0x0882d344,system_movie_control_flags_create,system,documented,112
 0x0882d3b4,system_movie_control_flags_destroy,system,documented,68
 0x0882d3f8,system_movie_control_flags_clear,system,documented,60
 0x0882d434,system_movie_wait_waitflag_bit0,system,documented,48
 0x0882d464,system_movie_wait_waitflag_bit1,system,documented,48
-0x0882d494,system_movie_stub_set_event_flag,system,documented,8
+0x0882d494,system_movie_set_event_flag,system,documented,8
 0x0882d49c,system_movie_get_event_flag_bits,system,documented,64
 0x0882d4dc,system_movie_wait_controlflag_bit0,system,documented,48
 0x0882d50c,system_movie_wait_controlflag_bit1,system,documented,48
@@ -1020,7 +1020,7 @@ id,name,group,status,size
 0x0882df08,system_movie_reader_set_state,system,documented,12
 0x0882df14,system_movie_reader_is_eof_flag_set,system,documented,48
 0x0882df44,system_movie_reader_is_done,system,documented,88
-0x0882df9c,system_movie_stub_noop_reader_done,system,documented,8
+0x0882df9c,system_movie_reader_ringbuffer_available,system,documented,8
 0x0882dfa4,system_movie_reader_set_event_flags_c00,system,documented,36
 0x0882dfc8,system_movie_reader_mark_eof,system,documented,36
 0x0882dfec,system_movie_reader_check_abort,system,documented,76
@@ -1030,7 +1030,7 @@ id,name,group,status,size
 0x0882e1e4,system_movie_umd_io_unlock,system,documented,16
 0x0882e1f4,system_movie_umd_io_lock,system,documented,20
 0x0882e208,system_movie_umd_open_retry,system,documented,212
-0x0882e2dc,system_movie_stub_noop_umd_retry_wait,system,documented,20
+0x0882e2dc,system_movie_umd_wait_sema,system,documented,20
 0x0882e2f0,system_movie_umd_read_retry,system,documented,236
 0x0882e3dc,system_movie_umd_read_async_retry,system,documented,240
 0x0882e4cc,system_movie_umd_read_async_wait,system,documented,76
@@ -1734,7 +1734,7 @@ id,name,group,status,size
 0x08850d7c,system_net_api_get_side_peer_index,system,documented,48
 0x08850dac,system_net_api_drop_unlisted_peers,system,documented,44
 0x08850dd8,system_net_api_create_hold_pool,system,documented,36
-0x08850dfc,system_net_api_stub_noop_0885293c,system,documented,36
+0x08850dfc,system_net_api_delete_manager_fpl,system,documented,36
 0x08850e20,system_net_api_get_room_counters,system,documented,72
 0x08850e68,system_net_api_update,system,documented,36
 0x08850e8c,system_net_api_open_game_socket,system,documented,36
@@ -1798,7 +1798,7 @@ id,name,group,status,size
 0x08852844,system_net_show_net_dialog_4,system,documented,76
 0x08852890,system_net_show_net_dialog_e,system,documented,76
 0x088528dc,system_net_create_hold_pool,system,documented,96
-0x0885293c,system_net_stub_noop_start_hook,system,documented,16
+0x0885293c,system_net_delete_manager_fpl,system,documented,16
 0x0885294c,system_net_construct,system,documented,84
 0x088529a0,system_net_destruct_room_list,system,documented,72
 0x088529e8,system_net_construct_room_list,system,documented,20
@@ -4699,7 +4699,7 @@ rel_field:0x090f1234,thunk_system_net_api_get_local_duel_side,system,documented,
 rel_field:0x090f123c,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_field:0x090f1244,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_field:0x090f124c,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_field:0x090f1254,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_field:0x090f1254,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_field:0x090f125c,thunk_system_net_api_get_room_counters,system,documented,8
 rel_field:0x090f1264,thunk_system_net_api_get_state_name,system,documented,8
 rel_field:0x090f126c,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -5200,7 +5200,7 @@ rel_shop:0x090de94c,shop_draw_result_row_frame,shop,documented,488
 rel_shop:0x090deb34,shop_draw_rarity_mark,shop,documented,252
 rel_shop:0x090dec30,shop_draw_results_cursor,shop,documented,128
 rel_shop:0x090decb0,shop_draw_results_group_label,shop,documented,1732
-rel_shop:0x090df374,shop_stub_noop_results_group_label,shop,documented,8
+rel_shop:0x090df374,shop_results_fit_text_scale_px,shop,documented,8
 rel_shop:0x090df37c,shop_draw_counter_3d,shop,documented,76
 rel_shop:0x090df3c8,shop_draw_pack_display_model,shop,documented,244
 rel_shop:0x090df4bc,shop_draw_pack_shelf_model,shop,documented,1412
@@ -5287,7 +5287,7 @@ rel_shop:0x090e4870,shop_scroll_with_analog,shop,documented,124
 rel_shop:0x090e48ec,shop_draw_panel_frame,shop,documented,688
 rel_shop:0x090e4b9c,shop_draw_button_help,shop,documented,1636
 rel_shop:0x090e5200,shop_help_draw_text_box_px,shop,documented,28
-rel_shop:0x090e521c,shop_stub_noop_button_help,shop,documented,8
+rel_shop:0x090e521c,shop_button_help_fit_text_scale_px,shop,documented,8
 rel_shop:0x090e5224,thunk_system_scene_register,system,documented,8
 rel_shop:0x090e522c,thunk_system_scene_request,system,documented,8
 rel_shop:0x090e5234,thunk_system_scene_set_static,system,documented,8
@@ -6506,7 +6506,7 @@ rel_shop:0x090e7814,thunk_system_net_api_get_local_duel_side,system,documented,8
 rel_shop:0x090e781c,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_shop:0x090e7824,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_shop:0x090e782c,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_shop:0x090e7834,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_shop:0x090e7834,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_shop:0x090e783c,thunk_system_net_api_get_room_counters,system,documented,8
 rel_shop:0x090e7844,thunk_system_net_api_get_state_name,system,documented,8
 rel_shop:0x090e784c,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -7439,7 +7439,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,documented,8
 0x098584e0,ui_stub_noop_hud_term,ui,documented,8
 0x098584e8,ui_draw_duel_hud,ui,documented,1524
 0x09858adc,ui_draw_text_to_right_edge,ui,documented,32
-0x09858afc,ui_stub_noop_duel_hud_hook,ui,documented,20
+0x09858afc,ui_duel_hud_draw_text_fit_width_px,ui,documented,20
 0x09858b10,ui_draw_phase_indicator_layout,ui,documented,128
 0x09858b90,ui_update_duel_hud,ui,documented,244
 0x09858c84,ui_set_lp_display_target,ui,documented,56
@@ -8450,7 +8450,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,documented,8
 0x098a75a8,ui_emit_polyline_corner_down_right,ui,documented,136
 0x098a7630,ui_emit_polyline_edge_below,ui,documented,128
 0x098a76b0,ui_emit_polyline_corner_down_left,ui,documented,136
-0x098a7738,ui_emit_polyline_segment_down,ui,documented,128
+0x098a7738,ui_emit_polyline_edge_left,ui,documented,128
 0x098a77b8,ui_emit_polyline_joint_up_left,ui,documented,136
 0x098a7840,ui_emit_polyline_joint_up_right,ui,documented,136
 0x098a78c8,ui_emit_polyline_joint_down_left,ui,documented,136
@@ -8676,7 +8676,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,documented,8
 0x098b3b58,ui_duel_help_draw_header,ui,documented,260
 0x098b3c5c,ui_draw_help_header_text,ui,documented,20
 0x098b3c70,ui_help_set_header_font,ui,documented,64
-0x098b3cb0,ui_stub_noop_help_close_hook,ui,documented,8
+0x098b3cb0,ui_duel_help_disable_ruby,ui,documented,8
 0x098b3cb8,ui_duel_help_on_image_loaded,ui,documented,140
 0x098b3d44,ui_duel_help_get_topic_group,ui,documented,64
 0x098b3d84,ui_duel_help_topic_from_index,ui,documented,16
@@ -11371,7 +11371,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,documented,8
 0x098be91c,thunk_system_net_api_get_side_peer_index,system,documented,8
 0x098be924,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 0x098be92c,thunk_system_net_api_create_hold_pool,system,documented,8
-0x098be934,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+0x098be934,thunk_system_net_api_delete_manager_fpl,system,documented,8
 0x098be93c,thunk_system_net_api_get_room_counters,system,documented,8
 0x098be944,thunk_system_net_api_get_state_name,system,documented,8
 0x098be94c,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -13558,7 +13558,7 @@ rel_story:0x08eb066c,thunk_system_net_api_get_local_duel_side,system,documented,
 rel_story:0x08eb0674,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_story:0x08eb067c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_story:0x08eb0684,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_story:0x08eb068c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_story:0x08eb068c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_story:0x08eb0694,thunk_system_net_api_get_room_counters,system,documented,8
 rel_story:0x08eb069c,thunk_system_net_api_get_state_name,system,documented,8
 rel_story:0x08eb06a4,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -14313,7 +14313,7 @@ rel_deck:0x08eb8054,ui_help_measure_chapter_item,ui,documented,208
 rel_deck:0x08eb8124,ui_help_chapter_split_text_lines,ui,documented,12
 rel_deck:0x08eb8130,ui_help_set_chapter_font,ui,documented,72
 rel_deck:0x08eb8178,ui_help_is_sub_item,ui,documented,64
-rel_deck:0x08eb81b8,deck_stub_noop_save_stored_deck,deck,documented,8
+rel_deck:0x08eb81b8,thunk_sceRtcGetCurrentClockLocalTime,sdk,documented,8
 rel_deck:0x08eb81c0,thunk_deck_tutorial_draw,deck,documented,8
 rel_deck:0x08eb81c8,thunk_deck_tutorial_start,deck,documented,8
 rel_deck:0x08eb81d0,thunk_deck_tutorial_update,deck,documented,8
@@ -15535,7 +15535,7 @@ rel_deck:0x08eba7c8,thunk_system_net_api_get_local_duel_side,system,documented,8
 rel_deck:0x08eba7d0,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_deck:0x08eba7d8,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_deck:0x08eba7e0,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_deck:0x08eba7e8,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_deck:0x08eba7e8,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_deck:0x08eba7f0,thunk_system_net_api_get_room_counters,system,documented,8
 rel_deck:0x08eba7f8,thunk_system_net_api_get_state_name,system,documented,8
 rel_deck:0x08eba800,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -17765,7 +17765,7 @@ rel_title:0x08ee0e58,thunk_system_net_api_get_local_duel_side,system,documented,
 rel_title:0x08ee0e60,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_title:0x08ee0e68,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_title:0x08ee0e70,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_title:0x08ee0e78,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_title:0x08ee0e78,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_title:0x08ee0e80,thunk_system_net_api_get_room_counters,system,documented,8
 rel_title:0x08ee0e88,thunk_system_net_api_get_state_name,system,documented,8
 rel_title:0x08ee0e90,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -20969,7 +20969,7 @@ rel_duel_mgr:0x08eb4d8c,thunk_system_net_api_get_local_duel_side,system,document
 rel_duel_mgr:0x08eb4d94,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_duel_mgr:0x08eb4d9c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_duel_mgr:0x08eb4da4,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_duel_mgr:0x08eb4dac,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_duel_mgr:0x08eb4dac,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_duel_mgr:0x08eb4db4,thunk_system_net_api_get_room_counters,system,documented,8
 rel_duel_mgr:0x08eb4dbc,thunk_system_net_api_get_state_name,system,documented,8
 rel_duel_mgr:0x08eb4dc4,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -21318,11 +21318,11 @@ rel_duel_mgr:0x08eb5874,thunk_duel_core_tutorial_fire_event_handler,duel_core,do
 rel_duel_mgr:0x08eb587c,thunk_duel_core_tutorial_on_answer,duel_core,documented,8
 rel_duel_mgr:0x08eb5884,thunk_duel_core_tutorial_redraw_hint,duel_core,documented,8
 rel_duel_mgr:0x08eb588c,thunk_duel_core_tutorial_is_busy,duel_core,documented,8
-rel_duel_mgr:0x08eb5894,system_duel_mgr_stub_noop_frame_hook_a,system,documented,8
-rel_duel_mgr:0x08eb589c,system_duel_mgr_stub_noop_tutorial_hook,system,documented,8
-rel_duel_mgr:0x08eb58a4,system_duel_mgr_stub_noop_deckswap_hook_a,system,documented,8
-rel_duel_mgr:0x08eb58ac,system_duel_mgr_stub_noop_deckswap_hook_b,system,documented,8
-rel_duel_mgr:0x08eb58b4,system_duel_mgr_stub_noop_frame_hook_b,system,documented,8
+rel_duel_mgr:0x08eb5894,thunk_duel_core_tutorial_on_duel_end,duel_core,documented,8
+rel_duel_mgr:0x08eb589c,thunk_duel_core_tutorial_is_finished,duel_core,documented,8
+rel_duel_mgr:0x08eb58a4,thunk_deck_swap_start,deck,documented,8
+rel_duel_mgr:0x08eb58ac,thunk_deck_swap_update,deck,documented,8
+rel_duel_mgr:0x08eb58b4,thunk_deck_swap_draw,deck,documented,8
 0x09be1400,duel_core_post_ui_event,duel_core,documented,72
 0x09be1448,duel_core_is_ui_event_busy,duel_core,documented,52
 0x09be147c,duel_core_set_ui_event_hook,duel_core,documented,12
@@ -28193,7 +28193,7 @@ rel_duel_mgr:0x08eb58b4,system_duel_mgr_stub_noop_frame_hook_b,system,documented
 0x09de6754,thunk_system_net_api_get_side_peer_index,system,documented,8
 0x09de675c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 0x09de6764,thunk_system_net_api_create_hold_pool,system,documented,8
-0x09de676c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+0x09de676c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 0x09de6774,thunk_system_net_api_get_room_counters,system,documented,8
 0x09de677c,thunk_system_net_api_get_state_name,system,documented,8
 0x09de6784,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -30116,7 +30116,7 @@ rel_blackjack:0x000111ec,thunk_system_net_api_get_local_duel_side,system,documen
 rel_blackjack:0x000111f4,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_blackjack:0x000111fc,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_blackjack:0x00011204,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_blackjack:0x0001120c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_blackjack:0x0001120c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_blackjack:0x00011214,thunk_system_net_api_get_room_counters,system,documented,8
 rel_blackjack:0x0001121c,thunk_system_net_api_get_state_name,system,documented,8
 rel_blackjack:0x00011224,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -30531,7 +30531,7 @@ rel_cardalbum:0x00006878,ui_album_shift_pages_down,ui,documented,184
 rel_cardalbum:0x00006930,ui_album_shift_pages_up,ui,documented,184
 rel_cardalbum:0x000069e8,ui_album_place_pages,ui,documented,144
 rel_cardalbum:0x00006a78,ui_album_find_page,ui,documented,60
-rel_cardalbum:0x00006ab4,ui_album_return_zero,ui,documented,8
+rel_cardalbum:0x00006ab4,ui_album_module_start,ui,documented,8
 rel_cardalbum:0x00006abc,ui_card_album_start,ui,documented,296
 rel_cardalbum:0x00006be4,ui_card_album_update,ui,documented,452
 rel_cardalbum:0x00006da8,ui_album_shutdown_step,ui,documented,316
@@ -31759,7 +31759,7 @@ rel_cardalbum:0x00009504,thunk_system_net_api_get_local_duel_side,system,documen
 rel_cardalbum:0x0000950c,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_cardalbum:0x00009514,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_cardalbum:0x0000951c,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_cardalbum:0x00009524,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_cardalbum:0x00009524,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_cardalbum:0x0000952c,thunk_system_net_api_get_room_counters,system,documented,8
 rel_cardalbum:0x00009534,thunk_system_net_api_get_state_name,system,documented,8
 rel_cardalbum:0x0000953c,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -32099,7 +32099,7 @@ rel_cardalbum:0x00009fa4,thunk_deck_get_owner_current_recipe,deck,documented,8
 rel_cardalbum:0x00009fac,thunk_deck_select_owner_variant,deck,documented,8
 rel_charalist:0x09eee400,ui_call_draw_character_portrait_image,ui,documented,40
 rel_charalist:0x09eee428,ui_draw_character_portrait_image,ui,documented,1152
-rel_charalist:0x09eee8a8,ui_charalist_return_zero,ui,documented,8
+rel_charalist:0x09eee8a8,ui_charalist_module_start,ui,documented,8
 rel_charalist:0x09eee8b0,ui_charalist_open,ui,documented,552
 rel_charalist:0x09eeead8,ui_charalist_update,ui,documented,8
 rel_charalist:0x09eeeae0,ui_charalist_update_ex,ui,documented,776
@@ -32199,7 +32199,7 @@ rel_charalist:0x09ef5ec8,ui_charalist_draw_confirm_text,ui,documented,148
 rel_charalist:0x09ef5f5c,ui_charalist_draw_text_fit_px,ui,documented,20
 rel_charalist:0x09ef5f70,ui_charalist_draw_confirm_portraits,ui,documented,360
 rel_charalist:0x09ef60d8,ui_charalist_draw_portrait_cell,ui,documented,304
-rel_charalist:0x09ef6208,ui_duel_versus_draw_face_body,ui,documented,284
+rel_charalist:0x09ef6208,ui_charalist_draw_confirm_face_body,ui,documented,284
 rel_charalist:0x09ef6324,ui_start_osk_input,ui,documented,564
 rel_charalist:0x09ef6558,ui_update_osk_input,ui,documented,656
 rel_charalist:0x09ef67e8,ui_charalist_init_menu_bar_set,ui,documented,60
@@ -33435,7 +33435,7 @@ rel_charalist:0x09ef96d0,thunk_system_net_api_get_local_duel_side,system,documen
 rel_charalist:0x09ef96d8,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_charalist:0x09ef96e0,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_charalist:0x09ef96e8,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_charalist:0x09ef96f0,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_charalist:0x09ef96f0,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_charalist:0x09ef96f8,thunk_system_net_api_get_room_counters,system,documented,8
 rel_charalist:0x09ef9700,thunk_system_net_api_get_state_name,system,documented,8
 rel_charalist:0x09ef9708,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -34055,7 +34055,7 @@ rel_connection:0x0000c528,ui_connection_menu_ctx_draw_three_slice_bar,ui,documen
 rel_connection:0x0000c66c,ui_duel_result_reset_sprite_state,ui,documented,196
 rel_connection:0x0000c730,ui_duel_result_draw_atlas_rect,ui,documented,124
 rel_connection:0x0000c7ac,ui_connection_menu_ctx_draw_text,ui,documented,292
-rel_connection:0x0000c8d0,ui_draw_level_badge_text_fit,ui,documented,20
+rel_connection:0x0000c8d0,ui_connection_menu_ctx_draw_text_fit_width_px,ui,documented,20
 rel_connection:0x0000c8e4,ui_connection_menu_ctx_draw_number,ui,documented,1184
 rel_connection:0x0000cd84,ui_connection_result_create,ui,documented,156
 rel_connection:0x0000ce20,ui_connection_result_destroy,ui,documented,76
@@ -34067,7 +34067,7 @@ rel_connection:0x0000d484,ui_connection_result_wait_intro,ui,documented,140
 rel_connection:0x0000d510,ui_connection_result_handle_input,ui,documented,244
 rel_connection:0x0000d604,ui_connection_result_poll_face_buttons,ui,documented,56
 rel_connection:0x0000d63c,ui_connection_result_update_message_window,ui,documented,192
-rel_connection:0x0000d6fc,ui_connection_result_is_layout_frame_101,ui,documented,20
+rel_connection:0x0000d6fc,ui_connection_result_get_layout0_frame,ui,documented,20
 rel_connection:0x0000d710,ui_connection_result_draw,ui,documented,292
 rel_connection:0x0000d834,ui_connection_result_draw_header,ui,documented,188
 rel_connection:0x0000d8f0,ui_connection_result_draw_panels,ui,documented,608
@@ -35293,7 +35293,7 @@ rel_connection:0x00010828,thunk_system_net_api_get_local_duel_side,system,docume
 rel_connection:0x00010830,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_connection:0x00010838,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_connection:0x00010840,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_connection:0x00010848,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_connection:0x00010848,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_connection:0x00010850,thunk_system_net_api_get_room_counters,system,documented,8
 rel_connection:0x00010858,thunk_system_net_api_get_state_name,system,documented,8
 rel_connection:0x00010860,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -35639,7 +35639,7 @@ rel_conv_machine:0x00000458,shop_conv_machine_select_cards,shop,documented,688
 rel_conv_machine:0x00000708,shop_conv_machine_feed_cards,shop,documented,660
 rel_conv_machine:0x0000099c,shop_conv_machine_run_conversion,shop,documented,2532
 rel_conv_machine:0x00001380,shop_conv_machine_show_result,shop,documented,1184
-rel_conv_machine:0x00001820,shop_conv_machine_fit_scale_stub,shop,documented,8
+rel_conv_machine:0x00001820,shop_conv_machine_fit_text_scale_px,shop,documented,8
 rel_conv_machine:0x00001828,shop_conv_machine_ask_again,shop,documented,528
 rel_conv_machine:0x00001a38,shop_conv_machine_pick_result,shop,documented,100
 rel_conv_machine:0x00001a9c,shop_conv_machine_set_counter_anim,shop,documented,128
@@ -35679,7 +35679,7 @@ rel_conv_machine:0x000043f4,shop_conv_machine_get_model,shop,documented,368
 rel_conv_machine:0x00004564,shop_on_archive_loaded,shop,documented,144
 rel_conv_machine:0x000045f4,shop_conv_machine_compare_u16,shop,documented,16
 rel_conv_machine:0x00004604,shop_bsearch_resource_table,shop,documented,120
-rel_conv_machine:0x0000467c,shop_conv_machine_return_zero,shop,documented,8
+rel_conv_machine:0x0000467c,shop_conv_machine_module_start,shop,documented,8
 rel_conv_machine:0x00004684,ui_conv_machine_start,ui,documented,180
 rel_conv_machine:0x00004738,ui_conv_machine_update,ui,documented,288
 rel_conv_machine:0x00004858,shop_conv_machine_shutdown,shop,documented,244
@@ -36901,7 +36901,7 @@ rel_conv_machine:0x00006f3c,thunk_system_net_api_get_local_duel_side,system,docu
 rel_conv_machine:0x00006f44,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_conv_machine:0x00006f4c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_conv_machine:0x00006f54,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_conv_machine:0x00006f5c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_conv_machine:0x00006f5c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_conv_machine:0x00006f64,thunk_system_net_api_get_room_counters,system,documented,8
 rel_conv_machine:0x00006f6c,thunk_system_net_api_get_state_name,system,documented,8
 rel_conv_machine:0x00006f74,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -37254,7 +37254,7 @@ rel_cutin_viewer:0x000002e4,ui_cutin_viewer_scene_end_noop,ui,documented,8
 rel_cutin_viewer:0x000002ec,ui_cutin_viewer_set_state,ui,documented,420
 rel_cutin_viewer:0x00000490,ui_cutin_viewer_scan_cutin_files,ui,documented,72
 rel_cutin_viewer:0x000004d8,ui_cutin_viewer_open_file_list,ui,documented,408
-rel_cutin_viewer:0x00000670,ui_cutin_viewer_leave_list_noop,ui,documented,12
+rel_cutin_viewer:0x00000670,ui_cutin_viewer_leave_list,ui,documented,12
 rel_cutin_viewer:0x0000067c,ui_cutin_viewer_update_file_list,ui,documented,108
 rel_cutin_viewer:0x000006e8,ui_cutin_viewer_load_file,ui,documented,100
 rel_cutin_viewer:0x0000074c,ui_cutin_viewer_enter_file_preview,ui,documented,164
@@ -37263,12 +37263,12 @@ rel_cutin_viewer:0x00000858,ui_cutin_viewer_update_file_preview,ui,documented,31
 rel_cutin_viewer:0x00000994,ui_cutin_viewer_open_card_view,ui,documented,264
 rel_cutin_viewer:0x00000a9c,ui_cutin_viewer_close_card_view,ui,documented,44
 rel_cutin_viewer:0x00000ac8,ui_cutin_viewer_open_character_list,ui,documented,128
-rel_cutin_viewer:0x00000b48,thunk_ui_cutin_viewer_leave_list_noop,ui,documented,8
+rel_cutin_viewer:0x00000b48,thunk_ui_cutin_viewer_leave_list,ui,documented,8
 rel_cutin_viewer:0x00000b50,ui_cutin_viewer_draw_character_item,ui,documented,204
 rel_cutin_viewer:0x00000c1c,ui_list_window_draw_text,ui,documented,32
 rel_cutin_viewer:0x00000c3c,ui_cutin_viewer_update_character_list,ui,documented,300
 rel_cutin_viewer:0x00000d68,ui_cutin_viewer_request_cutin_archive,ui,documented,60
-rel_cutin_viewer:0x00000da4,ui_cutin_viewer_leave_loading_noop,ui,documented,8
+rel_cutin_viewer:0x00000da4,ui_cutin_viewer_leave_loading,ui,documented,8
 rel_cutin_viewer:0x00000dac,ui_cutin_viewer_wait_cutin_archive,ui,documented,84
 rel_cutin_viewer:0x00000e00,ui_cutin_viewer_start_cutin_preview,ui,documented,304
 rel_cutin_viewer:0x00000f30,ui_cutin_viewer_stop_cutin_preview,ui,documented,36
@@ -37643,8 +37643,8 @@ rel_cutin_viewer:0x0000c170,field_3d_cutin_tbl098ce370_on_motion_end,field_3d,do
 rel_cutin_viewer:0x0000c190,thunk_field_3d_cutin_default_frame_hook,field_3d,documented,8
 rel_cutin_viewer:0x0000c198,field_3d_cutin_tbl098ce370_map_node,field_3d,documented,308
 rel_cutin_viewer:0x0000c2cc,field_3d_cutin_tbl098ce370_lookup_attach_offset,field_3d,documented,168
-rel_cutin_viewer:0x0000c374,field_3d_cutin_chr03v2_find_offset_entry,field_3d,documented,52
-rel_cutin_viewer:0x0000c3a8,field_3d_cutin_chr03v2_sort_offset_table,field_3d,documented,16
+rel_cutin_viewer:0x0000c374,field_3d_cutin_tbl098ce370_find_offset_entry,field_3d,documented,52
+rel_cutin_viewer:0x0000c3a8,field_3d_cutin_tbl098ce370_sort_offset_table,field_3d,documented,16
 rel_cutin_viewer:0x0000c3b8,thunk_field_3d_cutin_default_apply_voice_nodes,field_3d,documented,8
 rel_cutin_viewer:0x0000c3c0,field_3d_cutin_chr1d_setup_desc,field_3d,documented,76
 rel_cutin_viewer:0x0000c40c,field_3d_cutin_chr1d_on_motion_start,field_3d,documented,32
@@ -39221,7 +39221,7 @@ rel_cutin_viewer:0x00032ddc,thunk_system_net_api_get_local_duel_side,system,docu
 rel_cutin_viewer:0x00032de4,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_cutin_viewer:0x00032dec,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_cutin_viewer:0x00032df4,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_cutin_viewer:0x00032dfc,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_cutin_viewer:0x00032dfc,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_cutin_viewer:0x00032e04,thunk_system_net_api_get_room_counters,system,documented,8
 rel_cutin_viewer:0x00032e0c,thunk_system_net_api_get_state_name,system,documented,8
 rel_cutin_viewer:0x00032e14,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -40822,7 +40822,7 @@ rel_debug_menu:0x0000670c,thunk_system_net_api_get_local_duel_side,system,docume
 rel_debug_menu:0x00006714,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_debug_menu:0x0000671c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_debug_menu:0x00006724,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_debug_menu:0x0000672c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_debug_menu:0x0000672c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_debug_menu:0x00006734,thunk_system_net_api_get_room_counters,system,documented,8
 rel_debug_menu:0x0000673c,thunk_system_net_api_get_state_name,system,documented,8
 rel_debug_menu:0x00006744,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -41160,7 +41160,7 @@ rel_debug_menu:0x0000719c,thunk_deck_get_owner_recipe_count,deck,documented,8
 rel_debug_menu:0x000071a4,thunk_deck_get_owner_recipe,deck,documented,8
 rel_debug_menu:0x000071ac,thunk_deck_get_owner_current_recipe,deck,documented,8
 rel_debug_menu:0x000071b4,thunk_deck_select_owner_variant,deck,documented,8
-rel_deckswap:0x00000000,deck_swap_return_zero,deck,documented,8
+rel_deckswap:0x00000000,deck_swap_module_start,deck,documented,8
 rel_deckswap:0x00000008,deck_swap_start,deck,documented,468
 rel_deckswap:0x000001dc,deck_swap_update,deck,documented,320
 rel_deckswap:0x0000031c,deck_swap_release_resources,deck,documented,280
@@ -41192,7 +41192,7 @@ rel_deckswap:0x000027a4,ui_scroll_card_text,ui,documented,340
 rel_deckswap:0x000028f8,ui_update_pane_cursor_rect,ui,documented,364
 rel_deckswap:0x00002a64,deck_swap_open_message,deck,documented,796
 rel_deckswap:0x00002d80,deck_swap_update_message,deck,documented,340
-rel_deckswap:0x00002ed4,ui_card_list_draw_sort_menu,ui,documented,44
+rel_deckswap:0x00002ed4,deck_swap_draw_message_window,deck,documented,44
 rel_deckswap:0x00002f00,deck_swap_open_filter_menu,deck,documented,668
 rel_deckswap:0x0000319c,deck_swap_update_filter_menu,deck,documented,376
 rel_deckswap:0x00003314,deck_swap_handle_filter_value_window,deck,documented,1740
@@ -41228,8 +41228,8 @@ rel_deckswap:0x000055e0,deck_normalize_search_text,deck,documented,172
 rel_deckswap:0x0000568c,deck_swap_set_layout,deck,documented,1068
 rel_deckswap:0x00005ab8,ui_select_layout_index,ui,documented,216
 rel_deckswap:0x00005b90,deck_swap_get_tab_position,deck,documented,156
-rel_deckswap:0x00005c2c,deck_swap_get_tab_label_rect,deck,documented,312
-rel_deckswap:0x00005d64,deck_swap_get_tab_count_rect,deck,documented,256
+rel_deckswap:0x00005c2c,deck_swap_calc_list_tab_rect,deck,documented,312
+rel_deckswap:0x00005d64,deck_swap_calc_list_tab_rect_narrow,deck,documented,256
 rel_deckswap:0x00005e64,deck_swap_get_tab_frame,deck,documented,60
 rel_deckswap:0x00005ea0,deck_swap_play_tab_frame,deck,documented,88
 rel_deckswap:0x00005ef8,deck_swap_update_count_indicators,deck,documented,364
@@ -41390,7 +41390,7 @@ rel_deckswap:0x00012a80,shop_scroll_with_analog,shop,documented,124
 rel_deckswap:0x00012afc,ui_draw_nine_slice_frame,ui,documented,688
 rel_deckswap:0x00012dac,shop_draw_button_help,shop,documented,1636
 rel_deckswap:0x00013410,ui_window_draw_text_box_px,ui,documented,28
-rel_deckswap:0x0001342c,shop_stub_noop_button_help,shop,documented,8
+rel_deckswap:0x0001342c,shop_button_help_fit_text_scale_px,shop,documented,8
 rel_deckswap:0x00013434,deck_slot_key_list_contains,deck,documented,120
 rel_deckswap:0x000134ac,ui_capture_screen_backdrop,ui,documented,200
 rel_deckswap:0x00013574,ui_draw_captured_backdrop,ui,documented,236
@@ -42661,7 +42661,7 @@ rel_deckswap:0x00015dd8,thunk_system_net_api_get_local_duel_side,system,document
 rel_deckswap:0x00015de0,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_deckswap:0x00015de8,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_deckswap:0x00015df0,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_deckswap:0x00015df8,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_deckswap:0x00015df8,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_deckswap:0x00015e00,thunk_system_net_api_get_room_counters,system,documented,8
 rel_deckswap:0x00015e08,thunk_system_net_api_get_state_name,system,documented,8
 rel_deckswap:0x00015e10,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -43035,7 +43035,7 @@ rel_decktutorial:0x00002540,deck_tutorial_op_picture,deck,documented,344
 rel_decktutorial:0x00002698,deck_tutorial_op_picture_off,deck,documented,52
 rel_decktutorial:0x000026cc,deck_tutorial_op_cursor,deck,documented,292
 rel_decktutorial:0x000027f0,deck_tutorial_op_end,deck,documented,36
-rel_decktutorial:0x00002814,deck_tutorial_on_menu_choice,deck,documented,108
+rel_decktutorial:0x00002814,deck_tutorial_apply_menu_step,deck,documented,108
 rel_decktutorial:0x00002880,deck_tutorial_draw_panel_picture_1,deck,documented,224
 rel_decktutorial:0x00002960,deck_tutorial_draw_panel_picture_2,deck,documented,224
 rel_decktutorial:0x00002a40,deck_tutorial_draw_panel_picture_3,deck,documented,224
@@ -43052,7 +43052,7 @@ rel_decktutorial:0x00003380,deck_tutorial_get_resource,deck,documented,248
 rel_decktutorial:0x00003478,shop_on_archive_loaded,shop,documented,144
 rel_decktutorial:0x00003508,deck_compare_u16_ascending,deck,documented,16
 rel_decktutorial:0x00003518,shop_bsearch_resource_table,shop,documented,120
-rel_decktutorial:0x00003590,deck_tutorial_stub_return_zero,deck,documented,8
+rel_decktutorial:0x00003590,deck_tutorial_module_start,deck,documented,8
 rel_decktutorial:0x00003598,deck_tutorial_start,deck,documented,384
 rel_decktutorial:0x00003718,deck_tutorial_update,deck,documented,456
 rel_decktutorial:0x000038e0,deck_tutorial_shutdown,deck,documented,508
@@ -43274,7 +43274,7 @@ rel_decktutorial:0x00016710,shop_scroll_with_analog,shop,documented,124
 rel_decktutorial:0x0001678c,ui_draw_nine_slice_frame,ui,documented,688
 rel_decktutorial:0x00016a3c,shop_draw_button_help,shop,documented,1636
 rel_decktutorial:0x000170a0,ui_window_draw_text_box_px,ui,documented,28
-rel_decktutorial:0x000170bc,deck_tutorial_stub_noop_fit_scale,deck,documented,8
+rel_decktutorial:0x000170bc,shop_button_help_fit_text_scale_px,shop,documented,8
 rel_decktutorial:0x000170c4,deck_slot_key_list_contains,deck,documented,120
 rel_decktutorial:0x0001713c,deck_load_slot_recipe,deck,documented,88
 rel_decktutorial:0x00017194,deck_get_other_deck_card_allowance,deck,documented,536
@@ -44556,7 +44556,7 @@ rel_decktutorial:0x0001e0a8,thunk_system_net_api_get_local_duel_side,system,docu
 rel_decktutorial:0x0001e0b0,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_decktutorial:0x0001e0b8,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_decktutorial:0x0001e0c0,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_decktutorial:0x0001e0c8,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_decktutorial:0x0001e0c8,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_decktutorial:0x0001e0d0,thunk_system_net_api_get_room_counters,system,documented,8
 rel_decktutorial:0x0001e0d8,thunk_system_net_api_get_state_name,system,documented,8
 rel_decktutorial:0x0001e0e0,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -45031,8 +45031,8 @@ rel_dodge:0x00005160,world_dodge_cpu_power_start,world,documented,8
 rel_dodge:0x00005168,world_dodge_cpu_power_poll,world,documented,220
 rel_dodge:0x00005244,world_dodge_cpu_power_draw,world,documented,8
 rel_dodge:0x0000524c,world_dodge_human_draw,world,documented,84
-rel_dodge:0x000052a0,world_dodge_human_move_start,world,documented,12
-rel_dodge:0x000052ac,world_dodge_human_turn_begin,world,documented,12
+rel_dodge:0x000052a0,world_dodge_human_turn_begin,world,documented,12
+rel_dodge:0x000052ac,world_dodge_human_move_begin,world,documented,12
 rel_dodge:0x000052b8,world_dodge_human_move_poll,world,documented,360
 rel_dodge:0x00005420,world_dodge_human_move_draw,world,documented,8
 rel_dodge:0x00005428,world_dodge_human_item_start,world,documented,32
@@ -45113,7 +45113,7 @@ rel_dodge:0x0000830c,ui_dodge_open_dialog,ui,documented,592
 rel_dodge:0x0000855c,ui_dodge_poll_dialog,ui,documented,72
 rel_dodge:0x000085a4,ui_dodge_draw_dialog,ui,documented,40
 rel_dodge:0x000085cc,ui_dodge_init_window_list,ui,documented,164
-rel_dodge:0x00008670,world_dodge_shutdown_stub,world,documented,12
+rel_dodge:0x00008670,world_dodge_free_window_list,world,documented,12
 rel_dodge:0x0000867c,world_dodge_draw_item_icon,world,documented,152
 rel_dodge:0x00008714,world_dodge_draw_item_name,world,documented,508
 rel_dodge:0x00008930,world_dodge_draw_angle_gauge,world,documented,160
@@ -45137,7 +45137,7 @@ rel_dodge:0x00009be8,world_dodge_ball_set_grid,world,documented,8
 rel_dodge:0x00009bf0,world_dodge_ball_get_pos,world,documented,20
 rel_dodge:0x00009c04,world_dodge_ball_launch_base,world,documented,176
 rel_dodge:0x00009cb4,world_dodge_ball_collide_grid,world,documented,1376
-rel_dodge:0x0000a214,world_dodge_ball_a_stop,world,documented,8
+rel_dodge:0x0000a214,world_dodge_ball_on_hit,world,documented,8
 rel_dodge:0x0000a21c,thunk_world_dodge_ball_reset,world,documented,8
 rel_dodge:0x0000a224,thunk_world_dodge_ball_nop,world,documented,8
 rel_dodge:0x0000a22c,thunk_world_dodge_ball_update,world,documented,8
@@ -46474,7 +46474,7 @@ rel_dodge:0x000118fc,thunk_system_net_api_get_local_duel_side,system,documented,
 rel_dodge:0x00011904,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_dodge:0x0001190c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_dodge:0x00011914,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_dodge:0x0001191c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_dodge:0x0001191c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_dodge:0x00011924,thunk_system_net_api_get_room_counters,system,documented,8
 rel_dodge:0x0001192c,thunk_system_net_api_get_state_name,system,documented,8
 rel_dodge:0x00011934,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -48077,7 +48077,7 @@ rel_duelrecord:0x00006bb8,thunk_system_net_api_get_local_duel_side,system,docume
 rel_duelrecord:0x00006bc0,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_duelrecord:0x00006bc8,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_duelrecord:0x00006bd0,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_duelrecord:0x00006bd8,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_duelrecord:0x00006bd8,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_duelrecord:0x00006be0,thunk_system_net_api_get_room_counters,system,documented,8
 rel_duelrecord:0x00006be8,thunk_system_net_api_get_state_name,system,documented,8
 rel_duelrecord:0x00006bf0,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -48490,7 +48490,7 @@ rel_gallery:0x000029bc,ui_gallery_set_black_screen,ui,documented,8
 rel_gallery:0x000029c4,ui_gallery_play_movie,ui,documented,244
 rel_gallery:0x00002ab8,ui_gallery_reset_cursor_pulse,ui,documented,20
 rel_gallery:0x00002acc,ui_gallery_reset_cursor,ui,documented,84
-rel_gallery:0x00002b20,ui_gallery_center_cursor,ui,documented,40
+rel_gallery:0x00002b20,ui_gallery_move_cursor_to_exit,ui,documented,40
 rel_gallery:0x00002b48,ui_gallery_update_cursor,ui,documented,1124
 rel_gallery:0x00002fac,ui_gallery_draw_black_screen,ui,documented,192
 rel_gallery:0x0000306c,ui_gallery_draw_dim,ui,documented,216
@@ -49735,7 +49735,7 @@ rel_gallery:0x00006558,thunk_system_net_api_get_local_duel_side,system,documente
 rel_gallery:0x00006560,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_gallery:0x00006568,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_gallery:0x00006570,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_gallery:0x00006578,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_gallery:0x00006578,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_gallery:0x00006580,thunk_system_net_api_get_room_counters,system,documented,8
 rel_gallery:0x00006588,thunk_system_net_api_get_state_name,system,documented,8
 rel_gallery:0x00006590,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -51330,7 +51330,7 @@ rel_html_view:0x00002e08,thunk_system_net_api_get_local_duel_side,system,documen
 rel_html_view:0x00002e10,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_html_view:0x00002e18,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_html_view:0x00002e20,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_html_view:0x00002e28,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_html_view:0x00002e28,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_html_view:0x00002e30,thunk_system_net_api_get_room_counters,system,documented,8
 rel_html_view:0x00002e38,thunk_system_net_api_get_state_name,system,documented,8
 rel_html_view:0x00002e40,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -52924,7 +52924,7 @@ rel_labo:0x00003a6c,thunk_system_net_api_get_local_duel_side,system,documented,8
 rel_labo:0x00003a74,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_labo:0x00003a7c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_labo:0x00003a84,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_labo:0x00003a8c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_labo:0x00003a8c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_labo:0x00003a94,thunk_system_net_api_get_room_counters,system,documented,8
 rel_labo:0x00003a9c,thunk_system_net_api_get_state_name,system,documented,8
 rel_labo:0x00003aa4,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -54564,7 +54564,7 @@ rel_limitlist:0x00007ca0,thunk_system_net_api_get_local_duel_side,system,documen
 rel_limitlist:0x00007ca8,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_limitlist:0x00007cb0,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_limitlist:0x00007cb8,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_limitlist:0x00007cc0,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_limitlist:0x00007cc0,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_limitlist:0x00007cc8,thunk_system_net_api_get_room_counters,system,documented,8
 rel_limitlist:0x00007cd0,thunk_system_net_api_get_state_name,system,documented,8
 rel_limitlist:0x00007cd8,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -56136,7 +56136,7 @@ rel_movie_viewer:0x00002f04,thunk_system_net_api_get_local_duel_side,system,docu
 rel_movie_viewer:0x00002f0c,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_movie_viewer:0x00002f14,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_movie_viewer:0x00002f1c,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_movie_viewer:0x00002f24,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_movie_viewer:0x00002f24,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_movie_viewer:0x00002f2c,thunk_system_net_api_get_room_counters,system,documented,8
 rel_movie_viewer:0x00002f34,thunk_system_net_api_get_state_name,system,documented,8
 rel_movie_viewer:0x00002f3c,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -56495,7 +56495,7 @@ rel_password:0x00001354,shop_password_get_resource,shop,documented,324
 rel_password:0x00001498,shop_on_archive_loaded,shop,documented,144
 rel_password:0x00001528,deck_compare_u16_ascending,deck,documented,16
 rel_password:0x00001538,shop_password_find_resource,shop,documented,96
-rel_password:0x00001598,shop_password_return_zero,shop,documented,8
+rel_password:0x00001598,shop_password_module_start,shop,documented,8
 rel_password:0x000015a0,ui_password_start,ui,documented,184
 rel_password:0x00001658,ui_password_update,ui,documented,476
 rel_password:0x00001834,shop_password_shutdown,shop,documented,208
@@ -57733,7 +57733,7 @@ rel_password:0x00005dbc,thunk_system_net_api_get_local_duel_side,system,document
 rel_password:0x00005dc4,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_password:0x00005dcc,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_password:0x00005dd4,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_password:0x00005ddc,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_password:0x00005ddc,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_password:0x00005de4,thunk_system_net_api_get_room_counters,system,documented,8
 rel_password:0x00005dec,thunk_system_net_api_get_state_name,system,documented,8
 rel_password:0x00005df4,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -58263,7 +58263,7 @@ rel_quiz:0x00008900,ui_quiz_result_wait_intro,ui,documented,140
 rel_quiz:0x0000898c,ui_quiz_result_handle_input,ui,documented,244
 rel_quiz:0x00008a80,ui_quiz_result_poll_face_buttons,ui,documented,56
 rel_quiz:0x00008ab8,ui_quiz_result_update_message_window,ui,documented,192
-rel_quiz:0x00008b78,ui_quiz_result_is_layout_frame_101,ui,documented,20
+rel_quiz:0x00008b78,ui_quiz_result_get_layout0_frame,ui,documented,20
 rel_quiz:0x00008b8c,ui_quiz_result_draw,ui,documented,292
 rel_quiz:0x00008cb0,ui_quiz_result_draw_header,ui,documented,188
 rel_quiz:0x00008d6c,ui_quiz_result_draw_panels,ui,documented,608
@@ -59488,7 +59488,7 @@ rel_quiz:0x0000bc58,thunk_system_net_api_get_local_duel_side,system,documented,8
 rel_quiz:0x0000bc60,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_quiz:0x0000bc68,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_quiz:0x0000bc70,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_quiz:0x0000bc78,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_quiz:0x0000bc78,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_quiz:0x0000bc80,thunk_system_net_api_get_room_counters,system,documented,8
 rel_quiz:0x0000bc88,thunk_system_net_api_get_state_name,system,documented,8
 rel_quiz:0x0000bc90,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -59826,7 +59826,7 @@ rel_quiz:0x0000c6e8,thunk_deck_get_owner_recipe_count,deck,documented,8
 rel_quiz:0x0000c6f0,thunk_deck_get_owner_recipe,deck,documented,8
 rel_quiz:0x0000c6f8,thunk_deck_get_owner_current_recipe,deck,documented,8
 rel_quiz:0x0000c700,thunk_deck_select_owner_variant,deck,documented,8
-rel_recipeviewer:0x00000000,deck_recipe_viewer_return_zero,deck,documented,8
+rel_recipeviewer:0x00000000,deck_recipe_viewer_module_start,deck,documented,8
 rel_recipeviewer:0x00000008,deck_recipe_viewer_start,deck,documented,1148
 rel_recipeviewer:0x00000484,deck_recipe_viewer_update,deck,documented,832
 rel_recipeviewer:0x000007c8,deck_recipe_viewer_release_resources,deck,documented,300
@@ -59854,7 +59854,7 @@ rel_recipeviewer:0x0000280c,deck_recipe_viewer_get_owner,deck,documented,12
 rel_recipeviewer:0x00002818,deck_recipe_viewer_get_tab_count,deck,documented,92
 rel_recipeviewer:0x00002874,deck_recipe_viewer_open_dialog,deck,documented,896
 rel_recipeviewer:0x00002bf8,deck_recipe_viewer_update_dialog,deck,documented,376
-rel_recipeviewer:0x00002d70,ui_card_list_draw_sort_menu,ui,documented,44
+rel_recipeviewer:0x00002d70,deck_recipe_viewer_draw_dialog,deck,documented,44
 rel_recipeviewer:0x00002d9c,deck_recipe_viewer_draw_menu_item,deck,documented,196
 rel_recipeviewer:0x00002e60,deck_recipe_viewer_draw,deck,documented,1228
 rel_recipeviewer:0x00003338,deck_recipe_viewer_draw_background,deck,documented,188
@@ -61125,7 +61125,7 @@ rel_recipeviewer:0x00009c0c,thunk_system_net_api_get_local_duel_side,system,docu
 rel_recipeviewer:0x00009c14,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_recipeviewer:0x00009c1c,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_recipeviewer:0x00009c24,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_recipeviewer:0x00009c2c,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_recipeviewer:0x00009c2c,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_recipeviewer:0x00009c34,thunk_system_net_api_get_room_counters,system,documented,8
 rel_recipeviewer:0x00009c3c,thunk_system_net_api_get_state_name,system,documented,8
 rel_recipeviewer:0x00009c44,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -61625,7 +61625,7 @@ rel_reversi:0x000087ac,ui_reversi_result_wait_intro,ui,documented,140
 rel_reversi:0x00008838,ui_reversi_result_handle_input,ui,documented,244
 rel_reversi:0x0000892c,ui_reversi_result_poll_face_buttons,ui,documented,56
 rel_reversi:0x00008964,ui_reversi_result_update_message_window,ui,documented,192
-rel_reversi:0x00008a24,ui_reversi_result_is_layout_frame_101,ui,documented,20
+rel_reversi:0x00008a24,ui_reversi_result_get_layout0_frame,ui,documented,20
 rel_reversi:0x00008a38,ui_reversi_result_draw,ui,documented,292
 rel_reversi:0x00008b5c,ui_reversi_result_draw_header,ui,documented,188
 rel_reversi:0x00008c18,ui_reversi_result_draw_panels,ui,documented,608
@@ -62853,7 +62853,7 @@ rel_reversi:0x0000c370,thunk_system_net_api_get_local_duel_side,system,documente
 rel_reversi:0x0000c378,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_reversi:0x0000c380,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_reversi:0x0000c388,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_reversi:0x0000c390,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_reversi:0x0000c390,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_reversi:0x0000c398,thunk_system_net_api_get_room_counters,system,documented,8
 rel_reversi:0x0000c3a0,thunk_system_net_api_get_state_name,system,documented,8
 rel_reversi:0x0000c3a8,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -63214,7 +63214,7 @@ rel_select_card:0x00001814,ui_window_draw_text_px,ui,documented,16
 rel_select_card:0x00001824,deck_select_card_draw_search_history_item,deck,documented,212
 rel_select_card:0x000018f8,ui_draw_search_progress_bar,ui,documented,508
 rel_select_card:0x00001af4,deck_select_card_on_search_query_entered,deck,documented,72
-rel_select_card:0x00001b3c,deck_select_card_return_zero,deck,documented,8
+rel_select_card:0x00001b3c,deck_select_card_module_start,deck,documented,8
 rel_select_card:0x00001b44,ui_select_card_open,ui,documented,460
 rel_select_card:0x00001d10,ui_select_card_update,ui,documented,248
 rel_select_card:0x00001e08,deck_select_card_shutdown,deck,documented,240
@@ -63362,7 +63362,7 @@ rel_select_card:0x0000d3b8,deck_select_card_compare_sort_key_desc,deck,documente
 rel_select_card:0x0000d440,deck_select_card_get_sort_key,deck,documented,460
 rel_select_card:0x0000d60c,deck_select_card_get_group_key,deck,documented,424
 rel_select_card:0x0000d7b4,ui_draw_cursor_card_info,ui,documented,968
-rel_select_card:0x0000db7c,deck_select_card_font_draw_text_stub,deck,documented,8
+rel_select_card:0x0000db7c,ui_card_info_draw_text_fit_width,ui,documented,8
 rel_select_card:0x0000db84,ui_draw_race_icon,ui,documented,108
 rel_select_card:0x0000dbf0,deck_select_card_draw_property_icon,deck,documented,108
 rel_select_card:0x0000dc5c,deck_select_card_draw_attribute_icon,deck,documented,108
@@ -64650,7 +64650,7 @@ rel_select_card:0x00016844,thunk_system_net_api_get_local_duel_side,system,docum
 rel_select_card:0x0001684c,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_select_card:0x00016854,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_select_card:0x0001685c,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_select_card:0x00016864,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_select_card:0x00016864,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_select_card:0x0001686c,thunk_system_net_api_get_room_counters,system,documented,8
 rel_select_card:0x00016874,thunk_system_net_api_get_state_name,system,documented,8
 rel_select_card:0x0001687c,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -65057,7 +65057,7 @@ rel_throw:0x0000383c,world_throw_draw_world_sprite,world,documented,48
 rel_throw:0x0000386c,world_throw_draw_world_sprite_scaled,world,documented,172
 rel_throw:0x00003918,world_throw_draw_world_sprite_centered,world,documented,120
 rel_throw:0x00003990,world_throw_init_message_box,world,documented,164
-rel_throw:0x00003a34,world_throw_term_noop,world,documented,12
+rel_throw:0x00003a34,world_throw_free_window_list,world,documented,12
 rel_throw:0x00003a40,world_throw_draw_name_plate,world,documented,432
 rel_throw:0x00003bf0,ui_draw_level_badge_text_fit_3bf0,ui,documented,20
 rel_throw:0x00003c04,world_throw_draw_life_icons,world,documented,472
@@ -66495,7 +66495,7 @@ rel_throw:0x0000cd84,thunk_system_net_api_get_local_duel_side,system,documented,
 rel_throw:0x0000cd8c,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_throw:0x0000cd94,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_throw:0x0000cd9c,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_throw:0x0000cda4,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_throw:0x0000cda4,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_throw:0x0000cdac,thunk_system_net_api_get_room_counters,system,documented,8
 rel_throw:0x0000cdb4,thunk_system_net_api_get_state_name,system,documented,8
 rel_throw:0x0000cdbc,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -68064,7 +68064,7 @@ rel_throw_starter:0x00002d38,thunk_system_net_api_get_local_duel_side,system,doc
 rel_throw_starter:0x00002d40,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_throw_starter:0x00002d48,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_throw_starter:0x00002d50,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_throw_starter:0x00002d58,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_throw_starter:0x00002d58,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_throw_starter:0x00002d60,thunk_system_net_api_get_room_counters,system,documented,8
 rel_throw_starter:0x00002d68,thunk_system_net_api_get_state_name,system,documented,8
 rel_throw_starter:0x00002d70,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -68436,7 +68436,7 @@ rel_tutorial:0x000017d8,duel_core_tutorial_open_quit_prompt,duel_core,documented
 rel_tutorial:0x00001990,duel_core_tutorial_draw_card_icon,duel_core,documented,228
 rel_tutorial:0x00001a74,duel_core_tutorial_measure_caption,duel_core,documented,144
 rel_tutorial:0x00001b04,duel_core_tutorial_measure_text_height,duel_core,documented,12
-rel_tutorial:0x00001b10,duel_core_tutorial_return_zero,duel_core,documented,8
+rel_tutorial:0x00001b10,duel_core_tutorial_module_start,duel_core,documented,8
 rel_tutorial:0x00001b18,duel_core_tutorial_get_prompt_flag,duel_core,documented,12
 rel_tutorial:0x00001b24,duel_core_tutorial_set_prompt_flag,duel_core,documented,12
 rel_tutorial:0x00001b30,duel_core_tutorial_reset_highlight_state,duel_core,documented,60
@@ -71218,7 +71218,7 @@ rel_tutorial:0x0000b9c0,thunk_system_net_api_get_local_duel_side,system,document
 rel_tutorial:0x0000b9c8,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_tutorial:0x0000b9d0,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_tutorial:0x0000b9d8,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_tutorial:0x0000b9e0,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_tutorial:0x0000b9e0,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_tutorial:0x0000b9e8,thunk_system_net_api_get_room_counters,system,documented,8
 rel_tutorial:0x0000b9f0,thunk_system_net_api_get_state_name,system,documented,8
 rel_tutorial:0x0000b9f8,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -72804,7 +72804,7 @@ rel_tutoriallist:0x00004f9c,thunk_system_net_api_get_local_duel_side,system,docu
 rel_tutoriallist:0x00004fa4,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_tutoriallist:0x00004fac,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_tutoriallist:0x00004fb4,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_tutoriallist:0x00004fbc,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_tutoriallist:0x00004fbc,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_tutoriallist:0x00004fc4,thunk_system_net_api_get_room_counters,system,documented,8
 rel_tutoriallist:0x00004fcc,thunk_system_net_api_get_state_name,system,documented,8
 rel_tutoriallist:0x00004fd4,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -74451,7 +74451,7 @@ rel_umd_replace:0x00005be4,thunk_system_net_api_get_local_duel_side,system,docum
 rel_umd_replace:0x00005bec,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_umd_replace:0x00005bf4,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_umd_replace:0x00005bfc,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_umd_replace:0x00005c04,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_umd_replace:0x00005c04,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_umd_replace:0x00005c0c,thunk_system_net_api_get_room_counters,system,documented,8
 rel_umd_replace:0x00005c14,thunk_system_net_api_get_state_name,system,documented,8
 rel_umd_replace:0x00005c1c,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -74803,7 +74803,7 @@ rel_underground:0x000007a4,world_underground_draw_ladder_lines,world,documented,
 rel_underground:0x00000938,world_underground_draw_ladder_cells,world,documented,496
 rel_underground:0x00000b28,world_underground_draw_end_row,world,documented,512
 rel_underground:0x00000d28,world_underground_draw_rungs,world,documented,500
-rel_underground:0x00000f1c,world_underground_draw_marked_rungs,world,documented,480
+rel_underground:0x00000f1c,world_underground_draw_placed_rungs,world,documented,480
 rel_underground:0x000010fc,world_underground_scene_start,world,documented,212
 rel_underground:0x000011d0,world_underground_scene_end,world,documented,88
 rel_underground:0x00001228,world_underground_update,world,documented,196
@@ -74878,10 +74878,10 @@ rel_underground:0x00003748,world_underground_game_state_hide_loading,world,docum
 rel_underground:0x00003758,world_underground_game_state_fade_in,world,documented,80
 rel_underground:0x000037a8,world_underground_game_state_wait_fade,world,documented,200
 rel_underground:0x00003870,world_underground_game_state_choose_column,world,documented,860
-rel_underground:0x00003bcc,world_underground_player_set_word_30,world,documented,8
+rel_underground:0x00003bcc,world_underground_player_set_visible,world,documented,8
 rel_underground:0x00003bd4,world_underground_player_get_target_row_ptr,world,documented,8
 rel_underground:0x00003bdc,world_underground_player_get_row_ptr,world,documented,8
-rel_underground:0x00003be4,world_underground_game_state_wait_message,world,documented,60
+rel_underground:0x00003be4,world_underground_game_state_wait_effect,world,documented,60
 rel_underground:0x00003c20,world_underground_game_state_view_map,world,documented,444
 rel_underground:0x00003ddc,world_underground_game_state_start_walk,world,documented,296
 rel_underground:0x00003f04,world_underground_cursor_set_visible,world,documented,8
@@ -74913,7 +74913,7 @@ rel_underground:0x00005004,world_underground_game_begin_goal_event,world,documen
 rel_underground:0x00005018,world_underground_game_state_event_run,world,documented,140
 rel_underground:0x000050a4,world_underground_game_run_tool_event,world,documented,248
 rel_underground:0x0000519c,world_underground_game_run_box_event,world,documented,676
-rel_underground:0x00005440,world_underground_player_set_word_38,world,documented,8
+rel_underground:0x00005440,world_underground_player_set_spinning,world,documented,8
 rel_underground:0x00005448,world_underground_game_run_duel_event,world,documented,928
 rel_underground:0x000057e8,world_underground_duelist_set_active,world,documented,8
 rel_underground:0x000057f0,world_underground_game_run_goal_event,world,documented,316
@@ -74951,10 +74951,10 @@ rel_underground:0x000073f0,world_underground_game_stop_effect,world,documented,1
 rel_underground:0x000073fc,world_underground_game_show_text,world,documented,1320
 rel_underground:0x00007924,world_underground_game_close_text,world,documented,8
 rel_underground:0x0000792c,world_underground_game_draw_text,world,documented,8
-rel_underground:0x00007934,world_underground_game_set_word_b28,world,documented,16
+rel_underground:0x00007934,world_underground_game_set_text_visible,world,documented,16
 rel_underground:0x00007944,world_underground_game_tick_blink,world,documented,48
 rel_underground:0x00007974,world_underground_game_draw_column_arrows,world,documented,492
-rel_underground:0x00007b60,world_underground_player_get_word_30,world,documented,8
+rel_underground:0x00007b60,world_underground_player_is_visible,world,documented,8
 rel_underground:0x00007b68,world_underground_game_tick_scroll_blink,world,documented,104
 rel_underground:0x00007bd0,world_underground_game_draw_scroll_arrows,world,documented,1152
 rel_underground:0x00008050,ui_list_window_draw_text,ui,documented,32
@@ -76416,7 +76416,7 @@ rel_underground:0x00014020,thunk_system_net_api_get_local_duel_side,system,docum
 rel_underground:0x00014028,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_underground:0x00014030,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_underground:0x00014038,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_underground:0x00014040,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_underground:0x00014040,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_underground:0x00014048,thunk_system_net_api_get_room_counters,system,documented,8
 rel_underground:0x00014050,thunk_system_net_api_get_state_name,system,documented,8
 rel_underground:0x00014058,thunk_system_net_api_broadcast_short_message,system,documented,8
@@ -78073,7 +78073,7 @@ rel_usb_connect:0x000049d8,thunk_system_net_api_get_local_duel_side,system,docum
 rel_usb_connect:0x000049e0,thunk_system_net_api_get_side_peer_index,system,documented,8
 rel_usb_connect:0x000049e8,thunk_system_net_api_drop_unlisted_peers,system,documented,8
 rel_usb_connect:0x000049f0,thunk_system_net_api_create_hold_pool,system,documented,8
-rel_usb_connect:0x000049f8,thunk_system_net_api_stub_noop_0885293c,system,documented,8
+rel_usb_connect:0x000049f8,thunk_system_net_api_delete_manager_fpl,system,documented,8
 rel_usb_connect:0x00004a00,thunk_system_net_api_get_room_counters,system,documented,8
 rel_usb_connect:0x00004a08,thunk_system_net_api_get_state_name,system,documented,8
 rel_usb_connect:0x00004a10,thunk_system_net_api_broadcast_short_message,system,documented,8
