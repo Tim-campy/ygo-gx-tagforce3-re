@@ -8450,7 +8450,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,documented,8
 0x098a75a8,ui_emit_polyline_corner_down_right,ui,documented,136
 0x098a7630,ui_emit_polyline_edge_below,ui,documented,128
 0x098a76b0,ui_emit_polyline_corner_down_left,ui,documented,136
-0x098a7738,ui_emit_polyline_segment_down,ui,documented,128
+0x098a7738,ui_emit_polyline_edge_left,ui,documented,128
 0x098a77b8,ui_emit_polyline_joint_up_left,ui,documented,136
 0x098a7840,ui_emit_polyline_joint_up_right,ui,documented,136
 0x098a78c8,ui_emit_polyline_joint_down_left,ui,documented,136
@@ -43052,7 +43052,7 @@ rel_decktutorial:0x00003380,deck_tutorial_get_resource,deck,documented,248
 rel_decktutorial:0x00003478,shop_on_archive_loaded,shop,documented,144
 rel_decktutorial:0x00003508,deck_compare_u16_ascending,deck,documented,16
 rel_decktutorial:0x00003518,shop_bsearch_resource_table,shop,documented,120
-rel_decktutorial:0x00003590,deck_tutorial_stub_return_zero,deck,documented,8
+rel_decktutorial:0x00003590,deck_tutorial_module_start,deck,documented,8
 rel_decktutorial:0x00003598,deck_tutorial_start,deck,documented,384
 rel_decktutorial:0x00003718,deck_tutorial_update,deck,documented,456
 rel_decktutorial:0x000038e0,deck_tutorial_shutdown,deck,documented,508
@@ -45031,7 +45031,7 @@ rel_dodge:0x00005160,world_dodge_cpu_power_start,world,documented,8
 rel_dodge:0x00005168,world_dodge_cpu_power_poll,world,documented,220
 rel_dodge:0x00005244,world_dodge_cpu_power_draw,world,documented,8
 rel_dodge:0x0000524c,world_dodge_human_draw,world,documented,84
-rel_dodge:0x000052a0,world_dodge_human_move_start,world,documented,12
+rel_dodge:0x000052a0,world_dodge_human_turn_begin,world,documented,12
 rel_dodge:0x000052ac,world_dodge_human_move_begin,world,documented,12
 rel_dodge:0x000052b8,world_dodge_human_move_poll,world,documented,360
 rel_dodge:0x00005420,world_dodge_human_move_draw,world,documented,8
@@ -56495,7 +56495,7 @@ rel_password:0x00001354,shop_password_get_resource,shop,documented,324
 rel_password:0x00001498,shop_on_archive_loaded,shop,documented,144
 rel_password:0x00001528,deck_compare_u16_ascending,deck,documented,16
 rel_password:0x00001538,shop_password_find_resource,shop,documented,96
-rel_password:0x00001598,shop_password_return_zero,shop,documented,8
+rel_password:0x00001598,shop_password_module_start,shop,documented,8
 rel_password:0x000015a0,ui_password_start,ui,documented,184
 rel_password:0x00001658,ui_password_update,ui,documented,476
 rel_password:0x00001834,shop_password_shutdown,shop,documented,208
@@ -59826,7 +59826,7 @@ rel_quiz:0x0000c6e8,thunk_deck_get_owner_recipe_count,deck,documented,8
 rel_quiz:0x0000c6f0,thunk_deck_get_owner_recipe,deck,documented,8
 rel_quiz:0x0000c6f8,thunk_deck_get_owner_current_recipe,deck,documented,8
 rel_quiz:0x0000c700,thunk_deck_select_owner_variant,deck,documented,8
-rel_recipeviewer:0x00000000,deck_recipe_viewer_return_zero,deck,documented,8
+rel_recipeviewer:0x00000000,deck_recipe_viewer_module_start,deck,documented,8
 rel_recipeviewer:0x00000008,deck_recipe_viewer_start,deck,documented,1148
 rel_recipeviewer:0x00000484,deck_recipe_viewer_update,deck,documented,832
 rel_recipeviewer:0x000007c8,deck_recipe_viewer_release_resources,deck,documented,300
@@ -63214,7 +63214,7 @@ rel_select_card:0x00001814,ui_window_draw_text_px,ui,documented,16
 rel_select_card:0x00001824,deck_select_card_draw_search_history_item,deck,documented,212
 rel_select_card:0x000018f8,ui_draw_search_progress_bar,ui,documented,508
 rel_select_card:0x00001af4,deck_select_card_on_search_query_entered,deck,documented,72
-rel_select_card:0x00001b3c,deck_select_card_return_zero,deck,documented,8
+rel_select_card:0x00001b3c,deck_select_card_module_start,deck,documented,8
 rel_select_card:0x00001b44,ui_select_card_open,ui,documented,460
 rel_select_card:0x00001d10,ui_select_card_update,ui,documented,248
 rel_select_card:0x00001e08,deck_select_card_shutdown,deck,documented,240
@@ -68436,7 +68436,7 @@ rel_tutorial:0x000017d8,duel_core_tutorial_open_quit_prompt,duel_core,documented
 rel_tutorial:0x00001990,duel_core_tutorial_draw_card_icon,duel_core,documented,228
 rel_tutorial:0x00001a74,duel_core_tutorial_measure_caption,duel_core,documented,144
 rel_tutorial:0x00001b04,duel_core_tutorial_measure_text_height,duel_core,documented,12
-rel_tutorial:0x00001b10,duel_core_tutorial_return_zero,duel_core,documented,8
+rel_tutorial:0x00001b10,duel_core_tutorial_module_start,duel_core,documented,8
 rel_tutorial:0x00001b18,duel_core_tutorial_get_prompt_flag,duel_core,documented,12
 rel_tutorial:0x00001b24,duel_core_tutorial_set_prompt_flag,duel_core,documented,12
 rel_tutorial:0x00001b30,duel_core_tutorial_reset_highlight_state,duel_core,documented,60

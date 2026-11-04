@@ -134,7 +134,7 @@ address,group,name
 0x00005168,world,world_dodge_cpu_power_poll
 0x00005244,world,world_dodge_cpu_power_draw
 0x0000524c,world,world_dodge_human_draw
-0x000052a0,world,world_dodge_human_move_start
+0x000052a0,world,world_dodge_human_turn_begin
 0x000052ac,world,world_dodge_human_move_begin
 0x000052b8,world,world_dodge_human_move_poll
 0x00005420,world,world_dodge_human_move_draw

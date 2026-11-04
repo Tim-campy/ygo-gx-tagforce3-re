@@ -32,7 +32,7 @@ address,group,name
 0x00001824,deck,deck_select_card_draw_search_history_item
 0x000018f8,ui,ui_draw_search_progress_bar
 0x00001af4,deck,deck_select_card_on_search_query_entered
-0x00001b3c,deck,deck_select_card_return_zero
+0x00001b3c,deck,deck_select_card_module_start
 0x00001e08,deck,deck_select_card_shutdown
 0x00001ef8,ui,ui_select_card_request_exit
 0x00001f28,deck,deck_select_card_alloc_list

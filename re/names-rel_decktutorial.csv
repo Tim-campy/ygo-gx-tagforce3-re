@@ -58,7 +58,7 @@ address,group,name
 0x00003478,shop,shop_on_archive_loaded
 0x00003508,deck,deck_compare_u16_ascending
 0x00003518,shop,shop_bsearch_resource_table
-0x00003590,deck,deck_tutorial_stub_return_zero
+0x00003590,deck,deck_tutorial_module_start
 0x000038e0,deck,deck_tutorial_shutdown
 0x00003adc,ui,ui_set_editor_layout
 0x00003f5c,ui,ui_select_layout_index

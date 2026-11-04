@@ -1657,7 +1657,7 @@ address,group,name
 # family frame_draw
 0x098a6df4,ui,ui_draw_polyline_frame,M,window01.gim edge and corner quads along a point list (direction 1-4 per segment); list/grid panel callers
 0x098a724c,ui,ui_draw_frame_style_quad,M,window01.gim quad between two points with UVs of style param from table 0x098d2cf8 (0x58-byte rows)
-0x098a7738,ui,ui_emit_polyline_segment_down,M,edge quad of ui_draw_polyline_frame for direction 4 (same x, y increasing), UVs table 0x098d2cd8
+0x098a7738,ui,ui_emit_polyline_edge_left
 # family fx_render_state
 0x09879380,field_3d,field_3d_dl_clear_depth,M,select layer, ge_set_clear_depth(v), ge_write_clear(0x14), commit; callers coin toss and dice tasks
 0x0987a09c,field_3d,field_3d_dl_set_duel_scene,M,select layer, field_3d_set_duel_scene into it, commit; callers coin toss and dice tasks
