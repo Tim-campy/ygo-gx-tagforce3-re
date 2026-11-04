@@ -716,6 +716,12 @@ blocks) and `rel_field`'s field render state, stencil shadows and map stencil pa
 - The off-screen render target `0x174000` used by anim24_ef (id 0x6a): what is read back from it.
 - Confirm in PPSSPP that anim3e_54's stencil mask keeps the effects behind the character.
 
+## Round 6 additions (2026-11-04)
+
+- The cut-in code of `rel_duel_draw` has a complete copy in `rel_cutin_viewer` (`modules/rel_cutin_viewer.md`); there the per-character set-up routines are listed explicitly by `field_3d_cutin_get_chara_setup`, which confirms the character of every descriptor family.
+- Descriptor slot `+0x30`, missing from the slot table above, is a voice-motion picker callback (shared family and two character-2 pickers with one-entry tables at `0x098d4b30` / `0x098d4be0`); see `ui.md`, "Round 6", for the full list of set-up routines, map-node callbacks and resolve-motion overrides created in this round.
+- The 44 per-character set-up routines of `rel_duel_draw` (`0x09842f74`-`0x0984cb30` and five near `0x098b5ff0`-`0x098b95e8`) were code outside any function until round 6; they are now functions named `field_3d_cutin_<family>_setup_desc` with `_map_node` / `_resolve_motion` callbacks.
+
 ## Open questions
 
 - Answered 2026-10-31 (static, high): `field_3d_update_model` advances 1.0 frame per game frame for backdrops and cut-ins, at a game rate capped at 29.97 per second ("Frame timing and playback rate"); the backdrop loops (flags 2), the cut-in plays once (flags 0). Still to confirm in PPSSPP (F10): the effective rate during a duel, which may drop under load.

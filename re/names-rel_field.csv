@@ -647,3 +647,14 @@ address,group,name
 # registry hygiene 2026-11-03: group only, default name kept (no name has an H/M basis); evidence per row
 0x090cf0b8,world,world_field_debug_line_to_location,M,jump table (rel_field +0x24968) mapping the debug map-menu line 0..0x1d to a location id (1-5; 0xc-0x2a; 0x2a for larger values); read from the disassembly; caller world_field_debug_main stores the result as the map to load (round 4)
 0x090d0c80,world,world_get_map_variant_for_period,M,maps 1 -> 0; 2 -> 1; 3 and 4 -> 2; else 0; caller world_bind_map_archive passes scene params +0x08 (light period) and applies the result with field_3d_set_map_variant_group_mask (round 4)
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_field.md and the function tables) or from identical machine code in a named module.
+0x090ced00,world,world_field_module_start
+0x090cf090,world,world_field_debug_leave_noop
+0x090cf098,world,world_field_debug_add_to_counter
+0x090d3294,ui,ui_field_on_picture_loaded
+0x090dd2cc,world,world_npc_on_sprite_a_loaded
+0x090dd2e4,world,world_npc_on_sprite_b_loaded
+0x090dd8a4,world,world_partner_on_sprite_a_loaded
+0x090dd8c0,world,world_partner_on_sprite_b_loaded
+0x090df5ac,world,world_player_on_sprite_a_loaded
+0x090df5c8,world,world_player_on_sprite_b_loaded

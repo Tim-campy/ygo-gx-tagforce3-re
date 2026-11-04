@@ -2,7 +2,7 @@
 
 Reference table generated in the documentation round of 2026-10-31. Each row is a function that reached the `documented` stage (`docs/PROGRESS.md`): its prototype, purpose, return value, side effects and callers, read from the Ghidra decompilation with the names of that round. The same text is the function's plate comment in Ghidra (`re/documented*.tsv`, applied by `tools/ghidra/ApplySignatures.java`). How the subsystem works as a whole is in [`../audio.md`](../audio.md); pointers to structures are typed `void *` and the structure is named in the summary.
 
-Functions: 372 (BOOT.BIN 296, rel_duel_draw 16, rel_duel_mgr 38, rel_field 4, rel_story 15, rel_title 3).
+Functions: 385 (BOOT.BIN 296, rel_blackjack 1, rel_cutin_viewer 10, rel_dodge 1, rel_duel_draw 16, rel_duel_mgr 38, rel_field 4, rel_story 15, rel_throw 1, rel_title 3).
 
 
 ## `BOOT.BIN`
@@ -406,3 +406,37 @@ Functions: 372 (BOOT.BIN 296, rel_duel_draw 16, rel_duel_mgr 38, rel_field 4, re
 | `0x08ea11b8` | `void audio_title_reload_sound_banks(int keep_minimal)` | Stops all sounds (thunk_audio_stop_sounds_all), waits frames until no BGM, sound effect or voice plays, releases every bank and loads bank 0x2c8; when keep_minimal is 0 also loads banks 0x2c5 and 0x2cf (thunk_audio_load_track). No return value. Side effects: sounds stopped, banks released and loaded. Callers: 4 (ui_title_update_boot_load, ui_title_update_boot_autoload, ui_title_update_resource_load, ui_title_start_boot_language_select). |
 | `0x08ea124c` | `void audio_title_release_sound_banks(void)` | Releases the title sound banks 0x2c5 and 0x2cf with thunk_audio_release_track. Side effects: those of audio_release_track (sounds stopped, banks unloaded). Callers: 1 (ui_title_enter_state). |
 | `0x08ea3300` | `void audio_title_apply_saved_volumes(void)` | Re-applies the three saved volume settings in the order 2 (voices), 0 (BGM), 1 (sound effects): thunk_audio_set_volume_setting(i, thunk_audio_get_volume_setting(i)). No return value. Side effects: category volumes. Callers: 1 (ui_title_update_continue_load). |
+
+
+## `rel_blackjack`
+
+| Address | Prototype | Summary |
+| --- | --- | --- |
+| `0x00004668` | `int audio_blackjack_play_sound(int sound, int mode)` | Plays sound: mode 2 stops it first (audio_stop_sound(sound, 0)), mode 1 plays only when audio_get_sound_status reports it is not playing (bit 0 clear), other modes always play. Returns the audio_play_sound result, or 0 when skipped. Side effects: sound playback. Callers: 15 (world_blackjack_side_state1_after_take, world_blackjack_open_message_window, world_blackjack_state3_start_intro, world_blackjack_game_state6_check_turn, ...). |
+
+## `rel_cutin_viewer`
+
+| Address | Prototype | Summary |
+| --- | --- | --- |
+| `0x000017b8` | `void audio_sort_cutin_voice_tables(void)` | Sorts the three cut-in voice tables of this module with system_qsort and the compare function 0x0002d3d4 (first word as key; copy of ui_compare_first_word) so they can be binary-searched: the voice sequence table 0x0003958c (0x266 entries of 0x24 bytes), the standard event table 0x0003ebe4 (0x20 entries of 12 bytes) and the generic-student event table 0x0003ed64 (0x1f entries of 12 bytes). No return value. Side effects: reorders those tables. Callers: 1 (field_3d_cutin_init_system). |
+| `0x00001820` | `void audio_stub_noop_cutin_voice_term(void)` | Empty function: returns immediately. No side effects. Callers: 1 (field_3d_cutin_term_system). |
+| `0x00001828` | `void * audio_find_cutin_voice_sequence(int key)` | Binary-searches the cut-in voice sequence table 0x0003958c (0x266 entries of 0x24 bytes, compare function 0x0002d3d4) for key with system_bsearch and returns the entry or null. No side effects. Callers: 1 (audio_step_cutin_voice_sequence). |
+| `0x00001860` | `void audio_step_cutin_voice_sequence(void *cutin, int key, int unused, int event, int advance)` | Advances the voice lines of a cut-in: finds the sequence entry of key (audio_find_cutin_voice_sequence; 0x24-byte entries: key word then per step a pair whose second word is the step's trigger event, -9999 = any) or uses the default at 0x0003eedc; does nothing while a skip is requested (field_3d_cutin_is_skip_requested). Clears the playing flag +0xb4 once the side's voice queue (cutin +0x38) is empty (audio_get_queued_voice_sound_id). When advance is non-zero and the next step (+0xac + 1, below 4) has queued cues (row +0x6c + step x 0x10 not negative) and its trigger equals event or is -9999, makes it current, clears +0xb0, queues up to 4 voice ids of that row with audio_queue_duellist_voice(side, voice, 0) and sets +0xb4 = 1. No return value. Side effects: cut-in fields, the duellist voice queue. Callers: 1 (field_3d_cutin_default_frame_hook). |
+| `0x00001a20` | `void audio_reset_cutin_voice_queue(void *cutin)` | Resets the voice queue of a cut-in slot: word +0xb4 (playing flag) = 0, +0xac = -1, +0xb0 = 0, and fills the 0x40 bytes at +0x6c with 0xff. No return value. Side effects: writes those fields. Callers: 1 (field_3d_cutin_reset_current). |
+| `0x00001a40` | `bool audio_is_cutin_voice_playing(void *cutin)` | Returns whether word +0xb4 of the cut-in slot (its voice playing flag) is non-zero. No side effects. Callers: 1 (field_3d_cutin_is_voice_active). |
+| `0x000121e4` | `int audio_play_se_once_at_frame(int sound, int frame, int trigger_frame, uint *done_flags, uint bit)` | Plays sound once when an animation reaches a frame: when trigger_frame >= 0, bit is not yet set in *done_flags and frame >= trigger_frame, sets the bit and returns thunk_audio_play_sound(sound); otherwise returns 0. Side effects: *done_flags, a sound started. Callers: 24 (field_3d_update_cutin_fx_anim3e_54_v5, field_3d_update_cutin_sound_fx, field_3d_update_cutin_fx_anim32_47, field_3d_update_cutin_fx_anim3e_54_v6, ...). |
+| `0x0001223c` | `int audio_play_se_ex_once_at_frame(int sound, int frame, int trigger_frame, int time_frames, uint *done_flags, uint bit)` | Like audio_play_se_once_at_frame but starts the sound with a time argument: when due, sets bit in *done_flags (5th/6th arguments in t0/t1) and returns thunk_audio_play_sound_arg(sound, time_frames x 1000 / 30) (30 fps frames to milliseconds); otherwise returns 0. Side effects: *done_flags, a sound started. Callers: 1 (field_3d_update_cutin_fx_animd5_e6). |
+| `0x000122b8` | `int audio_stop_track_once_at_frame(int sound, int frame, int trigger_frame, int fade_frames, uint *done_flags, uint bit)` | Stops a sound once when an animation reaches a frame: when trigger_frame >= 0, bit is not yet set in *done_flags and frame >= trigger_frame, sets the bit and returns thunk_audio_stop_sound(sound, fade_frames x 1000 / 30) (fade in milliseconds); otherwise returns 0. Side effects: *done_flags, the sound stopped. Callers: 1 (field_3d_update_cutin_fx_animd5_e6). |
+| `0x000291bc` | `void audio_play_anim_sound_cues(int character, int variant, int anim, int frame, uint *done_flags)` | Hard-coded sound cues of the duel cut-in/character animations: a long if-chain on the animation id anim (values from 0 to about 0x2a9) that calls audio_play_se_once_at_frame(sound, frame, trigger frame, done_flags, bit) for one to three sound effects per animation, with bits 1, 2, 4 (once 8) so each fires once; the sounds are mostly ids 0x7a24, 0x7a25, 0x7a26 and 0x7a2e, plus 0x7a17, 0x7a1a, 0x7a21, 0x7a27, 0x7a2a, 0x7a2c and 0x7a47. The first argument is read as a character id (hypothesis, confidence medium). A few animations depend on it (e.g. 8, 0x0e, 0x15, 0x1b, 0x21, 0x26-0x2a) or on character 4 with variant 1; some ids (0x294, 0x296, 0x24e, 0x1c1, 0x205, 0x206, 0x1dd, 0x4f, 0x50) have no sound. No return value. Side effects: sounds started, *done_flags. Callers: 1 (ui_tick_anim_cue_task). |
+
+## `rel_dodge`
+
+| Address | Prototype | Summary |
+| --- | --- | --- |
+| `0x00004880` | `int audio_dodge_play_sound(int sound, int mode)` | Plays a sound effect with audio_play_sound: mode 2 first stops it (audio_stop_sound_now), mode 1 plays only when audio_get_sound_status shows it is not playing (bit 0 clear), other modes always play. Returns audio_play_sound's result, or 0 when skipped. Side effects: audio. Callers: 19 (world_dodge_score_transfer_step, world_dodge_player_start_jump, world_dodge_player_update, world_dodge_ball_c_launch, ...). |
+
+## `rel_throw`
+
+| Address | Prototype | Summary |
+| --- | --- | --- |
+| `0x00005128` | `int audio_throw_play_sound(int sound, int mode)` | Plays sound with audio_play_sound according to mode: 2 stops it first (audio_stop_sound_now) and plays; 1 plays only when audio_get_sound_status(sound) has bit 0 clear (not already playing); any other mode plays. Returns the audio_play_sound result, or 0 when skipped. Side effects: sound. Callers: 8 (world_throw_controller_handle_input, world_throw_controller_update_throw, world_throw_tally_transfer_step, world_throw_actor_get_anim_frame, ...). |

@@ -448,6 +448,10 @@ Deck challenges test the 0x68-byte block at `0x09e01e4c` that `duel_core_build_d
 
 **Unreachable cases `0x68`–`0x75`.** The selector is written only from the 104-entry challenge list, and the save arrays it indexes (`+0x14c`, `+0x1b8`) hold 108 entries, so indices ≥ `0x68` never become active. The text tables carry 12 more entries after the 104 (`0x68`–`0x73`: Special Summons by banishing from the Graveyard, database complete, sandwiches, Golden Egg, story cleared for the main / all characters, collection 30 / 50 / 100 %, all packs, all movies, and "picked up all cards" with bit 0 clear), in an order shifted by two from the code cases `0x6c`–`0x74`. They are a cut "accomplishment" set; the port can drop them or implement them as achievements. Confidence M (static: one writer, list bound `0x68` in `rel_duelrecord +0x2fe8` and `+0x3ac8`).
 
+## The tutorial module (round 6, 2026-11-04)
+
+`rel_tutorial` is now in the Ghidra project (module offsets, ids `rel_tutorial:0x…`) and every function is documented (`modules/rel_tutorial.md`, which adds to `docs/formats/tutorial.md`: the copied message window, ten window slots of which the scripts use three, the stencil "spotlight", the text escapes `@`, `$0`-`$4`, `$$`, and the START quit menu that makes `duel_core_tutorial_is_busy` return 1).
+
 ## Open questions
 
 - The rest of the player structure (`+0x34`–`+0x11f` besides the field slots, `+0xa0c`–`+0xb3b`). Life Points at `+0x00` are established statically (`battle.md`); confirm in PPSSPP.

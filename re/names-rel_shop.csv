@@ -268,3 +268,12 @@ address,group,name
 0x090d4ccc,shop,shop_get_cosine_eased_ratio,M,1 - clamp(t)/n, then n2 times cos(k*(1-x)) via system_fpu_cos; float result in f0 (lost by the decompiler)
 # family speech_box
 0x090e1ff0,shop,shop_set_speech_box_flags,M,stores the byte arg in 0x098abf34 and 0x098abf40; caller shop_reset_speech_box
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_shop.md and the function tables) or from identical machine code in a named module.
+0x090d7a0c,shop,shop_heap_alloc
+0x090d7a1c,shop,shop_heap_free
+0x090d86f8,shop,shop_scene_leave
+0x090dd1c4,shop,shop_draw_sort_key_item
+0x090dd1f0,shop,shop_draw_sort_order_item
+0x090dd5d8,shop,shop_compare_result_records_ascending
+0x090dd660,shop,shop_compare_result_records_descending
+0x090dfd30,shop,shop_draw_pack_info_line

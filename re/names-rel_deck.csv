@@ -402,3 +402,25 @@ address,group,name
 0x08eb4a5c,ui,ui_help_stub_noop_update_hook,M,jr ra; called from ui_help_update
 0x08eb5fe0,ui,ui_help_disable_ruby,H,disassembly: tail jump to thunk_system_font_enable_ruby with a0 = 0; caller ui_help_close
 0x08eb69b0,ui,ui_list_widget_stub_noop,M,jr ra (value 2: one thunk); between ui_list_widget_clear_result and ui_list_widget_handle_input
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_deck.md and the function tables) or from identical machine code in a named module.
+0x08ea3248,ui,ui_draw_filter_menu_item
+0x08ea3a10,ui,ui_draw_icon_17px_800a
+0x08ea7fe0,ui,ui_draw_layout_choice_items
+0x08ea816c,ui,ui_draw_list_tools_item
+0x08ea8198,ui,ui_draw_deck_options_item
+0x08ea8224,ui,ui_draw_trunk_option_item
+0x08eaa338,deck,deck_on_sub_module_loaded
+0x08eaa350,deck,deck_compare_u16_ascending
+0x08eaa56c,ui,ui_deck_free_archive_buffers
+0x08eab298,ui,ui_draw_sort_key_item
+0x08eab2c8,ui,ui_draw_sort_direction_item
+0x08eab6bc,deck,deck_compare_sort_records_ascending
+0x08eab744,deck,deck_compare_sort_records_descending
+0x08eace20,ui,ui_draw_search_scope_label
+0x08ead38c,ui,ui_draw_search_history_item
+0x08ead65c,ui,ui_on_search_query_entered
+0x08eb5fe8,ui,ui_help_on_picture_loaded
+0x08eb713c,ui,ui_help_draw_topic_item_background
+0x08eb7ba0,ui,ui_help_chapter_list_scrollbar_cb
+0x08eb7bc0,ui,ui_help_draw_chapter_item
+0x08eb7d88,ui,ui_help_draw_chapter_item_background

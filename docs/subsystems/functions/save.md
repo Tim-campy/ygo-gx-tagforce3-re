@@ -1,8 +1,8 @@
 # Save data: documented functions (`save`)
 
-Reference table generated in the documentation round of 2026-10-31 and extended in the round of 2026-11-03. Each row is a function that reached the `documented` stage (`docs/PROGRESS.md`): its prototype, purpose, return value, side effects and callers, read from the Ghidra decompilation with the names of that round. The same text is the function's plate comment in Ghidra (`re/documented*.tsv`, applied by `tools/ghidra/ApplySignatures.java`). How the subsystem works as a whole is in [`../save.md`](../save.md); pointers to structures are typed `void *` and the structure is named in the summary.
+Reference table generated in the documentation round of 2026-10-31 and extended in the rounds of 2026-11-03 and 2026-11-04. Each row is a function that reached the `documented` stage (`docs/PROGRESS.md`): its prototype, purpose, return value, side effects and callers, read from the Ghidra decompilation with the names of that round. The same text is the function's plate comment in Ghidra (`re/documented*.tsv`, applied by `tools/ghidra/ApplySignatures.java`). How the subsystem works as a whole is in [`../save.md`](../save.md); pointers to structures are typed `void *` and the structure is named in the summary.
 
-Functions: 189 (BOOT.BIN 184, rel_field 5).
+Functions: 192 (BOOT.BIN 184, rel_charalist 2, rel_dodge 1, rel_field 5).
 
 
 ## `BOOT.BIN`
@@ -203,3 +203,17 @@ Functions: 189 (BOOT.BIN 184, rel_field 5).
 | `0x090eb454` | `void save_stub_noop_field_save_unload(void)` | Empty function: returns immediately. No side effects. Callers: 2 (save_field_release_save_dialog, world_field_shutdown_components). |
 | `0x090eb45c` | `void save_field_step_save_dialog(void)` | Steps the field's save dialog (state 0x09899e10): state 1 calls save_open(5, world_field_get_heap()), starts a fade-out and goes to 2; state 2 runs save_update_task and, when it returns 2 or 3, starts a fade-in and clears 0x09899e10 and 0x09899e0c. Side effects: save request, fades, field save state. Callers: 1 (world_field_update). |
 | `0x090eb528` | `void save_field_draw_save_dialog(void)` | When the field save-dialog step 0x09899e10 is non-zero: selects GE layer 4, disables a GE state, draws a fade, commits the layer pointer and runs save_update_utility_dialogs. Side effects: GE commands, utility dialog updates. Callers: 1 (world_field_draw). |
+
+
+## `rel_charalist`
+
+| Address | Prototype | Summary |
+| --- | --- | --- |
+| `0x09ef46f0` | `void save_set_default_team_name(void)` | Builds the default team name: player name (save_get_player_name), the 2-character separator at 0x09efc20c, and the partner name world_call_get_character_name_string(2, character, variant) with ruby stripped, terminated after 16 characters, and stores it with save_set_team_name. No return value. Side effects: save data. Callers: 1 (ui_charalist_init_partner_confirm). |
+| `0x09ef47a4` | `void save_commit_partner_choice(void)` | Calls save_copy_partner_field into a scratch word and save_set_partner(character, variant) from the confirm work area. No return value. Side effects: save data. Callers: 1 (ui_charalist_update_confirm_page). |
+
+## `rel_dodge`
+
+| Address | Prototype | Summary |
+| --- | --- | --- |
+| `0x00002794` | `void *save_copy_file_data_desc(void *dst, void *src)` | Same code as the BOOT.BIN function of this name: copies four words from src to dst and returns dst. In rel_dodge it copies a block rectangle. Side effects: writes dst. Callers: 1 (world_dodge_grid_get_top_rect). |

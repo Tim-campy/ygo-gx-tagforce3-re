@@ -707,3 +707,5 @@ address,group,name
 0x08ebd71c,ui,ui_title_draw_name_entry_frame,M,menu ctx 0x08eede64 image 2: nine-slice at (0x15,0xaf) 0xc5x0x8b and panel part 0xe; caller ui_title_draw_name_entry
 # family title_wireless
 0x08ea8f28,ui,ui_title_copy_wireless_record,M,copies 4 halfwords + 3 words (20 bytes), returns dst; caller ui_title_update_wireless_menu
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_title.md and the function tables) or from identical machine code in a named module.
+0x08ec6e14,system,system_title_scene_end_noop

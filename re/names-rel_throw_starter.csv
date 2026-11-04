@@ -1,0 +1,16 @@
+# Names applied to gmodule/rel_throw_starter.prx (runtime base unknown: image base 0x0, module offsets; registry ids are prefixed with the module name).
+address,group,name
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_throw_starter.md and the function tables) or from identical machine code in a named module.
+0x00000000,world,world_throw_starter_module_entry
+0x00000038,world,world_throw_starter_scene_main
+0x00000164,world,world_throw_starter_scene_end_noop
+0x0000016c,world,world_throw_starter_init
+0x000003c8,world,world_throw_starter_update
+0x0000046c,world,world_throw_starter_draw
+0x000004b4,world,world_throw_starter_leave
+0x000004dc,world,world_throw_starter_open_partner_list
+0x000005dc,world,world_throw_starter_poll_partner_list
+0x00000670,world,world_throw_starter_draw_partner_list
+0x0000069c,world,world_throw_starter_reset_partner_list
+0x000006a8,world,world_throw_starter_draw_list_item
+0x00000728,ui,ui_list_window_draw_text

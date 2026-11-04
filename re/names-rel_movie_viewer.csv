@@ -1,0 +1,19 @@
+# Names applied to gmodule/rel_movie_viewer.prx (runtime base unknown: image base 0x0, module offsets; registry ids are prefixed with the module name).
+address,group,name
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_movie_viewer.md and the function tables) or from identical machine code in a named module.
+0x00000000,ui,ui_movie_viewer_register_scene
+0x00000034,ui,ui_movie_viewer_scene_main
+0x00000138,ui,ui_movie_viewer_init
+0x00000190,ui,ui_movie_viewer_free_heap
+0x000001cc,ui,ui_movie_viewer_scene_end
+0x000001d4,ui,ui_movie_viewer_set_state
+0x00000258,ui,ui_movie_viewer_scan_movies
+0x000002a0,ui,ui_movie_viewer_open_list
+0x00000470,ui,ui_movie_viewer_leave_list
+0x0000047c,ui,ui_movie_viewer_update_list
+0x000005a0,ui,ui_movie_viewer_play
+0x00000624,ui,ui_movie_viewer_draw_frame
+0x00000714,ui,ui_movie_viewer_frame_leave
+0x0000071c,ui,ui_movie_viewer_scan_dir
+0x00000828,ui,ui_movie_viewer_draw_item
+0x000008f4,ui,ui_list_window_draw_text

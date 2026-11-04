@@ -247,3 +247,12 @@ address,group,name
 0x08ea9cc4,ui,ui_duel_result_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; caller ui_duel_result_draw_item
 0x08eaf4dc,ui,ui_duel_versus_draw_text_fit_width_px,H,disassembly: a0-a2 <<= 6, t0 = -1, tail jump to thunk_system_font_draw_text_fit_width
 0x08eaf554,ui,ui_duel_versus_draw_text_px,H,disassembly: a0-a2 <<= 6, tail jump to thunk_system_font_draw_text; caller ui_duel_versus_draw_text_plain
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_duel_mgr.md and the function tables) or from identical machine code in a named module.
+0x08e9b9f4,tag_duel,tag_duel_on_partner_switch_done
+0x08e9db84,system,system_duel_mgr_lib_update_duel
+0x08e9dcb0,system,system_duel_mgr_lib_poll_draw_loading
+0x08e9dcb8,system,system_duel_mgr_lib_begin_duel
+0x08e9edac,system,system_duel_mgr_scene_leave_noop
+0x08ea620c,ui,ui_duel_result_draw_list_a_page
+0x08ea6630,ui,ui_duel_result_draw_list_b_page
+0x08ea9d5c,ui,ui_duel_start_on_archive_loaded
