@@ -315,7 +315,278 @@ Method as in the first round (`system.md`): the still-unnamed functions were re-
 
 ## Documented functions
 
-The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/world.md`](functions/world.md).
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/world.md`](functions/world.md), extended in the 2026-11-03 round.
+
+## Functions documented in the 2026-11-03 round (work packages 6-7)
+
+Method: every still-undocumented `world` function (`rel_field`, `rel_story`, two in `BOOT.BIN`) was re-dumped from Ghidra with the current names and read in full, one row per function. Full rows: [`functions/world.md`](functions/world.md).
+
+### Findings from rel_field
+
+Static reading of the Ghidra decompilation only. Addresses are runtime (`rel_field` base `0x090ced00`). Confidence: H high (code read directly), M medium, L low.
+
+#### Module frame and request plumbing
+
+- `world_field_init_module` clears the request busy words `0x09106b90`–`0x09106bc7` and also clears the **third word of each field request table entry** (`0x090fcc14 + 12·n` = `rel_field +0x2df0c + 8`). So the third word, documented as "0 in all 33 entries; not read", is runtime state reset at init (H for the write; its readers were not in this batch).
+- Frame order (`world_field_update`, only while `0x09106bb4` is set): DP display, load queue, message window, camera shake, island map, map, forest ambience (only when `0x09106bbc` is 0), pick-ups, NPCs, command state machine, portraits, talk, day banner, picture, save dialog, busy-flag clean-up, then field context `+0x00` (frame counter) += 1. Draw order (`world_field_draw`): fade (layer 6), message window, 3D scene begin, island, map, pick-up draw entries, DP display, field UI (player, partner, HUD, menus, PDA, roulette), picture, portraits, NPC draw entries, sorted object list, talk windows, day banner, save dialog (H).
+- Fade (request 22): busy `0x09106ba0`, direction `0x09106bc0`; a fade-in sets the draw-enable word `0x09106bb8`, the end of a fade-out clears it, so the field stops drawing after a fade-out (H).
+- Field context (`world_get_field_context`, `0x091057f0`): `+0x00` frame counter, `+0x04` NPC wandering allowed (1 only in command state 1), `+0x08` current speaker index for portraits, `+0x14` event flag, `+0x18` partner row (request 10) (H).
+- Debug entry `world_field_debug_main`: map menu, `save_add_dp(99999)`, plays a 9-entry request script from `0x090f3620`; only a button press leaves it (M for the purpose).
+
+#### Command state machine (`world_field_command_step`, state `0x0910c648`)
+
+Command block `0x0910c5f0` (`0x8c` bytes): `+0x0c` walk flag (`0x0910c5fc`, set by request 16, cleared to end the walk), `+0x10` roulette active (`0x0910c600`), `+0x18` action code (`0x0910c608`), `+0x1c` talk target row at walk end (`0x0910c60c`), `+0x20` door target map (`0x0910c610`), `+0x24`/`+0x28` roulette arguments, `+0x2c` roulette result item, `+0x40` PDA event mode (`0x0910c630`), `+0x44` get-callback, `+0x58` state, `+0x5c` current talk target (`0x0910c64c`, −1 none), `+0x78` PDA kept flag (`0x0910c668`), `+0x7c` PDA reopen flag, `+0x88` command bar mask.
+
+| State | Meaning | Next |
+| --- | --- | --- |
+| 0 | enable input, restore turned NPC | 1 |
+| 1 | free walk, `world_field_read_command_input` | 2, 4, 7, 0xb, 0xc, 0xf, 0x13 |
+| 2 / 3 | message box `field_strtbl` 126 | yes → 0x13 action 8; no/cancel → 0 |
+| 4 / 5 | message box entry 128 | yes → 0x13 action **1**; no → 0 |
+| 6 | wait for auto-walk | 0 |
+| 7 / 8 | action menu (`ui_field_step_action_menu` writes state and action) | — |
+| 9 / 10 | "no one in reach" (entry 122 for action 3, 124 for action 2) | 0 |
+| 0xb / 0xc | PDA mode 0 / step: results 3–13 → actions 4, 6, 7, 14, 11, 12, 13, 15, 8, 18 (+reopen PDA mode 6 at next walk), 16; result 1 → 0 | 0x13 |
+| 0xd / 0xe | event item get | (poll) |
+| 0xf / 0x10 | card get (pick-up) | (poll) |
+| 0x11 / 0x12 | sandwich roulette (request 25, outside a walk) | result in `0x0910c61c` |
+| 0x13 | end walk: talk/duel turn NPC and player to each other, clear walk flag | request 16 poll returns |
+
+Input mapping (`world_field_read_command_input`; PSP pad bits): holding R shows command page 0 (results 0 talk → action 2, 1 duel → action 3, 2 → advance-time prompt, 3 → prompt 128 → action 1; event mode enables only 0 and 1); holding L shows page 1 (4 → action 5, 5 → action 18, 6/7 → PDA modes 4/5; event mode disables 5); triangle = talk (or laboratory special cell → action 9/10); confirm = action menu; square = PDA. Cell triggers: exit cell → action 0, door cell on maps 37/12 → action 17, pick-up → state 0xf (H).
+
+Request 16 poll result (`world_field_poll_action`): `[0]` action, `[1]`/`[2]` player **position as raw f32** (not cells), `[3]` direction, `[4+4i]` per loaded NPC `{row, cell x, cell y, direction}`, `[0x84]` NPC count, `[0x85]` talk target row, `[0x86]` door target map (H).
+
+#### Field characters
+
+- **Character object** (player `0x0910c690`, partner `0x0910c540`, first `0xa0` bytes of NPC slots): `+0x00` character-table row, `+0x04`/`+0x08` sprite resources (odd / even directions), `+0x0c` sprite kind (kind 1 draws only odd directions), `+0x10` position f32×3, `+0x1c` move state (0 idle, 1 walking), `+0x20` direction 0–7, `+0x24` walk frame 0–5 (advances every 3 field frames, 2 when running), `+0x28` motion vector, `+0x40` 4×4 matrix, `+0x80` visible, `+0x84` overhead icon pointer, `+0x88` run flag, `+0x8c` "extra object" flag (drawn in the last pass), `+0x90` billboard / placeholder flag (H for offsets, M for names).
+- **Direction values** (answers the open question in `field-maps.md`): from the d-pad in `world_read_player_move_input`: 0 down, 1 down-left, 2 left, 3 up-left, 4 up, 5 up-right, 6 right, 7 down-right (screen directions; vectors at `0x090f38b4` rotated by the camera yaw constant `0x090f3928`) (H).
+- **Load mode** of `world_init_character_object` / `world_field_load_character_resource`: 0 player (sprites always resident as field UI resources 0x12/0x13), 1 partner (single-entry pools 2/3), 2 NPC (pools 0/1, or shared fixed resources 9/10 for generic duellists) (H).
+- **NPC slots**: 32 × `0xf0` at `0x09107020`; extra objects 80 × `0xb0` at `0x09108e20`. NPC fields beyond the object: `+0xa0` loaded, `+0xa4` load handle, `+0xa8/+0xac` home cell, `+0xb0` wander radius, `+0xb4` idle timer (90–209 frames), `+0xb8/+0xbc` current cell, `+0xc0/+0xc4` target cell, `+0xc8` walk t, `+0xcc` record word 1, `+0xd0` paused (turned to the player), `+0xd4/+0xd8` saved direction / move state, `+0xdc/+0xe0/+0xe4` three words shown in the HUD target panel, `+0xe8/+0xec` extra talk-cell list (0x14-byte entries) and count.
+- **Request 7 record** (0x40 bytes): `+0x00` row, `+0x04`, `+0x08/+0x0c` home cell, `+0x10/+0x14` cell, `+0x18` visible, `+0x1c` kind (0 NPC slot, else extra object), `+0x20` wander radius, `+0x24` direction, `+0x28–+0x30` HUD words, `+0x34` overhead icon kind, `+0x38/+0x3c` extra talk cells. Request words `params[2]/[3]` = an NPC row to turn to a direction once all are loaded (H).
+- While loading, an NPC is drawn as a **billboard placeholder** (`+0x90`, sprite from character-table row fields `+0x18..+0x1c`, field UI resource 0x19 + sheet); `world_check_npc_loaded` swaps to the real sprites when both resources are bound (M for the purpose, H for the flags).
+- NPC wandering: random target within the wander radius of the home cell, unoccupied, walkable (mode 0), not an exit cell; the per-direction step is behind a jump table (`0x090f80cc`) Ghidra did not recover.
+- **Talk target**: within 0.75 units, height difference < 1, in front of the player (best cosine with the facing vector); NPC extra talk cells count too (H).
+- **Occupancy values**: 1 player footprint, 2 partner, 3 NPC, 4 pick-up; the player's collision rejects 5 (writer still not found). The grid is allocated lazily by `world_place_object_on_floor` (4 bytes per cell) (H).
+- Player: running = circle held, two steps per frame; on maps 12/37 positive x motion is blocked in cell column 14, rows 11–25, for x ≥ 7.25 (H). NPC avoidance slides around the first NPC ahead and stops at a second.
+- Partner follows the player's previous-frame position; far away (≥ 1) it walks straight through walls, near (0.5–1) it is clipped and slides round NPCs, closer than 0.5 it stops; it always faces the player; spawn behind the player (direction + 4, then round) (H).
+
+#### Overhead balloons (answers "does `0x090d3f54` draw the talk balloon")
+
+`world_draw_overhead_icon` draws a 44 × 36 balloon (field UI resource 3) with a 24 × 24 animated icon above a character; it is suppressed on the marker-hidden cells of maps 21 and 27. Icons are 32 slots of `0x60` at `0x09105b10` (`+0x00` active, `+0x04` owner, `+0x10` matrix, `+0x50` frame counter, `+0x54` step, `+0x58` kind 0–14, `+0x5c` custom descriptor). Kind tables: `0x090f39ac` (12 bytes: balloon index, icon u/v, offset), animation `0x090f3a60 + kind·0x40` ({frame, duration} steps, −2 loops, −1 = no icon). Uses seen: NPC icon kind from the request-7 record, kinds 0xd/0xe above the player on the laboratory special cells, and a custom descriptor for the sandwich roulette (H for the drawing, M that the kinds are talk/event markers).
+
+#### Sandwich roulette (request 25)
+
+State block `0x09105680` (0x170 bytes). States 0 start → 1 fade-in (30 frames, waits for the golden-egg model) → 2 spin (item changes every 3 frames, confirm stops) → 3 result text → 4 wait (golden egg: sub-states 0–4 of an egg animation) → 5 → 6 cleanup, returns item. Item list: one of five 10-item rows of the table `0x090f3704` (`rand % 5`); when the golden egg is allowed, a 1-in-10 chance adds item 50 at a random position (11 items). **The item is the one shown when the player presses confirm**, so the result is player-timed, not a hidden random pick (H). Seller voice: character 0x1b sounds 0x7a00/0x7a01, character 0x8c none, others 0x79ed/0x79ee.
+
+#### Map
+
+- **Map sections**: a map can have two meshes (index 2, `M` 3, the store); the player's cell x selects the visible section (`world_get_map_section`); a change starts a 30-frame crossfade that renders the old section to a 256 × 256 texture at VRAM `+0x164000` and fades it out (H).
+- **Door table `+0x08`** is read: `world_draw_door_models` draws a door only when its `+0x08` equals the current section (all doors when sections are off). Correction to `field-tables.md` ("not read by the door code") (H).
+- Door object (`0x60` bytes at `0x09106c10`): `+0x00` door-table entry, `+0x04` model, `+0x10` matrix, `+0x50` state (0 open, 1 opening, 2 closed, 3 closing), `+0x54` t. Door sounds: maps 12/37 hinged open 0x7a50 / close 0x7a51, sliding 0x7a52 / 0x7a53; maps 2/3 0x7a54 / 0x7a55 (H).
+- `world_bind_map_archive` subtracts walk-grid vertex 0 from every grid vertex in place and stores it at `0x09106fe4` (the "field subtracts vertex 0" rule) (H).
+- Sky gradient is drawn only where the stencil is 0 (behind the map) (H).
+- Ambient loops per map: listed in the `world_play_map_ambient_sounds` row; rooms and the dining hall get 0x7a4b only at midnight, at volume 0x60 (H).
+
+#### Resources
+
+- Field heap 0x780000 bytes at `0x0910cca0`. Fixed resources: 11 entries of `0x2c` at `0x090fdb3c` (`+0x08` file name, `+0x10` buffer, `+0x14` data, `+0x18` loading, `+0x1c` callbacks, `+0x24` release request); entry 0 is `always_bri_<lang>.ehp`, entry 1 the golden-egg model, 9/10 the generic NPC sprites.
+- Pooled tables (descriptors `0x090fe3cc`, 0x18 bytes; entries 0x24 bytes): pool 0/1 NPC sprite parts (10 entries each), 2/3 partner parts (1), 4 map archive (1), 5 portraits (10), 6 partner portrait (1), 7 pictures (1), 8 partner icon / mini bust-up (1). Load kind = pool + 1. File names come from `BOOT.BIN` character-table row words `+0x10` (part 0), `+0x14` (part 1), `+0x0c` (portrait). Evicted entries are those not loading and with word `+0x20` = 0 (H).
+- Load queue head `0x0910cc8c` (`+0x00` kind, `+0x04` status 0 queued / 1 loaded, incremented by the read callback `world_field_on_archive_read`, `+0x18` completion callback); a release requested during a load is honoured on completion (H).
+
+#### Island map (`0x09899988` loaded, state `0x0989998c`)
+
+States: 1 navigate, 2 cursor move animation, 3 building sub-menu, 4 chosen (result `{0, area_to_map(area, sub-point)}`, busy `0x0989994c` cleared). **Cancel does not cancel**: it moves the cursor back to the start area; the field side always writes 0 in the first result word (H). Neighbours: with no area disabled (or only the laboratory, mask 0x800) the cursor uses a hand-made neighbour table `0x090f8610` (two 8-byte bit-packed records per area); only other masks use the 45/60/75° cone search (correction to `field-maps.md`, which presents the cone as the only rule) (H). Preview pictures: 17 rectangles of 0x66 × 0x53 in `bm_parts.gim` at u/v pairs `0x090f86d0` (areas 0–11, building sub-points 12–16) (partly answers the `bm_parts.gim` open question). Area markers use `bm_arrow11`, the cursor `bm_arrow12`, the chosen area `bm_arrow13`; `bm_arrow14` is not referenced in this batch. Place-name indices per area: `world_island_get_area_name_index`.
+
+#### Character drawing
+
+Generic characters: 51 × 84 cells in a 512 × 256 sheet, split at row 61 into an upper and a lower quad (lower drawn nearer the camera); cell tables `0x090f8984` (idle) / `0x090f898c` (walking), 7 frames per direction pair. Model-entry characters: two screen-space parts, part 0 a 51 × 50 cell chosen by the model id (`id % 10`: 5 rows × 2 halves), part 1 a 51 × 64 cell from the animation table `0x090f8a64/0x090f8a6c`, five drawn directions with 5–7 mirrored, per-frame vertical offset `0x090f8b80` (M for the reading of "head/body").
+
+#### Name mismatches
+
+- `world_get_npc_event_key`: returns the NPC words `+0xdc/+0xe0/+0xe4`, used only for the HUD target panel; no evidence they are an event key (L for the current name).
+- `world_clip_player_motion`: also used for the partner, not only the player.
+- `world_island_draw_menu_text` and `dialogue_draw_text_to_screen_edge`: bodies not decompiled (skipped).
+- `world_check_npc_loaded`: also completes field request 7 (busy word and the turned NPC).
+
+#### Open questions (rel_field)
+- Who writes occupancy value 5, and what the pool-entry word `+0x20` (eviction lock) is.
+- The meaning of the HUD words `+0xdc/+0xe0/+0xe4` from the request-7 record, and of NPC `+0xcc`.
+- The NPC wander step (jump table `0x090f80cc`) and the analogue-stick word at pad `+0x18` used by the island map.
+- Whether `world_clip_player_motion` reads the fifth value its callers pass (run flag / 0); the decompilation shows four parameters.
+- `world_draw_object_list` disables texturing while R is held (pad bit 0x200) — intentional or debug leftover.
+- Field action 1 (prompt 128 confirmed) is not in the `world.md` action table; its story-side handling needs checking.
+- `field-maps.md` says pick-ups end the walk with "field action 15"; in this code a pick-up enters command **state** 0xf (card get) and action 15 is PDA result 10. Needs reconciliation.
+
+### Findings from rel_story
+
+All addresses are runtime addresses (`rel_story` base `0x08e9aa00`). Basis: the Ghidra decompilations of this batch; confidence high unless marked.
+
+#### Story block sub-blocks (answers to `story-runtime.md` open questions)
+
+`world_story_init` (`0x08e9f3ac`) binds every sub-block of the story block (`save_get_story_block()`, `S + 0x16e14`) in one place. This names the owners of the blocks that `story-runtime.md` lists as "content unknown":
+
+| Story block offset | Bound by | Content |
+| --- | --- | --- |
+| `+0x0000` / `+0x35b8` | `world_bind_runtime_records(records, seen)` (`0x08ecd964` / `0x08ecd968`) | Runtime records / **seen-recipe set** (below) |
+| `+0x3250` | `world_bind_scene_ctx` | Scene context (`+0x00` word set by field actions and the tutorial list, `+0x08` word sent with field request 31, `+0x10` last partner points shown) |
+| `+0x3264` | `world_bind_event_queue` | Event queue |
+| `+0x32cc`, `+0x35b0` | `world_bind_field_state(state, sandwich_bits)` | Field state, sandwich-seen bits |
+| `+0x3438`, `+0x345c`, `+0x42d8` | `world_set_calendar_blocks` | Calendar, field save block, flag block |
+| `+0x3504` | `dialogue_bind_event_state` | Event state block (dialogue) |
+| `+0x3528` | `world_bind_duel_request` | **Duel request block** `*(0x08ece428)`, `0x48` bytes (below) |
+| `+0x3570` | `world_bind_story_block_3570` | Written by opcode 50141 (`dialogue_op_set_block_3570_50141`); content still open |
+| `+0x357c` | `world_bind_partner_talk_block` | Partner talk pending (word `+4`) |
+| `+0x3584` | `audio_bind_bgm_state` | **BGM state** (audio) |
+| `+0x3590` | `world_bind_pickup_taken_bits` | **Pick-up taken set**: 256 bits, bit `id − 1` (`world_set_pickup_taken` `0x08e9b028`, `world_is_pickup_taken` `0x08e9b0b4`) |
+
+Correction: `story-runtime.md` gives the `+0x3590` accessors as `rel_story +0x644` (set/clear) and `+0x6b4` (test). `+0x6b4` is `world_is_pickup_taken`; the setter starts at `+0x628` (`0x08e9b028`); `+0x644` is inside it.
+
+**Seen-recipe set** (story block `+0x35b8`, 140 × `0x18` bytes, sorted by character): `+0x00 u32` character id, `+0x04 u16[10]` recipes the player has seen this character use (0 = empty slot). Filled by `world_record_seen_recipe` when a story duel starts (`world_prepare_story_duel`), read by `world_is_recipe_seen` and `world_get_seen_deck_level` (deck level shown in the NPC list, 0 for an unseen recipe; also used to pick the `(301, 7, n)` duel-result record). `world_reset_runtime_records` writes the ids. (H.)
+
+`world_clear_calendar_blocks` clears the field save block (`0xa8`) and the calendar (`0x24`) but **not** the flag block `+0x42d8`, so system flags 65–128 and story flags 129–192 survive a new story. `world_story_init` tests system flag `0x1f` right after that clear (new-game path); since flag `0x1f` lives in the cleared field save block, the "restart" branch (location `0xe`) looks unreachable from that path (M; possibly reached when the clears are skipped, not seen).
+
+#### Story flags use bit `n & 31`, not `n − 1` (correction)
+
+`world_set_story_flag` / `world_test_story_flag` use bit `flag & 0x1f` of the selected word (flags 1–0x20 → field save block `+0x0c`, 0x21–0x40 → `+0x10`, 0x81–0xa0 → flag block `+0x00`, 0xa1–0xc0 → `+0x04`). So story flag 1 is bit 1, flag 31 bit 31 and flag 32 bit 0 of the first word (likewise 33 → bit 1 … 64 → bit 0 of the second). The **system** flags (`world_test_system_flag`) use bit `flag − 1`. `story-runtime.md` and `world.md` say "bit n − 1" for both; that is right only for the system flags. A save reader must use `n & 31` for story flags. (H.)
+
+#### Character info table (`0x08ec9134`, 140 × `0x84` bytes, `.bss`)
+
+`+0x00 u32` character id (sorted ascending by `world_bind_runtime_records`, binary-searched by `world_find_char_info_entry`); `+0x04` UTF-16 string, up to `0x80` bytes: the name of the character's current deck recipe, or system-message line 1 when the player has not seen it (`world_update_npc_deck_indices`). `world_get_char_info_payload` returns `+0x04`; it is sent to the field in the NPC list and with `npc_appear`. (H.)
+
+#### Map card pick-ups
+
+- Static table `0x08eb4130`: 20-byte entries `{u32 id, u32 location, u32 x, u32 y, u32 card}`, ended by `id = −1`.
+- Active list `0x08ec90a4`: 8 × 16 bytes `{id, card, x, y}`, rebuilt on each map entry by `world_build_map_pickup_list` for untaken entries of the location; sent with field request 6 as `{card, x, y}` triples.
+- The field reports a pick-up through the callback `world_on_field_pickup(kind, id, delta, x, y)` passed in field request 0: kind 1 = card (`world_collect_map_card`: +1 copy, marks the id taken), else a counter item (`world_collect_map_counter_item`: adds `delta` to field-state counter `+0x40 + 4·id`, ids 1–20, capped below 100; the "taken" step is the empty `world_stub_noop_counter_pickup`, so counter pick-ups are not remembered). Counter pick-up slots: `0x08ece448`, 16 bytes `{id, counter, x, y}`.
+
+#### Free-roam state machine (`0x08ecd978`)
+
+`world_story_state_step` (one call per frame):
+
+| State | Function | Next |
+| --- | --- | --- |
+| 1 | `world_state_open_island_map` | 2 |
+| 2 | `world_poll_island_map` (request 29) | 3 on a choice, 12 (+ next scene mode `0xe`) on cancel |
+| 3 | `world_state_sync_then_enter_location` | — |
+| 4 | `world_state_enter_location` | sets `0xb` |
+| 5 | `world_state_start_field_walk` | — |
+| 6 | `world_handle_field_action` | see below |
+| 7 | `world_state_exit_to_island_map` | — |
+| 8 / 10 | `world_switch_field_overlay(0, 1 / 0)` | — |
+| `0xb` | `world_driver_handle_result` | see below |
+| `0xc` | `world_leave_field_scene(1)` | leaves the scene |
+| `0xd` … `0x2d` | overlays 1–11: state `3n + 0xa` opens overlay `n` and moves to `3n + 0xb` (waits while the overlay's frame function runs); state `3n + 0xc` closes it and returns to 4 (overlay 1: close state `0xf`, no state change) | |
+| `0x2e`, `0x30` | staff roll start, staff-roll movie | |
+| `0x32` → `0x33` → `0x34` → `0xc` | `world_state_save_story_cycle`, `world_state_poll_save`, `world_state_return_from_story` | |
+| other | reset to 4 | |
+
+States 9, `0xe`, `0x11`, …, `0x2f`, `0x31` do nothing (waiting states).
+
+**Field overlays** (table `0x08eb5128`, 12 × 16 bytes `{module id, start fn, frame fn, shutdown fn}`; loaded flags `0x08ece4e0[12]`, current `0x08ece4dc`, frame callback `0x08ece510`): only one is loaded at a time (`world_load_field_overlay` refuses while any is loaded; `world_switch_field_overlay` unloads the others first). Overlay 0 is the field module; overlays 1–11 are the library sub-modules, and their frame functions store result code `n` in `0x08ecd974`: 1 shop, 2 recipe viewer, 3 password, 4 select card, 5 conversion machine, 6 card album, 7 character list, 8 limit list, 9 tutorial list, 10 deck tutorial, 11 duel record (agrees with `dialogue.md`). The `world_state_start_*` / `update_*` / `shutdown_*` functions therefore have no direct callers: they are reached through this table (M for the word order: start/frame used by load, word 3 by unload).
+
+#### Field action → state (answers the `world.md` open question on result codes 7 and 9–15)
+
+`world_handle_field_action` (state 6):
+
+| Action | Effect |
+| --- | --- |
+| 0 | exit cell (`world_classify_exit`) |
+| 1 and unknown codes | location fix-up (0x1b → 0x1a; dorm rooms 7–15, 0x1c → 6) then the exit case (fall-through in the code) |
+| 2 / 3 | talk / duel request |
+| 4, 5, 6 | leave the story scene with next scene mode 2 → `system_scene_call(2, 4, 1 or 5)`; system flag 5 for 4 and 6, flag `0x11` for 6 |
+| 7 | overlay 2, recipe viewer (state `0x10`) |
+| 8 | time-menu reaction |
+| 9 | overlay 3, password (state `0x13`) |
+| 10 | overlay 5, conversion machine (state `0x19`) |
+| 11 | overlay 7, character list (`0x1f`), system flag `0x37` |
+| 12 | overlay 6, card album (`0x1c`), flag `0x37` |
+| 13 | overlay 9, tutorial list (`0x25`), flag `0x37`, scene context word 0 = −1 |
+| 14 | overlay 11, duel record (`0x2b`), flag `0x37` |
+| 15 | overlay 8, limit list (`0x22`), flag `0x37` |
+| 16 (`0x10`) | leave with next scene mode 1 |
+| 17 (`0x11`) | door → new location |
+| 18 (`0x12`) | item menu: field request 30; result 0 → walk, else leave with mode 1 |
+
+Actions 9 and 10 come from the laboratory special cells (`world.md`), so those cells open the password machine and the conversion machine (M: overlay numbers from the code, machine reading from the result-code list). System flag `0x37` makes the next scene set-up send mode 2 (`world_send_scene_setup`).
+
+#### Next scene mode (`world_get/set_next_scene_mode`)
+
+Leaving (`world_exit_story_scene`): 2 → `scene_call(2, 4, sysflag 0x11 ? 5 : 1)`; 3 → `scene_call(2, 4, 2)`; 4 and `0xc` → `scene_call(2, 6, 0)` (story duel / default duel); 5 → scene `0xf`; 6 → `0x13`; 7 → `0x11`; 8 → `0x18`; 9 → `0x19`; 10 → `0x15`; 11 → `0x1c` (5–11 fill a BOOT parameter block with the partner, and for 6, 7, 11 the light period, and each sets one save progress flag e8 bit 2/4/3/6/7/5, e9 bit 6); any other → `system_scene_return(2, world_get_scene_return_value())`. Driver results `0x68`–`0x6e` select modes 5–11 (mini-games; presumably, M), `0x72` mode 8, `0x6f` (second time) mode 10.
+
+Returning (`world_story_init`, same mode still set): 3 → state `0x22` (overlay 8, limit list, which is where mode 3 was set); 4 → back from a story duel (below); 5, 6, 7, 9, 11 → enter the location and queue `(partner a1, 10, 1)` + `(301, 8, 1)` when the BOOT result word (`0x0885bddc`) exceeds 9999 (199 for mode 6), else `(partner a1, 10, 2)` + `(301, 8, 2)`; 8 → `(301, 2, 2)` and system flag `0xc`; 10 → BGM `0xb`, all NPCs hidden while entering, `(301, 2, 0xd)`, `(partner a1, 3, 2)`, exit code `0x77`; `0xc` → state `0x25` (back to the tutorial list); `0xe` → state 1 (island map); other → state 5.
+
+#### Back from a story duel (mode 4) — answers "which result queues (301, 7/8/9/…)"
+
+`T = deck_get_duel_setup_tail_block()`; `T + 0x20` is the duel result, `+0x24/+0x28/+0x2c` go to field state `+0x164/+0x160/+0x162`. `world_record_duel_result(T+0x20)` updates the tally (below). Then:
+
+- Chapter step 3 → `world_queue_next_chapter_event` (the chapter duel's aftermath), state `0xb`.
+- System flag `0x36` (an event-211 record was queued): maps entry word 0 (3/2/1 → 2/1/0) to a pair of characters in table `0x08eb5110` (2 × u32 per entry) and unlocks both (`world_set_flag1_if_partner_deck(c, 0)`), then the `(211, n, 2)` follow-up.
+- Otherwise, without system flag `0xc`: result 0 or 3 → `(opponent a1, 8, 5)`, `(partner a1, 7, 3)`, then the `duel_then_c` key or `(301, 7, 0x20)`; result 2 → `(opp, 8, 4)`, `(partner, 7, 2)`, `duel_then_b` or `(301, 7, 0x1f)`; any other result → `(opp, 8, 3)`, `(partner, 7, 1)`, `duel_then_a` or `(301, 7, n)` with n = seen deck level of opponent A (averaged with B in a tag duel) clamped to 1–10, plus 10 when the partner asked for the duel and 20 in a tag duel (n = 1–30). Reading result 1 as a win and 0/3 as loss/draw is a hypothesis (M: the "1" branch is the one that rates the opponent).
+- With system flag `0xc` (set on return from mode 8; presumably a tournament or series, L): clears it, sets `0xd`, `score = (result is 1 ? 500 : 0) + *BOOT 0x0885bddc()`, field state `+0x168 = score` (the `TES` text token prints it); queues `(301, 2, 6)`, `(301, 2, 7…11)` by score (< 500, < 1000, < 2000, < 4000, else), `(301, 9, 1)` + `(partner, 4, 2)` when score ≥ 1000 else `(301, 9, 2)` + `(partner, 4, 3)`, for score ≥ 1000 one of `(301, 2, 0xe…0x13)` by band (1000–1099, 1100–1299, 1300–1599, 1600–1999, 2000–3999, ≥ 4000), and `(301, 2, 0xd)`.
+
+Duel tally (field state `+0x20`, four words a, b, c, d; `world_record_duel_result`): counted only when system flag `0x12` (an opponent slot was the partner) or `0x13` (the player's side was the partner) is set; both are cleared. Result 0/3 → c + 1; result 2 → a + 1 (flag 0x12) or b + 1 (0x13); other results → b + 1 (0x12) or a + 1 (0x13). So the tally counts duels involving the partner, split by side; d is never changed here (M for the meaning).
+
+#### Event driver (`world_driver_next_event`, `world_driver_handle_result`)
+
+Interpreter state `0x08ece530` (`story-runtime.md`): `+0x00` header, `+0x04` pc, `+0x10` exit code. `world_queue_event` starts a record at once when none is loaded. The driver, with no record loaded, clears the finished entry and starts the next queued one (`0x65`); when the queue is empty it handles the follow-up system flags (these are **system** flags, `world.md` calls them "story flags 21–29"):
+
+| System flag | Meaning from the code | Driver result |
+| --- | --- | --- |
+| `0x15` (21) | set by the day-off partner talk | `0x73`: system message `0x101` (a yes/no question), answer → `(partner a1, 9, 1)` + flag `0x16`, else `(partner a1, 9, 2)` + flag `0x17` |
+| `0x16` (22) | answer 1 of `0x73` | queues `(301, 3, 1)`, `0x75` |
+| `0x17` (23) | answer 2 of `0x73` | `0x76` (sleep to the next day) |
+| `0x18` / `0x19` (24 / 25) | only during an event; 24 is the series-win flag of opcode 50148 | `(301, 1, 2)` + `(partner, 10, 1)` + `(301, 10, 1)` / `(partner, 10, 2)`, exit code `0x76` |
+| `0x0f` / `0x10` | sandwich bought / gift question asked | `(301, 4, 1)` / `0x71` |
+| `0x1c` (28) | time-menu reaction queued | exit code becomes `0x76` |
+| `3` | set with flag 2 at 2000 points | system message `0x103` |
+| `0x1d` (29) | a location remark was queued | `(301, 0xb, 1)` (+5 points record) when a line was shown |
+
+Exit codes (`0x08ece540`): `0x66` → overlay 1 (shop), `0x67` → overlay 4 (select card), `0x68`–`0x6e` → scene modes 5–11, `0x6f` → first time flags 7/8 and `(301, 1, 1)`, second time `world_change_time(7)` and mode 10, `0x70` → slot 4, `+0x168 = 0`, `(301, 2, 1)`, `0x71` → gift (answer 2 returns to the walk), `0x72` → mode 8, `0x74` (default 116) → end of records, `0x75` → fade out and continue, `0x76` → sleep, `0x77` → end of event (partner story end, character list on a new game, prepared duel or island map). This answers the `story.md` "Exit codes … not traced" note for 102–112, 116, 118.
+
+**Two-pass scripted events** (M; flow read across functions): a record that starts with `scene_map` runs its set-up opcodes first (`dialogue_run_event_script`, event state 1), returns, and the driver gets `0x74`; with event state 1 `world_driver_next_event` re-queues the same key and `world_driver_handle_result` resets the event state, syncs with the field and goes to state 4, so the location is rebuilt with the event's set-up overrides (`world_get_npc_*` read the event fields while `world_get_driver_event_flag` is set) before the main pass of the same record runs. After `(218, 4, 3)` at stage 4 step 4 the driver also queues the ending.
+
+#### Duel set-up (`0x08ecdbc8`, `0x858` bytes) and request (`*(0x08ece428)`, `0x48` bytes)
+
+| Address | Field |
+| --- | --- |
+| `0x08ecdd58` (`+0x190`) | u8 mode: 1 story duel, 2 default duel (tutorial list), 6 partner duels instead of the player |
+| `0x08ecdd59` | u8 rule from `duel_rules` value (1, else 2) |
+| `0x08ecdd5a` | u8 1 single, 2 tag |
+| `0x08ecdd5b` | u8 duel set-up mode (from `0x08ece420`) |
+| `0x08ecdd5c`, `0x08ecdd5d` | u8 rule byte, u8 (0 when `duel_rules` kind is 2, else 1) |
+| `0x08ecdd6c` + `i · 0x1ac` | duellist slot `i` (0–3): `+0 u16` character (1 = the player), `+2 u16` variant, `+8 u16` recipe (`0x1d1` the player's deck, `0x1d2` the partner's own deck when system flag 2 is set; no recipe name), `+0x18` name (0x32 bytes), `+0x4a` recipe name (0x40 bytes), `+0x8c` loaded deck |
+
+Slots: single duel 0 = player, 1 = opponent; tag duel 0 = the player's partner, 1 = opponent A, 2 = player, 3 = opponent B; mode 6: 0 = the partner, 1 = opponent. Completeness byte `0x08ece424`: bit 0 own side/opponent A, bit 1 opponent (B), bit 2 partner, bit 3 rules, bit 4 (set elsewhere, presumably `duel_then`, L); `world_is_duel_setup_complete` needs bits 0–4. Request block: `+0x00/+0x04` opponent A and variant, `+0x08/+0x0c` opponent B, `+0x44` u8 flags: bit 0 tag, bit 1 partner-requested, bit 2 "pair" flag (set when the duel was requested in free roam; then `world_prepare_story_duel` saves the opponent's duel-pair partner with `save_set_byte_16e10`).
+
+#### Partner, chapter and daily events
+
+Read in full and consistent with `chapter-table.md` and `world.md`. Additional details:
+
+- `world_partner_location_remark` maps locations 1–6 to remarks 1–6 (6 only when not coming from a dorm room or location `0x1c`) and 15–25 to 7–17; other locations have none.
+- Event-211 table `0x08eb4d50`: 16-byte entries `{n, trigger system flag, done system flag, location}`, ended by `n = −1`. On a map entry at the entry's location with the trigger set and done clear, `(211, n, 1)` is queued and system flag `0x36` set; after the duel (`world_story_init` mode 4) `(211, n, 2)` follows and the done flag is set. The island map can highlight the entry's location, but the gate `world_stub_return_0_island_map` always returns 0, so it never does.
+- `world_talk_to_character` key: character `0x1b` → n 6 with system flag 4, 7 without; `0x1a` the opposite (so flag 4 decides which seller sells sandwiches, `world.md`).
+- `world_init_character_records`: per-partner variant table `0x08eb321c` (65 × `{char, variant, column}`, default column 11) selects a column of `0x08eb2e20` (17 rows × 15 words `{character, variant per column}`); table `0x08eb4b58` (`{flag, char, variant}`, ended by three −1) re-enables characters (record flag 1 cleared) whose system flag is set and whose variant matches (the flag argument is hidden in the decompilation; M).
+- `world_recompute_completion_flags` (run when a partner story ends) turns finished stories into unlocks: progress flags e9 bit 4 (≥ 1 story) and e9 bit 0 (≥ 6), story flags `0x81`, `0x86`, `0x87`, system flags `0x41`–`0x69`, and character-row bit 1 (`world_set_flag1_if_partner_deck`) for characters 2–0x7e, gated by individual finished stories (character-row bit 2 of specific characters), by progress flags e9 bit 7 / ea bit 0, or by the count (1, 2, 3, 4, 5, 7).
+- NPC deck choice (`world_update_npc_deck_indices`): threshold 2000 points once progress flag e9 bit 4 is set (a story was finished), 100000 (never) before; above it most NPCs use their stronger recipe; `deck_member_has_forbidden_card(0)` forces a fixed index. Character `0x29` and character 8 variant 0 pick random recipes.
+
+#### Staff roll and story cycle
+
+State `0x2e` (`world_state_start_staff_roll`) → frame callbacks in `0x08ecd98c` run by `world_story_frame_callback`: `world_staff_roll_create_heap` (5 MiB `HeapMovie` pool, movie modules) → `world_staff_roll_wait_modules` (state `0x30`) → `world_play_staff_roll_movie` (next scene mode 1, state `0x32`) → `world_state_save_story_cycle` (closes all overlays, save request 5, `save_advance_story_cycle`) → `0x33` poll → `0x34` `world_state_return_from_story` → `0xc` leave. This answers the `chapter-table.md` question "what the game shows after the staff roll": a save, then the story scene ends (scene return value 1, set by `world_driver_finish_partner_story`). Whether the next partner choice follows is decided outside `rel_story` (open).
+
+#### Name mismatches
+
+- `world_wait_field_sync` (`0x08ea1aec`): waits for field request 7 (NPC list) and then posts and waits for request 32, which `world.md`'s request table calls `world_field_req_end_field`. It is called before every location change, so request 32 is "release the field scene", not the end of the free roam (M).
+- `world_story_init`: the "new game" flag tested is bit 0 of the partner word copy (`world_copy_partner_word`); `save.md` calls bit 0 a flag, here it means "story in progress" (set by `save_set_partner_flag` at the end of the new-game path) (M).
+- The Ghidra prototypes of `world_handle_field_action` (3 params) and `world_state_update_charalist` (3 params) show register garbage; both take no arguments. `dialogue_run_event_script` (2 params) also takes none.
+- `world_get_npc_*` are shown returning `void`; they return the callee's value (tail calls).
+- `dialogue_open_portrait_slot`: its fifth argument is compared both with window numbers and with opcode `0xc351`; it is probably the talk opcode like in `dialogue_open_talk_slot`, and the "side" reading is uncertain (L).
+
+#### Open questions (rel_story)
+- Content of story block `+0x3570` (opcode 50141) and the exact role of `0x08ecd980` beyond "first map entry after a new game" (field request 27).
+- The BOOT functions `0x0885bddc` (mini-game / tournament score word), `0x0885bd4c`, `0x0885bd64`, `0x0885bd7c`, `0x0885bdac`, `0x0885bdc4` (scene parameter blocks of modes 5–11) and the scenes `0xf`, `0x11`, `0x13`, `0x15`, `0x18`, `0x19`, `0x1c` they open.
+- Duel result values in deck block `T + 0x20` (1 = win?) and the meaning of tally word d.
+- System flag `0xc`/`0xd` (mode 8 return): which game mode it is.
+- Whether the restart branch of `world_story_init` (location `0xe`, player position) is reachable.
 
 ## Open questions
 

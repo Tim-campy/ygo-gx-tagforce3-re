@@ -29,7 +29,52 @@ The import stubs they call are named from `re/game-libs.csv` (see `system.md`, "
 
 ## Documented functions
 
-The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/dialogue.md`](functions/dialogue.md).
+The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/dialogue.md`](functions/dialogue.md), extended in the 2026-11-03 round.
+
+## Functions documented in the 2026-11-03 round (work packages 6-7)
+
+Method: the remaining `dialogue` functions of `rel_story` and `rel_field` were re-dumped and read in full. Full rows: [`functions/dialogue.md`](functions/dialogue.md).
+
+### Findings from rel_field
+
+#### Portraits
+
+Three slots of `0x100` bytes at `0x09105370`: `+0x00` load handle pointer, `+0x04` decompressed buffer, `+0x08` handle, `+0x0c` body layout (`body.ehf`), `+0x10` blink frame, `+0x5c`/`+0xcc` body/mouth alpha, `+0x70` expression, `+0x74/+0x78` blink state/timer, `+0x7c` mouth layout (`mouth.ehf`), `+0xe4` loaded, `+0xe8` state (0 none, 1 appearing, 2 shown, 3 leaving), `+0xec` character key, `+0xf0` slot index. Portrait archives are gzip-compressed EHP; size from `world_field_get_resource_file_size(5, key)`. Fade steps ±31 per frame; blink every 90–299 frames; the speaker is field context `+0x08`. Pending flags `0x09105354[3]` (show) and `0x09105364[3]` (hide) gate the busy words `0x09105348`/`0x09105350` (M which requests they belong to). Preload (request 11): pending counter `0x09105670`, busy `0x09105340`; all-loaded word `0x09105360`.
+
+#### Open questions (rel_field)
+- Which request polls `0x09105348` and `0x09105350` (presumably 13 show and 12 release).
+- `dialogue_draw_text_to_screen_edge` (skipped): read from the disassembly.
+
+### Findings from rel_story
+
+#### Interpreter
+
+`dialogue_run_event_script` executes 10-byte instructions `{u16 opcode, u16 a1, u16 a2, u16 a3, u16 line}` from the record header `0x08ece530` at index `0x08ece534`. It runs synchronously until opcode 0, `goto` (50138, returns after the handler) or `halt` (50145, returns without advancing); blocking handlers wait on field requests inside the call. Unknown non-zero opcodes are skipped silently. The set-up pass is as in `story.md` ("Run model"); the driver side of the two passes is under `## world` above.
+
+#### Menus
+
+`dialogue_op_case`: the field returns the chosen option 0–4 for request 18; the handler stores 1–5 in byte `+0x64` of the event queue block (confirms `story-runtime.md` width u8). `dialogue_op_random_case`: draws `rand % count` (count 1–10) and jumps through a 10-entry table at `0x08eb3f3c` that Ghidra did not recover; `story.md` says the branch is `rand % count + 1` (consistent if entry r skips to `case r + 1`; M). `dialogue_is_block_closer`: `case`/`random_case` with a1 = 11 and every `endif` 50047–50079 close a block for the skip search.
+
+#### Talk windows and portraits
+
+Two speaker slots: characters at `0x08ecec70[2]`, slot records at `0x08ecec78` (12 bytes `{portrait row, window, expression}`), current window `0x08ecec90` (−1 none). Windows are numbered 0, 1, 2: a single speaker uses window 1; with two speakers the newest takes window 2 for opcode 50001 (`0xc351`) and window 0 for 50002, the other the opposite (`dialogue_open_talk_slot`) — presumably right/left sides of the screen (L). Adding a third speaker closes (field request 15) the slot not on the requested side. Field requests: 13 show portraits, 14 change expression `{window, 1, expression}`, 15 close windows, 17 talk line `{text, name, window}` (window −1 for a speaker without a portrait).
+
+#### Text expansion
+
+- `dialogue_expand_card_names`: `$M` + four decimal digits → card name (`card_db_get_name`).
+- `dialogue_expand_name_tokens`: tokens between U+300A and U+300B, keyed by ASCII letters: `C` (event key a1 as 3 digits + which-name digit) → character name looked up by the a1 columns 1–4 of the character table; `M` (3 digits + digit) → `dialogue_get_location_map_name` (not decoded); `PA` → partner name; `TEA` → team name; `TES` → the number in field state `+0x168` (the score set after mode-4/mode-8 returns, `## world`); `B` → current item name; `PL` is left as is (presumably the player name, expanded elsewhere, L). Replacements are wrapped in colour codes `$C<n>` … `$C0`.
+- `dialogue_replace_token(text, token, value)`: generic replacement wrapped in `$C7` … `$C0`.
+
+All three work on at most 0x100 UTF-16 characters and stop when the result grows past that.
+
+#### Name mismatches
+
+- `dialogue_call_close_talk_windows` (`0x08eac798`) is 8 bytes; the decompiled body belongs to the following code (skipped).
+
+#### Open questions (rel_story)
+- `dialogue_map_language_index` (`0x08e9eee0`) and `dialogue_get_location_map_name` (`0x08eadd3c`) decompile to empty bodies; their return values need the disassembly.
+- The `random_case` jump table `0x08eb3f3c` targets.
+- Which side of the screen windows 0 and 2 are.
 
 ## Open questions
 

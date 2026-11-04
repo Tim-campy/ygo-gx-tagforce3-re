@@ -129,7 +129,7 @@ The rows tile `0x16c` bytes exactly (`0x94 + 51·4 = 0x160`).
 | `+0x03` | 1 | — | Unknown (no access found) | — | — |
 | `+0x04` | 4 | `u32` | Last day index seen (new-day detection) | H | `world_check_new_day` (`lw/sw +4`) |
 | `+0x08` | 4 | — | Unknown (no access found) | — | — |
-| `+0x0c` | 4 | `u32` | Story flags 1–32 (bit `n − 1`) | H | `world_set_story_flag`, `world_test_story_flag` |
+| `+0x0c` | 4 | `u32` | Story flags 1–32: bit `n & 31` (flag 32 is bit 0, flags 1–31 bits 1–31; corrected 2026-11-03, unlike the system flags, which use bit `n − 1`); flags 33–64 likewise in `+0x10` | H | `world_set_story_flag`, `world_test_story_flag` |
 | `+0x10` | 4 | `u32` | Story flags 33–64 | H | same |
 | `+0x14` | 4 | `u32` | System flags 1–32 | H | `0x08eaaee8` set, `0x08eaafbc` test |
 | `+0x18` | 4 | `u32` | System flags 33–64 | H | same |
@@ -141,7 +141,7 @@ The rows tile `0x16c` bytes exactly (`0x94 + 51·4 = 0x160`).
 
 | Offset | Size | Type | Field | Conf. | Basis |
 | --- | --- | --- | --- | --- | --- |
-| `+0x00` | 4 | `u32` | Story flags 129–160 (bit `n − 129`) | H | `world_set_story_flag` / `world_test_story_flag` |
+| `+0x00` | 4 | `u32` | Story flags 129–160: bit `n & 31` (flag 160 is bit 0; corrected 2026-11-03) | H | `world_set_story_flag` / `world_test_story_flag` |
 | `+0x04` | 4 | `u32` | Story flags 161–192 | H | same |
 | `+0x08` | 4 | `u32` | System flags 65–96 | H | `0x08eaaee8` / `0x08eaafbc` |
 | `+0x0c` | 4 | `u32` | System flags 97–128 | H | same |
