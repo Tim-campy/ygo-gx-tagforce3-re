@@ -2,7 +2,7 @@
 
 A game module calls `BOOT.BIN` (library `libehsys_rel`) and the duel modules (`libduel_eng_rel`, `libduel_draw_rel`, `libfield_rel`) through 8-byte import stubs in its `.sceStub.text`; the module loader patches each stub into a jump to the exported function. `tools/prx_imports.py` resolves every stub by library and NID and names it `thunk_<target>` (`docs/subsystems/system.md`, "The `libehsys_rel` export library"). A stub has no behaviour of its own, so once its target is documented the stub is documented with the target's prototype (renamed), a summary that names the target, and the stub's own callers in the module (in its Ghidra plate comment, `re/documented*.tsv`). This table lists, per documented target, the stubs that reached the `documented` stage this way and how many call sites each has.
 
-Stubs: 13276, for 2625 targets.
+Stubs: 13451, for 2660 targets.
 
 | Target | Program | Stubs (module address, direct callers) |
 | --- | --- | --- |
@@ -2631,3 +2631,38 @@ Stubs: 13276, for 2625 targets.
 | `system_duel_draw_get_heap` (`0x098a0898`) | rel_duel_draw | rel_duel_mgr `0x08eafd04` (1) |
 | `system_swap_word` (`0x09bef054`) | rel_duel_eng | rel_duel_draw `0x098bb53c` (0), rel_duel_mgr `0x08eb19b4` (0) |
 | `system_words_equal` (`0x09bef068`) | rel_duel_eng | rel_duel_draw `0x098bb544` (0), rel_duel_mgr `0x08eb19bc` (0) |
+| `ui_ehf_init_player` (`0x0881e6a4`) | BOOT.BIN | rel_deck `0x08eb82b8` (0), rel_duel_draw `0x098bc404` (0), rel_duel_eng `0x09de423c` (0), rel_duel_mgr `0x08eb287c` (0), rel_field `0x090eed24` (0), rel_shop `0x090e5304` (0), rel_story `0x08eae15c` (0), rel_title `0x08ede948` (0) |
+| `ui_ehf_draw` (`0x0881ec8c`) | BOOT.BIN | rel_deck `0x08eb8320` (2), rel_duel_draw `0x098bc46c` (6), rel_duel_eng `0x09de42a4` (0), rel_duel_mgr `0x08eb28e4` (5), rel_field `0x090eed8c` (5), rel_shop `0x090e536c` (2), rel_story `0x08eae1c4` (0), rel_title `0x08ede9b0` (4) |
+| `ui_ehf_apply_tmf_flags` (`0x08821b70`) | BOOT.BIN | rel_deck `0x08eb8328` (1), rel_duel_draw `0x098bc474` (3), rel_duel_eng `0x09de42ac` (0), rel_duel_mgr `0x08eb28ec` (0), rel_field `0x090eed94` (2), rel_shop `0x090e5374` (0), rel_story `0x08eae1cc` (0), rel_title `0x08ede9b8` (0) |
+| `ui_open_list_window` (`0x088338e4`) | BOOT.BIN | rel_deck `0x08eb8f78` (14), rel_duel_draw `0x098bd0c4` (7), rel_duel_eng `0x09de4efc` (0), rel_duel_mgr `0x08eb353c` (1), rel_field `0x090ef9e4` (6), rel_shop `0x090e5fc4` (4), rel_story `0x08eaee1c` (0), rel_title `0x08edf608` (4) |
+| `ui_draw_list_window` (`0x08833be4`) | BOOT.BIN | rel_deck `0x08eb8f80` (7), rel_duel_draw `0x098bd0cc` (7), rel_duel_eng `0x09de4f04` (0), rel_duel_mgr `0x08eb3544` (1), rel_field `0x090ef9ec` (5), rel_shop `0x090e5fcc` (4), rel_story `0x08eaee24` (0), rel_title `0x08edf610` (9) |
+| `ui_update_list_window` (`0x088345fc`) | BOOT.BIN | rel_deck `0x08eb8f88` (14), rel_duel_draw `0x098bd0d4` (12), rel_duel_eng `0x09de4f0c` (0), rel_duel_mgr `0x08eb354c` (1), rel_field `0x090ef9f4` (5), rel_shop `0x090e5fd4` (4), rel_story `0x08eaee2c` (0), rel_title `0x08edf618` (20) |
+| `ui_draw_list_window_button` (`0x08834d58`) | BOOT.BIN | rel_deck `0x08eb8fb0` (2), rel_duel_draw `0x098bd0fc` (0), rel_duel_eng `0x09de4f34` (0), rel_duel_mgr `0x08eb3574` (0), rel_field `0x090efa1c` (0), rel_shop `0x090e5ffc` (0), rel_story `0x08eaee54` (0), rel_title `0x08edf640` (0) |
+| `ui_draw_card_detail_view_at` (`0x08837588`) | BOOT.BIN | rel_deck `0x08eb9188` (0), rel_duel_draw `0x098bd2d4` (1), rel_duel_eng `0x09de510c` (0), rel_duel_mgr `0x08eb374c` (0), rel_field `0x090efbf4` (0), rel_shop `0x090e61d4` (0), rel_story `0x08eaf02c` (0), rel_title `0x08edf818` (0) |
+| `ui_draw_card_detail_view_pair_at` (`0x08837964`) | BOOT.BIN | rel_deck `0x08eb9198` (0), rel_duel_draw `0x098bd2e4` (1), rel_duel_eng `0x09de511c` (0), rel_duel_mgr `0x08eb375c` (0), rel_field `0x090efc04` (0), rel_shop `0x090e61e4` (0), rel_story `0x08eaf03c` (0), rel_title `0x08edf828` (0) |
+| `ui_draw_card_face` (`0x08837f68`) | BOOT.BIN | rel_deck `0x08eb91a8` (0), rel_duel_draw `0x098bd2f4` (5), rel_duel_eng `0x09de512c` (0), rel_duel_mgr `0x08eb376c` (0), rel_field `0x090efc14` (1), rel_shop `0x090e61f4` (1), rel_story `0x08eaf04c` (0), rel_title `0x08edf838` (0) |
+| `ui_draw_card_view` (`0x08838150`) | BOOT.BIN | rel_deck `0x08eb91b0` (0), rel_duel_draw `0x098bd2fc` (0), rel_duel_eng `0x09de5134` (0), rel_duel_mgr `0x08eb3774` (0), rel_field `0x090efc1c` (0), rel_shop `0x090e61fc` (0), rel_story `0x08eaf054` (0), rel_title `0x08edf840` (0) |
+| `ui_draw_card_frame` (`0x088384f4`) | BOOT.BIN | rel_deck `0x08eb91c8` (0), rel_duel_draw `0x098bd314` (0), rel_duel_eng `0x09de514c` (0), rel_duel_mgr `0x08eb378c` (0), rel_field `0x090efc34` (0), rel_shop `0x090e6214` (0), rel_story `0x08eaf06c` (0), rel_title `0x08edf858` (0) |
+| `ui_draw_card_atk_def` (`0x08839394`) | BOOT.BIN | rel_deck `0x08eb9208` (0), rel_duel_draw `0x098bd354` (0), rel_duel_eng `0x09de518c` (0), rel_duel_mgr `0x08eb37cc` (0), rel_field `0x090efc74` (0), rel_shop `0x090e6254` (0), rel_story `0x08eaf0ac` (0), rel_title `0x08edf898` (0) |
+| `ui_draw_card_frame_ehf` (`0x088395e4`) | BOOT.BIN | rel_deck `0x08eb9210` (0), rel_duel_draw `0x098bd35c` (0), rel_duel_eng `0x09de5194` (0), rel_duel_mgr `0x08eb37d4` (0), rel_field `0x090efc7c` (0), rel_shop `0x090e625c` (0), rel_story `0x08eaf0b4` (0), rel_title `0x08edf8a0` (0) |
+| `ui_draw_card_text_panel` (`0x088397b4`) | BOOT.BIN | rel_deck `0x08eb9218` (0), rel_duel_draw `0x098bd364` (0), rel_duel_eng `0x09de519c` (0), rel_duel_mgr `0x08eb37dc` (0), rel_field `0x090efc84` (0), rel_shop `0x090e6264` (0), rel_story `0x08eaf0bc` (0), rel_title `0x08edf8a8` (0) |
+| `ui_draw_scroll_arrow_fade` (`0x08839c5c`) | BOOT.BIN | rel_deck `0x08eb9228` (0), rel_duel_draw `0x098bd374` (0), rel_duel_eng `0x09de51ac` (0), rel_duel_mgr `0x08eb37ec` (0), rel_field `0x090efc94` (0), rel_shop `0x090e6274` (0), rel_story `0x08eaf0cc` (0), rel_title `0x08edf8b8` (0) |
+| `ui_draw_scroll_arrow_pulse` (`0x0883a130`) | BOOT.BIN | rel_deck `0x08eb9238` (0), rel_duel_draw `0x098bd384` (0), rel_duel_eng `0x09de51bc` (0), rel_duel_mgr `0x08eb37fc` (0), rel_field `0x090efca4` (0), rel_shop `0x090e6284` (0), rel_story `0x08eaf0dc` (0), rel_title `0x08edf8c8` (0) |
+| `ui_draw_window_list` (`0x08842960`) | BOOT.BIN | rel_deck `0x08eb9510` (6), rel_duel_draw `0x098bd65c` (6), rel_duel_eng `0x09de5494` (0), rel_duel_mgr `0x08eb3ad4` (0), rel_field `0x090eff7c` (3), rel_shop `0x090e655c` (1), rel_story `0x08eaf3b4` (0), rel_title `0x08edfba0` (0) |
+| `ui_card_viewer_update` (`0x0884dbb0`) | BOOT.BIN | rel_deck `0x08eba620` (1), rel_duel_draw `0x098be76c` (1), rel_duel_eng `0x09de65a4` (0), rel_duel_mgr `0x08eb4be4` (0), rel_field `0x090f108c` (1), rel_shop `0x090e766c` (1), rel_story `0x08eb04c4` (0), rel_title `0x08ee0cb0` (0) |
+| `ui_card_viewer_draw` (`0x0884decc`) | BOOT.BIN | rel_deck `0x08eba628` (1), rel_duel_draw `0x098be774` (0), rel_duel_eng `0x09de65ac` (0), rel_duel_mgr `0x08eb4bec` (0), rel_field `0x090f1094` (1), rel_shop `0x090e7674` (1), rel_story `0x08eb04cc` (0), rel_title `0x08ee0cb8` (0) |
+| `ui_dispatch_draw_command` (`0x09899364`) | rel_duel_draw | rel_duel_mgr `0x08eafb94` (4) |
+| `ui_duel_draw_init` (`0x0989bf24`) | rel_duel_draw | rel_duel_mgr `0x08eafb9c` (3) |
+| `ui_duel_draw_setup` (`0x0989bff4`) | rel_duel_draw | rel_duel_mgr `0x08eafbac` (2) |
+| `ui_duel_draw_reset` (`0x0989c2a0`) | rel_duel_draw | rel_duel_mgr `0x08eafbb4` (1) |
+| `ui_duel_draw_start_loading` (`0x0989c2f4`) | rel_duel_draw | rel_duel_mgr `0x08eafbbc` (3) |
+| `ui_duel_draw_poll_loading` (`0x0989c3c4`) | rel_duel_draw | rel_duel_mgr `0x08eafbc4` (2) |
+| `ui_duel_draw_begin` (`0x0989c488`) | rel_duel_draw | rel_duel_mgr `0x08eafbd4` (1) |
+| `ui_move_field_cursor` (`0x0989c774`) | rel_duel_draw | rel_duel_mgr `0x08eafc44` (0) |
+| `ui_get_field_cursor_position` (`0x0989c7b8`) | rel_duel_draw | rel_duel_mgr `0x08eafc4c` (0) |
+| `ui_get_saved_location_pair_engine` (`0x0989c880`) | rel_duel_draw | rel_duel_mgr `0x08eafc5c` (0) |
+| `ui_show_phase_banner` (`0x0989cb20`) | rel_duel_draw | rel_duel_mgr `0x08eafcac` (0) |
+| `ui_set_cutin_mode_active` (`0x0989d334`) | rel_duel_draw | rel_duel_mgr `0x08eafcc4` (1) |
+| `ui_is_cutin_mode_active` (`0x0989d3dc`) | rel_duel_draw | rel_duel_mgr `0x08eafccc` (1) |
+| `ui_preload_duel_movie` (`0x098a4304`) | rel_duel_draw | rel_duel_mgr `0x08eafd0c` (2) |
+| `ui_play_duel_movie` (`0x098a4350`) | rel_duel_draw | rel_duel_mgr `0x08eafd14` (1) |

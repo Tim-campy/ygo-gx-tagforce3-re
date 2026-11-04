@@ -110,7 +110,7 @@ Track:
 | 1 | scale (3,486) | `s16 qa, qd` | `a += qa × step1`, `d += qd × step1` |
 | 2 | skew (608) | `s16 qb, qc` | `b += qb × step2`, `c += qc × step2` |
 | 3 | multiply (11,150) | `u8 r, g, b, a` | colour × value / 128 (`0x7F` ≈ 1.0, never above `0x80`) |
-| 4 | add (5,941) | 4 bytes | Colour offset; the tool reads `s8 × 2` (hypothesis, low) |
+| 4 | add (5,941) | 4 bytes | Colour offset; the tool reads `s8 × 2` (hypothesis, low); the game reads four unsigned bytes (player code, 2026-11-04, high; see "Open questions") |
 | 5 | ? (2 tracks, `ryusen01.ehf`) | none | Unknown; stride ignores it |
 
 The base values are the centre of each channel's range, and quantised values span about ±32,760, so a step is (range / 2) / 32,767. Example: a rotation from 30° to 0° at scale 1.5 is stored as base `[1.3995, -0.375, 0.375, 1.3995]`, scale keys from -32,759 to 32,760 with step `3.07e-6` (±0.1) and skew keys with step `1.14e-5` (±0.375); the reconstructed matrix keeps `|scale| = 1.5` at every key, which pins down the channel assignment.
@@ -199,9 +199,9 @@ So 10 kinds are tracked and 5 still carry data whose meaning is unknown: `stage.
 
 ## Open questions
 
-- What `ui_bind_ehf` writes into words 4–5 of each primitive and how the callback `0x088227d0` resolves texture names (presumably `container_ehp_find_member(ehp, name + ".gim")`).
-- Stage field `0x08` (frame step?); whether the background colour is drawn.
-- Exact interpolation between keys, and the meaning and encoding of the `add` channel (bit 4) and of flag bit 5.
-- `.tmf` bit 4, confirmation of bit 0 = additive blending, and what happens without a `.tmf`.
-- Whether placing the same object again at an occupied depth restarts its track (the tool restarts it).
+- ~~What `ui_bind_ehf` writes into words 4–5 of each primitive~~: answered 2026-11-04 (static, high): nothing; the player reads the 6-word primitive records itself. `ui_bind_ehf` calls the texture callback on each 16-byte texture slot and then stores the slot's `.tmf` byte (0 without a `.tmf`) in slot word `+0x0c`, overwriting characters 12–15 of the name, so long names cannot leak into the flags. Header `+0x38` is a run-time pointer to a player buffer.
+- ~~Stage field `0x08`~~: answered 2026-11-04 (high): vsyncs per layout frame, so a layout runs at 60 / value frames per second, capped by the game's frame rate; the caller's draw block word 0 is a tick and the layout advances once per new tick. Still open: whether the background colour is drawn.
+- ~~Interpolation and the `add` channel~~: answered 2026-11-04 (high): keys interpolate linearly and hold the first/last value outside their range; the add channel is four **unsigned** bytes applied as a colour offset (through the GE emissive colour), not `s8 × 2` as `tools/ehf.py` reads it (the tool still needs that fix); multiply is `s8 × 256 / 127`; the player reads the add bytes when bit 4 or bit 5 is set (the tool counts bit 4 only and its key-stride check passes on every file, so the two flagged bit-5 tracks either also have bit 4 or no keys; not re-checked), and flag bit 6 is an extra morph-weight channel. Nesting: `add = own.add + own.mul × parent.add / 256`, which differs from Flash.
+- ~~`.tmf` bits~~: answered 2026-11-04 (high): bit 0 additive blending, bit 4 bilinear filtering; without a `.tmf` every slot gets 0 (normal blending, nearest filtering).
+- ~~Re-placing at an occupied depth~~: answered 2026-11-04: it creates a new instance, so the track restarts (as the tool does).
 - Line-strip primitives (16) are not drawn by the tool.
