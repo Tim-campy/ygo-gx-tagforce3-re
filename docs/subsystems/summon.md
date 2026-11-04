@@ -413,13 +413,13 @@ Other handlers read in this round: `duel_core_cmd_shuffle_monster_zones` (`0x09d
 - `duel_core_step_apply_lp_change`: who calls it (thunks of the LP commands `0x23`/`0x24`/`0x25`?) and what cause `b` = 2 means (it records `0x14c0` for the turn player; payment of a cost is the guess).
 - `duel_core_get_procedure_material_rule`: confirm that the filter address is returned in `v0` (Ghidra shows `void`).
 - Card `0x1f32`: slot flag bit 8 gates the "Level 2" question and bit 7 stores the choice; confirm in PPSSPP.
-- Player flag bits 22 (more than 99 Special Summon placements, counter `0x09e2d240`), 24 (own monster sent to the Graveyard), 25/26 (spell/trap activated from the hand), and slot flag bits 10, 13, 15, 19, 28, 30: purposes beyond "set by these commands" are open.
+- ~~Player flag bits 22, 24, 25/26 and slot flag bits 10, 13, 15, 19, 28, 30~~: settled statically on 2026-11-04, every writer and reader in `formats/duel-runtime.md`, "Player and slot flag bits". Player bit 22 = Special Summons refused after 100 trap-monster placements in one phase (counter `0x09e2d240`, read by `duel_core_is_summon_kind_allowed`); 24 = a monster of the side went from its Monster Zone to its owner's Graveyard this turn (Last Will); 25/26 = the side activated a Spell / Trap Card this turn (from the hand or by flipping a Set card; 25 read by Linear Accelerator Cannon, 26 has no reader). Slot bit 10 = face-up since placed (identity known; the AI reads face-down cards only with it), 13 = monster placed as a Continuous Spell (Crystal Beasts), 15 / 19 = turned face-up by command `0x34` (persistent / this turn; 19 drives the Spirit return), 28 = spell/trap activated from the hand (Malfunction), 30 = declared an attack this turn (Red Dragon Archfiend).
 - The statistic indices of `duel_core_add_statistic` (`0x11`–`0x40`) should be mapped to the duel-record screen.
 - The step-0x16 controller check `duel_core_enforce_slot_controller` (returns non-zero while it is still working; what it enforces is not read).
 
 ## Open questions
 
-- Bit 20 (`0x00100000`) of the player flags word `+0x120` is set by a face-up Normal Summon together with bits 16, 17 and 21 (seen in PPSSPP, `verification/results/2026-10-26-sessionA-part1.md`); its meaning is unknown.
+- ~~Bit 20 (`0x00100000`) of the player flags word `+0x120`~~: settled on 2026-11-04. It is set for the turn player by every summon, Set, position change and activation made while the phase is Main Phase 1 (`0x09e2d1e8` = 2), which is why the PPSSPP session saw it with a Normal Summon; its only reader is Cold Wave ("activate only at the start of Main Phase 1"). See `formats/duel-runtime.md`, "Player and slot flag bits".
 
 - Confirm the action-code/bit mapping and the reason codes in PPSSPP (breakpoint on `0x09dcf950`, watch `0x09e2d288`), and find the `rel_duel_draw` code that calls `duel_core_get_card_action_mask` and turns the mask into menu entries.
 - ~~Action 10 and command `0x22`~~: answered on 2026-10-31. Action 10 is surrender; `duel_core_cmd_concede_duel` (`0x09dbfe9c`, command `0x22`) sets the side's LP to 0, stores the reason `b` in the opponent's block `+0x30` (where `duel_core_check_duel_end` stores win codes), latches `0x09e2d1d4 = 1` and sets `0x09e2d1f0` (1, or 2 when the conceding side is the local side), after UI event `0x35` unless `b` is `0xd`. Surrender posts `b = 0xc`; who posts `0xd` is not found yet.
@@ -428,5 +428,5 @@ Other handlers read in this round: `duel_core_cmd_shuffle_monster_zones` (`0x09d
 - Ritual: the role of `0x09e28f68` for Machine Angel Ritual and the other exact-total spells should be confirmed in play; Samsara's (`0x19da`) effect on the tribute step; the card-specific ritual monsters' extra rules (the M1/M3 records of Relinquished, Paladin of White Dragon …).
 - The about 30 card-specific preparation routines called from `duel_core_summon_prepare`.
 - Slot flag bit 3 is set by a Gemini summon, while `duel_effects.md` describes bit 3 as disabling effect handlers; reconcile (Gemini monsters are effect-less until summoned twice).
-- Player word `+0x120` bits 20, 22 and 24 (set by several movement commands).
+- ~~Player word `+0x120` bits 20, 22 and 24~~: settled, `formats/duel-runtime.md`, "Player and slot flag bits" (20 Main Phase 1 no longer at its start, 22 Special Summon cap, 24 own monster sent to the Graveyard).
 - The summon-negation window `0x09c32e54` (the command `0x61` handler is read, table above).

@@ -31,6 +31,7 @@ Row keys refer to `re/formats.csv`.
 | `battle_end_checks` | `0x09e00f5c` (`+0x21fb5c`) | 31 × 8 | [Check tables](#end-phase-and-battle-end-check-tables-end_phase_checks-battle_end_checks) |
 | `end_phase_checks` | `0x09e014f4` (`+0x2200f4`) | 8 × 8 | [Check tables](#end-phase-and-battle-end-check-tables-end_phase_checks-battle_end_checks) |
 | `zone_preference_tables` | `0x09deba0c`, `0x09deba20` (`+0x20a60c`, `+0x20a620`) | 2 × 20 | [Free-zone preference tables](#free-zone-preference-tables-zone_preference_tables) |
+| (no row yet; part of the player block) | player `+0x120`, slot `+0x10` | 4 + 4 | [Player and slot flag bits](#player-and-slot-flag-bits) |
 
 `duel_core_reset` (`0x09dc7cb0`) zeroes `0x09e2a528` × `0x2de4` (player blocks, card instance table, effect pool, input state, send batch and prompt block, up to `0x09e2d30c`), `0x09e02ff8` × `0x25628` (AI state up to `0x09e28620`, including the phase override stack) and nine smaller regions (not itemised here). The set-up parameters, the tag waiting area and the module tables are not cleared by it.
 
@@ -348,6 +349,71 @@ The End Phase functions are `duel_core_end_phase_post_turn_counters` (×5), `_up
 | `0x09deba20` | `+0x20a620` | 20 | `u32[5]` | Spell/trap-zone order 2, 3, 1, 4, 0, used as `5 + value` | `duel_core_find_free_spell_trap_zone` (`0x09bfc7a4`) | H |
 
 The finders return the first zone of the order that is empty and usable (`duel_core_is_zone_usable`, `effect-helpers-predicates.md`), or −1.
+
+## Player and slot flag bits
+
+The two flag words of the player block (`duel_core.md`, "Player state"): the **player flags word** at player `+0x120` (`0x09e2a648 + side × 0xb3c`, module `+0x249248`) and the **slot flags word** at slot `+0x10` (`0x09e2a56c + side × 0xb3c + slot × 0x14`, module `+0x24916c`). The player word sits where a twelfth slot's flags word would be (`0x09e2a56c + 11 × 0x14`). Command 2 (turn start) clears the upper 16 bits of all twelve words of both sides, so bits 16–31 are per-turn state; bits 0–15 last until the card leaves the slot (a placement zeroes the slot) or, for the player word, until the code clears them.
+
+**Method (2026-11-04, static).** Capstone sweep of the whole `.text` of `rel_duel_eng.prx`, `rel_duel_draw.prx` and `rel_duel_mgr.prx`: (1) every call of the bit helpers with a constant bit argument (`duel_core_test_player_flag` `0x09be1e40`, `duel_core_set_player_flag_bit` `0x09c0ba90`, `duel_core_post_set_player_flag` `0x09c2be00` / command `0x21`, `duel_core_set_slot_flag_bit` `0x09c0bb04`, `duel_core_post_set_slot_flag` `0x09c2be98` / command `0x29`, and their thunks in the two other modules); (2) every direct access to the player word (`lui 0x25` + `-0x6db8`, or `+0x120` from the player base `-0x6ed8`), 61 sites in 55 functions, each read with its mask (`ext pos,1`, `lui`+`or`/`and`, `andi`/`ori`); (3) every `ext`/`andi`/`ori`/`lui` of the target bits whose source register is loaded from a slot flags word (`-0x6e94` base, `+0x10` of a slot pointer, or `+0x44` of a player pointer). Card names come from the reader's or writer's card-id compare and the European `cardinfo`. `rel_duel_draw` makes no flag-helper call; `rel_duel_mgr` makes one (below). Limitation: a read through a computed bit number or through a copied player block (the AI simulation snapshots) is not found by this sweep.
+
+### Player flags word (`+0x120`)
+
+| Bit | Mask | Meaning | Writers | Readers | Conf. |
+| --- | --- | --- | --- | --- | --- |
+| 0 | `0x1` | Skip this side's next Draw Phase | `post_set_player_flag(0, 1)`: `duel_effects_resolve_skip_opponent_draw` `0x09c84ea8`, `duel_effects_resolve_145e` `0x09c89b80`; cleared `(0, 0)` by `duel_core_step_draw_phase` `0x09ddb090` | `duel_core_should_skip_draw` `0x09be15c8`, `duel_core_is_draw_skipped` `0x09ddaf90`, `duel_core_step_draw_phase`, `ai_handler_check_phase_1378` (Time Seal) | H |
+| 1 | `0x2` | The side's whole hand is public | `duel_core_cmd_set_hand_revealed` `0x09dbd470` (`set_player_flag_bit(side, 1, a)`, command `0x53`) | `duel_core_get_hand_public_flag` `0x09c03880`, `duel_core_is_hand_card_revealed` `0x09c038a8`, `duel_core_shuffle_hand` `0x09c03a5c` (no shuffle while public) | H |
+| 2 | `0x4` | A hand card has been shown since the last hand shuffle (the hand display must be refreshed) | set: `duel_core_cmd_reveal_hand_card` `0x09dbd388`, `duel_core_cmd_set_hand_revealed`, `duel_core_cmd_send_field_card` `0x09db4d34`, `duel_core_cmd_chain_link_activated` `0x09dbca4c`, `duel_effects_resolve_192f`; cleared by `duel_core_cmd_shuffle_hand` `0x09dbd1e4` and `duel_effects_return_hand_cards_to_deck_step` | `duel_effects_rule_update_hand_reveal` `0x09ce2494` | M |
+| 3 | `0x8` | The Deck must be shuffled (a card was taken from or put into the middle of the Deck) | `set_player_flag_bit(side, 3, 1)` in `duel_core_cmd_move_list_card`, `cmd_send_field_card`, `cmd_destroy_by_effect`, `cmd_destroy_by_battle`, `cmd_tribute_card`; posted by the fusion resolvers (`0x09cbace0`, `0x09cbd838`); cleared by `duel_core_cmd_shuffle_deck` `0x09dbbbac` and `duel_core_clear_deck_shuffle_flags` `0x09bf101c` | `duel_core_shuffle_searched_decks` `0x09c2b868` (posts command `0x55`) | H |
+| 4–15 | | None: no constant-bit helper call and no mask on a direct access (a write through command `0x21` with a computed bit number would not be seen) | | | — |
+| 16 | `0x10000` | The side has summoned (Normal, Flip, Special, procedure) this turn | `post_set_player_flag(side, 16, 1)` in the five summon steps (`duel_core_summon_step_normal` `0x09daea0c`, `_flip`, `_special`, `_procedure`, `duel_core_run_summon_procedure`) | Scapegoat / Stray Lambs / Fires of Doomsday `0x09c58998`, Dark Magic Curtain `0x09c59878`/`0x09c80224`, Gateway to Dark World `0x09c6825c`/`0x09ca28c8`, `duel_effects_resolve_summon_tokens` `0x09c795f0`: "if you activate this card you cannot summon this turn" requires the bit clear | H |
+| 17 | `0x20000` | Normal Summon used this turn | `duel_core_use_normal_summon` `0x09be9c94` | `duel_core_has_normal_summon`, `duel_core_has_normal_summoned_this_turn`, `duel_core_get_special_summon_mask`, `ai_handler_board_wipe_if_behind` | H |
+| 18 | `0x40000` | The side declared an attack this turn | `duel_core_apply_attack_declaration` `0x09db315c` (`set_player_flag_bit(side, 18, 1)`) | Volcanic Wall `0x09c57cbc`, Misfortune / Chain Material `0x09c69364`, Wild Fire `0x09c6d1a0` ("your monsters cannot attack this turn": the card needs the bit clear) | H |
+| 19 | `0x80000` | A battle of this turn reached damage calculation (set for the turn player) | `duel_core_cmd_show_battle_damage` `0x09db3780` (command `0x16`), side `0x09e2d1d8` | Destiny Hero - Doom Lord `0x09c6928c`, Poison Chain `0x09c73700` ("if you did not attack") | H (writer), M (meaning: battle conducted, versus bit 18 attack declared) |
+| 20 | `0x100000` | Main Phase 1 is no longer at its start: the turn player summoned, set, changed a position or activated something during Main Phase 1 | Set for the turn player (`0x09e2d1d8`) only while the phase `0x09e2d1e8` is 2 (Main Phase 1) by `duel_core_cmd_summon_from_hand` `0x09dbd5c0`, `cmd_place_spell_trap_from_hand` `0x09dbda08` (Set path), `cmd_change_position` `0x09db67f0`, `cmd_announce_activation` `0x09dba88c`, `cmd_summon_complete` `0x09dbefcc`, `cmd_place_trap_monster` `0x09dbf23c` | Cold Wave `0x09c5cb70` ("activate only at the start of Main Phase 1": needs the bit clear) | H |
+| 21 | `0x200000` | A monster was Normal Summoned face-up this turn | `duel_core_cmd_summon_finalize` `0x09dbdedc` | `duel_core_get_special_summon_mask` `0x09da19b4` | H |
+| 22 | `0x400000` | Special Summons refused for the rest of the turn: more than 99 trap-monster placements in one phase | `duel_core_cmd_place_trap_monster`: counter `0x09e2d240` += 1 per placement, bit set for the placing side when it reaches 100; `duel_core_apply_phase_start_attack_rules` `0x09be6d90` zeroes the counter | `duel_core_is_summon_kind_allowed` `0x09c0bdec`: Special Summon kind (`mode & 8`) returns 0 when set | H (code), M (purpose: a guard against endless trap-monster loops) |
+| 23 | `0x800000` | This side's whole turn is skipped | `duel_core_step_turn_start` `0x09de0094` posts `(side, 23, 1)` when the side has the effect node of Gamble `0x1356` or Arcana Force XXI - The World `0x1da5` | `duel_core_should_skip_draw`, `duel_core_step_draw_phase`, `duel_core_step_standby_phase` `0x09de2460`, `duel_core_step_main_phase` `0x09de0240`, `duel_core_step_end_phase` `0x09ddf4dc`, `ai_handler_check_phase_137e`; `rel_duel_mgr` `tag_duel_handle_partner_swap` (`0x08e9bc28`, test of bit 23: no partner swap in a skipped turn) | H |
+| 24 | `0x1000000` | A monster of this side left its Monster Zone for its owner's Graveyard this turn | `cmd_send_field_card` `0x09db4f0c`, `cmd_destroy_by_effect` `0x09db81bc`, `cmd_destroy_by_battle` `0x09db8c0c`, `cmd_tribute_card` `0x09db9ad4`: destination Graveyard (location `0x0e`), not a token, slot < 5, `card_db_is_monster`, owner = controller | Last Will `0x09c5ae2c`, `ai_handler_check_rule_state_1315` | H |
+| 25 | `0x2000000` | The side activated a Spell Card this turn | `set_player_flag_bit(side, 25, 1)` when `card_db_is_spell`: `cmd_place_spell_trap_from_hand` (face-up placement = activation from the hand) and `duel_core_cmd_change_face` `0x09db6cc0` (a Set card turned face-up = activation) | Linear Accelerator Cannon `0x09c6ba5c` (needs the bit clear) | H |
+| 26 | `0x4000000` | The side activated a Trap Card this turn | as bit 25 with `card_db_is_trap` | none found in the three modules | H (writer); no reader |
+| 27–31 | | None (same limits as bits 4–15) | | | — |
+
+### Slot flags word (`+0x10`)
+
+Bits already documented elsewhere are listed briefly with their source; the bits settled in this round carry their evidence.
+
+| Bit | Mask | Meaning | Evidence | Conf. |
+| --- | --- | --- | --- | --- |
+| 1 | `0x2` | Repeat-until-cleared marker of command `0x38` (chain context) | `chain.md` | M |
+| 2 | `0x4` | Destroyed / marked for sending (battle, send pipeline); must be clear for an active effect source | `duel_core.md` | H |
+| 3 | `0x8` | Effects off (transient after every placement; cleared by command `0x44`) | `summon.md` | H |
+| 4 | `0x10` | Send to the Graveyard after the chain | `chain.md` | M |
+| 5 | `0x20` | Tribute Summoned | `summon.md` | H |
+| 6 | `0x40` | Special Summoned (with bit 18) | `summon.md` | H |
+| 7 | `0x80` | Per-card choice / "flag face-up copies" | `duel_core.md`, `summon.md` | M |
+| 8 | `0x100` | Effect negated | `duel_core.md` (`duel_core_set_slot_negated`) | H |
+| 10 | `0x400` | The card has been face-up since it was placed (its identity is known to both players) | Set to `face_up` by `duel_core_place_in_monster_zone` `0x09bef2f0` and `duel_core_place_in_spell_trap_zone` `0x09bef47c`; set to 1 by `cmd_summon_from_hand` `0x09dbd8b4`, `cmd_place_trap_monster` `0x09dbf6d0`, `cmd_change_position` `0x09db6c64`, `cmd_change_face` `0x09db718c`, `cmd_swap_field_cards` `0x09db64dc`, and by `duel_core_battle_end_destroy_marked_monsters` `0x09dda6ac` for a face-down monster destroyed in battle (revealed). Readers: `ai_mask_hidden_card_id` `0x09ce4470` returns the real id of a face-down card only when the bit is set; `ai_estimate_slot_stats`, `ai_check_target_slot` and about 25 AI scorers use it the same way | H (writers), M–H (meaning) |
+| 11 | `0x800` | A face-up card counts as a spell rather than a trap (hypothesis) | `duel_core.md` | M |
+| 12 | `0x1000` | A monster-zone card counts as a spell/trap (trap monster; set by `cmd_place_trap_monster`) | `duel_core.md`; `0x09dbf790` | M–H |
+| 13 | `0x2000` | A monster card placed in a Spell & Trap Zone as a Continuous Spell (Crystal Beast) | Set by the Crystal Beast placers (posted, `0x09cac870` Sapphire Pegasus / Crystal Pair / Crystal Release, `0x09cad574` Crystal Blessing, `0x09cb167c` Crystal Counter / Crystal Tree) and inline by `cmd_destroy_by_effect` `0x09db8710` and `cmd_destroy_by_battle` `0x09db9560` (a destroyed Crystal Beast placed instead of sent). Readers: `duel_core_count_face_up_spells_with_icon` `0x09bfd04c` counts it as icon 4 (Continuous), `duel_core_filter_face_up_spell_icon4_material`, the target filters of Spell Purification `0x09c3cc18`, Mei-Kou `0x09c3f35c`, Seismic Crasher `0x09c3f428`, Magna-Slash / Gravi-Crush Dragon `0x09c3f4ec`, and `duel_effects_update_negated_slots` | H |
+| 14 | `0x4000` | Gemini summoned | `summon.md` | H |
+| 15 | `0x8000` | The monster has been turned face-up by command `0x34` since it was placed (persists across turns) | Set together with bit 19 by `duel_core_cmd_change_face` (`0x09db70d0`–`0x09db70fc`) when a monster-zone card ends face-up. Readers: a destroyer rule of `duel_core_send_field_card_body` `0x09c1cf98`, `ai_eval_destroyer_graveyard_effects` `0x09d00208` | H (writer), M (meaning) |
+| 16 | `0x10000` | Normal Summoned face-up this turn | `summon.md` | H |
+| 17 | `0x20000` | Flip Summoned this turn | `summon.md` | H |
+| 18 | `0x40000` | Special Summoned this turn | `summon.md` | H |
+| 19 | `0x80000` | Turned face-up this turn by command `0x34` (an effect or an attack on a face-down monster), as opposed to a Flip Summon (bit 17) | Writer as bit 15 (per-turn copy). Readers: `duel_core_queue_spirit_return_triggers` `0x09ddd644` returns a Spirit monster when bit 16, 17, 19 (or 18 on the special path) is set, which is the card text "Normal Summoned or flipped face-up this turn"; Ultimate Insect LV1 `0x09c64d0c`, `ai_get_returning_spirit_level`, `ai_eval_battle_card_effects`, `ai_collect_attackers`, a destroyer rule of `send_field_card_body` `0x09c1cfd0` | H |
+| 21 | `0x200000` | Cannot change position this turn | `summon.md` | H |
+| 22 | `0x400000` | Has attacked / attack in progress (cleared by command `0x19` with `b = 0`) | `battle.md` | M–H |
+| 23 | `0x800000` | No attack left | `battle.md` | M |
+| 25 | `0x2000000` | Attacker of the current attack | Set with bit 30 by `duel_core_apply_attack_declaration` `0x09db3580`; cleared with bit 30 by `duel_core_cmd_negate_attack` (`battle.md`); read by the damage steps (`duel_core_battle_step_damage_start`, `_damage_calc`), `duel_core_battle_check_replay` and many attack-related resolvers | M–H |
+| 27 | `0x8000000` | Trigger already queued in this step / per-phase flag | `battle.md`, `duel_core.md` | M |
+| 28 | `0x10000000` | The spell/trap was activated from the hand (placed face-up by command `0x51`) rather than flipped from a Set | Set by `duel_core_cmd_place_spell_trap_from_hand` `0x09dbde1c` on the face-up path. Reader: Malfunction `0x09ca52a0`: a negated trap with the bit set is sent to the Graveyard (`duel_core_request_send_mask`, location `0x0b`), otherwise it is turned face-down again (`0x09c15e64`), the card's "return it to its original position" | H |
+| 29 | `0x20000000` | Has a main attack entry | `battle.md` | M |
+| 30 | `0x40000000` | Declared an attack this turn (not negated) | Set by `duel_core_apply_attack_declaration` `0x09db3594`; cleared by `cmd_negate_attack`. Reader: Red Dragon Archfiend's End Phase filter `0x09c3e348` destroys only monsters whose bit is clear ("monsters that did not declare an attack") | H |
+
+Bits 0, 9, 20, 24, 26 and 31 of the slot word were not looked at in this round (`ext` with position 26 occurs in two send rules of `send_field_card_body` and `cmd_destroy_by_battle`).
+
+**Runtime check (optional, confirms the H rows).** PPSSPP: write breakpoints (log only) on `0x09e2a648` and `0x09e2b184` (player words of sides 0 and 1) during one turn: in Main Phase 1 activate a Spell from the hand (bits 20, 25), flip a Set trap (26), declare an attack (18, slot bits 25 and 30), let it reach damage calculation (19), lose a monster to battle (24). `docs/verification/ppsspp-plan.md` holds the step list once the coordinator adds it.
 
 ## Writers and round trip
 

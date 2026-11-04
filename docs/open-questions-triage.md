@@ -7,7 +7,7 @@ Every bullet of every "Open questions" list in `docs/subsystems/*.md` and `docs/
 - **W** non-blocking, part of the card-effect and AI fidelity workstream: a port can implement the behaviour from the official card text and the documented engine rules; the binary only adds the original's exact numbers and quirks.
 - **N** non-blocking: fidelity detail (timing, look, unused or dead code, debug paths, Sony library internals, zero bytes, naming, link play, UI layout the port redesigns).
 
-Totals: 573 items: B 16, R 146, W 18, N 393.
+Totals: 573 items: B 13, R 151, W 18, N 391.
 
 | Document | Items | B | R | W | N |
 | --- | --- | --- | --- | --- | --- |
@@ -46,7 +46,7 @@ Totals: 573 items: B 16, R 146, W 18, N 393.
 | `formats/tutorial.md` | 6 |  |  |  | 6 |
 | `formats/vtmt.md` | 2 |  |  |  | 2 |
 | `subsystems/ai-helpers.md` | 6 |  |  | 1 | 5 |
-| `subsystems/ai.md` | 58 |  | 2 | 1 | 55 |
+| `subsystems/ai.md` | 58 |  | 3 | 1 | 54 |
 | `subsystems/audio.md` | 9 |  | 5 |  | 4 |
 | `subsystems/battle.md` | 22 | 2 | 5 |  | 15 |
 | `subsystems/card_db.md` | 4 |  | 3 |  | 1 |
@@ -56,7 +56,7 @@ Totals: 573 items: B 16, R 146, W 18, N 393.
 | `subsystems/dialogue.md` | 6 |  | 1 |  | 5 |
 | `subsystems/duel-phases.md` | 6 |  | 5 |  | 1 |
 | `subsystems/duel_core.md` | 13 |  | 3 |  | 10 |
-| `subsystems/duel_effects.md` | 32 | 2 | 4 |  | 26 |
+| `subsystems/duel_effects.md` | 32 | 2 | 5 |  | 25 |
 | `subsystems/effect-classification.md` | 5 |  | 3 |  | 2 |
 | `subsystems/effect-helpers-deck.md` | 8 |  |  |  | 8 |
 | `subsystems/effect-helpers-misc.md` | 17 | 2 | 3 | 1 | 11 |
@@ -70,7 +70,7 @@ Totals: 573 items: B 16, R 146, W 18, N 393.
 | `subsystems/sdk.md` | 1 |  | 1 |  |  |
 | `subsystems/shop.md` | 11 |  | 4 |  | 7 |
 | `subsystems/stat-modifiers.md` | 7 |  | 2 |  | 5 |
-| `subsystems/summon.md` | 17 | 3 | 9 |  | 5 |
+| `subsystems/summon.md` | 17 |  | 12 |  | 5 |
 | `subsystems/system.md` | 15 |  | 3 |  | 12 |
 | `subsystems/tag_duel.md` | 5 |  | 5 |  |  |
 | `subsystems/ui.md` | 68 |  | 14 |  | 54 |
@@ -430,7 +430,7 @@ Totals: 573 items: B 16, R 146, W 18, N 393.
 | 172 | `0x09e27fa4 + side·0x18` (byte read as a slot after `ai_simulate_attack` in the cost chooser). | N |  |
 | 173 | The unused `mode` argument of `ai_eval_attack`: confirm in the disassembly that `a3` is really ignored. | N |  |
 | 174 | `ai_check_target_slot` rejects every slot while `0x09e28f80 >= 0`; `ai_is_valid_target` (22 callers, mostly AI handlers) calls it without … | N |  |
-| 175 | Slot flag bit 10 (`+0x10`) decides whether a face-down card is estimated (`ai_estimate_slot_stats`) and gates several target rules … | N |  |
+| 175 | Slot flag bit 10 (`+0x10`) decides whether a face-down card is estimated (`ai_estimate_slot_stats`) and gates several target rules … | R | B3: slot bit 10 = face-up since placed (identity known), `formats/duel-runtime.md`, "Player and slot flag bits". |
 | 176 | Meaning of the codes returned by `ai_classify_resolve_kind` (0-6) beyond "0 = nothing to answer", and of the outcome bits of `ai_sim_resolve_battle` … | N |  |
 | 177 | `ai_card_can_target_slot` (`0x09ceb738`) needs the disassembly to recover its arguments (skipped). | N |  |
 | 178 | `0x09e28e38` is used by `ai_sim_resolve_card_with_temp_link` as the index of the borrowed chain entry, while the other temp-link helpers use the link … | N |  |
@@ -620,7 +620,7 @@ Totals: 573 items: B 16, R 146, W 18, N 393.
 | 312 | Byte `0x09e290bc` (bit 1 side, bits 2-5 slot) read after a summon by `0x09c7eca8`, `0x09c826b4`, `0x09c83368`: is it "zone of the last placed card"? … | N |  |
 | 313 | Engine commands `0x58` (`0x09cb6bd4`, a = 0x0d, b = Deck instance) and `0x60` (`0x09c89e10`, a = counter, b = zone): handlers not yet identified here. | R | `functions/duel_core.md` (`0x58`); `0x60` minor. |
 | 314 | Command 8 = declaration display (above): confirm the case stub in the dispatch table `0x09e00944`. | N |  |
-| 315 | Slot flag bit 25 of the attacking monster (`0x09c7d6a8`) and slot flag bit 13 set by `0x09cb13ec`: meanings unknown. | N |  |
+| 315 | Slot flag bit 25 of the attacking monster (`0x09c7d6a8`) and slot flag bit 13 set by `0x09cb13ec`: meanings unknown. | R | B3: slot bit 25 = attacker of the current attack (M-H), bit 13 = monster placed as a Continuous Spell, `formats/duel-runtime.md`, "Player and slot flag bits". |
 | 316 | The per-entry word at player `+0xa0c` (`0x09e2af34 + index x 2`) used by `0x09c87ea0` for a banished card's return (low byte 0x40, … | N |  |
 | 317 | `0x09c7e0f8` sets bit 0 of the responded link's byte +6, which `chain.md` documents as the copied-effect flag; its meaning in that use is open. | N |  |
 | 318 | `0x09c8cab8` decrements `0x09e28f64` and waits for zero without initialising it: is the counter reset by the chain driver before each resolve (then … | N |  |
@@ -827,10 +827,10 @@ Totals: 573 items: B 16, R 146, W 18, N 393.
 | 449 | `duel_core_step_apply_lp_change`: who calls it (thunks of the LP commands `0x23`/`0x24`/`0x25`?) and what cause `b` = 2 means (it records `0x14c0` … | R | `functions/duel_core.md`. |
 | 450 | `duel_core_get_procedure_material_rule`: confirm that the filter address is returned in `v0` (Ghidra shows `void`). | R | `functions/duel_core.md`. |
 | 451 | Card `0x1f32`: slot flag bit 8 gates the "Level 2" question and bit 7 stores the choice; confirm in PPSSPP. | N |  |
-| 452 | Player flag bits 22 (more than 99 Special Summon placements, counter `0x09e2d240`), 24 (own monster sent to the Graveyard), 25/26 (spell/trap … | B (S) | B3: list the readers of player `+0x120` bits 20/22/24-26 and slot-flag bits (capstone scan for the masks). |
+| 452 | Player flag bits 22 (more than 99 Special Summon placements, counter `0x09e2d240`), 24 (own monster sent to the Graveyard), 25/26 (spell/trap … | R | B3 settled statically (2026-11-04): player bits 22/24/25/26 and slot bits 10/13/15/19/28/30 with writers and readers, `formats/duel-runtime.md`, "Player and slot flag bits". Optional confirmation: PPSSPP G5. |
 | 453 | The statistic indices of `duel_core_add_statistic` (`0x11`–`0x40`) should be mapped to the duel-record screen. | N |  |
 | 454 | The step-0x16 controller check `duel_core_enforce_slot_controller` (returns non-zero while it is still working; what it enforces is not read). | R | `functions/duel_core.md`. |
-| 455 | Bit 20 (`0x00100000`) of the player flags word `+0x120` is set by a face-up Normal Summon together with bits 16, 17 and 21 (seen in PPSSPP, … | B (S) | B3. |
+| 455 | Bit 20 (`0x00100000`) of the player flags word `+0x120` is set by a face-up Normal Summon together with bits 16, 17 and 21 (seen in PPSSPP, … | R | B3: bit 20 = Main Phase 1 no longer at its start (set for the turn player by a summon, Set, position change or activation while the phase is 2; only reader Cold Wave), `formats/duel-runtime.md`, "Player and slot flag bits". |
 | 456 | Confirm the action-code/bit mapping and the reason codes in PPSSPP (breakpoint on `0x09dcf950`, watch `0x09e2d288`), and find the `rel_duel_draw` … | N |  |
 | 457 | ~~Action 10 and command `0x22`~~: answered on 2026-10-31. Action 10 is surrender; `duel_core_cmd_concede_duel` (`0x09dbfe9c`, command `0x22`) sets … | R | Answered in the item. |
 | 458 | Synchro: what card `0x1f32` is (not in the European cardinfo; may count as Level 2) and why slot flag bit 7 is reset when it is used as material … | N |  |
@@ -838,7 +838,7 @@ Totals: 573 items: B 16, R 146, W 18, N 393.
 | 460 | Ritual: the role of `0x09e28f68` for Machine Angel Ritual and the other exact-total spells should be confirmed in play; Samsara's (`0x19da`) effect … | N |  |
 | 461 | The about 30 card-specific preparation routines called from `duel_core_summon_prepare`. | R | `effect-helpers-misc.md`. |
 | 462 | Slot flag bit 3 is set by a Gemini summon, while `duel_effects.md` describes bit 3 as disabling effect handlers; reconcile (Gemini monsters are … | R | `summon.md` "Slot flag 3 during a summon": bit 3 is the transient effects-off flag of every placement (command `0x2b` type 2 sets `0x200008`, `0x44` clears bit 3); the Gemini-summoned state is slot flag bit 14 (`duel_core.md`). |
-| 463 | Player word `+0x120` bits 20, 22 and 24 (set by several movement commands). | B (S) | B3. |
+| 463 | Player word `+0x120` bits 20, 22 and 24 (set by several movement commands). | R | B3: bits 20, 22 and 24, `formats/duel-runtime.md`, "Player and slot flag bits". |
 | 464 | The summon-negation window `0x09c32e54` (the command `0x61` handler is read, table above). | R | `chain.md` (`chain_summon_window_step`). |
 
 ## `subsystems/system.md`

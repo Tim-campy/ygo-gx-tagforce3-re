@@ -913,6 +913,14 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 - **Record**: `a0` after each duel and the result shown on screen.
 - **Expected**: 1 after the win, 2 after the loss.
 
+### G5. *(optional, confirmation)* Player and slot flag bits
+
+- **Hypothesis** (settled statically, B3; `duel-runtime.md`, "Player and slot flag bits"): the per-turn bits of the player word `+0x120` and the slot words are set by the commands listed there.
+- **Breakpoints**: memory write on `0x09e2a648` (player 0 flags word) and on the slot word of the monster you will attack with (slot `+0x10`, `duel_core.md`, "Player state"), **Break** off, **Log** `flags {[0x09e2a648]} pc {pc}`.
+- **Steps** (one turn, about 15 min): in Main Phase 1 activate a Spell from the hand (expect bits 20 and 25), flip a Set Trap (26), declare an attack (18; the attacker's slot word bits 25 and 30), let the attack reach damage calculation (19), lose a monster in battle (24 on its owner's word).
+- **Record**: the new value and `pc` after each action.
+- **Expected**: every bit appears with the action listed, written by the command handlers named in the section.
+
 **Session G results**
 
 | Check | Recorded | Expected | Pass? | Notes |
@@ -921,6 +929,7 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 | G2 step after a lost chapter duel | | step stays 2, or 3 starts from the map | | |
 | G3 password machine | | 6989 refused, others accepted, bit 0 only, rental entry | | rental state byte |
 | G4 story duel result | | 1 win, 2 loss | | |
+| G5 flag bits per action | | bits 18–20, 24–26; slot 25/30 | | pcs |
 
 ## Reporting results
 
