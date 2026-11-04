@@ -546,7 +546,7 @@ share one state word is unknown (read from the disassembly).
   (only caller `ui_start_final_countdown_win_fx`); a name such as `field_3d_*_final_countdown_fx` would be clearer.
 
 #### Open questions (batch 2 (effect tasks, backdrop extras and change-over, cut-in effect channels))
-- The float constants that define several effects were not read (0x098c4ee4-0x098c5064, 0x098c5e48-0x098c5e64,
+- The float constants that define several effects were not all read (0x098c4ee4-0x098c5064; 0x098c5e48-0x098c5e64 now read, see the audit section;
   0x098cfb20 coin model ids, 0x098cfb30/40 deck positions, 0x098cff50 shuffle sounds, the timing tables 0x098cfb60
   and 0x098cfb90): dump them from BOOT data to get exact sizes/angles/durations for the port.
 - Hidden float arguments: the lerp factor in `field_3d_update_deck_shuffle`, the bolt offset in the Mystic Plasma
@@ -707,7 +707,6 @@ blocks) and `rel_field`'s field render state, stencil shadows and map stencil pa
   substrings at `0x090fd16c`-`0x090fd184` are.
 - `field_3d_set_map_variant_group_mask` (`rel_field:0x090da484`): body lost in the decompilation; read the
   disassembly.
-- `field_3d_lookup_attach_offsets_a` (17 tables, `0x098d3e50`-`0x098d48b0`): which table is searched (hidden).
 - Cut-in loading block: is the 0x1c400-byte overlap for generic characters real (buffer 0x20c00 + 0x17b000 >
   stride 0x17f800), or are generic cut-in archives always smaller than 0x15ec00 bytes? Check file sizes.
 - Backdrop archive slot `+0x10`: never set in the code read here, so the release-pending path may be dead.
@@ -721,6 +720,12 @@ blocks) and `rel_field`'s field render state, stencil shadows and map stencil pa
 - The cut-in code of `rel_duel_draw` has a complete copy in `rel_cutin_viewer` (`modules/rel_cutin_viewer.md`); there the per-character set-up routines are listed explicitly by `field_3d_cutin_get_chara_setup`, which confirms the character of every descriptor family.
 - Descriptor slot `+0x30`, missing from the slot table above, is a voice-motion picker callback (shared family and two character-2 pickers with one-entry tables at `0x098d4b30` / `0x098d4be0`); see `ui.md`, "Round 6", for the full list of set-up routines, map-node callbacks and resolve-motion overrides created in this round.
 - The 44 per-character set-up routines of `rel_duel_draw` (`0x09842f74`-`0x0984cb30` and five near `0x098b5ff0`-`0x098b95e8`) were code outside any function until round 6; they are now functions named `field_3d_cutin_<family>_setup_desc` with `_map_node` / `_resolve_motion` callbacks.
+
+## Audit corrections (round 7, 2026-11-04)
+
+- Float pool of the cut-in effects, read from `rel_duel_draw.prx`: `0x098c4fc4` pi/2, `0x098c5df4` 0.003, `0x098c5e00` pi/3, `0x098c5e0c` -pi/2, `0x098c5e18` 0.8, `0x098c5e24` 0.9, `0x098c5e48` 0.2, `0x098c5e4c` 27.0, `0x098c5e50` 34.8, `0x098c5e54` 0.1, `0x098c5e58` 2 pi, `0x098c5e5c` 0.3, `0x098c5e60` 0.7, `0x098c5e64` pi.
+- `field_3d_lookup_attach_offsets_a`: the key (character << 3 | variant) selects one of the 17 tables and the search receives (table, count, attach_id); the tables are contiguous, 0xc0 apart after the 6-entry ones. An unknown key leaves count 0.
+- `field_3d_update_cutin_fx_anim55_71` moves the beam away from the node curve (spine = attach + (attach - node) x f). Trail and beam are 3 or 5 flat strips crossing on the spine, not prisms. In `anim107_114` the flame and spark rings are ellipses (35 g x 5 g and 35 g x 20 g).
 
 ## Open questions
 

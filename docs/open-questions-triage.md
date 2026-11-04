@@ -742,7 +742,7 @@ Totals: 573 items: B 9, R 155, W 18, N 391.
 | 399 | Whether the three LCG copies share a state word. | N |  |
 | 400 | `field_3d_map_material_dd_callback`: which GE state is toggled (argument hidden) and what the four name substrings at `0x090fd16c`-`0x090fd184` are. | N |  |
 | 401 | `field_3d_set_map_variant_group_mask` (`rel_field:0x090da484`): body lost in the decompilation; read the disassembly. | N |  |
-| 402 | `field_3d_lookup_attach_offsets_a` (17 tables, `0x098d3e50`-`0x098d48b0`): which table is searched (hidden). | N |  |
+| 402 | `field_3d_lookup_attach_offsets_a` (17 tables): answered in the round 7 audit, the key (character << 3 \| variant) selects the table (`field_3d.md`). | N | closed |
 | 403 | Cut-in loading block: is the 0x1c400-byte overlap for generic characters real (buffer 0x20c00 + 0x17b000 > stride 0x17f800), or are generic cut-in … | N |  |
 | 404 | Backdrop archive slot `+0x10`: never set in the code read here, so the release-pending path may be dead. | N |  |
 | 405 | `field_3d_get_cutin_sound_fx_timing`: ids 0x1bf, 0x24c, 0x294 set a start frame that is then overwritten (start = previous sound frame + 8); a bug in … | N |  |
