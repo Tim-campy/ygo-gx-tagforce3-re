@@ -5,6 +5,9 @@
   exe_tables.py list                              the table rows this tool reads and writes
   exe_tables.py dump <PSP_GAME> ID [-o FILE]      one row's tables as JSON (game data: keep it under extracted/)
   exe_tables.py check <PSP_GAME> [ID ...]         parse -> write round trip of every listed row (byte for byte)
+  exe_tables.py sound-attributes <PSP_GAME> [--format csv|json] [-o FILE]
+                                                  decoded SHDS attribute word per global sound id (bank, cue,
+                                                  type, priority, instance limit, 3D flags)
 
 Every table is declared by its executable, its module-relative address (the ELF vaddr; runtime address =
 module base + vaddr, BOOT.BIN base 0x08804000), a record layout and a record count taken from the code that
@@ -279,6 +282,55 @@ def build_shds(model):
             + struct.pack(f"<{banks}I", *model["bank_offsets"]) + struct.pack(f"<{banks}H", *model["first_ids"]))
 
 
+SHDS_TYPES = {0: "sas_sequence", 1: "sound_script", 2: "adpcm", 3: "adpcm", 4: "atrac3", 5: "atrac3plus"}
+SHDS_FLAGS_3D = [(0x01, "no_3d"), (0x02, "no_distance_volume"), (0x04, "no_3d_pan"), (0x08, "doppler"),
+                 (0x10, "ignore_mix_presets"), (0x20, "no_reverb"), (0x40, "flag_40"), (0x80, "decode_only")]
+
+
+def shds_attributes(model):
+    """Decode the SHDS attribute word of every global sound id (layout: docs/formats/sound.md, "SHDS sound
+    header"). Global id -> (bank, cue): ids below `music_banks` are BGM (bank = id, cue 0); otherwise the bank
+    with the largest first id <= id among the non-music banks, cue = id - first id. Ids that fall below every
+    non-music bank's first id map to no bank (bank and cue None)."""
+    music = model["music_banks"]
+    firsts = sorted((first, bank) for bank, first in enumerate(model["first_ids"]) if bank >= music)
+    rows = []
+    for gid, word in enumerate(model["attributes"]):
+        bank = cue = None
+        if gid < music:
+            bank, cue = gid, 0
+        else:
+            for first, b in firsts:
+                if first > gid:
+                    break
+                bank, cue = b, gid - first
+        kind = word & 0x0F
+        flags = word >> 24
+        rows.append({
+            "id": gid, "bank": bank, "cue": cue, "word": f"0x{word:08x}",
+            "type": kind, "type_name": SHDS_TYPES.get(kind, f"type_{kind}"),
+            "voice": bool(word & 0x20), "two_layers": bool(word & 0x40), "no_steal": bool(word & 0x80),
+            "priority": (word >> 8) & 0xFF, "max_instances": (word >> 16) & 0xFF,
+            "flags_3d": [name for bit, name in SHDS_FLAGS_3D if flags & bit],
+        })
+    return rows
+
+
+def write_shds_attributes(rows, handle, fmt):
+    if fmt == "json":
+        json.dump(rows, handle, indent=0)
+        handle.write("\n")
+        return
+    import csv
+    columns = ["id", "bank", "cue", "word", "type", "type_name", "voice", "two_layers", "no_steal", "priority",
+               "max_instances", "flags_3d"]
+    writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({**row, "bank": "" if row["bank"] is None else row["bank"],
+                         "cue": "" if row["cue"] is None else row["cue"], "flags_3d": "|".join(row["flags_3d"])})
+
+
 def shds_spans(boot, model):
     return [(elf_of(boot).offset(SHDS_ADDRESS), shds_size(model))]
 
@@ -338,7 +390,20 @@ def main(argv=None):
     chk = sub.add_parser("check")
     chk.add_argument("root", type=Path)
     chk.add_argument("rows", nargs="*")
+    snd = sub.add_parser("sound-attributes", help="decoded SHDS attribute word per global sound id")
+    snd.add_argument("root", type=Path, help="PSP_GAME directory")
+    snd.add_argument("--format", choices=("csv", "json"), default="csv")
+    snd.add_argument("-o", "--output", type=Path, help="output file (game data: keep it under extracted/)")
     args = parser.parse_args(argv)
+    if args.command == "sound-attributes":
+        rows = shds_attributes(read_shds(load_executables(args.root, [BOOT])[BOOT]))
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            with open(args.output, "w", encoding="utf-8", newline="") as handle:
+                write_shds_attributes(rows, handle, args.format)
+        else:
+            write_shds_attributes(rows, sys.stdout, args.format)
+        return 0
     if args.command == "list":
         for row_id, tables in TABLES.items():
             print(f"{row_id}: " + ", ".join(f"{t.label} ({t.count} x {t.record.size})" for t in tables))

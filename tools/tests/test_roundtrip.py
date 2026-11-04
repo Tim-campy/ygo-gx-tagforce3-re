@@ -527,6 +527,31 @@ class ExecutableTableTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             et.build_shds({**model, "first_ids": [0]})
 
+    def test_shds_attributes(self):
+        et = tool("exe_tables")
+        # 2 music banks (ids 0-1), one id with no bank (2), then bank 2 starting at id 3 with two cues.
+        model = {"music_banks": 2, "first_ids": [0, 1, 3],
+                 "attributes": [0x00000004, 0x01000005, 0, 0x290203E2, 0x00010021]}
+        rows = et.shds_attributes(model)
+        self.assertEqual([(r["bank"], r["cue"]) for r in rows], [(0, 0), (1, 0), (None, None), (2, 0), (2, 1)])
+        self.assertEqual(rows[0]["type_name"], "atrac3")
+        self.assertEqual(rows[1]["flags_3d"], ["no_3d"])
+        r = rows[3]
+        self.assertEqual((r["type"], r["voice"], r["two_layers"], r["no_steal"]), (2, True, True, True))
+        self.assertEqual((r["priority"], r["max_instances"]), (3, 2))
+        self.assertEqual(r["flags_3d"], ["no_3d", "doppler", "no_reverb"])
+        self.assertEqual((rows[4]["type_name"], rows[4]["voice"], rows[4]["priority"]), ("sound_script", True, 0))
+        import io
+        out = io.StringIO()
+        et.write_shds_attributes(rows, out, "csv")
+        lines = out.getvalue().splitlines()
+        self.assertEqual(len(lines), 6)
+        self.assertTrue(lines[3].startswith("2,,,0x00000000,0,sas_sequence"))
+        self.assertIn("no_3d|doppler|no_reverb", lines[4])
+        out = io.StringIO()
+        et.write_shds_attributes(rows, out, "json")
+        self.assertEqual(json.loads(out.getvalue())[3]["bank"], 2)
+
 
 class MoreFileWriterTest(unittest.TestCase):
     def test_legacy_tutorial_commands(self):

@@ -251,13 +251,15 @@ Attribute word (one per global sound id):
 
 | Bits | Meaning |
 | --- | --- |
-| byte 0 bits 0–3 | sound type: 0 SAS note sequence, 1 sound script (frame-timed event list), 2–3 one-shot PS-ADPCM on sceSas, 4 and 5 ATRAC streams (4 vs 5 = ATRAC3plus vs ATRAC3, hypothesis, medium-high) |
+| byte 0 bits 0–3 | sound type: 0 SAS note sequence, 1 sound script (frame-timed event list), 2–3 one-shot PS-ADPCM on sceSas, 4 ATRAC3 stream, 5 ATRAC3plus stream (4/5 settled 2026-11-04 by census, high: see below) |
 | byte 0 bit 5 (`0x20`) | voice category |
 | byte 0 bit 6 (`0x40`) | two ADPCM layers |
 | byte 0 bit 7 (`0x80`) | may not steal other sounds' SAS voices |
 | byte 1 | priority (a new sound cannot evict a playing one with a higher value) |
 | byte 2 | maximum simultaneous instances |
 | byte 3 | `0x01` no 3D positioning, `0x02` no distance volume, `0x04` no 3D pan, `0x08` Doppler pitch, `0x10` ignore mix presets and pause groups, `0x20` no reverb send, `0x80` decoded but not mixed (streams) |
+
+**Census against the bank file (2026-11-04).** `python3 -I tools/exe_tables.py sound-attributes <PSP_GAME> [--format csv|json] -o extracted/…` decodes the word of every global id with its (bank, cue) (`id = first[bank] + cue`, music id = bank). Joined with the codec stored for each of the 30,779 cues in `psp_snddat.bin`, every cue has an attribute word and the type agrees with the stored data without exception: type 5 ↔ ATRAC3plus RIFF (30,572 cues), type 4 ↔ ATRAC3 RIFF (100), type 3 ↔ PS-ADPCM (107; type 2 is not used), and bit 6 ↔ the 4 cues with two ADPCM layers. This reverses the earlier 4/5 hypothesis. The 680 ids 48–727 belong to no bank (the non-music banks start at id 728) and hold zero words. Values on the disc: priority 32 for the 48 music ids and 64 for every other cue, instance limit 1 everywhere, voice bit set on 30,509 cues; byte 3 is `0x80` on 30,507 of those voice cues and zero everywhere else, so no sound on the disc uses the 3D, Doppler or reverb flags (the port can ignore positional audio). Whether `0x80` really means "decoded but not mixed" for voices, or routes them to a separate voice channel, is a reading of the driver code (medium).
 
 Runtime semantics the port must reproduce (driver code, medium-high unless stated; details in `audio.md`):
 
