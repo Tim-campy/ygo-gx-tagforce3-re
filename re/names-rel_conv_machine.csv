@@ -53,5 +53,5 @@ address,group,name
 0x00004564,shop,shop_on_archive_loaded
 0x000045f4,shop,shop_conv_machine_compare_u16
 0x00004604,shop,shop_bsearch_resource_table
-0x0000467c,shop,shop_conv_machine_return_zero
+0x0000467c,shop,shop_conv_machine_module_start
 0x00004858,shop,shop_conv_machine_shutdown

@@ -16,7 +16,7 @@ address,group,name
 # Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_charalist.md and the function tables) or from identical machine code in a named module.
 0x09eee400,ui,ui_call_draw_character_portrait_image
 0x09eee428,ui,ui_draw_character_portrait_image
-0x09eee8a8,ui,ui_charalist_return_zero
+0x09eee8a8,ui,ui_charalist_module_start
 0x09eeede8,ui,ui_charalist_free_lists
 0x09eeef28,ui,ui_charalist_pick_random_character
 0x09eef178,ui,ui_charalist_build_lists_headless

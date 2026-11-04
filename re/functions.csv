@@ -30531,7 +30531,7 @@ rel_cardalbum:0x00006878,ui_album_shift_pages_down,ui,documented,184
 rel_cardalbum:0x00006930,ui_album_shift_pages_up,ui,documented,184
 rel_cardalbum:0x000069e8,ui_album_place_pages,ui,documented,144
 rel_cardalbum:0x00006a78,ui_album_find_page,ui,documented,60
-rel_cardalbum:0x00006ab4,ui_album_return_zero,ui,documented,8
+rel_cardalbum:0x00006ab4,ui_album_module_start,ui,documented,8
 rel_cardalbum:0x00006abc,ui_card_album_start,ui,documented,296
 rel_cardalbum:0x00006be4,ui_card_album_update,ui,documented,452
 rel_cardalbum:0x00006da8,ui_album_shutdown_step,ui,documented,316
@@ -32099,7 +32099,7 @@ rel_cardalbum:0x00009fa4,thunk_deck_get_owner_current_recipe,deck,documented,8
 rel_cardalbum:0x00009fac,thunk_deck_select_owner_variant,deck,documented,8
 rel_charalist:0x09eee400,ui_call_draw_character_portrait_image,ui,documented,40
 rel_charalist:0x09eee428,ui_draw_character_portrait_image,ui,documented,1152
-rel_charalist:0x09eee8a8,ui_charalist_return_zero,ui,documented,8
+rel_charalist:0x09eee8a8,ui_charalist_module_start,ui,documented,8
 rel_charalist:0x09eee8b0,ui_charalist_open,ui,documented,552
 rel_charalist:0x09eeead8,ui_charalist_update,ui,documented,8
 rel_charalist:0x09eeeae0,ui_charalist_update_ex,ui,documented,776
@@ -35679,7 +35679,7 @@ rel_conv_machine:0x000043f4,shop_conv_machine_get_model,shop,documented,368
 rel_conv_machine:0x00004564,shop_on_archive_loaded,shop,documented,144
 rel_conv_machine:0x000045f4,shop_conv_machine_compare_u16,shop,documented,16
 rel_conv_machine:0x00004604,shop_bsearch_resource_table,shop,documented,120
-rel_conv_machine:0x0000467c,shop_conv_machine_return_zero,shop,documented,8
+rel_conv_machine:0x0000467c,shop_conv_machine_module_start,shop,documented,8
 rel_conv_machine:0x00004684,ui_conv_machine_start,ui,documented,180
 rel_conv_machine:0x00004738,ui_conv_machine_update,ui,documented,288
 rel_conv_machine:0x00004858,shop_conv_machine_shutdown,shop,documented,244
@@ -41160,7 +41160,7 @@ rel_debug_menu:0x0000719c,thunk_deck_get_owner_recipe_count,deck,documented,8
 rel_debug_menu:0x000071a4,thunk_deck_get_owner_recipe,deck,documented,8
 rel_debug_menu:0x000071ac,thunk_deck_get_owner_current_recipe,deck,documented,8
 rel_debug_menu:0x000071b4,thunk_deck_select_owner_variant,deck,documented,8
-rel_deckswap:0x00000000,deck_swap_return_zero,deck,documented,8
+rel_deckswap:0x00000000,deck_swap_module_start,deck,documented,8
 rel_deckswap:0x00000008,deck_swap_start,deck,documented,468
 rel_deckswap:0x000001dc,deck_swap_update,deck,documented,320
 rel_deckswap:0x0000031c,deck_swap_release_resources,deck,documented,280
@@ -41192,7 +41192,7 @@ rel_deckswap:0x000027a4,ui_scroll_card_text,ui,documented,340
 rel_deckswap:0x000028f8,ui_update_pane_cursor_rect,ui,documented,364
 rel_deckswap:0x00002a64,deck_swap_open_message,deck,documented,796
 rel_deckswap:0x00002d80,deck_swap_update_message,deck,documented,340
-rel_deckswap:0x00002ed4,ui_card_list_draw_sort_menu,ui,documented,44
+rel_deckswap:0x00002ed4,deck_swap_draw_message_window,deck,documented,44
 rel_deckswap:0x00002f00,deck_swap_open_filter_menu,deck,documented,668
 rel_deckswap:0x0000319c,deck_swap_update_filter_menu,deck,documented,376
 rel_deckswap:0x00003314,deck_swap_handle_filter_value_window,deck,documented,1740
@@ -41228,8 +41228,8 @@ rel_deckswap:0x000055e0,deck_normalize_search_text,deck,documented,172
 rel_deckswap:0x0000568c,deck_swap_set_layout,deck,documented,1068
 rel_deckswap:0x00005ab8,ui_select_layout_index,ui,documented,216
 rel_deckswap:0x00005b90,deck_swap_get_tab_position,deck,documented,156
-rel_deckswap:0x00005c2c,deck_swap_get_tab_label_rect,deck,documented,312
-rel_deckswap:0x00005d64,deck_swap_get_tab_count_rect,deck,documented,256
+rel_deckswap:0x00005c2c,deck_swap_calc_list_tab_rect,deck,documented,312
+rel_deckswap:0x00005d64,deck_swap_calc_list_tab_rect_narrow,deck,documented,256
 rel_deckswap:0x00005e64,deck_swap_get_tab_frame,deck,documented,60
 rel_deckswap:0x00005ea0,deck_swap_play_tab_frame,deck,documented,88
 rel_deckswap:0x00005ef8,deck_swap_update_count_indicators,deck,documented,364
@@ -45032,7 +45032,7 @@ rel_dodge:0x00005168,world_dodge_cpu_power_poll,world,documented,220
 rel_dodge:0x00005244,world_dodge_cpu_power_draw,world,documented,8
 rel_dodge:0x0000524c,world_dodge_human_draw,world,documented,84
 rel_dodge:0x000052a0,world_dodge_human_move_start,world,documented,12
-rel_dodge:0x000052ac,world_dodge_human_turn_begin,world,documented,12
+rel_dodge:0x000052ac,world_dodge_human_move_begin,world,documented,12
 rel_dodge:0x000052b8,world_dodge_human_move_poll,world,documented,360
 rel_dodge:0x00005420,world_dodge_human_move_draw,world,documented,8
 rel_dodge:0x00005428,world_dodge_human_item_start,world,documented,32
