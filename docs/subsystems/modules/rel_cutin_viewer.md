@@ -95,6 +95,18 @@ Identical code after relocation masking made several `twin:` lines point at the 
 - 0x3ac8 `ui_ehf_get_frame_rate` -> `field_3d_cutin_get_frame_rate`; 0x3e40 / 0x3e68 `system_vector4_copy` -> `field_3d_copy_rotation` / `field_3d_copy_vec4`; 0x4a08 `system_matrix4_copy` -> `field_3d_copy_matrix4`; 0x0c1c keeps the BOOT name `ui_list_window_draw_text` (it is a module-local copy).
 - All 32-byte per-character wrappers (twin `system_movie_call_umd_io_term`) -> `field_3d_cutin_<family>_on_motion_start` / `_on_motion_end`; all per-family find/sort/lookup routines whose twin line names `tbl098ccc60` (or `tbl098cd9b0` for the tbl098cda70 callbacks) -> their own family name.
 
+## Audit of the rows (round 7, 2026-11-04)
+
+Every row of the per-character families and of the second half (0x0000c374-0x000307d4) was re-read against this module's decompilation. No row cited a `rel_duel_draw` address; the corrections were caller names, constants and geometry. The bodies of the effect tasks match the `rel_duel_draw` twins, only data addresses differ.
+
+- Null callback tests: where the decompiler compares with `ui_cutin_viewer_register_scene`, it is a plain NULL test, because that function sits at module offset 0. The same artefact gives `_ui_cutin_viewer_register_scene * 0xc` in the three random generators (their state word stays unresolved) and `ui_cutin_viewer_draw_frame + task + i * 0x10` in `field_3d_update_cutin_fx_animb1_v0` (a small task offset, not a reference).
+- Float pool: 0x00038704 = pi, 0x000386f8 = 2 pi, 0x000378f4 = pi / 2, 0x000386f4 = 0.1, 0x000386e8 = 0.2, 0x000386fc = 0.3, 0x00038700 = 0.7, 0x000386ec = 27, 0x000386f0 = 34.8.
+- Trail and beam geometry: the profile pairs angle a with a + pi, so each entry is a diameter: 3 (`anim18_31`) or 5 (`anim55_71`) flat strips crossing on the spine, transparent at the edges, not a prism.
+- `field_3d_update_cutin_fx_anim55_71` computes spine = attach + (attach - node) x f: the beam moves away from the node curve (`system_vfpu_vsub_q` is a1 - a2, BOOT.BIN 0x08819a54).
+- The draw-task clear of 0x1cf0 bytes from 0x00b4cdb0 reaches past the 254-slot pool (ends 0x00b4e97b) and also zeroes the perspective record 0x00b4e97c-0x00b4e988 and the saved matrices 0x00b4e990-0x00b4ea9f.
+- Slot sizing (hypothesis, confidence medium; file sizes not checked, and whether the size given to `container_load_file` is a cap is not established): `field_3d_cutin_viewer_setup_slots` advances 0x17f800 per slot (0x4800 + 0x17b000), while a generic character's cut-in buffer starts at +0x20c00, so a full 0x17b000-byte load would run 0x1c400 bytes into the next slot.
+- `field_3d_*_anim1e3_21e` handle ids from 0x1da, not 0x1e3; the rows say so, and the names are kept to match `rel_duel_draw`.
+
 ## Open questions
 
 - State 1 (raw file scan) is never entered by any code in this batch; is it reachable (another caller of `ui_cutin_viewer_set_state`, or a debug patch)?
@@ -263,8 +275,7 @@ the heap.
 
 - The consumer of descriptor +0x34 (set to 0x00040c20 by the character 0x21 block and to per-character tables
   0x00042740-0x000427a0 by the shared block) is not in this batch; its record format (0x18 bytes apart) is unknown.
-- 0x0002d1b4/0x0002d1c4 show empty bodies (unresolved tail jumps); the heap word 0x00e42198 is inferred from
-  `system_duel_draw_set_heaps` and the `rel_duel_draw` twins (medium). A disassembly read would settle it.
+- 0x0002d1b4 / 0x0002d1c4: the instructions settle them (`lui v0, 0xe4; j thunk_system_heap_alloc` / `j thunk_system_heap_free; lw a0, 0x2198(v0)`): the heap word is 0x00e42198. (Closed in the round 7 audit.)
 - The node meaning of the generic map-node ids 0..0x25 (which bone each id is) is not established; only the
   per-character translation tables are recorded.
 - The `rel_duel_draw` blocks named `tbl0...` could be mapped to characters by comparing their map-node switches
