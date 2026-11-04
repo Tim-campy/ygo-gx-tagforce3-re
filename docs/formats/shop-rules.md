@@ -22,7 +22,7 @@ Every rule only **raises** a pack to 2, except the "else 1" branches and rule 14
 | 1 | — | `all_done` = every variant of characters 2–8 (except character 2 variant 2) has character-row flag bit 2 (partner story finished; `save_test_character_flag_bit2`, `world_count_character_variants`) | — | H |
 | 2 | 0, 1, 2 | always → 2 | — | H |
 | 3 | 3–8 | owned ‰ of pack `p − 3` ≥ 500 → 2 | — | H |
-| 4 | 9–14 | shop byte `0x090faa70` (module `+0x2bd70`) bits 4–7 = `p − 8` (1–6) → 2 | state ≠ 0 → 1 | H (code); source of the byte unknown |
+| 4 | 9–14 | shop byte `0x090faa70` (module `+0x2bd70`) bits 4–7 = `p − 8` (1–6) → 2 | state ≠ 0 → 1 | H: the nibble is the weekday (below) |
 | 5 | 15 | save progress flag `+0x1c0e9` bit 4 and partner points 0–1999 → 2 | — | H |
 | 6 | 16 | same flag and partner points 2000–4000 → 2 | — | H |
 | 7 | 17–23 | partner character = `p − 15` (2–8, any variant) → 2 | state ≠ 0 → 1 | H |
@@ -30,7 +30,7 @@ Every rule only **raises** a pack to 2, except the "else 1" branches and rule 14
 | 9 | 34 | `save_get_card_collection_permille()` ≥ 600 → 2 | — | H |
 | 9 | 35, 36, 37, 38, 40 | record 0 ≥ 50,000; record 1 ≥ 100,000; record 2 ≥ 400; record 7 ≥ 50,000; record 8 ≥ 4,500 → 2 | — | H |
 | 9 | 39, 43, 44, 45 | progress flag `+0x1c0e9` bit 5; bit 1 (golden-egg sandwich bought); bit 7; `+0x1c0ea` bit 0 → 2 | — | H |
-| 10 | 41 | row flag bit 2 of (26, 0) → 1, then → 2 if shop byte `0x090fad50` (module `+0x2c050`) bit 0 = 1 | — | H (code), L (meaning of the byte) |
+| 10 | 41 | row flag bit 2 of (26, 0) → 1, then → 2 if the clerk byte `0x0973ad50` (module `+0x66c050`) bit 0 = 1 | — | H |
 | 10 | 42 | row flag bit 2 of (27, 1) → 1, then → 2 if that bit = 0 | — | same |
 | 10 | 46 | shop byte `0x090facf6` (module `+0x2bff6`) bit 0 → 2 | — | H (code) |
 | 10 | 47 | collection ‰ ≥ 900 → 2 | — | H |
@@ -39,9 +39,15 @@ Every rule only **raises** a pack to 2, except the "else 1" branches and rule 14
 | 12 | 9–45, 47 | opponents ‰ ≥ threshold (table below) → 2 | — | H |
 | 13 | 3–33, 35–41 | `all_done` → 2 | — | H |
 | 14 | 3–47 | state bit 2 (story unlock) set → 2 | — | H |
-| 15 | 41 / 42 | state ≠ 0 and the byte `0x090fad50` bit 0 ≠ 1 (41) / ≠ 0 (42) → 1 | — | H |
+| 15 | 41 / 42 | state ≠ 0 and the clerk byte `0x0973ad50` bit 0 ≠ 1 (41) / ≠ 0 (42) → 1 | — | H |
 
-Rules 10 and 15 make packs 41 and 42 mutually exclusive: once the corresponding character's story is finished, the byte at `0x090fad50` decides which of the two is on sale and greys the other. (`world.md` gave this byte as `0x0973ad50`; the code addresses module `+0x2c050`.)
+Rules 10 and 15 make packs 41 and 42 mutually exclusive: once the corresponding character's story is finished, bit 0 of the clerk byte `0x0973ad50` decides which of the two is on sale and greys the other.
+
+**Sources of the three shop bytes (settled 2026-11-04 from the disassembly):**
+
+- `0x0973ad50` (module `+0x66c050`, in the module's zero-initialised area: `rel_shop` occupies `0x090ced00`–`0x098ac030` with its BSS, so this is not outside the image). The earlier address `0x090fad50` (`+0x2c050`) paired the `lbu -0x3fb0` at `+0x8fc` with the wrong `lui` (`lui v0, 3` in the delay slot of another branch); the `lui v0, 0x67` that reaches it sits in the delay slot of the `beql` at `+0x8e0`, and all seven readers use `0x67`/`-0x3fb0`. `shop_init_clerk(clerk)` clears the 0x14-byte clerk block there and stores `clerk & 1` in bit 0; `shop_lib_start` receives `clerk` from `rel_story` `world_state_start_shop` as `system flag 4 != 0`, the daily pick of `world_pick_sandwich_seller` (1 when the partner is character 27, 0 for 26, otherwise random each day). So pack 41 is on sale on days when the flag is 1 and pack 42 when it is 0 (high, code).
+- `0x090faa70` bits 4–7 (module `+0x2bd70`): `shop_lib_start(clerk, mode)` stores `mode & 0xf` there, and `world_state_start_shop` passes the weekday (`world_get_weekday`, calendar `+0x1c`; 1 = Monday … 6 = Saturday, 0 = Sunday, `world.md`). Packs 9–14 are therefore the Monday-to-Saturday packs, one per day, none on Sunday (high, code). The low nibble is the secondary-archive load flag of `shop_select_purchase_step`.
+- `0x090facf6` bit 0 (module `+0x2bff6`): set only by `shop_dispatch_state_step` (`+0x6dc`) when the player enters a 10-button sequence while the shop state is below 7: the pad masks at module `+0x1b1cc` (copied to the stack) are Up, Up, Down, Down, Left, Right, Left, Right, Cross, Circle (PSP pad bits `0x10`, `0x10`, `0x40`, `0x40`, `0x80`, `0x20`, `0x80`, `0x20`, `0x4000`, `0x2000`, read from the pressed-buttons word of the pad state; whether the game swaps Circle and Cross by region was not checked); each newly pressed button that matches the next entry advances the counter `0x090facf4`, any other press resets it; on completion the bit is set, the pack table is refreshed and sound `0x7a0c` plays. The byte lies in the block that `shop_lib_start` clears on every visit, so pack 46 is unlocked by entering the code during that visit (high, code; runtime check in PPSSPP pending).
 
 ### Partner lists of packs 24–33 (rule 8)
 
@@ -80,6 +86,6 @@ Writer and round trip: `tools/exe_tables.py` (`shop_opponent_list`, 104 `u16`) w
 
 ## Open questions
 
-- The source of the shop byte `0x090faa70` (packs 9–14) and of the bytes `0x090fad50` (packs 41/42) and `0x090facf6` (pack 46).
+- ~~The source of the shop bytes for packs 9–14, 41/42 and 46~~: settled 2026-11-04 (weekday, daily clerk pick, button code; above).
 - The meaning of the save progress flags `+0x1c0e9` bits 4, 5, 7 and `+0x1c0ea` bit 0, and of minigame records 0, 1, 2, 7, 8 (`save.md`).
 - What the upper 15 bits of the shop opponent list encode, and whether the 104 entries are opponents or duel bonuses.

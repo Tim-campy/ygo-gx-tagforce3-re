@@ -300,6 +300,17 @@ Workers documented in this round:
 - **End of duel.** `duel_core_record_duel_result` (`0x09be4648`, exported to `rel_duel_mgr`) writes the result block, experience and save statistics. It calls `duel_core_check_duel_condition` (`0x09be3bc0`), which evaluates the challenge selected by the save's record table word `0xa4`: about 115 conditions over duel statistics, results, turn counts, cards used and save progress.
 - **View wrappers.** `duel_core_view_get_zone_highlight_states` returns the slot relation table of `duel_core_build_slot_relation_table` (`0x09c0a174`). The values are 7 blocked, 6 marked by the card, a link kind, and `| 0x100` targeted.
 
+### The last default-named functions (2026-11-04, round 5)
+
+The six `duel_core` and the one `duel_effects` function that still had Ghidra default names were read (Ghidra and capstone) and documented (`functions/duel_core.md`, `functions/duel_effects.md`):
+
+- `duel_core_update_duel_records` (`0x09be26f4`, 1,976 bytes): Ghidra cut the body at a 40-case jump table (`0x09deb5a0`, `jr` at `0x09be2754`); `FixJumpTableFunction.java` restored it. After an offline default-rules duel, `duel_core_record_duel_result` calls it to raise the 49 best-record values of the save record table (`save.md`, "Record table"): records 0–`0x23` from duel statistics or sums/maxima of them (`duel_core_get_statistic`), `0x24` from the set-up tail block, `0x25` (duel time in seconds, `tail +0x10 / 30 + 1`) and `0x26` (turns) lower-is-better, `0x27` (turns) higher-is-better; records 2 and `0x1d` have no case and `0x28`–`0x30` (mini-game scores) are only cleared in the per-duel copy. Each improved value is copied to tail `+0x3c + 4i` and flags the new-record byte `+0xc4 + i`. The two lower-is-better records are skipped when the win reason `0x09e02cb4` is `0xc` or `0xd`. This answers the open question below about the function; the extra result values 1–3 remain.
+- `duel_core_is_multi_pick_list_mode` (`0x09be1dc4`): card-list mode `0x09e29918` in 7..`0x48`.
+- `duel_core_set_output_binding` / `duel_core_flush_output_binding` (`0x09be4bd8` / `0x09be4bf4`): a (mode, value, pointer) triple at `0x09e01eb4`–`0x09e01ebc`; nothing writes the value, and the only call (from `rel_duel_mgr` at duel set-up) passes mode 0: vestigial (meaning low).
+- `duel_core_stub_return_0_09be5000`: unreferenced `return 0`.
+- `duel_core_view_is_zone_usable_lenient` (`rel_duel_draw` `0x0989ddb8`): view-side wrapper of `duel_core_is_zone_usable_lenient` for the zone highlights.
+- `duel_effects_is_spirit_reaper_target_marker` (`0x09cdfbac`): the `duel_core_find_slot_marker` predicate of `duel_core_destroy_targeted_spirit_reapers` (equip-link kinds 10/11, source-link kinds 6/7 with byte `+2` bit 4, or the kind-2 key `0x1598`).
+
 ### Open questions from the 2026-11-03 round
 - Slot flag bits 22, 23 and 27: "has attacked", "no attack left" and a per-phase flag are inferred from their readers (M); find the writers.
 - Event-word bits 25–30: the Type-specific bits are set for Types `0x14`, `0x15` and 9, but their readers were not identified.
@@ -308,7 +319,7 @@ Workers documented in this round:
 - The direction of each forced position in `apply_forced_positions` (which cards force Attack and which force Defense) is read from the compare logic (M); confirm in PPSSPP.
 - `timing_event_allows_card_response` returns at once on event codes 1 and 5 (duelist kind 1, the CPU), so it does not look at later events in the queue. Is that intended?
 - The last two arguments that `duel_core_filter_valid_attack_target` passes to `is_valid_attack_target`, and the pass-through arguments of `duel_core_view_can_activate_slot_card` and `duel_core_call_face_change_hook`, are hidden by the decompiler; read the disassembly.
-- The extra duel result values 1–3 used by `record_duel_result` (`0x09e02cb0`) and the function `0x09be26f4` it calls.
+- The extra duel result values 1–3 used by `record_duel_result` (`0x09e02cb0`). (The function `0x09be26f4` it calls is `duel_core_update_duel_records`, above.)
 
 ## Open questions
 

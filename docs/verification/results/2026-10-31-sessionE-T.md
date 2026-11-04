@@ -23,7 +23,7 @@ Modes 8 and `0x16` are the SDK savedata modes `SIZES` (free-space check) and `GE
 
 - Each start: `system_load_movie_modules` from `rel_title` `ra 0x08e9c248`, then `system_movie_play` (formerly `system_movie_create_player`) with `ra 0x0883df30` (a `BOOT.BIN` wrapper, not `rel_title`), `a0 = 0x09fff550`; at the end `system_unload_movie_modules` from `rel_title` `ra 0x08e9c358`.
 - **Skip: every button skips the opening** (Cross, Circle, Square, Triangle, R1, L1, d-pad, Start). A skipped run calls no `movie_stop`; the modules are unloaded 4–8 s after the start.
-- Played to the end (67 s, 15:42 → 16:49): `system_movie_stop_video` with `ra 0x0882c468` (inside `system_movie_flush_video`), then the unload.
+- Played to the end (67 s, 15:42 → 16:49): `system_movie_stop_video` with `ra 0x0882c468` (inside `system_movie_decode_loop`), then the unload.
 - **Idle on the title screen: a demo duel starts** instead of the opening replaying (attract mode). At that moment the movie modules were loaded again from `rel_title` `ra 0x08eaa264`.
 
 ## E3. Title message tables: partly answered

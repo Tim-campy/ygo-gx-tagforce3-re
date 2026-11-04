@@ -17,7 +17,7 @@ Data formats established; the scene map (which module loads which archive, layou
 | `rel_field:0x090e05a4` | `ui_field_find_resource(id)` | H | 12-byte records `{u32 ?, char *member, void *cache}` at `+0x2f548`; returns `&record.cache` after `container_ehp_find_member(field archive, record.member)` on first use. |
 | `rel_field:0x090e057c` | `ui_field_get_resource(id)` | H | `*ui_field_find_resource(id)`: the field's string tables are fetched as `card_db_get_dictionary_word(ui_field_get_resource(4/5/7), index)` (`field_strtbl`, `_item`, `_mapname`). |
 | `rel_deck:0x08eaa6a8` | `ui_deck_get_resource(id)` | H | 41 records `{u32 id, void *cache, char *format}` at `0x08ebd84c` (module `+0x22e4c`) sorted by id (ids `0x8000+`), searched by `0x08eaa360`; on first use `sprintf(format, "jegfis"[save_get_language()])` (ids `0x8036`/`0x8037` use the region string `"jabgfisb"`), `container_ehp_find_member`, and for an `.ehf` also the `.tmf` (`FUN_08821b70`). The same routine, with its own table, is in `rel_deckswap +0x9c8c`, `rel_decktutorial +0x11324`, `rel_select_card +0xc334`, `rel_recipeviewer +0x5ad4` (id `0x8033` = `strTbl.bin`) and `rel_shop:0x090dc228` (`shop_get_archive_member`, 21 records). Record layout: `docs/formats/system-runtime.md`, "ui_resource_table". |
-| `rel_duel_mgr:0x08ea0198` | `ui_duel_mgr_get_string_table(id)` | H | `sprintf(format_table[id], language letter)` (`strTbl_%c.bin`, …), `container_ehp_find_member(work->archive, name)`, cached at `work + 0xd0 + 4·id`. |
+| `rel_duel_mgr:0x08ea0198` | `ui_duel_mgr_get_archive_member(id)` | H | `sprintf(format_table[id], language letter)` (`strTbl_%c.bin`, …), `container_ehp_find_member(work->archive, name)`, cached at `work + 0xd0 + 4·id`. |
 
 ## Scene map
 
@@ -65,7 +65,7 @@ Counts are layouts / string tables attributed to the module (any basis); a libra
 | 5 | free-roam field, island map, PDA-style overlays | `rel_field` (`0x090ced00`) | `field/always_<region>_<lang>.ehp`, `field/big_map/world_<period>.ehp`, `field/map/bg_NN_MM.ehp`, `field/bustup/*.ehp.gz` | 55 / 120 | `field_strtbl.bin` (25 functions), `field_strtbl_item.bin`, `field_strtbl_mapname.bin` through `ui_field_get_resource(4/5/7)` (66/80) |
 | 4 | deck editor | `rel_deck` (`0x08e9aa00`) + `rel_recipeviewer`, `rel_decktutorial` | `deck/all_<l>.ehp`, `deck/recipe_view_<l>.ehp`, `deck/tutorial.ehp` | 25+35+25 / 15+15+21 | `strTbl.bin` via `ui_deck_get_resource(0x8033)` (31 index requests in `rel_deck`; 32/78 named); the same resource table also names `help_strtbl_contents.bin` and `ocg_packlist_<l>.bin` |
 | 7 | card shop, pack opening | `rel_shop` (`0x090ced00`) | `shop/all_<l>.ehp`, `deck/all_<l>.ehp`, BOOT.BIN `@0x10d5d4` | 45 / 81 | `strTbl_<l>.bin`, `strTbl.bin` via `shop_get_archive_member` (9/22) |
-| 6 | duel session: rock-paper-scissors, versus, start, results | `rel_duel_mgr` (`0x08e9aa00`) + `rel_deckswap`, `rel_tutorial` | `duel/start/start_<l>.ehp`, `duel/result/result_<l>.ehp`, `title_menu/title_menu_<l>.ehp`, `deck/deckswap.ehp` | 95 / 5 (+37 / 15) | `strTbl_<l>.bin` via `ui_duel_mgr_get_string_table(5)` (indices 2–6), `strTbl.bin` via `0x08ea4fe8(8)` (indices 220–223, 275–277, 289; 217, 218, 225, 281 where the id is not constant) (31/48) |
+| 6 | duel session: rock-paper-scissors, versus, start, results | `rel_duel_mgr` (`0x08e9aa00`) + `rel_deckswap`, `rel_tutorial` | `duel/start/start_<l>.ehp`, `duel/result/result_<l>.ehp`, `title_menu/title_menu_<l>.ehp`, `deck/deckswap.ehp` | 95 / 5 (+37 / 15) | `strTbl_<l>.bin` via `ui_duel_mgr_get_archive_member(5)` (indices 2–6), `strTbl.bin` via `0x08ea4fe8(8)` (indices 220–223, 275–277, 289; 217, 218, 225, 281 where the id is not constant) (31/48) |
 | 3, 6 | duel HUD, cut-ins, field backdrop | `rel_duel_draw` (`0x0983fb00`) + `rel_duel_eng` | `duel/basic_<region><lang>.ehp` (`basic_ue` … `basic_bs`, built as stem + `".ehp"`), `duel/cutin_*.ehp`, `duel/bg/fmagic%04d.ehp` | 136 / 164 | `ddstrtbl_<l>.bin`, `ddstrtbl_<lang>_idx/_body.bin`, `help_strtbl_contents_duel_<l>.bin`, `help_strtbl_label_<l>.bin` named in data; table pointers runtime state (0/29) |
 | 9 | lab hub (database tools) | `rel_labo` + `rel_cardalbum`, `rel_charalist`, `rel_conv_machine`, `rel_duelrecord`, `rel_limitlist`, `rel_password`, `rel_select_card`, `rel_tutoriallist`, `rel_deckswap` | `labo/voicetest.ehp`, `database/{cardalbum,charalist,duelrecord,limitlist,tutoriallist}.ehp`, `labo/{rental,conv_machine,password}.ehp`, `field/bustup/*.ehp.gz` (character list) | see the libraries | `chr_wordstbl` captions (`%s_wordstbl_<l>.bin`, voice test); each tool's `strTbl_<l>.bin` (album 15/17, password 11/12, conversion 7/7, …) |
 | 0x15 | underground duel | `rel_underground` + `rel_duel_mgr` | `minigame/underground/{titlemenu_<l>,game_<l>,game_com}.ehp`, `mini_result_<l>.ehp` | 49 / 45 | table pointers runtime state (0/39, 30 constant indices) |
@@ -156,7 +156,7 @@ Scope of this batch (295 functions): the BOOT.BIN `.ehf` layout player (`0x0881e
 | `+0x24` u16 | wait counter |
 | `+0x26` u16 | frame count (clips) |
 
-**Object types.** 0 shape (animation block at object `+0x20`), 3 clip (timeline `+0x08`/`+0x0c`, animation `+0x10`), and a type 1 "shape array" (animation block at `+0x0c`; `ui_ehf_draw_shape_instance_array`) that the player supports but that no file on the disc uses (`ehf.md` census: only types 0 and 3). A clip whose header word `+0x18` is non-zero is treated as a fit-to-viewport camera (`ui_ehf_build_type3_instance_matrix`) and is not drawn; the census shows `clip.pad_18` is always 0, so this path is dead on the shipped data.
+**Object types.** 0 shape (animation block at object `+0x20`), 3 clip (timeline `+0x08`/`+0x0c`, animation `+0x10`), and a type 1 "shape array" (animation block at `+0x0c`; `ui_ehf_draw_shape_instance_array`) that the player supports but that no file on the disc uses (`ehf.md` census: only types 0 and 3). A clip whose header word `+0x18` is non-zero is treated as a fit-to-viewport camera (`ui_ehf_build_type3_fit_camera`) and is not drawn; the census shows `clip.pad_18` is always 0, so this path is dead on the shipped data.
 
 #### EHF player: timeline semantics (resolves several `ehf.md` open questions)
 
@@ -231,9 +231,9 @@ Scope of this batch (295 functions): the BOOT.BIN `.ehf` layout player (`0x0881e
 
 #### Name mismatches
 
-- `ui_card_viewer_get_frame_tick` returns word +4 of the frame timing record, which `ui_ehf_get_frame_rate` documents as the frame rate, not a tick; it is used as the blink period.
-- `ui_pda_draw_char_at` draws a whole string (from x to the screen edge), not a single character.
-- `ui_ehf_build_type3_instance_matrix` builds a fit-to-viewport camera from a special clip (type 3 with header `+0x18` set), not a generic per-instance matrix.
+- `ui_card_viewer_get_frame_rate` (formerly `ui_card_viewer_get_frame_tick`; renamed 2026-11-04) returns word +4 of the frame timing record, which `ui_ehf_get_frame_rate` documents as the frame rate, not a tick; it is used as the blink period.
+- `ui_pda_draw_string_to_edge` (formerly `ui_pda_draw_char_at`; renamed 2026-11-04) draws a whole string (from x to the screen edge), not a single character.
+- `ui_ehf_build_type3_fit_camera` (formerly `ui_ehf_build_type3_instance_matrix`; renamed 2026-11-04) builds a fit-to-viewport camera from a special clip (type 3 with header `+0x18` set), not a generic per-instance matrix.
 - `ui_options_draw_string` has no direct caller in the header list; `ui_options_draw_colored_string` reaches it.
 
 #### Corrections to existing docs
@@ -334,8 +334,8 @@ Record `0x08ebe3b8` (0x120 bytes) + text `0x08ebe4d8` (0x800 bytes); kinds: 2 de
 
 #### Name mismatches
 
-- `ui_draw_menu_highlight_bar` (`0x08ea7b6c`): draws a two-line separator rule (colours `0xff479fc1`/`0xffa9d7e9`) after command items 2 and 5, not a highlight bar.
-- `ui_get_frame_counter` (`0x08eafa58`): returns word +4 of the frame-timing record, which its caller uses as a blink period, not the frame counter (word +0) (confidence medium).
+- `ui_draw_menu_separator_rules` (formerly `ui_draw_menu_highlight_bar`; renamed 2026-11-04) (`0x08ea7b6c`): draws a two-line separator rule (colours `0xff479fc1`/`0xffa9d7e9`) after command items 2 and 5, not a highlight bar.
+- `ui_get_frame_rate` (formerly `ui_get_frame_counter`; renamed 2026-11-04) (`0x08eafa58`): returns word +4 of the frame-timing record, which its caller uses as a blink period, not the frame counter (word +0) (confidence medium).
 - `ui_draw_table_icon_a/b/c`: icon tables for filter, sort mode and sort order respectively (from `ui_draw_pane_status`).
 
 #### Corrections and additions to existing docs
@@ -390,7 +390,7 @@ Allocated by `ui_duel_start_init` from the duel manager heap and freed by `ui_du
 | +0xc5 | u8 | bit1: tag link data exchange done (load gate) |
 | +0xc8 | ptr | 0x400-byte exchange buffer (state 4) |
 | +0xcc | ptr | bound `start_<l>.ehp` archive |
-| +0xd0 | 4 x n | member cache of `ui_duel_mgr_get_string_table(id)` |
+| +0xd0 | 4 x n | member cache of `ui_duel_mgr_get_archive_member(id)` |
 
 Hand record (0x1a bytes): byte +0 flags (bit0 visible, bits 1-3 hand index), +2 start rect, +0xa current rect, +0x12 target rect (rectangles are four `short`s x, y, w, h; the draw code uses w/h as percentages of the 0x50 x 0x74 card cell), +0x10 doubles as the flip angle in degrees used by `ui_janken_draw_hand_card`. Tweens are quadratic ease-in: `cur = start + t*t*(target - start) / (d*d)`.
 
@@ -408,7 +408,7 @@ Archive members (by id through the name table at `0x08eb9120`, formatted with th
 | 6 | `ui_janken_update_choice` | 7 |
 | 7 | `ui_janken_update_reveal` | 5/3 on a draw, else 8 |
 | 8 | turn-order clip, prompt | 9 |
-| 9 | `ui_janken_update_link_exchange` (turn-order choice) | 10 |
+| 9 | `ui_janken_update_turn_order_choice` (turn-order choice) | 10 |
 | 10 | `ui_janken_update_result` | 0xb |
 | 0xb | `ui_duel_start_update_versus` | 0xc |
 | 0xc | wait for fade-out; returns 1 or 2 | 0xd |
@@ -486,10 +486,10 @@ Tag match outcome (`ui_duel_result_get_match_outcome`, tail block): count u16 `+
 
 #### Name mismatches
 
-- `ui_duel_mgr_get_string_table` is the generic member getter of the duel start archive (layouts and textures as well as `strTbl`).
-- `ui_janken_update_link_exchange` is the turn-order (first/second) choice step for both offline and link play; the link exchange is only part of it.
-- `ui_janken_draw_choice_icons` draws the win/lose/draw labels after the reveal, not choice icons.
-- `ui_duel_result_get_frame_counter` returns word +4 of the frame-timing record, which the scrollbar uses as a pulse period; whether it really is a counter is unknown.
+- `ui_duel_mgr_get_archive_member` (formerly `ui_duel_mgr_get_string_table`; renamed 2026-11-04) is the generic member getter of the duel start archive (layouts and textures as well as `strTbl`).
+- `ui_janken_update_turn_order_choice` (formerly `ui_janken_update_link_exchange`; renamed 2026-11-04) is the turn-order (first/second) choice step for both offline and link play; the link exchange is only part of it.
+- `ui_janken_draw_result_labels` (formerly `ui_janken_draw_choice_icons`; renamed 2026-11-04) draws the win/lose/draw labels after the reveal, not choice icons.
+- `ui_duel_result_get_frame_rate` (formerly `ui_duel_result_get_frame_counter`; renamed 2026-11-04) returns word +4 of the frame-timing record, which the scrollbar uses as a pulse period; whether it really is a counter is unknown.
 
 #### Open questions (batch 3 (rel_duel_mgr start, versus and result screens))
 - Function table `0x08eb93f0` (result page draw routines): entry 0 is the summary page. Page navigation only cycles pages 0-2, using the DP words +8/+0xc as page 1/2 enables, yet `ui_duel_result_draw_list_c_page` draws page header 2 (list C). Read the table to confirm which routine is on which page (list A and B page routines are not in this pack; their row callbacks have no direct callers).
@@ -557,7 +557,7 @@ Action masks (`duel_core_view_get_card_action_mask`): bit 0x800 = valid attack t
 
 #### Board card objects
 
-- Zone lists: `ui_get_zone_card_object(side, zone)` returns a list sentinel at `0x098e3a60 + s x 0xb00 + zone x 0xb0` (16 zones per side); for zones 0xb-0xd `s` is `[0x098e6664 + side x 4]` (deck-set index; tag partner, M). The first object is `sentinel+4`; empty when it points back to the sentinel. Free list sentinel `0x098e39b0` (`ui_pop_free_card_object`).
+- Zone lists: `ui_get_zone_list_sentinel(side, zone)` returns a list sentinel at `0x098e3a60 + s x 0xb00 + zone x 0xb0` (16 zones per side); for zones 0xb-0xd `s` is `[0x098e6664 + side x 4]` (deck-set index; tag partner, M). The first object is `sentinel+4`; empty when it points back to the sentinel. Free list sentinel `0x098e39b0` (`ui_pop_free_card_object`).
 - Object fields used here: `+0x00/+0x04` links, `+0x10` position, `+0x20` start position, `+0x30` target position, `+0x40` rotation, `+0x50` start rotation, `+0x60` target rotation, `+0x70` timer, `+0x74` duration, `+0x78` next-move code (s16), `+0x7c` next-move argument, `+0x80` u16 card for the face texture, `+0x82` location code, `+0x88` instance, `+0x8c`/`+0x8d`/`+0x8e` flag bytes (completion actions: summon/set/placed-summon effects, chained move, pile sync, arc on x or y; `+0x8d` bit 4 hides the marker, bit 5 = card may be shown), `+0x90` highlight glow handle, `+0x94` material glow handle, `+0x9c` four per-frame callbacks (return non-zero to remove).
 - Motion: lerp + quaternion slerp over the duration, plus an arc `360 x u x (1 - u)` (u = t / duration). Card sounds `0x7a2f`-`0x7a33` at random.
 - ATK/DEF count tweens: 2 x 5 records of 0x20 bytes at `0x098e6678` (shown ATK, shown DEF, start ATK, target ATK, start DEF, target DEF, timer, duration). Drawn as 7 x 9 digits (8 x 10 while changing) during the Battle Phase.
@@ -605,11 +605,11 @@ Action masks (`duel_core_view_get_card_action_mask`): bit 0x800 = valid attack t
 
 #### Name mismatches
 
-- `ui_field_cursor_add_blocker` / `ui_field_cursor_remove_blocker` register and remove cursor-change listeners (called with location and instance), not blockers.
-- `ui_show_stat_change` shows a counter change (counter types 0x01/0x00), not an ATK/DEF change.
-- `ui_get_zone_card_object` returns the zone's list sentinel, not an object.
+- `ui_field_cursor_add_listener` (formerly `ui_field_cursor_add_blocker`; renamed 2026-11-04) / `ui_field_cursor_remove_listener` register and remove cursor-change listeners (called with location and instance), not blockers.
+- `ui_show_counter_change` (formerly `ui_show_stat_change`; renamed 2026-11-04) shows a counter change (counter types 0x01/0x00), not an ATK/DEF change.
+- `ui_get_zone_list_sentinel` (formerly `ui_get_zone_card_object`; renamed 2026-11-04) returns the zone's list sentinel, not an object.
 - `ui_create_zone_highlight_task_dl`: the extra argument is the GE layer.
-- `ui_draw_hud_icon_4001e` draws the coin-toss result icon.
+- `ui_draw_coin_toss_result_icon` (formerly `ui_draw_hud_icon_4001e`; renamed 2026-11-04) draws the coin-toss result icon.
 - `ui_get_zone_card_scale`: returns a factor from `zone + 16 x side` whose purpose is unclear (L).
 - `ui_stub_noop_duel_hud_hook` receives the duellist names with position and width; it may be a lost text-draw tail call (L).
 
@@ -618,7 +618,7 @@ Action masks (`duel_core_view_get_card_action_mask`): bit 0x800 = valid attack t
 - `ui_draw_badge_number_at_position`: its callers pass only two visible arguments; where the badge number (third argument) comes from needs the disassembly.
 - `ui_draw_card_texture_quad_scaled` (`0x09856400`, skipped) and `ui_duel_create_value_popup_task_moving` (`0x09871dcc`, skipped): argument order hidden by the decompiler.
 - `ui_create_wait_object`'s update callback `0x09863a94`, the card display callbacks `0x0986221c`/`0x09862214`, the arrow draw callback `0x0985d004` and the popup hold callbacks `0x09863434`/`0x0986343c` are code labels, not functions, in Ghidra.
-- `0x0989ddb8` (unnamed duel-view test used by `ui_update_zone_highlights` to force highlight kind 7).
+- `0x0989ddb8` (the duel-view test used by `ui_update_zone_highlights` to force highlight kind 7): named `duel_core_view_is_zone_usable_lenient` on 2026-11-04.
 - Meaning of `ui_get_zone_card_scale`'s ranges 0x10-0x100, 0x200-0x2000 and 0x8000 (unreachable with side 0/1).
 - `0x098e6664` (per-side deck-set index for hand/Extra/Deck objects): confirm it is the active tag duellist.
 - Which counter types 0x00-0x13 map to which counters (Spell Counters, A-Counters, ...): needs the engine side (`duel_core_view_get_counter_count_type_*`).
@@ -643,6 +643,86 @@ Scope: `rel_duel_draw` (base `0x0983fb00`), second half by address (`0x09878324`
 - Chain markers: link 1 is only remembered (`0x098e9498`, `0x098e94b0`/`b4`/`b8`); the marker of link 1 is pushed when link 2 arrives (`0x098e9494` set), so a one-link chain shows no marker. A resolving link with the shown flag plays layout `0x2000c` and pops the marker in the completion callback (8-byte heap record: u16 location code, u32 card id at +4).
 - Prompt kinds of `ui_cmd_show_prompt` (also stored as the input prompt kind `0x098e9acc`): 0 confirm, 1 confirm with 600-frame timeout (not shown when the local human is asked), 2 confirm with card info, 3 chain-response card prompt, 4 effect option list (tabs), 5 6-icon choice (phase menu, see Name mismatches), 6 Type grid, 7 Attribute grid, 8 card position yes/no, 9 plain choice, 0xa card row, 0xb number choice (arg bits 16-19 base, 20-23 step, 24-31 count, 0-15 format string), 0xd info panel, 0xe Ritual level counter. The text argument is a dialog string number when its high half is 0.
 - List kinds of `ui_cmd_open_card_list`: 1-5 browse lists (titles dialog strings `0x246 + (kind - 1) * 2 + view side`, cursor moved to zone `0xc`-`0xf`), 6/`0x4a` single pick, 7-`0x26` exact pick count, `0x28`-`0x47` 1..limit, `0x48` 0..limit, `0x4b`-`0x4e` card name declaration (`0x4e` monsters, `0x4d` monsters with frame != 3, `0x4c` any card with frame != 3, `0x4b` any card; ids `0xe88`-`0x1f39` sorted by `card_db_get_sort_position`).
+
+- The 75 records (dumped from the module file on 2026-11-04; `{s32 event, s32 arg_kind, handler}`, handler 0 = no presentation). Events `0x42`/`0x43` are not in the table (ignored); the ten null entries `0x44`-`0x4c` and `0x4e` are the events only the duel manager's voice layer consumes (`audio.md`: `0x44` summon, `0x48` card placed, `0x4c` turn end, ...). Seven handlers had no function in Ghidra and were created in this round: six that only return 1 (`ui_cmd_noop_*`) and `ui_cmd_show_attack_declaration` for event `0xc` (attack declared: attack pointer, direct-attack banner `0x2000d`, attacker/target card info).
+
+| Event | Arg kind | Handler |
+| --- | --- | --- |
+| `0x01` | 0 | `ui_cmd_show_duel_start` (`0x098996f8`) |
+| `0x02` | 1 | `ui_cmd_show_duel_result` (`0x0989976c`) |
+| `0x04` | 3 | `ui_cmd_begin_player_input` (`0x098998e0`) |
+| `0x05` | 2 | `ui_cmd_show_phase_banner` (`0x09899ab4`) |
+| `0x06` | 1 | `ui_cmd_show_turn_change` (`0x09899c24`) |
+| `0x07` | 1 | `field_3d_cmd_set_backdrop` (`0x09899cdc`) |
+| `0x08` | 3 | `ui_cmd_move_field_cursor` (`0x09899cfc`) |
+| `0x09` | 0 | `ui_cmd_noop_09` (`0x09899d44`) |
+| `0x0a` | 1 | `ui_cmd_begin_attack_selection` (`0x09899d4c`) |
+| `0x0b` | 0 | `ui_cmd_noop_0b` (`0x09899d84`) |
+| `0x0c` | 12 | `ui_cmd_show_attack_declaration` (`0x09899da0`) |
+| `0x0d` | 4 | `ui_cmd_show_battle_damage` (`0x0989a180`) |
+| `0x0e` | 1 | `ui_cmd_end_battle_phase` (`0x0989a1c4`) |
+| `0x0f` | 2 | `ui_cmd_set_life_points` (`0x0989a1e4`) |
+| `0x10` | 4 | `ui_cmd_change_life_points` (`0x0989a274`) |
+| `0x11` | 0 | `ui_cmd_noop_11` (`0x0989a2b0`) |
+| `0x12` | 1 | `ui_cmd_shuffle_hand` (`0x0989a2b8`) |
+| `0x13` | 2 | `ui_cmd_reveal_hand_card` (`0x0989a2e0`) |
+| `0x14` | 3 | `ui_cmd_show_activation` (`0x0989a350`) |
+| `0x15` | 1 | `ui_cmd_shuffle_deck` (`0x0989a394`) |
+| `0x16` | 2 | `ui_cmd_sync_board_zone` (`0x0989a3bc`) |
+| `0x17` | 2 | `ui_cmd_flip_pile_top_card` (`0x0989a3f0`) |
+| `0x18` | 3 | `ui_cmd_move_list_card` (`0x0989a424`) |
+| `0x19` | 6 | `ui_cmd_point_at_location` (`0x0989a468`) |
+| `0x1a` | 9 | `ui_cmd_move_card` (`0x0989a500`) |
+| `0x1b` | 8 | `ui_cmd_swap_field_cards` (`0x0989a66c`) |
+| `0x1c` | 10 | `ui_cmd_change_card_position` (`0x0989a744`) |
+| `0x1d` | 11 | `ui_cmd_create_token` (`0x0989a798`) |
+| `0x1e` | 3 | `ui_cmd_show_card_set` (`0x0989a83c`) |
+| `0x1f` | 6 | `ui_cmd_show_destroy_by_effect` (`0x0989a88c`) |
+| `0x20` | 3 | `ui_cmd_show_destroy_by_battle` (`0x0989a8e8`) |
+| `0x21` | 6 | `ui_cmd_noop_21` (`0x0989a938`) |
+| `0x22` | 11 | `ui_cmd_show_announce_activation` (`0x0989a940`) |
+| `0x23` | 3 | `ui_cmd_show_negation` (`0x0989a994`) |
+| `0x24` | 13 | `ui_cmd_noop_24` (`0x0989a9f0`) |
+| `0x25` | 12 | `ui_cmd_advance_turn_counter` (`0x0989a9f8`) |
+| `0x26` | 0 | `ui_cmd_on_phase_banner_done` (`0x0989aa6c`) |
+| `0x27` | 12 | `ui_cmd_show_value_changes` (`0x0989aabc`) |
+| `0x28` | 4 | `ui_cmd_replace_slot_effect_value` (`0x0989ad30`) |
+| `0x29` | 2 | `ui_cmd_shuffle_monster_zones` (`0x0989ada8`) |
+| `0x2a` | 3 | `ui_cmd_mark_tribute_pick` (`0x0989addc`) |
+| `0x2b` | 0 | `ui_cmd_cancel_selection` (`0x0989ae38`) |
+| `0x2c` | 3 | `ui_cmd_show_tribute` (`0x0989ae58`) |
+| `0x2d` | 5 | `ui_cmd_mark_fusion_material` (`0x0989aed8`) |
+| `0x2e` | 0 | `ui_cmd_end_fusion_material_marks` (`0x0989af34`) |
+| `0x2f` | 5 | `ui_cmd_show_fusion_material_sent` (`0x0989af54`) |
+| `0x30` | 3 | `ui_cmd_mark_synchro_material` (`0x0989aff4`) |
+| `0x31` | 0 | `ui_cmd_end_synchro_material_marks` (`0x0989b050`) |
+| `0x32` | 3 | `ui_cmd_show_synchro_material_sent` (`0x0989b070`) |
+| `0x33` | 3 | `ui_cmd_show_chain_link_activated` (`0x0989b110`) |
+| `0x34` | 3 | `ui_cmd_show_chain_link_resolving` (`0x0989b250`) |
+| `0x35` | 2 | `ui_cmd_noop_35` (`0x0989b430`) |
+| `0x36` | 7 | `ui_cmd_show_prompt` (`0x0989b438`) |
+| `0x37` | 2 | `ui_cmd_open_card_list` (`0x0989b81c`) |
+| `0x38` | 11 | `ui_cmd_show_summon_complete` (`0x0989ba9c`) |
+| `0x39` | 10 | `ui_cmd_show_placed_monster_summon` (`0x0989bb0c`) |
+| `0x3a` | 5 | `ui_cmd_show_fusion_synchro_summon` (`0x0989bb64`) |
+| `0x3b` | 1 | `ui_cmd_show_card_info` (`0x0989bc8c`) |
+| `0x3c` | 11 | `ui_cmd_start_coin_toss` (`0x0989bcac`) |
+| `0x3d` | 3 | `ui_cmd_roll_dice` (`0x0989bd20`) |
+| `0x3e` | 2 | `ui_cmd_play_screen_burst_3e` (`0x0989bd54`) |
+| `0x3f` | 2 | `ui_cmd_dispatch_duel_end_scene` (`0x0989bdb0`) |
+| `0x40` | 4 | `ui_cmd_show_special_win` (`0x0989bdf8`) |
+| `0x41` | 1 | `ui_cmd_show_turn_limit_milestone` (`0x0989be3c`) |
+| `0x44` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x45` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x46` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x47` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x48` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x49` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4a` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4b` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4c` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4d` | 3 | `ui_cmd_play_lp_change_cutin` (`0x0989be84`) |
+| `0x4e` | 0 | none (null entry: ignored by the dispatcher) |
 
 #### HUD layout request (`ui_play_hud_layout_anim`, 0x44 bytes)
 
@@ -699,15 +779,15 @@ Topic from the phase / input mode (Draw 4, Standby 5, Main 6, Battle 7, End 8, c
 
 #### Name mismatches
 
-- `ui_duel_open_flag_choice_dialog`, `ui_flag_choice_*`: a 6-icon row dialog whose decide submits action `0x0d + choice` in setup mode 2 (the phase-menu codes of `duel-runtime.md`) and whose captions are duel strings `0x15`+: the phase selection dialog (M).
-- `ui_draw_two_way_card_choice`: draws a spinning coin and strings 0xa/0xb: the coin call (heads/tails), not a card choice (M).
-- `ui_set_info_panel_state_bit0`: the info panel's field-cursor blocker (moves the panel to the side away from the cursor).
+- `ui_duel_open_phase_select_dialog` and `ui_phase_select_*` (formerly `ui_duel_open_flag_choice_dialog` and `ui_flag_choice_*`; renamed 2026-11-04): a 6-icon row dialog whose decide submits action `0x0d + choice` in setup mode 2 (the phase-menu codes of `duel-runtime.md`) and whose captions are duel strings `0x15`+: the phase selection dialog (M).
+- `ui_draw_coin_call_choice` (formerly `ui_draw_two_way_card_choice`; renamed 2026-11-04): draws a spinning coin and strings 0xa/0xb: the coin call (heads/tails), not a card choice (M).
+- `ui_set_info_panel_cursor_side` (formerly `ui_set_info_panel_state_bit0`; renamed 2026-11-04): the info panel's field-cursor blocker (moves the panel to the side away from the cursor).
 - `ui_start_duel_end_card_fx_14`: starts the Final Countdown win effect.
-- `ui_cmd_show_counters`: handles 20 kinds of value changes (stat changes and zone value styles), not only counters.
+- `ui_cmd_show_value_changes` (formerly `ui_cmd_show_counters`; renamed 2026-11-04): handles 20 kinds of value changes (stat changes and zone value styles), not only counters.
 - `ui_cmd_show_activation`: only calls `field_3d_board_update_hand_reveal`.
 - `ui_is_cutin_mode_active`: returns draw flag 8 (Ghidra shows void).
 - `ui_card_list_picker_undo_selection`: callers pass a row index that is not used.
-- `ui_card_yes_no_draw_item`: the two items are the card upright and sideways (position choice, M).
+- `ui_card_position_choice_draw_item` (formerly `ui_card_yes_no_draw_item`; renamed 2026-11-04): the two items are the card upright and sideways (position choice, M).
 
 #### Corrections to existing docs
 
@@ -716,7 +796,7 @@ Topic from the phase / input mode (Draw 4, Standby 5, Main 6, Battle 7, End 8, c
 - The draw command handlers convert engine sides to view sides themselves; the dispatcher passes raw engine values.
 
 #### Open questions (batch 5 (rel_duel_draw command and mode tables, task pool, dialogs, help, options))
-- The event number and argument kind of each of the 75 records of `0x098d0180` (table data, not in the decompilation); a dump of the table would map every `ui_cmd_*` handler to its engine event.
+- ~~The event number and argument kind of each of the 75 records of `0x098d0180`~~: dumped on 2026-11-04 ("Draw command dispatcher" above).
 - The rows of the mode table `0x098d1f5c` for modes 2, 3, 4, 0xa and 0xc (which functions are enter/draw/update/exit).
 - Meaning of the HUD request fields `+0x0c`-`+0x40` and whether `+0x24` is a sound id.
 - Duel set-up buffer byte `+0x190` values 2 and 5 (auto-answer/tutorial modes?) and word `+0x854` (disables prompt input).
@@ -830,8 +910,8 @@ Work area (`0x08eea3d0`, 0x3c bytes): `+0` mode (0, 1, 2; selects colours, GIM a
 
 #### Name mismatches
 
-- `ui_title_draw_tab_select_caption` draws the list items of the tab-select list (sprite 0x3d and a message per item), not a caption.
-- `ui_title_reset_message_box` re-opens a list window (`ui_list_window_reset` + `ui_open_list_window`).
+- `ui_title_draw_tab_select_items` (formerly `ui_title_draw_tab_select_caption`; renamed 2026-11-04) draws the list items of the tab-select list (sprite 0x3d and a message per item), not a caption.
+- `ui_title_reopen_list_window` (formerly `ui_title_reset_message_box`; renamed 2026-11-04) re-opens a list window (`ui_list_window_reset` + `ui_open_list_window`).
 - `ui_title_draw_option_toggle` with `is_switch = 0` draws the cursor bar, not a toggle.
 - `ui_title_get_title_message`, `ui_title_call_handle_comm_single_duel_input`, `ui_title_call_draw_option_message`: Ghidra shows `void` returns, but the result of the callee is passed through in v0 and used by the callers (prototypes in rows.tsv give the real return type).
 - `ui_title_send_wireless_entry`, `ui_title_update_wireless_handshake`, `ui_title_check_wireless_teams_ready`, `ui_title_collect_wireless_peer_names`: callers pass arguments that the decompiled bodies never read (documented as `(void)`; check the disassembly for hidden uses, low risk).
@@ -950,4 +1030,4 @@ Resources: module 0x1d (card picker `ui_select_card_*`), `cardh.cip` in a 0x1350
 - ~~How `ui_bind_ehf` patches the display lists~~: answered 2026-11-04: it does not; the player reads the primitive records itself, and `ui_bind_ehf` writes each texture slot's `.tmf` byte into slot word `+0x0c` after the texture callback (`ehf.md`).
 - ~~Who plays a layout~~: answered 2026-11-04 (batch 1): the caller's draw block word 0 is a tick, the layout advances once per new tick at stage `+0x08` vsyncs per frame, and menus select frame ranges with `ui_ehf_set_play_range` / `ui_ehf_seek_frame`.
 - See also the open questions in `docs/formats/ehf.md`.
-- From the 2026-11-04 round (details in the per-batch open questions above): the event number of each of the 75 draw-command handlers (table data `0x098d0180`, not code), the `ddstrtbl` index pair, the meaning of the room value words 0x1d/0x1e of the wireless lobby, and a PPSSPP check of the layout timing and of the mini-game scoring formula.
+- From the 2026-11-04 round (details in the per-batch open questions above): the `ddstrtbl` index pair, the meaning of the room value words 0x1d/0x1e of the wireless lobby, and a PPSSPP check of the layout timing and of the mini-game scoring formula.

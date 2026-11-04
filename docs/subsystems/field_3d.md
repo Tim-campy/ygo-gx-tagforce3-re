@@ -354,11 +354,11 @@ Texture value use: texture scale = value / 64 + 1 (a per-zone inset of the card 
 
 #### Name mismatches
 
-- `field_3d_node_cb_set_card_texture` (`0x098562b8`) and `field_3d_node_cb_blink_tint` (`0x09856358`) are draw-state callbacks (texture callback and batch hook), not node callbacks.
-- `field_3d_copy_scene_header` (`0x0985b9e4`) copies a `0x3c`-byte light record, not a scene header.
-- `field_3d_copy_matrix_triple` (`0x0985de6c`) copies a `0xc0`-byte camera record (three vectors + direction + two matrices).
+- `field_3d_draw_cb_set_card_texture` (formerly `field_3d_node_cb_set_card_texture`; renamed 2026-11-04) (`0x098562b8`) and `field_3d_draw_cb_blink_tint` (`0x09856358`) are draw-state callbacks (texture callback and batch hook), not node callbacks.
+- `field_3d_copy_light_record` (formerly `field_3d_copy_scene_header`; renamed 2026-11-04) (`0x0985b9e4`) copies a `0x3c`-byte light record, not a scene header.
+- `field_3d_copy_camera_record` (formerly `field_3d_copy_matrix_triple`; renamed 2026-11-04) (`0x0985de6c`) copies a `0xc0`-byte camera record (three vectors + direction + two matrices).
 - `field_3d_draw_scaled_model_10003` draws the pile model with an animation frame equal to the card count; "scaled" is right but the name hides the pile meaning.
-- `field_3d_cutin_set_value_range` stores the LP roll from/to values.
+- `field_3d_cutin_set_lp_roll_range` (formerly `field_3d_cutin_set_value_range`; renamed 2026-11-04) stores the LP roll from/to values.
 - `field_3d_set_duel_scene` (`0x0985b0ec`, 8 bytes) decompiles as the body of `field_3d_backdrop_set_scene`; skipped.
 
 #### Open questions (batch 1 (BOOT.BIN model pipeline, cut-in core, duel board, card effect tasks))
@@ -490,9 +490,9 @@ at 0x098e937c (4 slots; part of the 0x124-byte block 0x098e9370 cleared by `fiel
 
 | Channel | Start | Stop | "phase" setter |
 | --- | --- | --- | --- |
-| +0xb8 main | `field_3d_start_cutin_fx` (switch on animation id → creator family) | `field_3d_stop_cutin_fx` | `field_3d_set_cutin_fx_phase` |
-| +0xbc extra | `field_3d_start_cutin_extra_fx` (per character: 0x2b, 2, 9, 0xc, 0x29, 0x25) | `field_3d_stop_cutin_extra_fx` | `field_3d_set_cutin_extra_fx_phase` |
-| +0xc0 aux | `field_3d_start_cutin_aux_fx` (always `ui_start_anim_cue_task`) | `field_3d_stop_cutin_aux_fx` (also stops all SE) | `field_3d_set_cutin_aux_fx_phase` |
+| +0xb8 main | `field_3d_start_cutin_fx` (switch on animation id → creator family) | `field_3d_stop_cutin_fx` | `field_3d_set_cutin_fx_frame_advanced` |
+| +0xbc extra | `field_3d_start_cutin_extra_fx` (per character: 0x2b, 2, 9, 0xc, 0x29, 0x25) | `field_3d_stop_cutin_extra_fx` | `field_3d_set_cutin_extra_fx_frame_advanced` |
+| +0xc0 aux | `field_3d_start_cutin_aux_fx` (always `ui_start_anim_cue_task`) | `field_3d_stop_cutin_aux_fx` (also stops all SE) | `field_3d_set_cutin_aux_fx_frame_advanced` |
 
 fx slot layout: +0x00 task handle (-1 = free), +0x04 "advanced" flag written every tick by the phase setters
 (the fifth argument, t0, of the frame hook = cut-in +0x174, set when the integer animation frame advanced), +0x08
@@ -536,8 +536,8 @@ share one state word is unknown (read from the disassembly).
 
 #### Name mismatches
 
-- `field_3d_mul_matrix3_by_axis_rotation` always rotates about X (same as `field_3d_mul_matrix4_by_rot_x`, 3x3).
-- `field_3d_set_cutin_fx_phase` / `_extra_fx_phase` / `_aux_fx_phase` store the per-tick "frame advanced" flag,
+- `field_3d_mul_matrix3_by_rot_x` (formerly `field_3d_mul_matrix3_by_axis_rotation`; renamed 2026-11-04) always rotates about X (same as `field_3d_mul_matrix4_by_rot_x`, 3x3).
+- `field_3d_set_cutin_fx_frame_advanced` / `_extra_fx_frame_advanced` / `_aux_fx_frame_advanced` (formerly `field_3d_set_cutin_fx_phase` / `_extra_fx_phase` / `_aux_fx_phase`; renamed 2026-11-04) store the per-tick "frame advanced" flag,
   not a phase number (medium).
 - `field_3d_push_saved_matrices` only pushes and marks the current matrices dirty; no load of the matrices kept by
   `field_3d_save_matrix_state` is visible (medium; a VFPU load could be hidden).
@@ -695,19 +695,19 @@ blocks) and `rel_field`'s field render state, stencil shadows and map stencil pa
 
 #### Name mismatches
 
-- `field_3d_lookup_pose_table_b`..`_e` / `field_3d_search_pose_table_*`: these are attach-offset lookups (same
+- `field_3d_lookup_attach_offsets_a`..`_e`, `field_3d_search_attach_offsets_*` and `field_3d_sort_attach_offsets_*` (formerly `field_3d_lookup_pose_table_*`, `field_3d_search_pose_table_*`, `field_3d_sort_pose_table_*`; renamed 2026-11-04): these are attach-offset lookups (same
   0x20-byte entries and comparator `0x098a0d04` as `field_3d_cutin_*_lookup_attach_offset`), not pose tables.
 - `field_3d_draw_cutin_aux_fx` both updates and draws (state from the disc flag); fine as is.
 - `field_3d_map_material_dd_callback`: "dd" is unexplained; it toggles one GE state for materials whose name
   contains one of four substrings.
-- `field_3d_search_pose_table_*` return the bsearch result although Ghidra types them void.
+- `field_3d_search_attach_offsets_*` return the bsearch result although Ghidra types them void.
 
 #### Open questions (batch 3 (cut-in effect animations, archive loading, rel_field rendering))
 - `field_3d_map_material_dd_callback`: which GE state is toggled (argument hidden) and what the four name
   substrings at `0x090fd16c`-`0x090fd184` are.
 - `field_3d_set_map_variant_group_mask` (`rel_field:0x090da484`): body lost in the decompilation; read the
   disassembly.
-- `field_3d_lookup_pose_table_a` (17 tables, `0x098d3e50`-`0x098d48b0`): which table is searched (hidden).
+- `field_3d_lookup_attach_offsets_a` (17 tables, `0x098d3e50`-`0x098d48b0`): which table is searched (hidden).
 - Cut-in loading block: is the 0x1c400-byte overlap for generic characters real (buffer 0x20c00 + 0x17b000 >
   stride 0x17f800), or are generic cut-in archives always smaller than 0x15ec00 bytes? Check file sizes.
 - Backdrop archive slot `+0x10`: never set in the code read here, so the release-pending path may be dead.
@@ -724,7 +724,7 @@ blocks) and `rel_field`'s field render state, stencil shadows and map stencil pa
 - ~~The change-over task `0x0987a604`~~: answered 2026-11-04 (batch 2 findings): 16 frames, a screen capture redrawn through a 31 × 21 swirl grid while fading to or from black; backdrop `0x169c` uses a plain 60-frame fade. The eight card-specific extras are described per card in the same findings (static read; not every float constant is read).
 - ~~Texture-mapping callbacks `0x0882ef50` / `0x0882f050`~~: answered 2026-11-04 (batch 1 findings, "Texture-map callbacks and the EDRAM ramp"): type 1 is camera-driven environment mapping with lights 2/3, type 2 light-0-driven mapping, optionally against a 64 × 32 EDRAM ramp (cel-shading hypothesis, medium).
 - ~~How the group mask `inst+0x64` reaches the draw hook~~: answered 2026-11-04: it is word 4 of the instance draw state `inst+0x54` passed to `field_3d_draw_pass`, and it is a hide mask.
-- The unread `-etc` tracks (84-track 13–19, 42-track 4–9) and the purpose of `.vtmt`.
+- The unread `-etc` tracks (84-track 13–19, 42-track 4–9). (The purpose of `.vtmt` is settled: lip-sync animation, `docs/formats/vtmt.md`.)
 - Role of `.tmf` (with `.ehf`, covered separately).
 - The remaining open fields listed in `docs/formats/tgm.md`.
 - The open questions of the 2026-11-04 batches (above, per batch): the state word of the cut-in effect random generators, float constants of the effect recipes, the possible `0x1c400`-byte slot overlap of generic characters' cut-in archives, and the latent `field_3d_pose_nodes_blend` track-index issue.

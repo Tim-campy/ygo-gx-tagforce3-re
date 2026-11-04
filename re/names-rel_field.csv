@@ -29,7 +29,7 @@ address,group,name
 0x090d4c64,world,world_apply_light_colour
 0x090dafc8,world,world_draw_sky_gradient
 0x090d9e78,world,world_is_marker_hidden_cell
-0x090d1df4,world,world_clip_player_motion
+0x090d1df4,world,world_clip_character_motion
 0x090dd8dc,world,world_find_follower_cell
 0x090e27c0,world,world_get_cell_occupant
 0x090e282c,world,world_set_cell_occupant
@@ -317,7 +317,7 @@ address,group,name
 0x090df4b4,world,world_set_player_direction,M,stores direction 0x0910c6b0
 0x090df4ec,world,world_mark_player_cells,M,sets occupancy of the cells under the 4 corners (skips value 3)
 0x090df5e4,world,world_read_player_move_input,M,d-pad combinations and analog stick (pad +0x10/+0x14) to a camera-relative velocity
-0x090df904,world,world_move_player,M,world_clip_player_motion, run flag from pad 0x2000, pushes against nearby NPCs
+0x090df904,world,world_move_player,M,world_clip_character_motion, run flag from pad 0x2000, pushes against nearby NPCs
 0x090dfc68,world,world_update_player_auto_walk,M,steps towards target cell 0x0910c73c/0x0910c740 centre, clears when reached
 # family field_render
 0x090d4744,field_3d,field_3d_begin_field_scene,M,display list 0: render state, camera, world_apply_light_colour
@@ -459,14 +459,14 @@ address,group,name
 0x090e8080,ui,ui_pda_draw_help_text,M,called (x, y, 0xf7, 0x32, help) inside the font list by the help box; body decompiles empty
 0x090e809c,ui,ui_pda_draw_main_menu,M,up to 7 entries (labels 0x090fe660, icons 0x090fe650), cursor = low nibble of +0x0a, help string table 0x090fe670; entries 5-6 dimmed by +0x298
 0x090e83d8,ui,ui_pda_draw_status_screen,M,save_get_player_name, save_get_team_name, save_get_partner, save_get_duel_record and DP; frame boxes and partner icon
-0x090e91e0,ui,ui_pda_draw_char_at,M,tail wrapper (x << 6 font units) called with a one-character string by ui_pda_draw_number
+0x090e91e0,ui,ui_pda_draw_string_to_edge,M,tail wrapper (x << 6 font units) called with a one-character string by ui_pda_draw_number
 0x090e9200,ui,ui_pda_draw_entry_text,M,called (x, y, 0xd8, label) inside the font list by ui_pda_draw_menu_entry; body decompiles empty
 0x090e9214,ui,ui_pda_draw_three_entry_menu,M,PDA list of 3 entries (labels 0x090fe690, help 0x090fe6a0), entry 1 skipped when +0x29c is 0
 0x090e9520,ui,ui_pda_draw_five_entry_menu,M,PDA list of 5 entries (labels 0x090fe6b0, help 0x090fe6c0, icon UVs 0x090fe6d0) with fade-in of the last rows
 0x090e9804,ui,ui_pda_draw_menu_entry,M,entry bar (3 sprites), optional animated icon, label text and highlight frame when selected
 0x090e9ad4,ui,ui_pda_draw_entry_highlight,M,frame box with UV 0x3400f6 around the selected entry
 0x090e9b74,ui,ui_pda_draw_frame_box,M,nine-slice box: four 5x5 corners, stretched edges and centre from the UV packed in param_6
-0x090e9db8,ui,ui_pda_draw_number,M,decimal digits right to left with a fixed advance, at least one digit, via ui_pda_draw_char_at
+0x090e9db8,ui,ui_pda_draw_number,M,decimal digits right to left with a fixed advance, at least one digit, via ui_pda_draw_string_to_edge
 0x090e9ec4,ui,ui_pda_open,M,heap alloc 0x2a0 at 0x09899de8, pda_pack01.gim, cover model, event_name.bin, option_msg; kind from param_3; sound 0x7a58
 0x090ea228,ui,ui_pda_step,M,per frame: prompt results (+0x166: 4 -> 0xd, 5 -> 0xb), slide in/out, menu steps, options; returns the PDA result code
 0x090ea600,ui,ui_pda_draw,M,font flags per language, layer 3 screen + frame, 3D cover model, layer 4 fade and the prompt box +0x168

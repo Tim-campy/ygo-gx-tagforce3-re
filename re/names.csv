@@ -328,8 +328,8 @@ address,group,name
 0x08864300,card_db,card_db_can_be_normal_summoned
 0x0885f944,card_db,card_db_get_next_alias_id
 0x088630d8,card_db,card_db_get_evolution_relatives
-0x0882b964,system,system_movie_play,H,creates the sceMpeg player, starts display/read/sound threads, runs system_movie_flush_video, waits for the threads and tears everything down; was system_movie_create_player
-0x0882c294,system,system_movie_flush_video
+0x0882b964,system,system_movie_play,H,creates the sceMpeg player, starts display/read/sound threads, runs system_movie_decode_loop, waits for the threads and tears everything down; was system_movie_create_player
+0x0882c294,system,system_movie_decode_loop
 0x0882c4d0,system,system_movie_query_stream
 0x0882d554,system,system_movie_decode_audio
 0x0882d614,system,system_movie_decode_video
@@ -1471,12 +1471,12 @@ address,group,name
 # family movie
 0x0883debc,system,system_movie_play_with_volume,M,volume = settings byte 0 * 0x8000/15 (0 when muted), then system_movie_play
 # family movie_player
-0x0882b7c4,system,system_movie_read_sectors,M,reads count<<11 bytes through system_movie_reader_read; returns bytes/0x800 or -1 when not a whole number of 2048-byte sectors
+0x0882b7c4,system,system_movie_ringbuffer_callback,M,reads count<<11 bytes through system_movie_reader_read; returns bytes/0x800 or -1 when not a whole number of 2048-byte sectors
 0x0882b8c0,system,system_movie_shutdown_on_exit,M,caller system_exit_callback; with a player present stops it and sceKernelWaitThreadEnd on threads 0x08924aac/ab0/ab4
 0x0882b95c,system,system_call_movie_play,H,body only calls system_movie_play
-0x0882c128,system,system_movie_check_playback_end,M,caller system_movie_flush_video; ends (returns 0) when video and audio queues are drained and the reader is done, or end flag bit 8 is set
+0x0882c128,system,system_movie_check_playback_end,M,caller system_movie_decode_loop; ends (returns 0) when video and audio queues are drained and the reader is done, or end flag bit 8 is set
 0x0882c214,system,system_movie_is_end_flag_set,M,reads the event-flag bits via system_movie_get_event_flag_bits and returns 1 when bit 8 is set, else -1
-0x0882c274,system,system_movie_set_all_event_flags,M,calls system_movie_stub_set_event_flag(flags, 0xff); callers system_movie_flush_video and system_movie_shutdown_on_exit
+0x0882c274,system,system_movie_set_all_event_flags,M,calls system_movie_stub_set_event_flag(flags, 0xff); callers system_movie_decode_loop and system_movie_shutdown_on_exit
 0x0882c5f4,system,system_movie_poll_skip_button,M,sceCtrlReadBufferPositive; newly pressed SELECT (1) or START (8), or any button when mode bit 2 of 0x08924ac8, sets 0x08924ab8=10 and returns 1
 0x0882c6c8,system,system_movie_audio_queue_create,H,creates sema 'sound_lockSema', carves the PCM buffer pointer array and buffers from a 64-byte aligned arena; caller system_movie_create_player
 0x0882c918,system,system_movie_audio_queue_reset,M,clears the write/read/count words +0x0c/+0x10/+0x14 of the audio queue and the counters 0x08924ad8/adc
@@ -1537,7 +1537,7 @@ address,group,name
 0x0882df00,system,system_movie_reader_get_state,M,returns reader +4; caller system_movie_feed_ringbuffer
 0x0882df08,system,system_movie_reader_set_state,M,stores reader +4; callers system_movie_feed_ringbuffer and the abort check (state 3)
 0x0882df14,system,system_movie_reader_is_eof_flag_set,M,bit 4 of the reader event flag (+0x0c); system_movie_reader_mark_eof uses the same bit
-0x0882df44,system,system_movie_reader_is_done,M,true when the reader EOF flag bit 4 is set; callers system_movie_flush_video and system_movie_check_playback_end
+0x0882df44,system,system_movie_reader_is_done,M,true when the reader EOF flag bit 4 is set; callers system_movie_decode_loop and system_movie_check_playback_end
 0x0882dfc8,system,system_movie_reader_mark_eof,M,calls system_movie_stub_set_event_flag(reader +0x0c, 4); caller system_movie_feed_ringbuffer
 0x0882dfec,system,system_movie_reader_check_abort,M,when the reader flag pattern low byte is 0xff (all bits, see system_movie_set_all_event_flags) sets reader state 3
 0x0882e140,system,system_movie_umd_io_init,H,creates sema 'UMD_SAMPLE_IO_SEMA' once into 0x0889f6e4
@@ -2039,7 +2039,7 @@ address,group,name
 0x088685d8,audio,audio_count_bgm_sounds,M,counts active sounds whose key +0x1c has category bit 0x100000 clear (category 0 = BGM); story bgm_stop waits on it (story.md)
 0x08868644,audio,audio_count_se_and_voice_sounds,M,counts active sounds whose key +0x1c has category bit 0x100000 set (categories 1 SE and 2 voice)
 0x088686b0,audio,audio_count_sounds_in_bank,M,counts active sounds for which 0x08866bc4(key +0x1c) (bank of a sound id) equals the argument
-0x0886a988,audio,audio_find_lowest_priority_channel,M,walks active sounds of one class (bit 0x100000) and returns channel +0x30 of the one with the lowest +0x32 priority
+0x0886a988,audio,audio_find_lowest_age_rank_slot,M,walks active sounds of one class (bit 0x100000) and returns channel +0x30 of the one with the lowest +0x32 priority
 # family sound_play
 0x08841898,audio,audio_play_sound,M,0x0886da0c(id,0,0); story sound_effect calls it with global sound ids; message boxes play 0x7a0c with it
 0x088418a4,audio,audio_play_sound_arg,M,0x0886da0c(id, arg, 0)
@@ -2293,7 +2293,7 @@ address,group,name
 0x08841864,audio,audio_release_banks_below_split,M,audio_release_bank_range(-0x206, 1); -0x206 releases the banks below state+0x0c
 0x088670b8,audio,audio_find_bank_group_for_id,M,last index i with table(+0x20 of 0x08dd3004)[i] <= id over 0x08dd300c entries, -1 without banks
 0x088674ac,audio,audio_clear_bank_entry_busy,M,byte +10 = 0; caller audio_on_bank_read_complete
-0x088676d0,audio,audio_is_sound_id_loaded,M,id below header +0xc and below 0x08dd3008, or between 0x08dd300c and 0x08dd3008; callers audio_play_se/voice/bgm
+0x088676d0,audio,audio_is_sound_id_in_range,M,id below header +0xc and below 0x08dd3008, or between 0x08dd300c and 0x08dd3008; callers audio_play_se/voice/bgm
 0x0886874c,audio,audio_get_bank_header_u16_0e,M,u16 +0xe of bank header 0x08dd3004, -1 without banks
 0x08868768,audio,audio_get_bank_header_u16_10,M,u16 +0x10 of bank header 0x08dd3004, -1 without banks
 0x088687ac,audio,audio_get_bank_table_word_for_sound,M,word 0 of the 16-byte bank table entry (header +0x18) of audio_find_bank_for_sound
@@ -2326,7 +2326,7 @@ address,group,name
 0x088389a0,ui,ui_copy_card_view_block_74,M,copies 29 words (0x74 bytes); only caller ui_update_card_view_state
 0x088395e4,ui,ui_draw_card_frame_ehf,M,maps a frame type (0..0x12) to an ehf frame range (0-0x3b, 0x3c-0x77, ...), sets it if changed, draws ehf 0x08acc98c at (x, y-0x9d)
 # family card_viewer
-0x0884eb08,ui,ui_card_viewer_get_frame_tick,M,returns word +4 of system_get_frame_timing(); only caller ui_card_viewer_draw
+0x0884eb08,ui,ui_card_viewer_get_frame_rate,M,returns word +4 of system_get_frame_timing(); only caller ui_card_viewer_draw
 0x0884ebb4,ui,ui_card_viewer_set_pack_source,M,stores arg in 0x08db3df4, the pack-name archive in 0x08db3df8, sets flag bit 0 of 0x08db3dea, ui_card_viewer_find_packs
 0x0884f84c,ui,ui_card_viewer_draw_sysmsg13_icon_row,M,draws sysmsg string 0xd at (8, y+1) then a 22x10 sprite of GIM 0x08db3dec with u = (n-1)*12 + 0x50; caller ui_card_viewer_draw
 0x0885022c,ui,ui_card_viewer_draw_blinking_arrows,M,when frame bit 3 is set draws two 23x11 sprites of GIM 0x08db3dec at (4,3) and (0x5c,3); caller ui_card_viewer_draw
@@ -2380,7 +2380,7 @@ address,group,name
 0x088366dc,deck,deck_copy_key_card_list,M,copies a 4-byte header and 23 pairs of u16 (0x60 bytes); callers deck_copy_slot_key_cards, duel_setup_load_decks
 0x08836718,deck,deck_get_duel_setup_tail_block,M,returns 0x08ac2120 = end of the 0x858-byte set-up buffer 0x08ac18c8; per-duelist words read by duel_eng, +0x34 count; filled by net receive
 # family ehf_draw
-0x0881f7ac,ui,ui_ehf_build_type3_instance_matrix,M,finds an instance of kind 3 whose child shape is kind 0, evaluates both tracks, inverts, maps to player pos/size; caller ui_ehf_draw
+0x0881f7ac,ui,ui_ehf_build_type3_fit_camera,M,finds an instance of kind 3 whose child shape is kind 0, evaluates both tracks, inverts, maps to player pos/size; caller ui_ehf_draw
 0x08820e7c,ui,ui_ehf_draw_shape_instance_array,M,loops 20-byte entries (x, y, scale, material, shape offset), per entry writes matrix/material and system_ge_draw_array; caller ui_ehf_draw_instances
 # family ehf_player
 0x0881ea54,ui,ui_ehf_set_override_flag,M,stores arg in 0x08921900, the global ui_ehf_override_start_frame sets and ui_ehf_restore_start_frame clears
@@ -2392,8 +2392,8 @@ address,group,name
 0x08867178,system,system_get_file_size_from_offset,M,waits for the UMD on disc0: paths, sceIoOpen(path, 1), returns sceIoLseek result minus offset; next to system_read_file_range
 # family font
 0x08845768,system,system_font_reset_ccc_table,M,sceCccSetTable(0, 0); caller system_font_init
-0x08846854,system,system_font_is_no_line_start_char,H,system_font_bsearch_char in 0x2f chars at 0x088a16a8: closing brackets, small kana, punctuation (kinsoku: may not start a line)
-0x08846884,system,system_font_is_no_line_end_char,H,system_font_bsearch_char in 10 chars at 0x088a1708: opening brackets ( [ { and CJK openers (kinsoku: may not end a line)
+0x08846854,system,system_font_may_start_line,H,system_font_bsearch_char in 0x2f chars at 0x088a16a8: closing brackets, small kana, punctuation (kinsoku: may not start a line)
+0x08846884,system,system_font_may_end_line,H,system_font_bsearch_char in 10 chars at 0x088a1708: opening brackets ( [ { and CJK openers (kinsoku: may not end a line)
 0x08848bb0,system,system_font_measure_unbreakable_run,M,sums glyph advances until a break class allows a break, handling $R/$f/$F/$C codes and small-caps scaling 10/12; caller system_font_layout_line
 0x08849bec,system,system_font_draw_glyph_sprite_8x8,M,emits a through-mode 2-vertex sprite (VTYPE 0x800102) with an 8x8 cell from code-0x3040 at (x>>6, y>>6) into list 0x08d9ea80; caller system_font_flush_glyphs
 # family fpu
@@ -2441,7 +2441,7 @@ address,group,name
 0x08867920,audio,audio_clear_codec_module_block,M,zeroes five words; caller system_load_audio_modules, next to audio_load_codec_modules
 # family movie
 0x0882b8ac,system,system_movie_set_work_memory,M,stores base 0x08924ac0 and size 0x08924ac4; system_movie_create_player carves its mpeg buffers from 0x08924ac0
-0x0882c248,system,system_movie_test_event_flag_800,M,system_movie_get_event_flag_bits then returns -1 when bit 0x800 is set, else 0; caller system_movie_flush_video
+0x0882c248,system,system_movie_test_event_flag_800,M,system_movie_get_event_flag_bits then returns -1 when bit 0x800 is set, else 0; caller system_movie_decode_loop
 0x0882d0d8,system,system_movie_stub_noop_reader_device,M,empty body; called with the reader device by system_movie_create_player and system_movie_query_stream
 0x0882d53c,system,system_movie_init_decoder_context,M,stores mpeg handle, video stream, video AU and audio AU args into a 4-word block; called once by system_movie_create_player
 0x0882ded4,system,system_movie_reader_create,M,stores ringbuffer (+8) and control flags (+0xc) in the reader context; create step in system_movie_create_player before the threads
@@ -2595,9 +2595,9 @@ address,group,name
 0x08830154,field_3d,field_3d_render_edram_ramp_textures,M,renders two 64-wide ramps (keys: byte nibble colour, float*64 position, tables +0xc..+0x20) to EDRAM 0x1f0000; tgModel.c; caller field_3d_draw_model
 0x08830610,field_3d,field_3d_copy_vertex_s16x4,M,copies four u16 (one 8-byte vertex); only caller 0x08830154
 # family tracks
-0x0886d72c,audio,audio_set_track_fields_ac_b4,M,type-1 sound object: +0xb4 = u16 arg, +0xac = arg
-0x0886d7a0,audio,audio_get_track_state,M,type-1 sound object: 1 when +0xb8 bit 2, 2 when bit 1, else 0; -1 otherwise
-0x0886dad0,audio,audio_play_track_crossfade,M,audio_play_se; for a type-1 object sets +0xb0 and takes +0xb4/+0xb6 from other type-1 sounds, marking them +0xb8 |= 0x20
+0x0886d72c,audio,audio_set_sound_script_frame_speed,M,type-1 sound object: +0xb4 = u16 arg, +0xac = arg
+0x0886d7a0,audio,audio_get_sound_script_state,M,type-1 sound object: 1 when +0xb8 bit 2, 2 when bit 1, else 0; -1 otherwise
+0x0886dad0,audio,audio_start_sound_script_exclusive,M,audio_play_se; for a type-1 object sets +0xb0 and takes +0xb4/+0xb6 from other type-1 sounds, marking them +0xb8 |= 0x20
 # family vfpu_color
 0x0881b92c,system,system_vfpu_color_normalize,M,vsrt4/vsrt3 find the largest component, vrcp of it (0 guarded) scales all four; in the colour block after vector4_is_zero_2
 0x0881b960,system,system_vfpu_color_normalize_rgb,M,same as 0x0881b92c on three components with w set to 0
@@ -2623,7 +2623,7 @@ address,group,name
 0x0881b9f0,system,system_vfpu_rand_float_times_pi,M,(vrndf1 - 1) * vcst(9) = random in [0,PI); next to system_vfpu_rand_float
 0x0881ba18,system,system_vfpu_rand_float_times_cst5,M,(vrndf1 - 1) * vcst(5) (VFPU constant 5 = 2/PI); next to system_vfpu_rand_float
 # family viewer_class
-0x08865e64,card_db,card_db_classify_for_viewer,M,returns 1-3: spells (race 23) 2 if icon 5, traps (race 24) 3 if icon 1, monsters 2 for a fixed id list (0x1e36, 0xfe0 ...); caller ui_card_viewer_draw
+0x08865e64,card_db,card_db_get_spell_speed,M,returns 1-3: spells (race 23) 2 if icon 5, traps (race 24) 3 if icon 1, monsters 2 for a fixed id list (0x1e36, 0xfe0 ...); caller ui_card_viewer_draw
 # family voice
 0x08836c78,audio,audio_get_voice_set_index,M,audio_get_voice_bank(n, 0); banks 0x1de..0x2be map to (bank - 0x1de) / 7, else -1
 # family voices
@@ -2663,3 +2663,5 @@ address,group,name
 0x08867f7c,audio,audio_set_word_08dd311c,H,stores its argument in 0x08dd311c; which audio_init and audio_start_sound read (round 4)
 0x0886d86c,audio,audio_get_word_08dd3134,H,returns 0x08dd3134; which audio_init and audio_set_callback_08dd3130 write (round 4)
 0x0886d8e4,audio,audio_stub_return_1_0886d8e4,M,returns 1; no caller (round 4)
+0x0881d8f4,container,container_resolve_path_lbn,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/container.md
+0x08832a4c,card_db,card_db_get_id_by_index,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/card_db.md

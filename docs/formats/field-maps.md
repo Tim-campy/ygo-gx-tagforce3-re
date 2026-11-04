@@ -88,7 +88,7 @@ Coordinates are presumably walk-grid cells, as elsewhere in the field code (medi
 
 ## Walkability overrides (code)
 
-`world_is_cell_walkable(x, y, mode)` (`0x090d93b0`) returns 0 for these cells before it reads the grid byte (cells outside the grid are 0 too). Mode 0 is used for NPCs (`0x090dc2a4`) and the partner's free-cell search (`world_find_follower_cell`, `0x090dd8dc`), mode 1 for the player's collision (`world_clip_player_motion`, `0x090d1df4`). The **event flag** is field context `0x091057f0 + 0x14`, set by field request 1 (`world_field_req_set_event_mode`, `0x090d8494`) from `rel_story` `world_send_event_mode` (`0x08ea1830`, the driver's event flag `world_get_driver_event_flag`, `0x08ea51e4`); while it is set the command bar also loses entries (high for the code, medium that the flag means "an event is running").
+`world_is_cell_walkable(x, y, mode)` (`0x090d93b0`) returns 0 for these cells before it reads the grid byte (cells outside the grid are 0 too). Mode 0 is used for NPCs (`0x090dc2a4`) and the partner's free-cell search (`world_find_follower_cell`, `0x090dd8dc`), mode 1 for the player's collision (`world_clip_character_motion`, `0x090d1df4`). The **event flag** is field context `0x091057f0 + 0x14`, set by field request 1 (`world_field_req_set_event_mode`, `0x090d8494`) from `rel_story` `world_send_event_mode` (`0x08ea1830`, the driver's event flag `world_get_driver_event_flag`, `0x08ea51e4`); while it is set the command bar also loses entries (high for the code, medium that the flag means "an event is running").
 
 | Maps | When | Cells |
 | --- | --- | --- |

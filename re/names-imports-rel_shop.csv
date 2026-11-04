@@ -15,7 +15,7 @@ address,group,name
 0x090e5284,container,thunk_container_read_file
 0x090e528c,container,thunk_container_read_async
 0x090e5294,container,thunk_container_get_root_path
-0x090e529c,,thunk_FUN_0881d8f4
+0x090e529c,container,thunk_container_resolve_path_lbn
 0x090e52a4,system,thunk_system_load_module
 0x090e52ac,system,thunk_system_queue_module_load
 0x090e52b4,container,thunk_container_get_file_size
@@ -374,7 +374,7 @@ address,group,name
 0x090e5dbc,card_db,thunk_card_db_is_fusion_class_summonable
 0x090e5dc4,card_db,thunk_card_db_can_be_special_summoned
 0x090e5dcc,card_db,thunk_card_db_is_extra_deck_unrestricted
-0x090e5dd4,card_db,thunk_card_db_classify_for_viewer
+0x090e5dd4,card_db,thunk_card_db_get_spell_speed
 0x090e5ddc,card_db,thunk_card_db_get_turn_counter_rule
 0x090e5de4,card_db,thunk_card_db_get_spell_counter_capacity
 0x090e5dec,card_db,thunk_card_db_gains_spell_counter_on_spell
@@ -405,7 +405,7 @@ address,group,name
 0x090e5eb4,card_db,thunk_card_db_get_icon_name
 0x090e5ebc,card_db,thunk_card_db_get_genre_name
 0x090e5ec4,card_db,thunk_card_db_index_of_id
-0x090e5ecc,,thunk_FUN_08832a4c
+0x090e5ecc,card_db,thunk_card_db_get_id_by_index
 0x090e5ed4,card_db,thunk_card_db_get_name
 0x090e5edc,card_db,thunk_card_db_get_description
 0x090e5ee4,card_db,thunk_card_db_is_valid

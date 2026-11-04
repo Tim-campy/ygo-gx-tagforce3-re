@@ -386,7 +386,7 @@ address,group,name
 0x08ea21c0,ui,ui_title_update_mini_result,M,state 0x30: ui_mini_result_create(heap, 0x08eeda2c, 2, {100, 0x8e94, 1}), update, destroy -> title (5) or main menu (9)
 0x08ea2328,ui,ui_title_draw_mini_result,M,draw for state 0x30: ui_mini_result_draw once sub-state > 2
 # family title_msgbox
-0x08e9e27c,ui,ui_title_reset_message_box,M,calls 0x08834d24 then 0x088338e4 on the message box; called at the end of ui_title_init_message_box and by 9 box openers
+0x08e9e27c,ui,ui_title_reopen_list_window,M,calls 0x08834d24 then 0x088338e4 on the message box; called at the end of ui_title_init_message_box and by 9 box openers
 0x08e9e2b0,ui,ui_title_init_message_box,M,memset 0x120 and defaults (rect 0x27,0xe0,0x191,0x2e, font 0xc/6, heap 0x08eea404 at +0xc4)
 0x08e9e500,ui,ui_title_call_draw_message_box,M,forwards (gu list, box) to the BOOT message box drawer 0x08833be4; caller title screen drawer
 0x08e9e534,ui,ui_title_draw_message_box,M,optionally centres the box on 480x272 (+0x58/+0x5a from size +0x6c/+0x6e) then draws it with 0x08833be4; 8 callers
@@ -506,9 +506,9 @@ address,group,name
 0x08ea336c,ui,ui_title_enter_tab_select,M,state 0x21 enter: menu 0x08eea8f4 via ui_title_init_tab_select_menu, layouts 5, 6 (yugi_bg) and 0xe (m_menu_bar01)
 0x08ea3414,ui,ui_title_update_tab_select,M,steps layout 0xe, ui_title_update_menu(0x08eea8f4): cancel -> (9,0xc), pick -> state 0x24 with tab 0x08eeac02 and step = item
 0x08ea3594,ui,ui_title_draw_tab_select,M,draw for state 0x21: layouts 6, 5, 0xe, menu bar label and ui_title_draw_menu(0x08eea8f4)
-0x08ea36dc,ui,ui_title_init_tab_select_menu,M,ui_title_init_menu(0x08eea8f4) with 0x14 rows, tab callbacks ui_title_draw_tab_select_tab and caption ui_title_draw_tab_select_caption
+0x08ea36dc,ui,ui_title_init_tab_select_menu,M,ui_title_init_menu(0x08eea8f4) with 0x14 rows, tab callbacks ui_title_draw_tab_select_tab and caption ui_title_draw_tab_select_items
 0x08ea37ac,ui,ui_title_draw_tab_select_tab,M,tab callback: frame 0x51 wide, image 0x42+i, title message i+9 coloured by selected tab 0x08eeac02
-0x08ea398c,ui,ui_title_draw_tab_select_caption,M,caption callback: image 0x3d and title message row + 0x1e/0x3e/9 by tab 0x08eeac02
+0x08ea398c,ui,ui_title_draw_tab_select_items,M,caption callback: image 0x3d and title message row + 0x1e/0x3e/9 by tab 0x08eeac02
 # family title_text
 0x08ea1288,ui,ui_title_draw_message_text,H,ui_title_get_message_table_name(k) member, card_db_get_dictionary_word(index), then ui_title_draw_text
 0x08ea132c,ui,ui_title_get_message_centered,M,gets message (table k, index), width 0x08846168 >> 6, returns centred x and width through pointers

@@ -2,7 +2,7 @@
 
 Reference table generated in the documentation round of 2026-10-31 and extended in the round of 2026-11-03. Each row is a function that reached the `documented` stage (`docs/PROGRESS.md`): its prototype, purpose, return value, side effects and callers, read from the Ghidra decompilation with the names of that round. The same text is the function's plate comment in Ghidra (`re/documented*.tsv`, applied by `tools/ghidra/ApplySignatures.java`). How the subsystem works as a whole is in [`../container.md`](../container.md); pointers to structures are typed `void *` and the structure is named in the summary.
 
-Functions: 30 (BOOT.BIN 26, rel_story 4).
+Functions: 31 (BOOT.BIN 27, rel_story 4).
 
 
 ## `BOOT.BIN`
@@ -11,6 +11,7 @@ Functions: 30 (BOOT.BIN 26, rel_story 4).
 | --- | --- | --- |
 | `0x0881d63c` | `int container_shutdown_file_thread(void)` | Deletes the two file-thread semaphores (ids at 0x089218bc and 0x089218b8, when > 0) with sceKernelDeleteSema and clears the 0xc1c-byte file-thread state block at 0x08920cac. Returns 1. Side effects: semaphores deleted, 0x08920cac block cleared. No direct caller. Exported; no module caller found. |
 | `0x0881d8dc` | `char * container_get_root_path(int root)` | Returns entry root of the root-directory path table whose pointer is stored at 0x08920cac (filled by container_init_file_thread). No side effects. No direct caller. Exported; no module caller found. |
+| `0x0881d8f4` | `int container_resolve_path_lbn(char *buf, int root, char *path)` | Created 2026-11-04 (Ghidra had no function here): an 8-byte entry that sets no_lbn = 0 (a3) and jumps into container_resolve_path, so it writes roots[root] + path into buf and rewrites indexed disc paths as disc0:/sce_lbn0x%04x_size0x%04x. Returns 1. Side effects: buf only. No direct caller in BOOT.BIN; exported (libehsys_rel); module callers via import stubs: rel_duel_draw(ui_play_duel_movie), rel_story(world_play_staff_roll_movie), rel_title(ui_title_play_opening_movie), all with root 3 for a movie path. |
 | `0x0881dd04` | `bool container_gzip_is_valid(void *buf)` | Returns true when sceGzipIsValid(buf) is non-zero (buf starts with a gzip header). No side effects. No direct caller. Exported; called from rel_field (1: world_field_portrait_loaded). |
 | `0x0881dd24` | `int container_gzip_get_size(void *buf, int size)` | Returns the u32 at buf + size - 4, the gzip trailer's uncompressed size (ISIZE) of a gzip stream of size bytes. No side effects. No direct caller. Exported; called from rel_field (1: world_field_portrait_loaded). |
 | `0x0881dd48` | `int container_is_file_thread_busy(void)` | Returns 1 when any of the 32 file-request ring slots (0x60 bytes each from 0x08920cb4) has its busy word set, else 0. No side effects. Callers: 1 (system_check_soft_reset). Exported; called from draw (1: ui_duel_draw_release_all), rel_duel_mgr (1: system_duel_mgr_is_link_lost). |

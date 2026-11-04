@@ -50,7 +50,7 @@ The phase/step handlers are function-pointer tables at `0x09e01da0` (`0x09de0094
 | Step | Function | What it tries, in order (confidence M unless noted) |
 | --- | --- | --- |
 | 0 | `ai_main_state_open` `0x09d8b184` | Rebuild view and plan; summon set-up (`0x09d9284c`); **table A** (105 opening spells such as Heavy Storm, Harpie's Feather Duster); field/flip checks (`0x09d8c79c`); hand monsters' Special Summons (`ai_try_hand_special_summons` `0x09d899a8`, which walks hand monsters with `duel_core_get_special_summon_mask`; formerly read as "hand spells"); comeback table if losing; main table and position changes (`ai_try_main_cards`). |
-| 1 | `ai_main_state_summon` `0x09d93f6c` | Summon enablers (table C), special summons (`ai_choose_special_summon`), normal summon or set (`ai_choose_normal_summon` → `ai_execute_summon`), then the same sequence again after re-planning; skips summoning while the opponent controls Swords of Revealing Light. |
+| 1 | `ai_main_state_summon` `0x09d93f6c` | Summon enablers (table C), special summons (`ai_choose_conditional_normal_summon`), normal summon or set (`ai_choose_normal_summon` → `ai_execute_summon`), then the same sequence again after re-planning; skips summoning while the opponent controls Swords of Revealing Light. |
 | 2 | `ai_main_state_summon_extra` `0x09d94cf4` | Double Summon / Chain Summoning once per turn (flags `0x09e03070` bits 0–1), then hand spells, comeback, main table, set monsters (`0x09d94740`), second summon. |
 | 3 | `ai_main_state_battle_check` `0x09d9524c` | Decides whether to enter battle: battle-phase cards (`ai_try_battle_cards`), plan value `ai_get_plan_value(side) == 0` and no attacker → skip battle. |
 | 4 | `ai_main_state_after_battle` `0x09d944e8` | Comeback table, hand spells, extra summons; loops twice (`0x09e02ffe & 3`). |
@@ -165,7 +165,7 @@ A plan is a `0x2e4`-byte record: the working plan at `0x09e276e4` and one saved 
 
 ### Summon choice
 
-`ai_choose_normal_summon` (`0x09d1bb24`) simulates each hand monster (`0x09d177e0` plans the battle with the monster added) and rates it with `ai_rate_summon_candidate` (`0x09d1b338`). The rating is a tier plus a stat tie-breaker, kept in the 12-byte choice record at `0x09e03080` (`s8` hand index, …, `+3` from field, `+4` set face-down, `+6` u16 card needing special handling): tier 5 tribute summon that beats the tributes, 4 stronger than the opponent's best, 3 positive card-specific value (`0x09d1aec0`), 2 stronger than the previous best, 1 anything summonable; the stat is ATK, DEF or the larger, depending on the position. `ai_execute_summon` (`0x09d92afc`) picks tributes (`0x09cf4288`, `0x09cf4588`) and issues the summon (`0x09da5774`). `ai_choose_special_summon` (`0x09d92d5c`) is a compare chain over hand monsters that can be special summoned, with per-card conditions (about 40 card ids).
+`ai_choose_normal_summon` (`0x09d1bb24`) simulates each hand monster (`0x09d177e0` plans the battle with the monster added) and rates it with `ai_rate_summon_candidate` (`0x09d1b338`). The rating is a tier plus a stat tie-breaker, kept in the 12-byte choice record at `0x09e03080` (`s8` hand index, …, `+3` from field, `+4` set face-down, `+6` u16 card needing special handling): tier 5 tribute summon that beats the tributes, 4 stronger than the opponent's best, 3 positive card-specific value (`0x09d1aec0`), 2 stronger than the previous best, 1 anything summonable; the stat is ATK, DEF or the larger, depending on the position. `ai_execute_summon` (`0x09d92afc`) picks tributes (`0x09cf4288`, `0x09cf4588`) and issues the summon (`0x09da5774`). `ai_choose_conditional_normal_summon` (`0x09d92d5c`) is a compare chain over hand monsters that can be special summoned, with per-card conditions (about 40 card ids).
 
 ### Target choice
 
@@ -332,13 +332,13 @@ Method: every still-undocumented `ai` function of `rel_duel_eng` (827) was re-du
 
 ### Findings from the per-card target, candidate and position choosers
 
-Basis: full read of the Ghidra decompilations of `ai_check_card_condition` (`0x09cee284`, 11,976 bytes), `ai_choose_candidate_by_card` (`0x09d440d8`, 14,528 bytes) and `ai_choose_target_by_card` (`0x09d608d4`, 16,252 bytes). All three are hand-written `if`/`else` compare chains on a card id (Ghidra shows no `switch`; the two 7-word jump tables at `0x09dfe4c8` mentioned in ai-tables.md belong to small internal switches, e.g. the `0x1b33`-`0x1b38` counter inside the `0x1c9b`/`0x1be9` case). None is VFPU code. Nothing was traced in PPSSPP.
+Basis: full read of the Ghidra decompilations of `ai_choose_summon_position_by_card` (`0x09cee284`, 11,976 bytes), `ai_choose_candidate_by_card` (`0x09d440d8`, 14,528 bytes) and `ai_choose_target_by_card` (`0x09d608d4`, 16,252 bytes). All three are hand-written `if`/`else` compare chains on a card id (Ghidra shows no `switch`; the two 7-word jump tables at `0x09dfe4c8` mentioned in ai-tables.md belong to small internal switches, e.g. the `0x1b33`-`0x1b38` counter inside the `0x1c9b`/`0x1be9` case). None is VFPU code. Nothing was traced in PPSSPP.
 
-Distinct card-id constants compared against the dispatch argument (counted mechanically from the decompilation, H): 202 in `ai_check_card_condition` (effect-helpers-misc.md says 209 cases; the difference may be ids compared through other variables), 235 in `ai_choose_candidate_by_card` (ai-tables.md / effect-helpers-misc.md say 240), 386 in `ai_choose_target_by_card` plus 18 more compared on the ctx card id inside one branch. ai.md's "131 card ids" for the target chooser counts branches, not ids: many branches test groups of 2-90 ids.
+Distinct card-id constants compared against the dispatch argument (counted mechanically from the decompilation, H): 202 in `ai_choose_summon_position_by_card` (effect-helpers-misc.md says 209 cases; the difference may be ids compared through other variables), 235 in `ai_choose_candidate_by_card` (ai-tables.md / effect-helpers-misc.md say 240), 386 in `ai_choose_target_by_card` plus 18 more compared on the ctx card id inside one branch. ai.md's "131 card ids" for the target chooser counts branches, not ids: many branches test groups of 2-90 ids.
 
-#### ai_check_card_condition (summon position per card)
+#### ai_choose_summon_position_by_card (summon position per card)
 
-Signature (M): `int ai_check_card_condition(int side, uint card_id, int flag, int context_card)`; result 0 / 1 / -1.
+Signature (M): `int ai_choose_summon_position_by_card(int side, uint card_id, int flag, int context_card)`; result 0 / 1 / -1.
 
 - Meaning of the result (M): -1 = no card-specific answer. The only caller that is documented, `ai_eval_hand_card_condition`, simulates the summon and calls `ai_choose_monster_position` when it gets -1, so 0/1 are positions. 1 comes from `ai_wants_set_flip_monster` (flip monsters want to be Set) and from cards that do nothing face-up (e.g. `0x1ea6` when there is no race-2 monster in the Graveyard); 0 from cards whose effect wants them face-up (e.g. `0x1ec2` when it has candidates to bring, `0x1d78` when a target exists). Reading: 0 = face-up Attack Position, 1 = Set / Defense Position.
 - Structure: (1) `safe = ai_survives_attacks_with_monster(side, -1, card)`; (2) global gates (Battle Phase + field effect `0x1669` → 1; the low-level Normal Monster swarm test with `0x17a8`; opposing `0x1eda` / `0x1e37` locks; `context_card == 0x1a13`); (3) `flag` forced to 1 while `0x135d` is active anywhere (`duel_core_count_active_card`); (4) `ai_is_card_in_list_1dbd` cards → 0 when `flag` or `safe`; (5) the per-card chain; (6) a common tail for cards that got no decision (Fusion vs. opposing `0x1b40` → 1; Elemental Hero checks → 0; `0x142a` combat-trick check with `ai_is_ranked_card_with_low_atk` → 0; flip monster → 1; level-lock (`ai_is_slot_blocked_by_level_lock`) → 0; else -1).
@@ -369,7 +369,7 @@ Signature (M): `int ai_choose_target_by_card(void *ctx, void *link, int card_id,
 
 - Order (H): `mask == 0` → -1; pre-choosers `ai_choose_target_for_179f_17b8_1889_1c9f` and `ai_choose_target_for_12d1` (own side, card, mask); the compare chain on `card_id`; the common fallback.
 - Fallback (H): `strict == 0` → `ai_pick_random_slot_prefer_side(ctx, preferred, mask)` with `preferred = 1 − ((ctx +2 bit 0) xor (ctx +3 bit 6))`, i.e. the opponent of the controller (one branch sets it to the own side); `strict != 0` → -1. Several branches also return -1 early only when `strict` is set, and `0x1f1f` masks out planned attack targets only when `strict`. So `strict` = "return only a target the AI likes".
-- Branch shapes: see the rows.tsv summary (dedicated chooser, score picker, stat picker, battle context, link target reuse, threat pickers, controller-side selection). Battle globals: attacker `0x09e28620`/`0x09e2863c`, attack target `0x09e28624`/`0x09e28640` (duel-runtime.md), read only in phase 3. `ai_choose_slot_target_by_threat(side, card, mask, strict, a, b)` is the default for the biggest groups (≈90 ids with `(0,1)`); `a`/`b` meanings open.
+- Branch shapes: see the rows.tsv summary (dedicated chooser, score picker, stat picker, battle context, link target reuse, threat pickers, controller-side selection). Battle globals: attacker `0x09e28620`/`0x09e2863c`, attack target `0x09e28624`/`0x09e28640` (duel-runtime.md), read only in phase 3. `ai_choose_slot_target_by_threat(side, card, mask, strict, allow_own, full)` is the default for the biggest groups (≈90 ids with `(0,1)`). Settled 2026-11-04 from the code: `allow_own` (5th) lets it fall back to the least valuable own slot (`ai_pick_least_valuable_slot(side, 0, mask, strict ? -1 : 0, 1, NULL)`, i.e. with the link-target check) after the opposing candidates fail; `full` (6th) is passed unchanged as the last argument of every `ai_rate_slot_threat(side, slot, card, full)` call (both sides) and of `ai_pick_slot_by_threat`, and from there to `ai_is_valuable_effect_card` / `ai_is_valuable_card_id` as their `flag`. So `(0,0)` = opposing targets only, quick rating; `(0,1)` = opposing only, full rating; `(1,1)` = may fall back to an own card.
 - Some branches dispatch a second time on the ctx card id (`*ctx`, 18 ids) rather than on `card_id`; the two differ when the caller (`ai_choose_cost_by_card`) passes a card other than the acting one (M).
 - Answered link (`link`): read as a chain link — `link +0` card id, `+2` bit 0 side, `+6 >> 1` target count, targets via `duel_effects_get_link_target`. Cases `0x1c64`/`0x1bb6`/`0x1591`/`0xebf`, `0x1cd9`, `0x1c08`/`0x156c` (link's card) remove the link's valid targets (`ai_is_valid_target`) from the mask before `ai_pick_slot_by_threat`; `0x15b8` protects own cards that the opposing link would destroy (`duel_effects_link_would_destroy_card`).
 
@@ -383,15 +383,15 @@ Fit in the pipeline: step 6. `ai_choose_target_as_controller` (76 callers: `ai_c
 
 #### Name mismatches
 
-- `ai_check_card_condition`: the function decides a summon position (0 face-up attack, 1 set/defense, -1 undecided), not a generic "condition" (M). A name such as `ai_choose_summon_position_by_card` would fit.
+- `ai_choose_summon_position_by_card` (formerly `ai_check_card_condition`; renamed 2026-11-04): the function decides a summon position (0 face-up attack, 1 set/defense, -1 undecided), not a generic "condition" (M).
 
 #### Open questions (the per-card target, candidate and position choosers)
-- Exact meaning of `ai_check_card_condition`'s `flag` (3rd argument) and of card `0x135d` forcing it; what `context_card` is at the other seven callers.
+- Exact meaning of `ai_choose_summon_position_by_card`'s `flag` (3rd argument) and of card `0x135d` forcing it; what `context_card` is at the other seven callers.
 - Meaning of the `mode` word (0/1/2) of `ai_choose_monster_candidate_with_score_fn` and `ai_pick_candidate_by_score_fn`, and the layout of the 40-byte record from `ai_collect_board_stat_extremes` (its `+0x14` word).
-- Whether `ai_try_card_from_table(side, card, table, 0)` called from `ai_check_card_condition` can commit an activation or is only a probe.
-- Meanings of the last two arguments of `ai_choose_slot_target_by_threat` (`(0,0)`, `(0,1)`, `(1,1)` groups) and of `ai_pick_least_valuable_slot`'s flags.
+- Whether `ai_try_card_from_table(side, card, table, 0)` called from `ai_choose_summon_position_by_card` can commit an activation or is only a probe.
+- The flags of `ai_pick_least_valuable_slot` beyond the documented `mode`/`check_link` behaviour, and what the `flag` of `ai_is_valuable_card_id` changes per card (the last two arguments of `ai_choose_slot_target_by_threat` were settled on 2026-11-04, above).
 - The `0x1889` branch of `ai_choose_target_by_card` clears slot-flag bits 22-23 and sets one back based on the post-simulation state; whether this is an exact restore needs the disassembly.
-- The `0x18aa`/`0xfe0` cases of `ai_check_card_condition` leave a 1 in the borrowed zone's face-up word; confirm in PPSSPP whether it persists.
+- The `0x18aa`/`0xfe0` cases of `ai_choose_summon_position_by_card` leave a 1 in the borrowed zone's face-up word; confirm in PPSSPP whether it persists.
 
 ### Findings from the attack evaluator, cost chooser, interests and yes/no evaluator
 
@@ -429,7 +429,7 @@ Arguments: ctx (24-byte link; uses `+0` card, `+2` side/slot, `+3` bit 7 / bit 6
 
 1. `0x09e2d274 = side` (written before anything; meaning of that word open).
 2. With optional set: mask pre-filters (see the row).
-3. `ai_choose_cost_for_tribute_cards(ctx, side, card, mask)` wins when ≥ 0.
+3. `ai_choose_cost_slot_targeted_by_link(ctx, side, card, mask)` wins when ≥ 0.
 4. Compare chain of about 200 ids. Recurring patterns: (a) dedicated chooser; (b) "collect own slots of mask, Fisher-Yates shuffle with `duel_core_random`, keep the highest positive score" with a per-card scorer (ties keep the first after the shuffle, scores ≤ 0 never win); (c) `ai_choose_slot_target_by_threat(side, card or ctx card, mask [own or opponent half], optional, a, b)` with the flag pair (0,0) / (0,1) / (1,1) by card group; (d) `ai_pick_least_valuable_slot(side, 0, mask, optional, 0 or 1, 0)` for a 20-id group; (e) ~70 ids in a single "not equal" test that go to `ai_choose_tribute_slot_2` (with no optional pointer for `0x1ad1`, `0x195c`, `0x187e`, `0x1713`, `0x167d`, `0xe9d`).
 5. Fallback when the chosen value is negative: optional → −1; else a random opponent slot of mask (`duel_core_random(count)`), else a random own slot.
 
@@ -505,11 +505,11 @@ The effect recursion counter `0x09e28f80` doubles as the "AI evaluation" switch:
 
 #### Position choice (M)
 
-`ai_choose_monster_position(side, atk, def, margin)` returns 0, 1 or -1; the branches (0 for a lethal board or a weak opposing attacker, 1 when atk is 0 or far below the opponent's best attacker) fit 0 = Attack Position, 1 = Defense Position, -1 = no preference. `ai_check_monster_position_change` returns the same codes after about 75 per-card rules.
+`ai_choose_monster_position(side, atk, def, margin)` returns 0, 1 or -1; the branches (0 for a lethal board or a weak opposing attacker, 1 when atk is 0 or far below the opponent's best attacker) fit 0 = Attack Position, 1 = Defense Position, -1 = no preference. `ai_choose_position_for_change` returns the same codes after about 75 per-card rules.
 
 #### Other globals seen
 
-- `0x09e27fa4 + side * 0x18`: per-side simulated attack result read by `ai_check_monster_position_change` after `ai_simulate_attack` (u16 `+0` < 5 tested like a slot; `+0x0c` and `+0x10` summed as damage). M.
+- `0x09e27fa4 + side * 0x18`: per-side simulated attack result read by `ai_choose_position_for_change` after `ai_simulate_attack` (u16 `+0` < 5 tested like a slot; `+0x0c` and `+0x10` summed as damage). M.
 - `0x09e290f0` bit 1: tested by `ai_choose_tribute_slot` for card `0xeca` (inside the summon record area `0x09e290bc`, `+0x34`). Meaning unknown.
 - Link hint words `+0xa`..`+0x12` are written by `ai_fill_link_hints_for_1ba2` into the current link; `+0x12` is the extra-target ring index in `chain.md`, so the AI reuses link fields as scratch for this card group.
 
@@ -559,12 +559,12 @@ Built by `ai_init_attack_result(result, side, slot, target)` and filled by `ai_e
 - `ai_eval_destroyer_graveyard_effects` evaluates both the destroyed monster's effects and the winner's; `ai_eval_destroyer_battle_effects` likewise covers both monsters.
 - `ai_choose_slot_from_mask_ex` is a wrapper of `ai_choose_tribute_slot_2`, not a mask chooser of its own.
 - `ai_is_slot_max_threat_b` is the body that `ai_is_slot_max_threat` (8 bytes earlier) falls into with `target_slot = -1`.
-- `ai_check_monster_position_change` returns a position code (0 Attack / 1 Defense / -1), not a yes/no.
+- `ai_choose_position_for_change` (formerly `ai_check_monster_position_change`; renamed 2026-11-04) returns a position code (0 Attack / 1 Defense / -1), not a yes/no.
 
 #### Possible bugs in the original (L, from the decompilation only)
 
 - `ai_try_kuriboh_support_cards` restores the slot id after its test but leaves the face-up word at 1.
-- `ai_check_monster_position_change` (the 0x16bf path) writes the attacker globals `0x09e28620`/`0x09e2863c` and does not restore them.
+- `ai_choose_position_for_change` (the 0x16bf path) writes the attacker globals `0x09e28620`/`0x09e2863c` and does not restore them.
 - `ai_eval_destroyer_battle_effects` compares a chosen slot index with a side number in the 0x1d16 branch.
 - `ai_choose_tribute_slot` for card 0x1e85 can replace the mask by an empty set.
 
@@ -637,11 +637,11 @@ Read by `ai_plan_simulate_attacks` after each `ai_choose_best_attack` (H for the
 
 #### Name mismatches
 
-- `ai_handler_check_draw_14f0`: does not test a draw; it compares deck and Graveyard counts (deck-out drawing 4, then the opponent's Graveyard count against both decks/Graveyards and card `0x12f9`).
-- `ai_handler_burn_15ae`: no burn test; it counts face-up race-1 monsters and Extra Deck `0x157e` support (a "5 monsters of one Type" combo) and an attack combo with `0x15fc`/`0x157d`. The `m == 0` branch that calls `ai_handler_burn` is unreachable.
-- `ai_handler_check_phase_1d96`: the decision is a simulated attack (`ai_sim_current_attack`) for event code `0x0d`, not a phase test.
-- `ai_handler_check_targets_175a`: sums upkeep LP costs and compares them with the own LP; the target mask only selects which monster's stat is subtracted.
-- `ai_should_summon_in_defense`: returns the card rule's value when `ai_check_card_condition` is >= 0, so callers may get values other than 0/1.
+- `ai_handler_check_draw_14f0` (name kept: per-card handler names must extend the stem of a shared handler, `ai_tables.py --check`): does not test a draw; it compares deck and Graveyard counts (deck-out drawing 4, then the opponent's Graveyard count against both decks/Graveyards and card `0x12f9`).
+- `ai_handler_burn_15ae` (name kept: per-card handler names must extend the stem of a shared handler, `ai_tables.py --check`): no burn test; it counts face-up race-1 monsters and Extra Deck `0x157e` support (a "5 monsters of one Type" combo) and an attack combo with `0x15fc`/`0x157d`. The `m == 0` branch that calls `ai_handler_burn` is unreachable.
+- `ai_handler_check_phase_1d96` (name kept: per-card handler names must extend the stem of a shared handler, `ai_tables.py --check`): the decision is a simulated attack (`ai_sim_current_attack`) for event code `0x0d`, not a phase test.
+- `ai_handler_check_targets_175a` (name kept: per-card handler names must extend the stem of a shared handler, `ai_tables.py --check`): sums upkeep LP costs and compares them with the own LP; the target mask only selects which monster's stat is subtracted.
+- `ai_should_summon_in_defense`: returns the card rule's value when `ai_choose_summon_position_by_card` is >= 0, so callers may get values other than 0/1.
 - `ai_is_slot_blocked_by_level_lock`: with a slot outside 0-4 it answers "is any level lock active" (no monster).
 
 #### Probable original bugs (keep in a faithful port)
@@ -740,7 +740,7 @@ Bit tests (H): `0x10` Attack Position and `0x40` Defense (as in `ai.md`), `0x04`
 - `ai_is_position_unlocked` (`0x09d399dc`): tests lock cards on a face-up monster in either position and returns false for any Attack Position monster under `0x1d5a`; it works as an attack/position permission for `ai_can_slot_attack`, not only a position lock (M).
 - `ai_find_elemental_hero_fusion_candidate`: the code is a rule table over eight material ids; the family is supported only by the ids, keep as is.
 - `ai_choose_target_for_12e2`, `ai_choose_a_counter_target`, `ai_choose_target_for_1b52`, the `ai_choose_target_for_<id>` choosers of pack 07 and `ai_choose_slot_target_by_threat` return a bare slot in some cases and `side | slot << 8` in others (see each row); the names do not tell which.
-- `ai_score_target_for_0ec8` returns the scratch word `0x09e03068` set by `ai_choose_declared_attribute`, not a score computed from the slot.
+- `ai_get_declared_attribute_for_0ec8` (formerly `ai_score_target_for_0ec8`; renamed 2026-11-04) returns the scratch word `0x09e03068` set by `ai_choose_declared_attribute`, not a score computed from the slot.
 - Ghidra types as `void` several functions whose callers use the tail-call value: `ai_filter_hand_summon_mode_flags`, `ai_rate_extra_deck_summon_by_card`, `ai_score_candidate_by_low_stats`, `ai_score_candidate_for_graveyard_pick`, `ai_get_candidate_level`, `ai_score_crystal_beast_by_missing`, `ai_score_candidate_by_level_and_stats`, `ai_score_candidate_by_stats_vs_board`, `ai_score_candidate_vs_board_krebons`, `ai_score_candidate_by_low_atk_prefer_normal`, `ai_estimate_slot_upkeep_lp_change_own`.
 
 #### Open questions (band 3)
@@ -801,8 +801,8 @@ This is the same decision as the shared `ai_handler_equip_strong_monster` (`ai-h
 
 #### Name mismatches
 
-- `ai_choose_cost_for_1e49` (`0x09d5f120`) is a scorer, not a chooser: parameters `(side, slot)` of an equip card, returns the best `ai_score_cost_for_1e49` value (not a slot); no direct caller.
-- `ai_choose_cost_for_tribute_cards` (`0x09d64b68`): the code does not choose Tributes by value; for its card list it returns the own slot that the previous chain link targets (`ai_is_slot_targeted_by_previous_link`), i.e. "spend the card that is about to be hit". The same body serves `ai_choose_target_for_179f_17b8_1889_1c9f`.
+- `ai_score_best_cost_for_1e49` (formerly `ai_choose_cost_for_1e49`; renamed 2026-11-04) (`0x09d5f120`) is a scorer, not a chooser: parameters `(side, slot)` of an equip card, returns the best `ai_score_cost_for_1e49` value (not a slot); no direct caller.
+- `ai_choose_cost_slot_targeted_by_link` (formerly `ai_choose_cost_for_tribute_cards`; renamed 2026-11-04) (`0x09d64b68`): the code does not choose Tributes by value; for its card list it returns the own slot that the previous chain link targets (`ai_is_slot_targeted_by_previous_link`), i.e. "spend the card that is about to be hit". The same body serves `ai_choose_target_for_179f_17b8_1889_1c9f`.
 - `ai_handler_equip_stat_boost` (`0x09d6c8a8`) evaluates `ai_choose_slot_for_ctx_raw` on the opponent's side (see the gate above); "equip boost" is not visible in the code.
 - `ai_has_hand_monster_to_give_away` (`0x09d704b0`) returns the opponent's hand count (not 0/1) for hand cards `0x11f5` and `0x1e2d`.
 - `ai_handler_check_board_1630_16a8`, `ai_score_cost_for_1e8b`, `ai_choose_target_for_138d`, `_1e3f`, `ai_choose_cost_for_1c83` are decompiled as `void` although they end in a call whose result is evidently the answer (prototype given as `int`, M).
@@ -889,7 +889,7 @@ Score (`ai_rate_card_interest`): per matching record `min(10, weight + 1 − cou
 
 #### Name mismatches
 
-- `ai_choose_special_summon` (`0x09d92d5c`): starts **Normal (or Gemini) summons** (`duel_core_begin_summon_from_hand(1, 0, 1)`) of hand monsters chosen by ~40 per-card conditions; nothing in it special-summons. Suggested: `ai_choose_conditional_normal_summon`.
+- `ai_choose_conditional_normal_summon` (formerly `ai_choose_special_summon`; renamed 2026-11-04) (`0x09d92d5c`): starts **Normal (or Gemini) summons** (`duel_core_begin_summon_from_hand(1, 0, 1)`) of hand monsters chosen by ~40 per-card conditions; nothing in it special-summons.
 - `ai_get_hand_dump_mode` (`0x09d8acec`): returns a 0–3 urgency mode for setting hand spell/traps; "dump" is a guess (L).
 - `ai_choose_card_blocker_mill_count` (`0x09d95b50`): only the 500-per-card boost count is certain; "blocker"/"mill" unverified.
 - `ai_eval_ice_master_targets` (`0x09d81da4`): the code counts opponent monsters with type-`0x10` counters at equal/higher ATK; name plausible, not verified against card text.
