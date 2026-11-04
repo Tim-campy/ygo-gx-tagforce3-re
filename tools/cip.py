@@ -421,6 +421,29 @@ def write_jpegs(args, cip):
     return 0
 
 
+def write_pngs(args, cip):
+    """`pngs` command: every image of a CIP/CPM/CPL file to <outdir>/<id>.png and <id>_<n>.png (batch `png`)."""
+    if cip.kind == "cardj":
+        print(f"{args.file.name} holds masked JPEGs; use the `jpeg` command", file=sys.stderr)
+        return 1
+    size = tuple(int(v) for v in args.size.lower().split("x"))
+    args.outdir.mkdir(parents=True, exist_ok=True)
+    written = 0
+    with open(args.file, "rb") as handle:
+        for card_id in args.ids or cip.ids():
+            for art, sector in enumerate(cip.sectors(card_id)):
+                if args.limit is not None and written >= args.limit:
+                    print(f"wrote {written} images to {args.outdir}")
+                    return 0
+                handle.seek(sector * SECTOR)
+                w, h, rgba = decode_slot(cip, handle.read(cip.image_bytes), size)
+                name = f"{card_id:05d}.png" if art == 0 else f"{card_id:05d}_{art}.png"
+                write_png(args.outdir / name, w, h, rgba)
+                written += 1
+    print(f"wrote {written} images to {args.outdir}")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="List and decode card/*.cip card-image containers.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -433,6 +456,12 @@ def main(argv=None):
     png.add_argument("--art", type=int, default=0, help="alternative artwork number (default 0)")
     png.add_argument("--size", default="%dx%d" % RAW_DXT1_SIZE, help="WxH for headerless CPM slots")
     png.add_argument("-o", "--output", type=Path, required=True)
+    pngs = sub.add_parser("pngs", help="decode every image of a CIP/CPM/CPL file to PNG (keep the output out of git)")
+    pngs.add_argument("file", type=Path)
+    pngs.add_argument("outdir", type=Path)
+    pngs.add_argument("--ids", nargs="+", type=int, help="only these card ids (default: every id with images)")
+    pngs.add_argument("--limit", type=int, help="stop after this many images")
+    pngs.add_argument("--size", default="%dx%d" % RAW_DXT1_SIZE, help="WxH for headerless CPM slots")
     jpeg = sub.add_parser("jpeg", help="unmask CPJ slots to JPEG files (keep the output out of git)")
     jpeg.add_argument("file", type=Path)
     jpeg.add_argument("outdir", type=Path)
@@ -445,6 +474,8 @@ def main(argv=None):
     cip = open_cip(args.file)
     if args.command == "jpeg":
         return write_jpegs(args, cip)
+    if args.command == "pngs":
+        return write_pngs(args, cip)
     if args.command == "list":
         if args.check:
             problems = cip.check(args.file.stat().st_size)

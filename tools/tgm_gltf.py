@@ -1025,6 +1025,47 @@ def output_allowed(path):
     return False
 
 
+def export_all(paths, out_dir, fps=DEFAULT_FPS, flip=False, all_tmt=True, verbose=False):
+    """Batch export: every TGMS under `paths` (archives or directories) with its companions (and, by default,
+    every TGMT that fits its skeleton) to <out_dir>/<archive parent>/<archive name>/<nested prefix>/<stem>.gltf.
+    Returns (models written, failures)."""
+    written = failures = 0
+    for path in tgm.iter_archives(paths):
+        try:
+            levels = list(archive_levels(path))
+        except (OSError, ValueError, EOFError, struct.error) as error:
+            print(f"error: {path}: {error}")
+            failures += 1
+            continue
+        for prefix, members, parsed, bundle_map in levels:
+            target = Path(out_dir) / path.parent.name / path.name
+            for part in filter(None, prefix.replace(":", "/").split("/")):
+                target /= part
+            for name, obj in sorted(parsed.items()):
+                if not isinstance(obj, tgm.Tms):
+                    continue
+                try:
+                    animations, etc, tma = companions(name, parsed, bundle_map.get(name), all_tmt)
+                    stem = Path(name).stem
+                    source = {"archive": str(path), "member": prefix + name,
+                              "animations": [n for n, _ in animations],
+                              "etc": etc[0] if etc else None, "tma": tma[0] if tma else None}
+                    doc, binary, images, side, stats = convert(obj, members, animations, etc, tma, fps, flip, stem,
+                                                               source=source)
+                    problems = validate(doc, binary)
+                    to_files(doc, binary, images, side, target, stem)
+                    written += 1
+                except (ValueError, KeyError, IndexError, ZeroDivisionError, struct.error) as error:
+                    problems = [f"conversion error: {error!r}"]
+                if problems:
+                    failures += 1
+                    print(f"FAIL {path}:{prefix}{name}: {'; '.join(problems)}")
+                elif verbose:
+                    print(f"{target / (Path(name).stem + '.gltf')}")
+    print(f"wrote {written} models to {out_dir}, {failures} failures")
+    return written, failures
+
+
 def export(archive, member, out_dir, extra_tmt=(), all_tmt=False, fps=DEFAULT_FPS, flip=False):
     """Export one TGMS of an archive (nested archives as outer.ehp:inner) with its animations."""
     for prefix, members, parsed, bundle_map in archive_levels(archive):

@@ -15,6 +15,7 @@ card database and prints card names. The listing is game data: keep it under ext
 
 import argparse
 import importlib.util
+import json
 import re
 import struct
 import sys
@@ -771,6 +772,38 @@ def run_deck(members, args, known, names):
     return errors, [], out, f"ok: deck tutorial, {total} instructions"
 
 
+def _jsonable(value):
+    """Setup dictionaries as JSON: keys become strings, raw .ydq lines (bytes) are decoded as Shift-JIS."""
+    if isinstance(value, dict):
+        return {str(k) if not isinstance(k, tuple) else "_".join(map(str, k)): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, bytes):
+        return value.decode("cp932", "replace")
+    return value
+
+
+def duel_json(members):
+    """Port-facing model of d_tutorial/tutorial.ehp: every .ydq duel set-up (parsed), every tuto_cmd script as
+    named instructions, and the text tables per language (docs/formats/tutorial.md)."""
+    out = {"setups": {}, "scripts": {}, "texts": {}}
+    for name, blob in sorted(members.items()):
+        match = re.fullmatch(r"tuto_text_(\w)\.bin", name)
+        if match:
+            out["texts"][match.group(1)] = text_table(blob, match.group(1))[1]
+        elif name.endswith(".ydq"):
+            out["setups"][name] = _jsonable(parse_ydq(blob))
+        elif name.startswith("tuto_cmd_"):
+            script = []
+            for record in cmd_decode(blob):
+                if record["kind"] == "tutorial" and record["code"] in COMMANDS:
+                    record = {**record, "name": COMMANDS[record["code"]][0],
+                              "args": dict(zip(COMMANDS[record["code"]][1], (record["a"], record["b"], record["c"])))}
+                script.append(record)
+            out["scripts"][name] = script
+    return out
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Read and check the duel and deck-building tutorial data.")
     parser.add_argument("archives", type=Path, nargs="+",
@@ -781,9 +814,26 @@ def main(argv=None):
     parser.add_argument("--only", help="only members whose name contains this text")
     parser.add_argument("--cardinfo", type=Path, help="duelsys/cardinfo_eng.ehp: check ids and print names")
     parser.add_argument("-o", "--output", type=Path, help="write the listing here (keep it out of git)")
+    parser.add_argument("--json", action="store_true",
+                        help="write the duel tutorial (d_tutorial/tutorial.ehp) as JSON: set-ups, scripts, texts")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    if args.json:
+        if len(args.archives) != 1:
+            print("error: --json takes one d_tutorial/tutorial.ehp", file=sys.stderr)
+            return 2
+        members = dict(ehp.parse(args.archives[0].read_bytes()))
+        if not any(n.startswith("tuto_") for n in members):
+            print(f"error: {args.archives[0]} is not the duel tutorial archive", file=sys.stderr)
+            return 1
+        text = json.dumps(duel_json(members), ensure_ascii=False, indent=1) + "\n"
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(text, encoding="utf-8")
+        else:
+            sys.stdout.write(text)
+        return 0
 
     known, names = card_namer(args.cardinfo)
     errors, notes, out, summaries = [], [], [], []

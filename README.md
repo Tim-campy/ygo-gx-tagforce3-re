@@ -4,7 +4,7 @@ Reverse engineering of *Yu-Gi-Oh! GX Tag Force 3* (PSP, Konami, 2008; released i
 
 The project is in its **reverse-engineering phase**: the output is knowledge, not a port. File formats, data structures and the game's own code are documented precisely enough that the 3DS version can later be built without reopening the binary.
 
-[Setup and extraction](docs/SETUP.md), [extractor specification](docs/extractor-spec.md), [file formats](docs/formats), [subsystems](docs/subsystems), [progress rules](docs/PROGRESS.md), [working method](CLAUDE.md)
+[Setup and extraction](docs/SETUP.md), [extractor specification](docs/extractor-spec.md), [port readiness](docs/PORT-READINESS.md), [open-question triage](docs/open-questions-triage.md), [file formats](docs/formats), [subsystems](docs/subsystems), [progress rules](docs/PROGRESS.md), [working method](CLAUDE.md)
 
 ## Status
 
@@ -31,6 +31,7 @@ All tools are Python 3 with the standard library only, and each has tests on syn
 
 | Tool | Purpose |
 | --- | --- |
+| [`tools/extract_all.py`](tools/extract_all.py) | Regenerate every asset class the port needs in one command (runs the tools below; output under `extracted/`). |
 | [`tools/iso9660.py`](tools/iso9660.py) | List and extract the UMD image. |
 | [`tools/ehp.py`](tools/ehp.py) | List, extract, rebuild and verify EHP archives (`-r` nested, `-z` gunzip). |
 | [`tools/cardinfo.py`](tools/cardinfo.py) | Export the card database to CSV/JSON and check its structure. |

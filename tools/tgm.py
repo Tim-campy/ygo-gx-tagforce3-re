@@ -972,6 +972,8 @@ def main(argv=None):
     gl.add_argument("--fps", type=float, default=30.0, help="frames per second for glTF times (default 30: one frame per game frame, see docs/formats/tgm.md)")
     gl.add_argument("--flip-winding", action="store_true", help="reverse the triangle winding")
     gl.add_argument("--check", action="store_true", help="convert and validate every model and animation")
+    gl.add_argument("--all", action="store_true", help="batch: export every model under the paths (archives or "
+                                                       "directories) with all fitting animations to -o")
     gl.add_argument("-v", "--verbose", action="store_true")
     gl.add_argument("-o", "--output", type=Path, help="output directory (outside the repository or under extracted/)")
     args = parser.parse_args(argv)
@@ -984,6 +986,13 @@ def main(argv=None):
         exporter = _load("tgm_gltf")
         if args.check:
             return exporter.run_check(args.paths, args.fps, args.verbose)
+        if args.all:
+            if not args.output or not exporter.output_allowed(args.output):
+                print("error: --all needs -o outside the repository or under an extracted/ directory", file=sys.stderr)
+                return 2
+            _, failures = exporter.export_all(args.paths, args.output, args.fps, args.flip_winding,
+                                              all_tmt=True, verbose=args.verbose)
+            return 1 if failures else 0
         if not args.member or not args.output or len(args.paths) != 1:
             print("error: export needs one archive, --member and -o", file=sys.stderr)
             return 2

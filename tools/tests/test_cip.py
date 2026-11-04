@@ -156,6 +156,28 @@ class PixelTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             cip.decode_slot(container, bytes(SECTOR))
 
+    def test_pngs_command(self):
+        # CPM: headerless 64x64 DXT1 slots of one sector; every block white (c0 = c1 = 0xffff, index 0).
+        data = bytearray(build_cip(b"CPM\x1a", 10, {10: 1, 12: 2}))
+        white = struct.pack("<IHH", 0, 0xFFFF, 0xFFFF) * 256
+        container = cip.Cip(bytes(data))
+        self.assertEqual(container.kind, "cardm")
+        for card_id in container.ids():
+            for sector in container.sectors(card_id):
+                data[sector * SECTOR:(sector + 1) * SECTOR] = white
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "m.cip").write_bytes(bytes(data))
+            self.assertEqual(cip.main(["pngs", str(tmp / "m.cip"), str(tmp / "out")]), 0)
+            names = sorted(p.name for p in (tmp / "out").iterdir())
+            self.assertEqual(names, ["00010.png", "00012.png", "00012_1.png"])
+            png = (tmp / "out" / "00012_1.png").read_bytes()
+            self.assertEqual(struct.unpack(">II", png[16:24]), (64, 64))
+            self.assertEqual(cip.main(["pngs", str(tmp / "m.cip"), str(tmp / "one"), "--ids", "12", "--limit", "1"]), 0)
+            self.assertEqual(sorted(p.name for p in (tmp / "one").iterdir()), ["00012.png"])
+            (tmp / "j.cip").write_bytes(build_cip(b"CPJ\x1a", 1, {1: 1}))
+            self.assertEqual(cip.main(["pngs", str(tmp / "j.cip"), str(tmp / "no")]), 1)
+
 
 def fake_jpeg(entropy=b"\x12\xff\x00\x34\xff\xd0\x56"):
     """A syntactically plausible JPEG (not decodable): SOI, JFIF APP0, a filler DQT, SOF0 at 0x9e, SOS,

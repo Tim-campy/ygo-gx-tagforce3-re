@@ -5,6 +5,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 import struct
 import tempfile
 import unittest
@@ -258,6 +259,26 @@ class MainTest(unittest.TestCase):
             code, out = run([str(path), "--check"])
             self.assertEqual(code, 1)
             self.assertIn("missing label 3", out)
+
+    def test_duel_archive_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tutorial.ehp"
+            path.write_bytes(duel_archive())
+            out = Path(tmp) / "extracted" / "tutorial.json"
+            code, _ = run([str(path), "--json", "-o", str(out)])
+            self.assertEqual(code, 0)
+            model = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(len(model["setups"]), 2)
+            self.assertEqual(sorted(model["texts"]), ["e", "j"])
+            self.assertEqual(len(model["texts"]["e"]), 2)
+            (script,) = model["scripts"].values()
+            self.assertEqual(script[-1]["kind"], "end")
+            named = [r for r in script if "name" in r]
+            self.assertTrue(named)
+            self.assertTrue(all(isinstance(r["args"], dict) for r in named))
+            json.dumps(model)  # every set-up is plain JSON
+            code, _ = run([str(path), str(path), "--json"])
+            self.assertEqual(code, 2)
 
     def test_deck_archive(self):
         script = bytes.fromhex("01 01 00 3c 00 60 00 68 01" "13 00 00" "17")

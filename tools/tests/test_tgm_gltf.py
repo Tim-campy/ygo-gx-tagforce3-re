@@ -11,7 +11,7 @@ import math
 import struct
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parents[1]
@@ -257,6 +257,24 @@ class CommandTest(unittest.TestCase):
             side = json.loads((Path(tmp) / "out" / "m.tgm.json").read_text(encoding="utf-8"))
             self.assertEqual(side["source"]["etc"], "m-etc.tmt")
             self.assertEqual(side["texture_animation"]["member"], "m.tma")
+
+    def test_batch_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "extracted" / "umd" / "duel"
+            root.mkdir(parents=True)
+            (root / "a.ehp").write_bytes(self.archive())
+            (root / "b.ehp").write_bytes(self.archive())
+            out = Path(tmp) / "extracted" / "gltf"
+            with redirect_stdout(io.StringIO()) as text:
+                status = tgm.main(["gltf", "--all", str(root), "-o", str(out)])
+            self.assertEqual(status, 0, text.getvalue())
+            self.assertIn("wrote 2 models", text.getvalue())
+            for name in ("a.ehp", "b.ehp"):
+                doc = json.loads((out / "duel" / name / "m.gltf").read_text(encoding="utf-8"))
+                self.assertEqual(len(doc["animations"]), 2)  # --all adds every fitting TGMT (here lone.tmt)
+                self.assertTrue((out / "duel" / name / "m.tgm.json").exists())
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                self.assertEqual(tgm.main(["gltf", "--all", str(root), "-o", str(TOOLS / "out")]), 2)
 
     def test_output_inside_repository_is_refused(self):
         self.assertFalse(conv.output_allowed(TOOLS / "out"))
