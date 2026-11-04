@@ -215,7 +215,7 @@ address,group,name
 0x0000855c,ui,ui_dodge_poll_dialog
 0x000085a4,ui,ui_dodge_draw_dialog
 0x000085cc,ui,ui_dodge_init_window_list
-0x00008670,world,world_dodge_shutdown_stub
+0x00008670,world,world_dodge_free_window_list
 0x0000867c,world,world_dodge_draw_item_icon
 0x00008714,world,world_dodge_draw_item_name
 0x00008930,world,world_dodge_draw_angle_gauge

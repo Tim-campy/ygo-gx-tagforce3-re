@@ -191,7 +191,7 @@ address,group,name
 0x0000898c,ui,ui_quiz_result_handle_input
 0x00008a80,ui,ui_quiz_result_poll_face_buttons
 0x00008ab8,ui,ui_quiz_result_update_message_window
-0x00008b78,ui,ui_quiz_result_is_layout_frame_101
+0x00008b78,ui,ui_quiz_result_get_layout0_frame
 0x00008b8c,ui,ui_quiz_result_draw
 0x00008cb0,ui,ui_quiz_result_draw_header
 0x00008d6c,ui,ui_quiz_result_draw_panels

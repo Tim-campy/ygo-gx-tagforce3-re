@@ -14,7 +14,7 @@ address,group,name
 0x00000708,shop,shop_conv_machine_feed_cards
 0x0000099c,shop,shop_conv_machine_run_conversion
 0x00001380,shop,shop_conv_machine_show_result
-0x00001820,shop,shop_conv_machine_fit_scale_stub
+0x00001820,shop,shop_conv_machine_fit_text_scale_px
 0x00001828,shop,shop_conv_machine_ask_again
 0x00001a38,shop,shop_conv_machine_pick_result
 0x00001a9c,shop,shop_conv_machine_set_counter_anim

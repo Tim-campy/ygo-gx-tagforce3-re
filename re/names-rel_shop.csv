@@ -222,10 +222,10 @@ address,group,name
 0x090e2c24,shop,shop_draw_cursor_frame,H,9-piece frame (6x6 corners, 1-px edges) around a rect from atlas param_6, inflated by a frame-timing bit
 0x090e2ea0,shop,shop_draw_sprite_rect,H,sprite from struct {x,y,w,h,u,v} (s16) with texture param_3
 # family shop_stubs
-0x090df374,shop,shop_stub_noop_results_group_label,M,empty 8-byte function called only by shop_draw_results_group_label
+0x090df374,shop,shop_results_fit_text_scale_px
 0x090e128c,shop,shop_stub_noop_release_dp_counter,M,empty 8-byte function called only by shop_release_dp_hud
 0x090e1528,shop,shop_stub_noop_release_dp_delta,M,empty 8-byte function called only by shop_release_dp_hud
-0x090e521c,shop,shop_stub_noop_button_help,M,empty 8-byte function called only by shop_draw_button_help
+0x090e521c,shop,shop_button_help_fit_text_scale_px
 # family shop_text
 0x090d8728,shop,shop_draw_number_grouped,H,draws decimal digits right to left with optional ',' every 3 digits (param_7) through 0x090d887c
 0x090d887c,shop,shop_draw_number_char,M,0x08846b34(x<<6, y<<6, (480-x)<<6, str): one glyph for shop_draw_number_grouped

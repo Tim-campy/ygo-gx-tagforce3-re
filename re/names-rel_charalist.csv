@@ -109,7 +109,7 @@ address,group,name
 0x09ef5f5c,ui,ui_charalist_draw_text_fit_px
 0x09ef5f70,ui,ui_charalist_draw_confirm_portraits
 0x09ef60d8,ui,ui_charalist_draw_portrait_cell
-0x09ef6208,ui,ui_duel_versus_draw_face_body
+0x09ef6208,ui,ui_charalist_draw_confirm_face_body
 0x09ef6324,ui,ui_start_osk_input
 0x09ef6558,ui,ui_update_osk_input
 0x09ef67e8,ui,ui_charalist_init_menu_bar_set

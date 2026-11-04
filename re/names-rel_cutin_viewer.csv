@@ -10,7 +10,7 @@ address,group,name
 0x000002ec,ui,ui_cutin_viewer_set_state
 0x00000490,ui,ui_cutin_viewer_scan_cutin_files
 0x000004d8,ui,ui_cutin_viewer_open_file_list
-0x00000670,ui,ui_cutin_viewer_leave_list_noop
+0x00000670,ui,ui_cutin_viewer_leave_list
 0x0000067c,ui,ui_cutin_viewer_update_file_list
 0x000006e8,ui,ui_cutin_viewer_load_file
 0x0000074c,ui,ui_cutin_viewer_enter_file_preview
@@ -23,7 +23,7 @@ address,group,name
 0x00000c1c,ui,ui_list_window_draw_text
 0x00000c3c,ui,ui_cutin_viewer_update_character_list
 0x00000d68,ui,ui_cutin_viewer_request_cutin_archive
-0x00000da4,ui,ui_cutin_viewer_leave_loading_noop
+0x00000da4,ui,ui_cutin_viewer_leave_loading
 0x00000dac,ui,ui_cutin_viewer_wait_cutin_archive
 0x00000e00,ui,ui_cutin_viewer_start_cutin_preview
 0x00000f30,ui,ui_cutin_viewer_stop_cutin_preview

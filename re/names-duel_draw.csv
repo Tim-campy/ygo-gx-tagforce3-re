@@ -862,7 +862,7 @@ address,group,name
 0x098b3b58,ui,ui_duel_help_draw_header,M,two coloured bars, an icon and label string 8 of the label table 0x09be0e60
 0x098b3c5c,ui,ui_draw_help_header_text,H,tail call to font_draw_text_fit_width 0x098be63c with x, y, width << 6 (Ghidra lost the jump); was ui_stub_noop_help_header_text
 0x098b3c70,ui,ui_help_set_header_font,M,text flags, size 15x15, colour black; caller ui_duel_help_draw_header
-0x098b3cb0,ui,ui_stub_noop_help_close_hook,M,empty body called by ui_duel_help_close
+0x098b3cb0,ui,ui_duel_help_disable_ruby,H,instructions: tail jump hidden by the decompiler (round 7 audit)
 0x098b3d44,ui,ui_duel_help_get_topic_group,H,returns 0 for topics 0..0x0c and 1 for 0x0d..0x18
 0x098b3d84,ui,ui_duel_help_topic_from_index,H,returns index + topic base 0x09be0ea4
 0x098b3d94,ui,ui_duel_help_index_from_topic,H,returns topic - topic base 0x09be0ea4
@@ -1613,7 +1613,7 @@ address,group,name
 0x09853548,ui,ui_start_zone_stat_tweens,M,per side x 5 monster zones: target ATK/DEF from attack state or card stats, tween at 0x098d5db0+0x108c8, duration 0x09856e40
 0x09854a14,ui,ui_update_action_highlight_flag,M,draw flag 0x40 = 1 only when 0x0989d8a0(0) and open input mode is 4/5/6/8/9; caller field_3d_board_draw
 0x0985842c,ui,ui_get_hud_anim_frame_step,M,table 0x098cf080[ui_get_anim_speed()]; caller ui_update_hud_layout_anim
-0x09858afc,ui,ui_stub_noop_duel_hud_hook,M,empty body; only caller ui_draw_duel_hud
+0x09858afc,ui,ui_duel_hud_draw_text_fit_width_px,H,instructions: tail jump hidden by the decompiler (round 7 audit)
 0x0985a6a8,ui,ui_draw_coin_toss_result_icon,M,sprite of duel texture 0x4001e (ui_get_duel_texture) 24x24 at (x+6, y+6), uv pair by index; caller ui_draw_duel_hud
 # family duel_options
 0x0989e46c,ui,ui_can_auto_advance_for_side,M,save option flag 2 set, side not human, not a link duel (0x08835a7c), confirm button not held

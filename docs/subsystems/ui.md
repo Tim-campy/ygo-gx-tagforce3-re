@@ -611,10 +611,9 @@ Action masks (`duel_core_view_get_card_action_mask`): bit 0x800 = valid attack t
 - `ui_create_zone_highlight_task_dl`: the extra argument is the GE layer.
 - `ui_draw_coin_toss_result_icon` (formerly `ui_draw_hud_icon_4001e`; renamed 2026-11-04) draws the coin-toss result icon.
 - `ui_get_zone_card_scale`: returns a factor from `zone + 16 x side` whose purpose is unclear (L).
-- `ui_stub_noop_duel_hud_hook` receives the duellist names with position and width; it may be a lost text-draw tail call (L).
+- `ui_duel_hud_draw_text_fit_width_px` (`0x09858afc`) draws the duellist names: a pixel wrapper tail-jumping to `system_font_draw_text_fit_width` (instructions; round 7 audit).
 
 #### Open questions (batch 4 (rel_duel_draw HUD, cursor, info panels, duel objects))
-- `ui_stub_noop_duel_hud_hook` (`0x09858afc`, 20 bytes): empty or a lost tail call to a text drawer? (check the instructions; the names are visibly drawn in game?).
 - `ui_draw_badge_number_at_position`: its callers pass only two visible arguments; where the badge number (third argument) comes from needs the disassembly.
 - `ui_draw_card_texture_quad_scaled` (`0x09856400`, skipped) and `ui_duel_create_value_popup_task_moving` (`0x09871dcc`, skipped): argument order hidden by the decompiler.
 - `ui_create_wait_object`'s update callback `0x09863a94`, the card display callbacks `0x0986221c`/`0x09862214`, the arrow draw callback `0x0985d004` and the popup hold callbacks `0x09863434`/`0x0986343c` are code labels, not functions, in Ghidra.

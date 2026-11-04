@@ -904,7 +904,7 @@ Totals: 573 items: B 9, R 155, W 18, N 391.
 | 511 | Tag-duel load gate: the 0xc0-byte block copied per player record for character category 5 (setup record +0x230) is presumably a custom … | N |  |
 | 512 | Turn-order seed `setup + 0x188`: is it the duel engine's RNG seed? A link duel shares it between peers, which suggests it is. | R | `battle.md` (`+0x188` RNG seed). |
 | 513 | Skipped tail-call wrappers (`*_draw_text_fit_width_px`, `*_draw_text_px`, `*_draw_text_box_px`, `ui_duel_result_draw_text_to_screen_edge`, … | N |  |
-| 514 | `ui_stub_noop_duel_hud_hook` (`0x09858afc`, 20 bytes): empty or a lost tail call to a text drawer? (check the instructions; the names are visibly … | N |  |
+| 514 | `ui_duel_hud_draw_text_fit_width_px` (`0x09858afc`, 20 bytes), formerly a suspected empty hook: answered, it is a tail call to `system_font_draw_text_fit_width` (round 7 audit). | N | closed |
 | 515 | `ui_draw_badge_number_at_position`: its callers pass only two visible arguments; where the badge number (third argument) comes from needs the … | N |  |
 | 516 | `ui_draw_card_texture_quad_scaled` (`0x09856400`, skipped) and `ui_duel_create_value_popup_task_moving` (`0x09871dcc`, skipped): argument order … | N |  |
 | 517 | `ui_create_wait_object`'s update callback `0x09863a94`, the card display callbacks `0x0986221c`/`0x09862214`, the arrow draw callback `0x0985d004` … | N |  |

@@ -233,7 +233,7 @@ address,group,name
 0x00012afc,ui,ui_draw_nine_slice_frame
 0x00012dac,shop,shop_draw_button_help
 0x00013410,ui,ui_window_draw_text_box_px
-0x0001342c,shop,shop_stub_noop_button_help
+0x0001342c,shop,shop_button_help_fit_text_scale_px
 0x00013434,deck,deck_slot_key_list_contains
 0x000134ac,ui,ui_capture_screen_backdrop
 0x00013574,ui,ui_draw_captured_backdrop

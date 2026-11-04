@@ -278,7 +278,7 @@ address,group,name
 0x0001678c,ui,ui_draw_nine_slice_frame
 0x00016a3c,shop,shop_draw_button_help
 0x000170a0,ui,ui_window_draw_text_box_px
-0x000170bc,deck,deck_tutorial_stub_noop_fit_scale
+0x000170bc,shop,shop_button_help_fit_text_scale_px
 0x000170c4,deck,deck_slot_key_list_contains
 0x0001713c,deck,deck_load_slot_recipe
 0x00017194,deck,deck_get_other_deck_card_allowance

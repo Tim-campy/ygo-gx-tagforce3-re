@@ -973,7 +973,7 @@ id,name,group,status,size
 0x0882cfa4,system_movie_reader_read,system,documented,116
 0x0882d018,system_movie_reader_read_async,system,documented,116
 0x0882d08c,system_movie_host_read_async_wait,system,documented,76
-0x0882d0d8,system_movie_stub_noop_reader_device,system,documented,8
+0x0882d0d8,system_movie_stream_lseek,system,documented,8
 0x0882d0e0,system_movie_call_umd_io_term,system,documented,32
 0x0882d100,system_movie_video_pts_queue_create,system,documented,124
 0x0882d17c,system_movie_video_pts_queue_reset,system,documented,32
@@ -982,13 +982,13 @@ id,name,group,status,size
 0x0882d1cc,system_movie_video_pts_queue_push,system,documented,96
 0x0882d22c,system_movie_video_pts_queue_pop,system,documented,68
 0x0882d270,system_movie_get_av_sync_state,system,documented,200
-0x0882d338,system_stub_noop_0882d338,system,documented,12
+0x0882d338,system_movie_set_event_flag_bits_3,system,documented,12
 0x0882d344,system_movie_control_flags_create,system,documented,112
 0x0882d3b4,system_movie_control_flags_destroy,system,documented,68
 0x0882d3f8,system_movie_control_flags_clear,system,documented,60
 0x0882d434,system_movie_wait_waitflag_bit0,system,documented,48
 0x0882d464,system_movie_wait_waitflag_bit1,system,documented,48
-0x0882d494,system_movie_stub_set_event_flag,system,documented,8
+0x0882d494,system_movie_set_event_flag,system,documented,8
 0x0882d49c,system_movie_get_event_flag_bits,system,documented,64
 0x0882d4dc,system_movie_wait_controlflag_bit0,system,documented,48
 0x0882d50c,system_movie_wait_controlflag_bit1,system,documented,48
@@ -1020,7 +1020,7 @@ id,name,group,status,size
 0x0882df08,system_movie_reader_set_state,system,documented,12
 0x0882df14,system_movie_reader_is_eof_flag_set,system,documented,48
 0x0882df44,system_movie_reader_is_done,system,documented,88
-0x0882df9c,system_movie_stub_noop_reader_done,system,documented,8
+0x0882df9c,system_movie_reader_ringbuffer_available,system,documented,8
 0x0882dfa4,system_movie_reader_set_event_flags_c00,system,documented,36
 0x0882dfc8,system_movie_reader_mark_eof,system,documented,36
 0x0882dfec,system_movie_reader_check_abort,system,documented,76
@@ -1030,7 +1030,7 @@ id,name,group,status,size
 0x0882e1e4,system_movie_umd_io_unlock,system,documented,16
 0x0882e1f4,system_movie_umd_io_lock,system,documented,20
 0x0882e208,system_movie_umd_open_retry,system,documented,212
-0x0882e2dc,system_movie_stub_noop_umd_retry_wait,system,documented,20
+0x0882e2dc,system_movie_umd_wait_sema,system,documented,20
 0x0882e2f0,system_movie_umd_read_retry,system,documented,236
 0x0882e3dc,system_movie_umd_read_async_retry,system,documented,240
 0x0882e4cc,system_movie_umd_read_async_wait,system,documented,76
@@ -1734,7 +1734,7 @@ id,name,group,status,size
 0x08850d7c,system_net_api_get_side_peer_index,system,documented,48
 0x08850dac,system_net_api_drop_unlisted_peers,system,documented,44
 0x08850dd8,system_net_api_create_hold_pool,system,documented,36
-0x08850dfc,system_net_api_stub_noop_0885293c,system,documented,36
+0x08850dfc,system_net_api_delete_manager_fpl,system,documented,36
 0x08850e20,system_net_api_get_room_counters,system,documented,72
 0x08850e68,system_net_api_update,system,documented,36
 0x08850e8c,system_net_api_open_game_socket,system,documented,36
@@ -1798,7 +1798,7 @@ id,name,group,status,size
 0x08852844,system_net_show_net_dialog_4,system,documented,76
 0x08852890,system_net_show_net_dialog_e,system,documented,76
 0x088528dc,system_net_create_hold_pool,system,documented,96
-0x0885293c,system_net_stub_noop_start_hook,system,documented,16
+0x0885293c,system_net_delete_manager_fpl,system,documented,16
 0x0885294c,system_net_construct,system,documented,84
 0x088529a0,system_net_destruct_room_list,system,documented,72
 0x088529e8,system_net_construct_room_list,system,documented,20
@@ -5200,7 +5200,7 @@ rel_shop:0x090de94c,shop_draw_result_row_frame,shop,documented,488
 rel_shop:0x090deb34,shop_draw_rarity_mark,shop,documented,252
 rel_shop:0x090dec30,shop_draw_results_cursor,shop,documented,128
 rel_shop:0x090decb0,shop_draw_results_group_label,shop,documented,1732
-rel_shop:0x090df374,shop_stub_noop_results_group_label,shop,documented,8
+rel_shop:0x090df374,shop_results_fit_text_scale_px,shop,documented,8
 rel_shop:0x090df37c,shop_draw_counter_3d,shop,documented,76
 rel_shop:0x090df3c8,shop_draw_pack_display_model,shop,documented,244
 rel_shop:0x090df4bc,shop_draw_pack_shelf_model,shop,documented,1412
@@ -5287,7 +5287,7 @@ rel_shop:0x090e4870,shop_scroll_with_analog,shop,documented,124
 rel_shop:0x090e48ec,shop_draw_panel_frame,shop,documented,688
 rel_shop:0x090e4b9c,shop_draw_button_help,shop,documented,1636
 rel_shop:0x090e5200,shop_help_draw_text_box_px,shop,documented,28
-rel_shop:0x090e521c,shop_stub_noop_button_help,shop,documented,8
+rel_shop:0x090e521c,shop_button_help_fit_text_scale_px,shop,documented,8
 rel_shop:0x090e5224,thunk_system_scene_register,system,documented,8
 rel_shop:0x090e522c,thunk_system_scene_request,system,documented,8
 rel_shop:0x090e5234,thunk_system_scene_set_static,system,documented,8
@@ -7439,7 +7439,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,documented,8
 0x098584e0,ui_stub_noop_hud_term,ui,documented,8
 0x098584e8,ui_draw_duel_hud,ui,documented,1524
 0x09858adc,ui_draw_text_to_right_edge,ui,documented,32
-0x09858afc,ui_stub_noop_duel_hud_hook,ui,documented,20
+0x09858afc,ui_duel_hud_draw_text_fit_width_px,ui,documented,20
 0x09858b10,ui_draw_phase_indicator_layout,ui,documented,128
 0x09858b90,ui_update_duel_hud,ui,documented,244
 0x09858c84,ui_set_lp_display_target,ui,documented,56
@@ -8676,7 +8676,7 @@ rel_shop:0x090e82bc,thunk_deck_select_owner_variant,deck,documented,8
 0x098b3b58,ui_duel_help_draw_header,ui,documented,260
 0x098b3c5c,ui_draw_help_header_text,ui,documented,20
 0x098b3c70,ui_help_set_header_font,ui,documented,64
-0x098b3cb0,ui_stub_noop_help_close_hook,ui,documented,8
+0x098b3cb0,ui_duel_help_disable_ruby,ui,documented,8
 0x098b3cb8,ui_duel_help_on_image_loaded,ui,documented,140
 0x098b3d44,ui_duel_help_get_topic_group,ui,documented,64
 0x098b3d84,ui_duel_help_topic_from_index,ui,documented,16
@@ -32199,7 +32199,7 @@ rel_charalist:0x09ef5ec8,ui_charalist_draw_confirm_text,ui,documented,148
 rel_charalist:0x09ef5f5c,ui_charalist_draw_text_fit_px,ui,documented,20
 rel_charalist:0x09ef5f70,ui_charalist_draw_confirm_portraits,ui,documented,360
 rel_charalist:0x09ef60d8,ui_charalist_draw_portrait_cell,ui,documented,304
-rel_charalist:0x09ef6208,ui_duel_versus_draw_face_body,ui,documented,284
+rel_charalist:0x09ef6208,ui_charalist_draw_confirm_face_body,ui,documented,284
 rel_charalist:0x09ef6324,ui_start_osk_input,ui,documented,564
 rel_charalist:0x09ef6558,ui_update_osk_input,ui,documented,656
 rel_charalist:0x09ef67e8,ui_charalist_init_menu_bar_set,ui,documented,60
@@ -34067,7 +34067,7 @@ rel_connection:0x0000d484,ui_connection_result_wait_intro,ui,documented,140
 rel_connection:0x0000d510,ui_connection_result_handle_input,ui,documented,244
 rel_connection:0x0000d604,ui_connection_result_poll_face_buttons,ui,documented,56
 rel_connection:0x0000d63c,ui_connection_result_update_message_window,ui,documented,192
-rel_connection:0x0000d6fc,ui_connection_result_is_layout_frame_101,ui,documented,20
+rel_connection:0x0000d6fc,ui_connection_result_get_layout0_frame,ui,documented,20
 rel_connection:0x0000d710,ui_connection_result_draw,ui,documented,292
 rel_connection:0x0000d834,ui_connection_result_draw_header,ui,documented,188
 rel_connection:0x0000d8f0,ui_connection_result_draw_panels,ui,documented,608
@@ -35639,7 +35639,7 @@ rel_conv_machine:0x00000458,shop_conv_machine_select_cards,shop,documented,688
 rel_conv_machine:0x00000708,shop_conv_machine_feed_cards,shop,documented,660
 rel_conv_machine:0x0000099c,shop_conv_machine_run_conversion,shop,documented,2532
 rel_conv_machine:0x00001380,shop_conv_machine_show_result,shop,documented,1184
-rel_conv_machine:0x00001820,shop_conv_machine_fit_scale_stub,shop,documented,8
+rel_conv_machine:0x00001820,shop_conv_machine_fit_text_scale_px,shop,documented,8
 rel_conv_machine:0x00001828,shop_conv_machine_ask_again,shop,documented,528
 rel_conv_machine:0x00001a38,shop_conv_machine_pick_result,shop,documented,100
 rel_conv_machine:0x00001a9c,shop_conv_machine_set_counter_anim,shop,documented,128
@@ -37254,7 +37254,7 @@ rel_cutin_viewer:0x000002e4,ui_cutin_viewer_scene_end_noop,ui,documented,8
 rel_cutin_viewer:0x000002ec,ui_cutin_viewer_set_state,ui,documented,420
 rel_cutin_viewer:0x00000490,ui_cutin_viewer_scan_cutin_files,ui,documented,72
 rel_cutin_viewer:0x000004d8,ui_cutin_viewer_open_file_list,ui,documented,408
-rel_cutin_viewer:0x00000670,ui_cutin_viewer_leave_list_noop,ui,documented,12
+rel_cutin_viewer:0x00000670,ui_cutin_viewer_leave_list,ui,documented,12
 rel_cutin_viewer:0x0000067c,ui_cutin_viewer_update_file_list,ui,documented,108
 rel_cutin_viewer:0x000006e8,ui_cutin_viewer_load_file,ui,documented,100
 rel_cutin_viewer:0x0000074c,ui_cutin_viewer_enter_file_preview,ui,documented,164
@@ -37268,7 +37268,7 @@ rel_cutin_viewer:0x00000b50,ui_cutin_viewer_draw_character_item,ui,documented,20
 rel_cutin_viewer:0x00000c1c,ui_list_window_draw_text,ui,documented,32
 rel_cutin_viewer:0x00000c3c,ui_cutin_viewer_update_character_list,ui,documented,300
 rel_cutin_viewer:0x00000d68,ui_cutin_viewer_request_cutin_archive,ui,documented,60
-rel_cutin_viewer:0x00000da4,ui_cutin_viewer_leave_loading_noop,ui,documented,8
+rel_cutin_viewer:0x00000da4,ui_cutin_viewer_leave_loading,ui,documented,8
 rel_cutin_viewer:0x00000dac,ui_cutin_viewer_wait_cutin_archive,ui,documented,84
 rel_cutin_viewer:0x00000e00,ui_cutin_viewer_start_cutin_preview,ui,documented,304
 rel_cutin_viewer:0x00000f30,ui_cutin_viewer_stop_cutin_preview,ui,documented,36
@@ -41390,7 +41390,7 @@ rel_deckswap:0x00012a80,shop_scroll_with_analog,shop,documented,124
 rel_deckswap:0x00012afc,ui_draw_nine_slice_frame,ui,documented,688
 rel_deckswap:0x00012dac,shop_draw_button_help,shop,documented,1636
 rel_deckswap:0x00013410,ui_window_draw_text_box_px,ui,documented,28
-rel_deckswap:0x0001342c,shop_stub_noop_button_help,shop,documented,8
+rel_deckswap:0x0001342c,shop_button_help_fit_text_scale_px,shop,documented,8
 rel_deckswap:0x00013434,deck_slot_key_list_contains,deck,documented,120
 rel_deckswap:0x000134ac,ui_capture_screen_backdrop,ui,documented,200
 rel_deckswap:0x00013574,ui_draw_captured_backdrop,ui,documented,236
@@ -43274,7 +43274,7 @@ rel_decktutorial:0x00016710,shop_scroll_with_analog,shop,documented,124
 rel_decktutorial:0x0001678c,ui_draw_nine_slice_frame,ui,documented,688
 rel_decktutorial:0x00016a3c,shop_draw_button_help,shop,documented,1636
 rel_decktutorial:0x000170a0,ui_window_draw_text_box_px,ui,documented,28
-rel_decktutorial:0x000170bc,deck_tutorial_stub_noop_fit_scale,deck,documented,8
+rel_decktutorial:0x000170bc,shop_button_help_fit_text_scale_px,shop,documented,8
 rel_decktutorial:0x000170c4,deck_slot_key_list_contains,deck,documented,120
 rel_decktutorial:0x0001713c,deck_load_slot_recipe,deck,documented,88
 rel_decktutorial:0x00017194,deck_get_other_deck_card_allowance,deck,documented,536
@@ -45113,7 +45113,7 @@ rel_dodge:0x0000830c,ui_dodge_open_dialog,ui,documented,592
 rel_dodge:0x0000855c,ui_dodge_poll_dialog,ui,documented,72
 rel_dodge:0x000085a4,ui_dodge_draw_dialog,ui,documented,40
 rel_dodge:0x000085cc,ui_dodge_init_window_list,ui,documented,164
-rel_dodge:0x00008670,world_dodge_shutdown_stub,world,documented,12
+rel_dodge:0x00008670,world_dodge_free_window_list,world,documented,12
 rel_dodge:0x0000867c,world_dodge_draw_item_icon,world,documented,152
 rel_dodge:0x00008714,world_dodge_draw_item_name,world,documented,508
 rel_dodge:0x00008930,world_dodge_draw_angle_gauge,world,documented,160
@@ -58263,7 +58263,7 @@ rel_quiz:0x00008900,ui_quiz_result_wait_intro,ui,documented,140
 rel_quiz:0x0000898c,ui_quiz_result_handle_input,ui,documented,244
 rel_quiz:0x00008a80,ui_quiz_result_poll_face_buttons,ui,documented,56
 rel_quiz:0x00008ab8,ui_quiz_result_update_message_window,ui,documented,192
-rel_quiz:0x00008b78,ui_quiz_result_is_layout_frame_101,ui,documented,20
+rel_quiz:0x00008b78,ui_quiz_result_get_layout0_frame,ui,documented,20
 rel_quiz:0x00008b8c,ui_quiz_result_draw,ui,documented,292
 rel_quiz:0x00008cb0,ui_quiz_result_draw_header,ui,documented,188
 rel_quiz:0x00008d6c,ui_quiz_result_draw_panels,ui,documented,608
@@ -61625,7 +61625,7 @@ rel_reversi:0x000087ac,ui_reversi_result_wait_intro,ui,documented,140
 rel_reversi:0x00008838,ui_reversi_result_handle_input,ui,documented,244
 rel_reversi:0x0000892c,ui_reversi_result_poll_face_buttons,ui,documented,56
 rel_reversi:0x00008964,ui_reversi_result_update_message_window,ui,documented,192
-rel_reversi:0x00008a24,ui_reversi_result_is_layout_frame_101,ui,documented,20
+rel_reversi:0x00008a24,ui_reversi_result_get_layout0_frame,ui,documented,20
 rel_reversi:0x00008a38,ui_reversi_result_draw,ui,documented,292
 rel_reversi:0x00008b5c,ui_reversi_result_draw_header,ui,documented,188
 rel_reversi:0x00008c18,ui_reversi_result_draw_panels,ui,documented,608
@@ -63362,7 +63362,7 @@ rel_select_card:0x0000d3b8,deck_select_card_compare_sort_key_desc,deck,documente
 rel_select_card:0x0000d440,deck_select_card_get_sort_key,deck,documented,460
 rel_select_card:0x0000d60c,deck_select_card_get_group_key,deck,documented,424
 rel_select_card:0x0000d7b4,ui_draw_cursor_card_info,ui,documented,968
-rel_select_card:0x0000db7c,deck_select_card_font_draw_text_stub,deck,documented,8
+rel_select_card:0x0000db7c,ui_card_info_draw_text_fit_width,ui,documented,8
 rel_select_card:0x0000db84,ui_draw_race_icon,ui,documented,108
 rel_select_card:0x0000dbf0,deck_select_card_draw_property_icon,deck,documented,108
 rel_select_card:0x0000dc5c,deck_select_card_draw_attribute_icon,deck,documented,108
@@ -65057,7 +65057,7 @@ rel_throw:0x0000383c,world_throw_draw_world_sprite,world,documented,48
 rel_throw:0x0000386c,world_throw_draw_world_sprite_scaled,world,documented,172
 rel_throw:0x00003918,world_throw_draw_world_sprite_centered,world,documented,120
 rel_throw:0x00003990,world_throw_init_message_box,world,documented,164
-rel_throw:0x00003a34,world_throw_term_noop,world,documented,12
+rel_throw:0x00003a34,world_throw_free_window_list,world,documented,12
 rel_throw:0x00003a40,world_throw_draw_name_plate,world,documented,432
 rel_throw:0x00003bf0,ui_draw_level_badge_text_fit_3bf0,ui,documented,20
 rel_throw:0x00003c04,world_throw_draw_life_icons,world,documented,472
