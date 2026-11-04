@@ -168,7 +168,7 @@ Purpose: what the AI knows about each side, rebuilt by `ai_analyze_board(view)` 
 | --- | --- | --- | --- | --- | --- |
 | `+0x00` | 2 | s16 | Battle dominance (simulated), −4..4 | `ai_get_battle_dominance` (`0x09d37490`) reads `0x09e28008 + side·0x30c` unless flag `0x09e03070 & 0x20` | H |
 | `+0x02` | 2 | s16 | Battle dominance (plain) | `ai_get_plain_battle_dominance` (`0x09d374ec`) reads `0x09e2800a + …` | H |
-| `+0x04` | 2 | s16 | Summon slack (`0x80 − x`, or `2 −` hand size under Summon Limit); positive = may still Normal Summon | `ai_can_normal_summon_now` (`lh` at `0x09e2800c + …`, `> 0`); `ai_choose_tribute_summon_from_hand`, three summon handlers | H (read), M (formula) |
+| `+0x04` | 2 | s16 | Summon slack (`0x80 −` the activation counter `+0x06`, or `2 −` the summons completed this turn under card `0x1de4`; corrected 2026-11-03); positive = may still Normal Summon | `ai_can_normal_summon_now` (`lh` at `0x09e2800c + …`, `> 0`); `ai_choose_tribute_summon_from_hand`, three summon handlers | H (read), M (formula) |
 | `+0x06` | 2 | u16 | AI activation counter; above `0x7f` the AI stops activating | `ai_increment_activation_count`, `ai_is_activation_count_exhausted` (`0x09e2800e + …`) | H |
 | `+0x08` | 4 | u32 | Board rule flags (opponent cannot draw, Necrovalley, King Tiger Wanghu, By Order of the Emperor, …; `0x100` raises the hand-card threshold of `ai_evaluate_activation`) | Written by `ai_analyze_board`; several readers address side 0's copy `0x09e28010` directly | H (field), M (individual bits) |
 | `+0x0c` | `32 × 0x18` | rec[32] | Interest records (layout below) | `ai_board_add_interest_record` (`0x09d8fb44`): base `0x09e28014 + side·0x30c`, 32 entries, stride `0x18` | H |
@@ -177,12 +177,25 @@ Interest record (24 bytes):
 
 | Offset | Size | Type | Meaning | Conf. |
 | --- | --- | --- | --- | --- |
-| `+0x00` | 2 | u16 | Weight; 0 = free entry. A new record equal in `+0x04`–`+0x17` adds its weight here | H |
-| `+0x02` | 2 | u16 | Copied from the caller's record, not compared; meaning unknown | H (copy), unknown meaning |
-| `+0x04` | 4 | u32 | Card id the interest is about | H (compared), M (meaning) |
-| `+0x08` | 16 | u32[4] | Flag words compared for equality; meaning unknown (`ai.md`, open question) | H (compared), L |
+| `+0x00` | 2 | u16 | Weight (wanted count); 0 = free entry and end of the list. A new record equal in `+0x04`–`+0x17` adds its weight here | H |
+| `+0x02` | 2 | u16 | Matches already present, rewritten by `ai_board_count_interest_matches` (`0x09d8f53c`): Graveyard list when `+0x06`, else banished list when `+0x07`, plus the selected candidates while the candidate stack `0x09e03024` is non-empty | H (writes), M |
+| `+0x04` | 2 | s16 | Card id: > 0 only that card, < 0 every card except `-id`, 0 any card; also the keys `0xe133`, `0xe26d`, `0xea93`, `0xe27b` written by `ai_board_note_card_interests` (negative as s16, so "every card except …"; M) | H |
+| `+0x06` | 1 | u8 | Wanted in the Graveyard (location `0x0e` allowed) | H (read), M |
+| `+0x07` | 1 | u8 | Wanted banished (location `0x0f` allowed) | H, M |
+| `+0x08` | 2 | u16 | "For summoning": the card must be summonable; `ai_rate_card_interest` moves the record's score into the summon-material term | H, M |
+| `+0x0a` | 2 | u16 | Level compare mode: 1 equal, 2 at least, 3 at most | H |
+| `+0x0c` | 2 | u16 | Level (0 = any) | H |
+| `+0x0e` | 2 | u16 | Attribute (0 = any) | H |
+| `+0x10` | 2 | u16 | Type (0 = any; off-field Type for the Graveyard) | H |
+| `+0x12` | 2 | u16 | Archetype + 1 (0 = any; `card_db_is_in_archetype(card, v - 1)`) | H |
+| `+0x14` | 2 | u16 | Kind selector: 1 monster subtype, 2 spell/trap icon, 3 ATK cap | H |
+| `+0x16` | 2 | u16 | Kind value: subtype 0 any / 1 Normal / 2 Ritual / 3 Fusion / 4 Synchro / 5 Gemini / 6 Effect / 7 Tuner; or the icon; or the ATK cap / 100 | H (compares), M (subtype names) |
 
-`ai_board_add_interest_record(side, rec, weight)` returns 1 when a new entry was used, 0 when merged or when all 32 are taken (H). Fillers: `ai_board_note_card_interests` (`0x09d8fc24`), `ai_board_note_combo_interests` (`0x09d91d30`). Size check: `0x0c + 32·0x18 = 0x30c` (H). Unknown: `+0x02` and `+0x08`–`+0x17` of the interest records.
+`ai_board_add_interest_record(side, rec, weight)` returns 1 when a new entry was used, 0 when merged or when all 32 are taken (H). Fillers: `ai_board_note_card_interests` (`0x09d8fc24`), `ai_board_note_combo_interests` (`0x09d91d30`), `ai_analyze_board`. Readers: `ai_card_matches_interest_record` (`0x09d8f1e4`), `ai_board_count_interest_matches` (`0x09d8f53c`), `ai_rate_card_interest` (`0x09d8f7f0`). Size check: `0x0c + 32·0x18 = 0x30c` (H). Fields `+0x02`–`+0x16` were read in the 2026-11-03 round from the readers and the fillers. Named-card records (only `+0x04` and `+0x06` set) are added only while the side has no copy of that card in its Graveyard (`duel_core_count_graveyard_named < 1`).
+
+Score (`ai_rate_card_interest`, H for the formula): per matching record `min(10, weight + 1 - count)` (1 when already satisfied), summed into g (`+0x08` = 0) or s (`+0x08` != 0); the result is `max(1, min(10000, 10·g) - a)`, plus, for s, `a + 100·clamp(level - 4, 0, 9) + max(9999, 1000·(min(s, 90) - 1))`, with `a` = the estimated ATK / 100 clamped to 1–100; 0 when `ai_is_card_worth_keeping`.
+
+Correction (2026-11-03): the board-view word `+0x04` ("summon slack") is `0x80 -` the AI activation counter `+0x06`, clamped at 0, and under card `0x1de4` `2 -` the summons completed this turn (player block `+0x20`); it is not the hand size (H, `ai_analyze_board`).
 
 ## `ai_main_steps`: main-phase step table (`.data 0x09e01ba4`)
 
@@ -211,10 +224,47 @@ Purpose: the battle-time cards the AI could play this turn; the battle planner r
 
 Filled by `ai_analyze_board` (clear, then add the usable tricks such as Battle Fusion, Shield & Sword, Limiter Removal; M for the card list), read only by `ai_plan_battle_with_tricks`. Unknown: none.
 
+## `ai_attack_result`: attack result (`0x44` bytes)
+
+Purpose: the outcome of one simulated attack, filled by `ai_init_attack_result` (`0x09d04874`), `ai_eval_attack` (`0x09d06188`) and its helpers (`ai_eval_battle_card_effects`, `ai_attack_result_add_card_lp_change`, `ai_attack_result_add_side_losses`); compared by `ai_is_better_attack_result` (`0x09d0c2e4`) and the battle planner. Read in the 2026-11-03 documentation round (no PPSSPP trace).
+
+Filled by `ai_init_attack_result` (`0x09d04874`) and then by `ai_eval_attack` and its helpers. Accessed as `short *` (index n = offset 2n). One 0x18-byte block per side at `+0x14 + side·0x18`; "attacker" is the `side` argument, "defender" is `1 − side`. Total `0x14 + 2·0x18 = 0x44` (H).
+
+| Offset | Type | Meaning | Conf. |
+| --- | --- | --- | --- |
+| `+0x00` | u16 | Attacking side | H (init) |
+| `+0x02` | u16 | Result class 0–5 (grading below); the battle planner and `ai_is_better_attack_result` compare it | H (writes), M (grading meaning) |
+| `+0x04` | u16 | 1 = direct attack (target ≥ 5) | H |
+| `+0x06` | u16 | Effect flag: 1 = card effects took part (`ai_eval_battle_damage_effects`, destroyer effects, `ai_eval_battle_card_effects`, `ai_eval_destroyed_monsters_effects` returned non-zero), 2 = a stronger effect case (link source `0x1e30` on the attacker, marker `0x1819` with both destroyed, slot effect `0x18e5`, `+0x0a` set, and several branches of `ai_eval_battle_card_effects`); `0x1f19` in `ai_eval_battle_card_effects` resets it to 0 | H (writes), L (meaning) |
+| `+0x08` | u16 | 1 when the defender's destroyed monster goes to destination `0x0e` (the destination `ai_eval_destroyer_graveyard_effects` reacts to; Graveyard, M) | H |
+| `+0x0a` | u16 | Flag: card `0x1e37` active on the attacker's side (other than the attacker), or the `0x1e13` forced pick hits the target; raises the class to ≥ 1 and later sets `+0x06 = 2` | H |
+| `+0x0c` | u16 | Flag set by `ai_eval_battle_card_effects` for attacker ids `0x1e92`, `0x1e50`, `0x1c1f`, `0x1958`, `0x1644`, `0x1505` (and `0x1ab3` when equipped) whose effect value `0x1505` is set; read by the defender's `0x1e24` case | H (write), L |
+| `+0x0e` | u16 | Destroyed mask: bit `s·5 + slot` | H |
+| `+0x10` | u32 | ATK bonus of the attacker's own effect for this battle (`0x1e95` +300, `0x1e08` + its DEF, `0x1ce0` +1000 per Normal Monster, `0x13a7` +3000), added to the snapshot ATK before the battle | H (writes), M |
+| `+0x14 + s·0x18` | block | Per-side block (below) | H |
+
+Per-side block (offsets inside the block; absolute = `+0x14 + s·0x18 + off`):
+
+| Off. | Abs. (side 0) | Type | Meaning | Conf. |
+| --- | --- | --- | --- | --- |
+| `+0x00` | `+0x14` | u16 | Slot of this side's battler (attacker slot / target) | H |
+| `+0x02` | `+0x16` | s16 | Destination of this side's destroyed battler (from `ai_sim_get_destroyed_card_destinations`; 0 = not destroyed / cleared by survival effects); read through `ai_attack_result_get_destroyed_destination` | H |
+| `+0x04` | `+0x18` | u16 | Cards this side loses from its deck (mill count): incremented by `0x19c7`, `0x1e96` (+1), `0x11f5` (+5 to both), `0x1d70` copies; compared with the plan's deck sizes `0x09e27700` / `0x09e27702` | H (writes), M (meaning) |
+| `+0x06` | `+0x1a` | u16 | Effect-used flag of this side ("a card of this side applies an effect in this battle"); set by `ai_attack_result_add_card_lp_change` (second_flag 0) and by the card cases; `ai_decide_optional_activation` accepts `0x1e24`, `0x1ccc`, `0x1a72` when its own side has it | H (writes), M |
+| `+0x08` | `+0x1c` | u16 | Second effect flag (`ai_attack_result_add_card_lp_change` with second_flag set) | H, L meaning |
+| `+0x0a` | `+0x1e` | u16 | Effect counter (`ai_attack_result_add_card_lp_change` with count_only) | H, L |
+| `+0x0c` | `+0x20` | s32 | Battle damage this side takes (from the damage records `0x09e286e0`/`0x09e286f4`, keyed by their damaged-side words `0x09e286ec`/`0x09e28700`) | H |
+| `+0x10` | `+0x24` | s32 | LP this side loses by effects | H |
+| `+0x14` | `+0x28` | s32 | Value this side loses (rated destroyed monsters, `ai_rate_monster_loss_value`, card penalties such as +100000 for `0x1ce0`) | H (writes), M |
+
+Grading of `+0x02` (H for the code paths, M for the names): the quick pre-pass returns 0 (attacker destroyed) or max(4, class) (target destroyed). In the full path: 5 = lethal for the defender (its `+0x20 + +0x24` ≥ its LP from the working plan `0x09e276f8` = plan `+0x14`, or its mill count ≥ its deck `0x09e27702` = plan `+0x1e`); otherwise 3 when the attacker loses less than the defender and something of the defender is destroyed/damaged, 2 from `ai_is_attack_trade_favorable` and a few card cases (`0x143a` lock, `0x1818`/`0x16ed`/`0x1d98`, `0x111b`-`0x1119`, `0x129c`), 1 for a side benefit only (`+0x0a`, `0x1ebe`, `0x1ab9`, `card_db_is_gladiator_beast` attacker with a candidate, `0x152e`, `0x1d9b`); 0 when nothing is gained or when the attacker's own `+0x20 + +0x24` reaches its LP (`0x09e276f4`) or its mill count reaches its deck (`0x09e27700`) while the defender is not lethally hit. A final pass promotes any class other than 0/5 to 5 when the defender is lethally hit. Direct attacks: class 0 (or 1 with `+0x0a`) when the defender loses nothing, else ≥ 3; `0xeb1` adds an LP change.
+
 ## Open questions
+
+- `ai_attack_result`: what `ai_sim_resolve_battle(..., 1)` restricts in the early return of `ai_eval_attack`; how the header flags `+0x06` and the per-side `+0x1c`/`+0x1e` words are weighed by `ai_is_better_attack_result`.
 
 - `ai_summon_choice +0x08` (u32) and the meaning of `+0x01`/`+0x02` beyond the simulation side and landing slot.
 - `ai_stat_snapshot +0x34`–`+0x43`: readers, the meaning of compute flag 2, and what `ai_estimate_slot_stats` writes there for the non-AI side.
 - `ai_battle_plan`: meaning of `+0x0c`, of the attack-order records other than record 0 `+2`, and of the unaddressed tail `+0x264`–`+0x2e3`.
-- `ai_board_view` interest records: `+0x02` and the four flag words.
+- `ai_board_view` interest records: what the keys `0xe133`/`0xe26d`/`0xea93`/`0xe27b` select (as s16 they read "every card except …"; confirm). The other fields are read (layout above).
 - Runtime confirmation (none of these structures has been traced): dump the context frames during a nested prompt, the summon record after `ai_choose_normal_summon`, and one stat-snapshot record against the on-screen ATK/DEF.

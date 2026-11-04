@@ -147,6 +147,7 @@ ai_summon_choice,AI summon choice record (0x09e03080),ai,documented,12
 ai_main_steps,AI main-phase step table (rel_duel_eng 0x09e01ba4),ai,documented,
 ai_candidate_stack,AI candidate card stack (0x09e03004; depth 0x09e03024),ai,documented,32
 ai_combat_tricks,AI combat trick list (0x09e27ff8; up to 8 card ids),ai,documented,
+ai_attack_result,AI attack result record of ai_eval_attack (0x44 bytes),ai,documented,68
 save_settings,Save settings bits (game state +0xfe04),save,verified,
 save_character_records,Save character records (game state +0xfe0c; 143 x 0x18),save,reimplemented,24
 save_pack_records,Save pack records (game state +0x16604; 48 x 0x2a),save,verified,42
