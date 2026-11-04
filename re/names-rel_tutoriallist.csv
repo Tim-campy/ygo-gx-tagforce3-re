@@ -1,0 +1,8 @@
+# Names applied to gmodule/rel_tutoriallist.prx (runtime base unknown: imported at image base 0x0, so addresses are module offsets; registry ids are prefixed with the module name).
+# Exports: the names re/game-libs.csv gives each (library, NID) from the call sites in the importing modules,
+# placed at the export address of the module's .lib.ent (tools/prx_imports.py exports()). Status named.
+address,group,name
+0x00000000,ui,ui_tutorial_list_draw
+0x000026c0,ui,ui_tutorial_list_start
+0x0000280c,ui,ui_tutorial_list_update
+0x00002980,ui,ui_tutorial_list_get_selection

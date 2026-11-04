@@ -74,3 +74,47 @@ libdeck_swap_rel,0x02a2e785,deck,deck_swap_start,H,system_duel_mgr_run_deckswap 
 libdeck_swap_rel,0xc5289073,deck,deck_swap_update,H,polled by system_duel_mgr_run_deckswap; 1 = done, then module 10 is unloaded
 libdeck_swap_rel,0x993bd8e1,deck,deck_swap_draw,H,called by system_duel_mgr_frame_callback in the deck-swap state
 sceRtc,0xe7c27d1b,sdk,sceRtcGetCurrentClockLocalTime,H,Sony NID of sceRtcGetCurrentClockLocalTime; caller deck_save_to_stored_deck (deck date)
+# Round 5 (2026-11-04): Sony NIDs imported by the newly imported modules (rel_html_view, rel_umd_replace, rel_usb_connect, rel_cardalbum) that BOOT.BIN does not import; each name verified by recomputing the NID (SHA-1).
+ThreadManForUser,0xe81caf8f,sdk,sceKernelCreateCallback,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x359c
+ThreadManForUser,0xedba5844,sdk,sceKernelDeleteCallback,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35ac
+sceHttp,0x76d1363b,sdk,sceHttpSaveSystemCookie,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7a0
+sceHttp,0x87797bdd,sdk,sceHttpsLoadDefaultCert,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7a8
+sceHttp,0xab1abe07,sdk,sceHttpInit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7b0
+sceHttp,0xd1c8945e,sdk,sceHttpEnd,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7b8
+sceHttp,0xe4d21302,sdk,sceHttpsInit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7c0
+sceHttp,0xf1657b22,sdk,sceHttpLoadSystemCookie,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7c8
+sceHttp,0xf9d8eb63,sdk,sceHttpsEnd,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7d0
+sceImpose,0x72189c48,sdk,sceImposeSetUMDPopup,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x3574
+sceJpeg,0x48b602b7,sdk,sceJpegDeleteMJpeg,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_cardalbum+0x6ee4
+sceJpeg,0x7d2f3d7f,sdk,sceJpegFinishMJpeg,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_cardalbum+0x6eec
+sceJpeg,0x8f2bb012,sdk,sceJpegGetOutputInfo,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_cardalbum+0x6ef4
+sceJpeg,0x91eed83c,sdk,sceJpegDecodeMJpegYCbCr,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_cardalbum+0x6efc
+sceJpeg,0x9d47469c,sdk,sceJpegCreateMJpeg,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_cardalbum+0x6f04
+sceJpeg,0xac9e70e6,sdk,sceJpegInitMJpeg,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_cardalbum+0x6f0c
+sceNet,0x281928a9,sdk,sceNetTerm,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7d8
+sceNet,0x39af39a6,sdk,sceNetInit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7e0
+sceNetApctl,0xb3edd0ec,sdk,sceNetApctlTerm,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x770
+sceNetApctl,0xe2f91f9b,sdk,sceNetApctlInit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x778
+sceNetInet,0x17943399,sdk,sceNetInetInit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x760
+sceNetInet,0xa9ed66b9,sdk,sceNetInetTerm,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x768
+sceNetResolver,0x6138194a,sdk,sceNetResolverTerm,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x780
+sceNetResolver,0xf3370e61,sdk,sceNetResolverInit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x788
+sceSsl,0x191cdeff,sdk,sceSslEnd,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x790
+sceSsl,0x957ecbe2,sdk,sceSslInit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x798
+sceUmdUser,0x340b7686,sdk,sceUmdGetDiscInfo,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35b4
+sceUmdUser,0x46ebb729,sdk,sceUmdCheckMedium,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35bc
+sceUmdUser,0x87533940,sdk,sceUmdReplaceProhibit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35cc
+sceUmdUser,0xaee7404d,sdk,sceUmdRegisterUMDCallBack,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35d4
+sceUmdUser,0xbd2bde07,sdk,sceUmdUnRegisterUMDCallBack,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35dc
+sceUmdUser,0xc6183d47,sdk,sceUmdActivate,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35e4
+sceUmdUser,0xcbe9f02a,sdk,sceUmdReplacePermit,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35ec
+sceUsb,0x586db82c,sdk,sceUsbActivate,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_usb_connect+0x5488
+sceUsb,0xae5de6af,sdk,sceUsbStart,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_usb_connect+0x5490
+sceUsb,0xc2464fa0,sdk,sceUsbStop,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_usb_connect+0x5498
+sceUsb,0xc572a9c8,sdk,sceUsbDeactivate,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_usb_connect+0x54a0
+sceUtility,0x05afb9e4,sdk,sceUtilityHtmlViewerUpdate,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7e8
+sceUtility,0x2a2b3de0,sdk,sceUtilityLoadModule,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7f0 and rel_usb_connect+0x54a8
+sceUtility,0xbda7d894,sdk,sceUtilityHtmlViewerGetStatus,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x7f8
+sceUtility,0xcdc3aa41,sdk,sceUtilityHtmlViewerInitStart,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x800
+sceUtility,0xe49bfe92,sdk,sceUtilityUnloadModule,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x808 and rel_usb_connect+0x54b0
+sceUtility,0xf5ce1134,sdk,sceUtilityHtmlViewerShutdownStart,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x810

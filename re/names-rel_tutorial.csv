@@ -30,3 +30,5 @@ address,group,name
 0x00006098,duel_core,duel_core_tutorial_ui_event_hook
 0x000009e4,duel_core,duel_core_tutorial_init_graphics
 0x00001584,duel_core,duel_core_tutorial_draw_lesson_image
+0x0000468c,duel_core,duel_core_tutorial_on_duel_end
+0x000046dc,duel_core,duel_core_tutorial_is_finished

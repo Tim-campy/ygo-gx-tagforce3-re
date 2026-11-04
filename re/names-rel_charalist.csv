@@ -1,0 +1,15 @@
+# Names applied to gmodule/rel_charalist.prx (runtime base 0x09eee400 (PPSSPP export duel-2026-10-26.sym, 107/107 function starts); registry ids are prefixed with the module name).
+# Exports: the names re/game-libs.csv gives each (library, NID) from the call sites in the importing modules,
+# placed at the export address of the module's .lib.ent (tools/prx_imports.py exports()). Status named.
+address,group,name
+0x09eee8b0,ui,ui_charalist_open
+0x09eeead8,ui,ui_charalist_update
+0x09eeeae0,ui,ui_charalist_update_ex
+0x09eeef28,ui,ui_charalist_e11636ec
+0x09eef178,ui,ui_charalist_953239e8
+0x09eef1ec,ui,ui_charalist_df67151f
+0x09eef354,ui,ui_charalist_558dbb5f
+0x09eef35c,ui,ui_charalist_get_selected_character
+0x09eef384,ui,ui_charalist_get_selected_variant
+0x09eef3ac,ui,ui_charalist_draw
+0x09ef3e7c,ui,ui_charalist_close

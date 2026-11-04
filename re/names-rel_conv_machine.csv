@@ -1,0 +1,7 @@
+# Names applied to gmodule/rel_conv_machine.prx (runtime base unknown: imported at image base 0x0, so addresses are module offsets; registry ids are prefixed with the module name).
+# Exports: the names re/game-libs.csv gives each (library, NID) from the call sites in the importing modules,
+# placed at the export address of the module's .lib.ent (tools/prx_imports.py exports()). Status named.
+address,group,name
+0x00001cc8,ui,ui_conv_machine_draw
+0x00004684,ui,ui_conv_machine_start
+0x00004738,ui,ui_conv_machine_update

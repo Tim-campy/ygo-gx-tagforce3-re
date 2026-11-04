@@ -1,0 +1,10 @@
+# Names applied to gmodule/rel_select_card.prx (runtime base unknown: imported at image base 0x0, so addresses are module offsets; registry ids are prefixed with the module name).
+# Exports: the names re/game-libs.csv gives each (library, NID) from the call sites in the importing modules,
+# placed at the export address of the module's .lib.ent (tools/prx_imports.py exports()). Status named.
+address,group,name
+0x00001b44,ui,ui_select_card_open
+0x00001d10,ui,ui_select_card_update
+0x00001ef8,ui,ui_select_card_0787468b
+0x0000c120,ui,ui_select_card_close
+0x0000e5ec,ui,ui_select_card_draw
+0x0000e89c,ui,ui_select_card_ae4aa6ec
