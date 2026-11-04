@@ -1013,7 +1013,7 @@ address,group,name
 0x08eba148,system,thunk_system_vfpu_vqmul_q
 0x08eba150,system,thunk_system_vfpu_vdot_q_b
 0x08eba158,system,thunk_system_quat_slerp
-0x08eba160,system,thunk_system_quat_slerp_shortest
+0x08eba160,system,thunk_system_quat_squad
 0x08eba168,system,thunk_system_quat_normalize
 0x08eba170,system,thunk_system_vfpu_vneg_t
 0x08eba178,system,thunk_system_quat_inverse

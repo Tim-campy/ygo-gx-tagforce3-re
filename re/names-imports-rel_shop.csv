@@ -1009,7 +1009,7 @@ address,group,name
 0x090e7194,system,thunk_system_vfpu_vqmul_q
 0x090e719c,system,thunk_system_vfpu_vdot_q_b
 0x090e71a4,system,thunk_system_quat_slerp
-0x090e71ac,system,thunk_system_quat_slerp_shortest
+0x090e71ac,system,thunk_system_quat_squad
 0x090e71b4,system,thunk_system_quat_normalize
 0x090e71bc,system,thunk_system_vfpu_vneg_t
 0x090e71c4,system,thunk_system_quat_inverse

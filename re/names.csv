@@ -1895,7 +1895,7 @@ address,group,name
 0x0881c514,system,system_quat_identity,H,stores vidt_q (0,0,0,1); caller field_3d_pose_nodes_blend
 0x0881c528,system,system_quat_copy,H,copies 4 words; neighbour of system_quat_slerp
 0x0881c5b4,system,system_quat_rotate_vector,H,vqmul(q, v) then vqmul with conjugate (negation prefix on xyz)
-0x0881c6fc,system,system_quat_slerp_shortest,M,vdot of two quats, negates second when dot < 0 (vcmovt), asin/sin weights; 6 args like slerp
+0x0881c6fc,system,system_quat_squad,M,round 4 rename: computes slerp(slerp(q1;q2;t); slerp(s1;s2;t); 2t(1-t)) (squad) from the VFPU pseudo-ops; was system_quat_slerp_shortest
 0x0881c93c,system,system_quat_inverse,H,conjugate (negation prefix) scaled by rcp(dot(q,q))
 0x0881c960,system,system_quat_from_euler,M,half angles via vcst(1/PI), vcos/vsin of the 3 angles, vcrs products summed (one sign order)
 0x0881c9a8,system,system_quat_from_euler_reverse,M,same as 0x0881c960 with the opposite sign combination (other rotation order)

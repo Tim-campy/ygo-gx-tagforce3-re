@@ -1029,7 +1029,7 @@ address,group,name
 0x08ee07d8,system,thunk_system_vfpu_vqmul_q
 0x08ee07e0,system,thunk_system_vfpu_vdot_q_b
 0x08ee07e8,system,thunk_system_quat_slerp
-0x08ee07f0,system,thunk_system_quat_slerp_shortest
+0x08ee07f0,system,thunk_system_quat_squad
 0x08ee07f8,system,thunk_system_quat_normalize
 0x08ee0800,system,thunk_system_vfpu_vneg_t
 0x08ee0808,system,thunk_system_quat_inverse

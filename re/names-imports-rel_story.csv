@@ -1032,7 +1032,7 @@ address,group,name
 0x08eaffec,system,thunk_system_vfpu_vqmul_q
 0x08eafff4,system,thunk_system_vfpu_vdot_q_b
 0x08eafffc,system,thunk_system_quat_slerp
-0x08eb0004,system,thunk_system_quat_slerp_shortest
+0x08eb0004,system,thunk_system_quat_squad
 0x08eb000c,system,thunk_system_quat_normalize
 0x08eb0014,system,thunk_system_vfpu_vneg_t
 0x08eb001c,system,thunk_system_quat_inverse

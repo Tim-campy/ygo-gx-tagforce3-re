@@ -2369,7 +2369,7 @@ address,group,name
 0x098be294,system,thunk_system_vfpu_vqmul_q
 0x098be29c,system,thunk_system_vfpu_vdot_q_b
 0x098be2a4,system,thunk_system_quat_slerp
-0x098be2ac,system,thunk_system_quat_slerp_shortest
+0x098be2ac,system,thunk_system_quat_squad
 0x098be2b4,system,thunk_system_quat_normalize
 0x098be2bc,system,thunk_system_vfpu_vneg_t
 0x098be2c4,system,thunk_system_quat_inverse
