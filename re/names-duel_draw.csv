@@ -1745,7 +1745,7 @@ address,group,name
 # registry hygiene 2026-11-03: group only, default name kept (no name has an H/M basis); evidence per row
 0x098419b4,field_3d,field_3d_cutin_set_word_098d53a8,M,stores its argument in 0x098d53a8; only caller field_3d_cutin_reset_current (round 4 rename of the default name)
 0x0985345c,field_3d,field_3d_board_set_word_098e666c,M,stores its argument in 0x098e666c; which field_3d_board_sync_zone reads; no direct caller (round 4)
-0x0989ddb8,duel_core,FUN_0989ddb8,M,view wrapper: duel_core_view_side_to_engine_b then duel_core_is_zone_usable_lenient (result discarded by Ghidra); among the duel_core_view_* functions; caller ui_update_zone_highlights
+0x0989ddb8,duel_core,duel_core_view_is_zone_usable_lenient,H,round 5 (2026-11-04): basis in docs/subsystems/functions/duel_core.md
 0x098a35a0,ui,ui_duel_mode_allows_action,H,returns 1 unless ui_get_duel_ui_mode is 5; 8 or 9; in which case it returns arg == 6 (round 4)
 0x098a3db8,ui,ui_duel_set_card_list_picker_word,M,stores its argument in 0x09bdd0ec; only caller ui_duel_open_card_list_picker (round 4)
 0x098a6194,ui,ui_get_message_window_word_09bdd3e8,M,returns 0x09bdd3e8 (set by ui_set_message_window_word_09bdd3e8); no direct caller (round 4)
@@ -1754,3 +1754,42 @@ address,group,name
 0x098a655c,ui,ui_set_message_window_word_09bdd3ec_inverted,M,stores !arg in 0x09bdd3ec; caller ui_open_word3_confirm_prompt (round 4)
 0x098a6a8c,ui,ui_set_info_panel_word,H,stores its argument in the info-panel word 0x09bdd6c4 read by ui_open_info_panel and ui_draw_info_panel; caller ui_duel_open_count_message (round 4)
 0x098a6d44,ui,ui_set_info_panel_cursor_side,H,moves the info-panel state 0x09bdd6b4 between 1/2 and 3/4 according to bit 0 of the argument (round 4)
+0x0989c464,ui,ui_set_active_duelists,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c638,ui,thunk_ui_update_turn_timer_blink,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c6c4,ui,ui_set_pad_input_blocked,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c6d4,ui,thunk_ui_set_player_action_validator,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c6dc,ui,ui_rebuild_board_and_phase_indicator,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c72c,ui,thunk_ui_set_card_action_auto_choose,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c734,ui,thunk_ui_set_confirm_prompt_validator,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c908,ui,thunk_ui_card_info_show_instance,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c910,ui,ui_duel_draw_show_card_info_id,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c918,ui,ui_sync_hud_turn_and_phase,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c954,duel_core,thunk_duel_core_view_get_local_side,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/duel_core.md
+0x0989c95c,duel_core,thunk_duel_core_view_get_hand_count,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/duel_core.md
+0x0989c964,ui,ui_get_hand_object_card_id,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c990,ui,thunk_ui_is_message_window_open,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c998,ui,ui_load_duel_archive_80001,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989c9a4,ui,ui_duel_draw_restart,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989cc3c,field_3d,thunk_field_3d_board_set_word_098e666c,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/field_3d.md
+0x0989cc44,ui,thunk_ui_set_portrait_expression_slot,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989d3e8,ui,ui_is_cutin_playing,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989d42c,system,system_stub_noop_duel_draw_export_d42c,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/system.md
+0x0989d490,field_3d,field_3d_set_cutin_fx_variant_by_category,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/field_3d.md
+0x0989d4c0,audio,thunk_audio_build_current_cutin_voice_queue,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/audio.md
+0x09841078,audio,audio_build_current_cutin_voice_queue,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/audio.md
+0x09884ea4,field_3d,field_3d_set_cutin_fx_variant,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/field_3d.md
+0x098a0b90,ui,ui_set_pad_input_enabled,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x098a0cf8,ui,ui_set_player_action_validator,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x098a0d04,ui,ui_compare_first_word,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x098af190,ui,ui_set_card_action_auto_choose,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x098a5c28,ui,ui_set_confirm_prompt_validator,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x098a5c34,ui,ui_confirm_prompt_setup_window,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x09899d44,ui,ui_cmd_noop_09,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x09899d84,ui,ui_cmd_noop_0b,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989a2b0,ui,ui_cmd_noop_11,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989a938,ui,ui_cmd_noop_21,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989a9f0,ui,ui_cmd_noop_24,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0989b430,ui,ui_cmd_noop_35,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x09899d8c,ui,ui_on_direct_attack_banner_done,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x09899da0,ui,ui_cmd_show_attack_declaration,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md
+0x0984d044,ui,ui_set_attack_selection_card,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/ui.md

@@ -2,7 +2,7 @@
 
 A game module calls `BOOT.BIN` (library `libehsys_rel`) and the duel modules (`libduel_eng_rel`, `libduel_draw_rel`, `libfield_rel`) through 8-byte import stubs in its `.sceStub.text`; the module loader patches each stub into a jump to the exported function. `tools/prx_imports.py` resolves every stub by library and NID and names it `thunk_<target>` (`docs/subsystems/system.md`, "The `libehsys_rel` export library"). A stub has no behaviour of its own, so once its target is documented the stub is documented with the target's prototype (renamed), a summary that names the target, and the stub's own callers in the module (in its Ghidra plate comment, `re/documented*.tsv`). This table lists, per documented target, the stubs that reached the `documented` stage this way and how many call sites each has.
 
-Stubs: 13451, for 2660 targets.
+Stubs: 13498, for 2688 targets.
 
 | Target | Program | Stubs (module address, direct callers) |
 | --- | --- | --- |
@@ -2666,4 +2666,178 @@ Stubs: 13451, for 2660 targets.
 | `ui_is_cutin_mode_active` (`0x0989d3dc`) | rel_duel_draw | rel_duel_mgr `0x08eafccc` (1) |
 | `ui_preload_duel_movie` (`0x098a4304`) | rel_duel_draw | rel_duel_mgr `0x08eafd0c` (2) |
 | `ui_play_duel_movie` (`0x098a4350`) | rel_duel_draw | rel_duel_mgr `0x08eafd14` (1) |
+| `container_resolve_path_lbn` (`0x0881d8f4`) | BOOT.BIN | rel_deck `0x08eb8250` (0), rel_duel_draw `0x098bc39c` (1), rel_duel_eng `0x09de41d4` (0), rel_duel_mgr `0x08eb2814` (0), rel_field `0x090eecbc` (0), rel_shop `0x090e529c` (0), rel_story `0x08eae0f4` (1), rel_title `0x08ede8e0` (1) |
+| `card_db_get_id_by_index` (`0x08832a4c`) | BOOT.BIN | rel_deck `0x08eb8e80` (0), rel_duel_draw `0x098bcfcc` (0), rel_duel_eng `0x09de4e04` (0), rel_duel_mgr `0x08eb3444` (0), rel_field `0x090ef8ec` (0), rel_shop `0x090e5ecc` (0), rel_story `0x08eaed24` (0), rel_title `0x08edf510` (0) |
+| `audio_build_current_cutin_voice_queue` (`0x09841078`) | rel_duel_draw | rel_duel_mgr `0x08eafcf4` (12) |
+| `ui_card_info_show_instance` (`0x0984d5b8`) | rel_duel_draw | rel_duel_mgr `0x08eafc64` (0) |
+| `field_3d_board_set_word_098e666c` (`0x0985345c`) | rel_duel_draw | rel_duel_mgr `0x08eafcb4` (0) |
+| `ui_set_portrait_expression_slot` (`0x09858e30`) | rel_duel_draw | rel_duel_mgr `0x08eafcbc` (0) |
+| `ui_set_active_duelists` (`0x0989c464`) | rel_duel_draw | rel_duel_mgr `0x08eafbcc` (1) |
+| `ui_set_pad_input_blocked` (`0x0989c6c4`) | rel_duel_draw | rel_duel_mgr `0x08eafc14` (1) |
+| `ui_rebuild_board_and_phase_indicator` (`0x0989c6dc`) | rel_duel_draw | rel_duel_mgr `0x08eafc24` (0) |
+| `ui_duel_draw_show_card_info_id` (`0x0989c910`) | rel_duel_draw | rel_duel_mgr `0x08eafc6c` (0) |
+| `ui_sync_hud_turn_and_phase` (`0x0989c918`) | rel_duel_draw | rel_duel_mgr `0x08eafc74` (0) |
+| `ui_get_hand_object_card_id` (`0x0989c964`) | rel_duel_draw | rel_duel_mgr `0x08eafc8c` (0) |
+| `ui_load_duel_archive_80001` (`0x0989c998`) | rel_duel_draw | rel_duel_mgr `0x08eafc9c` (0) |
+| `ui_duel_draw_restart` (`0x0989c9a4`) | rel_duel_draw | rel_duel_mgr `0x08eafca4` (0) |
+| `ui_is_cutin_playing` (`0x0989d3e8`) | rel_duel_draw | rel_duel_mgr `0x08eafcd4` (1) |
+| `system_stub_noop_duel_draw_export_d42c` (`0x0989d42c`) | rel_duel_draw | rel_duel_mgr `0x08eafcdc` (0) |
+| `field_3d_set_cutin_fx_variant_by_category` (`0x0989d490`) | rel_duel_draw | rel_duel_mgr `0x08eafcec` (1) |
+| `duel_core_view_get_hand_count` (`0x0989d664`) | rel_duel_draw | rel_duel_mgr `0x08eafc84` (0) |
+| `duel_core_view_get_local_side` (`0x0989d7a8`) | rel_duel_draw | rel_duel_mgr `0x08eafc7c` (0) |
+| `ui_update_turn_timer_blink` (`0x0989e97c`) | rel_duel_draw | rel_duel_mgr `0x08eafbfc` (1) |
+| `ui_set_player_action_validator` (`0x098a0cf8`) | rel_duel_draw | rel_duel_mgr `0x08eafc1c` (0) |
+| `ui_set_confirm_prompt_validator` (`0x098a5c28`) | rel_duel_draw | rel_duel_mgr `0x08eafc34` (0) |
+| `ui_is_message_window_open` (`0x098a60f8`) | rel_duel_draw | rel_duel_mgr `0x08eafc94` (0) |
+| `ui_set_card_action_auto_choose` (`0x098af190`) | rel_duel_draw | rel_duel_mgr `0x08eafc2c` (0) |
+| `duel_core_is_multi_pick_list_mode` (`0x09be1dc4`) | rel_duel_eng | rel_duel_draw `0x098b9a94` (0), rel_duel_mgr `0x08eaff0c` (0) |
+| `duel_core_set_output_binding` (`0x09be4bd8`) | rel_duel_eng | rel_duel_draw `0x098b9a6c` (0), rel_duel_mgr `0x08eafee4` (1) |
+| `duel_core_flush_output_binding` (`0x09be4bf4`) | rel_duel_eng | rel_duel_draw `0x098b9a74` (0), rel_duel_mgr `0x08eafeec` (0) |
+| `ai_has_targets_on_both_sides` (`0x09ce9b54`) | rel_duel_eng | rel_duel_draw `0x098bbf54` (0), rel_duel_mgr `0x08eb23cc` (0) |
+| `shop_draw_scene` (`0x090ddb08`) | rel_shop | rel_story `0x08eb11e4` (1) |
 
+## Jump thunks
+
+Eight-byte functions inside a program that only jump to another function (`j target; nop`), either local thunks that Ghidra created or entries of a module export table (for example the `libduel_draw_rel` entries created on 2026-11-04). Like import stubs they hold no code of their own and are documented with their target's prototype (`docs/PROGRESS.md`, stubs are counted apart).
+
+| Thunk | Program | Target |
+| --- | --- | --- |
+| `thunk_system_svfscanf_r` (`0x0881697c`) | BOOT.BIN | `system_svfscanf_r` (`0x0881593c`) |
+| `thunk_ui_ehf_seek_frame` (`0x0881ea18`) | BOOT.BIN | `ui_ehf_seek_frame` (`0x0881e840`) |
+| `thunk_system_vfpu_vmidt_q` (`0x0881ef78`) | BOOT.BIN | `system_vfpu_vmidt_q` (`0x0881a818`) |
+| `thunk_system_gum_update_matrices` (`0x0882506c`) | BOOT.BIN | `system_gum_update_matrices` (`0x08824bf4`) |
+| `thunk_system_module_all_loaded` (`0x0882b86c`) | BOOT.BIN | `system_module_all_loaded` (`0x08827e18`) |
+| `thunk_system_free` (`0x0882f2e8`) | BOOT.BIN | `system_free` (`0x0880d3c4`) |
+| `thunk_system_gum_mark_current_dirty_2` (`0x08830100`) | BOOT.BIN | `system_gum_mark_current_dirty_2` (`0x088261e4`) |
+| `thunk_card_db_index_of_id` (`0x08832a14`) | BOOT.BIN | `thunk_card_db_index_of_id` (`0x08833594`) → `card_db_index_of_id` |
+| `thunk_card_db_index_of_id` (`0x08833594`) | BOOT.BIN | `card_db_index_of_id` (`0x08832a1c`) |
+| `thunk_card_db_get_name` (`0x0883359c`) | BOOT.BIN | `card_db_get_name` (`0x08832a68`) |
+| `thunk_card_db_get_description` (`0x088335a4`) | BOOT.BIN | `card_db_get_description` (`0x08832aa4`) |
+| `thunk_card_db_get_prop_bits22` (`0x088335ac`) | BOOT.BIN | `card_db_get_prop_bits22` (`0x08832bdc`) |
+| `thunk_card_db_get_dialog_string` (`0x088335b4`) | BOOT.BIN | `card_db_get_dialog_string` (`0x08832c94`) |
+| `thunk_card_db_get_race_name` (`0x088335bc`) | BOOT.BIN | `card_db_get_race_name` (`0x08832cb8`) |
+| `thunk_card_db_get_kind_name` (`0x088335c4`) | BOOT.BIN | `card_db_get_kind_name` (`0x08832ce8`) |
+| `thunk_card_db_get_attribute_name` (`0x088335cc`) | BOOT.BIN | `card_db_get_attribute_name` (`0x08832d58`) |
+| `thunk_card_db_get_icon_name` (`0x088335d4`) | BOOT.BIN | `card_db_get_icon_name` (`0x08832d88`) |
+| `thunk_card_db_get_race` (`0x088335dc`) | BOOT.BIN | `card_db_get_race` (`0x08832db8`) |
+| `thunk_card_db_get_attribute` (`0x088335e4`) | BOOT.BIN | `card_db_get_attribute` (`0x08832de0`) |
+| `thunk_card_db_get_level` (`0x088335ec`) | BOOT.BIN | `card_db_get_level` (`0x08832e08`) |
+| `thunk_card_db_get_icon` (`0x088335f4`) | BOOT.BIN | `card_db_get_icon` (`0x08832e30`) |
+| `thunk_card_db_get_kind` (`0x088335fc`) | BOOT.BIN | `card_db_get_kind` (`0x08832e58`) |
+| `thunk_card_db_get_atk` (`0x08833604`) | BOOT.BIN | `card_db_get_atk` (`0x08832e94`) |
+| `thunk_card_db_get_def` (`0x0883360c`) | BOOT.BIN | `card_db_get_def` (`0x08832ed8`) |
+| `thunk_card_db_get_atk_or_unknown` (`0x08833614`) | BOOT.BIN | `card_db_get_atk_or_unknown` (`0x08832f1c`) |
+| `thunk_card_db_get_def_or_unknown` (`0x0883361c`) | BOOT.BIN | `card_db_get_def_or_unknown` (`0x08832f60`) |
+| `thunk_deck_get_card_limit` (`0x08833630`) | BOOT.BIN | `deck_get_card_limit` (`0x08832fa4`) |
+| `thunk_card_db_get_genre_name` (`0x08833650`) | BOOT.BIN | `card_db_get_genre_name` (`0x08833064`) |
+| `thunk_card_db_get_genres` (`0x08833658`) | BOOT.BIN | `card_db_get_genres` (`0x088330a8`) |
+| `thunk_card_db_get_top_count` (`0x08833660`) | BOOT.BIN | `card_db_get_top_count` (`0x088330fc`) |
+| `thunk_card_db_get_top_letter` (`0x08833668`) | BOOT.BIN | `card_db_get_top_letter` (`0x0883310c`) |
+| `thunk_card_db_get_top_card` (`0x08833670`) | BOOT.BIN | `card_db_get_top_card` (`0x08833164`) |
+| `thunk_card_db_get_top_group` (`0x08833678`) | BOOT.BIN | `card_db_get_top_group` (`0x088331bc`) |
+| `thunk_card_db_get_artwork_count` (`0x08833680`) | BOOT.BIN | `card_db_get_artwork_count` (`0x08833230`) |
+| `thunk_card_db_is_token` (`0x08835dec`) | BOOT.BIN | `card_db_is_token` (`0x0886010c`) |
+| `thunk_world_get_character_category` (`0x08836748`) | BOOT.BIN | `world_get_character_category` (`0x0885aeb0`) |
+| `thunk_audio_stop_sound` (`0x08841900`) | BOOT.BIN | `audio_stop_sound` (`0x0886c164`) |
+| `thunk_audio_count_bgm_sounds` (`0x08841980`) | BOOT.BIN | `audio_count_bgm_sounds` (`0x088685d8`) |
+| `thunk_audio_count_se_and_voice_sounds` (`0x08841988`) | BOOT.BIN | `audio_count_se_and_voice_sounds` (`0x08868644`) |
+| `thunk_audio_set_bgm_volume` (`0x08841990`) | BOOT.BIN | `audio_set_bgm_volume` (`0x08868074`) |
+| `thunk_audio_set_sound_volume` (`0x088419a4`) | BOOT.BIN | `audio_set_sound_volume` (`0x08869e70`) |
+| `thunk_audio_get_sound_level` (`0x088419ac`) | BOOT.BIN | `audio_get_sound_level` (`0x08869754`) |
+| `thunk_audio_get_sound_status` (`0x088419b4`) | BOOT.BIN | `audio_get_sound_status` (`0x0886997c`) |
+| `thunk_audio_get_bank_data` (`0x088419bc`) | BOOT.BIN | `thunk_audio_get_bank_data` (`0x088687a4`) → `audio_get_bank_data` |
+| `thunk_audio_get_bank_first_sound_id` (`0x088419c4`) | BOOT.BIN | `audio_get_bank_first_sound_id` (`0x08868874`) |
+| `thunk_audio_get_voice_bank` (`0x088419cc`) | BOOT.BIN | `audio_get_voice_bank` (`0x0885aef4`) |
+| `thunk_system_net_change_state` (`0x0885283c`) | BOOT.BIN | `system_net_change_state` (`0x08851f7c`) |
+| `thunk_system_net_delete_pdp_socket` (`0x08852b20`) | BOOT.BIN | `system_net_delete_pdp_socket` (`0x088598fc`) |
+| `thunk_system_net_receive_game_data` (`0x08852f9c`) | BOOT.BIN | `system_net_receive_game_data` (`0x08852dd0`) |
+| `thunk_system_malloc` (`0x08853c7c`) | BOOT.BIN | `system_malloc` (`0x0880d398`) |
+| `thunk_system_malloc` (`0x08853c84`) | BOOT.BIN | `system_malloc` (`0x0880d398`) |
+| `thunk_system_srand` (`0x088596cc`) | BOOT.BIN | `system_srand` (`0x0881019c`) |
+| `thunk_world_sort_character_tables` (`0x0885bd44`) | BOOT.BIN | `world_sort_character_tables` (`0x0885ad64`) |
+| `thunk_audio_find_bank_group_for_id` (`0x088670b8`) | BOOT.BIN | `audio_find_bank_for_sound` (`0x08866bc4`) |
+| `thunk_audio_get_bank_data` (`0x088687a4`) | BOOT.BIN | `audio_get_bank_data` (`0x08866c60`) |
+| `thunk_audio_set_listener_source` (`0x0886cc2c`) | BOOT.BIN | `audio_set_listener_table` (`0x0886cb44`) |
+| `thunk_audio_set_single_listener` (`0x0886cc34`) | BOOT.BIN | `audio_set_default_listener` (`0x0886cbc8`) |
+| `thunk_audio_stop_sound_with_groups` (`0x0886d724`) | BOOT.BIN | `audio_stop_sound_with_groups_2` (`0x088709c0`) |
+| `thunk_ui_list_widget_stub_noop` (`0x08eb78f4`) | rel_deck | `ui_list_widget_stub_noop` (`0x08eb69b0`) |
+| `thunk_ui_list_widget_set_enabled` (`0x08eb78fc`) | rel_deck | `ui_list_widget_set_enabled` (`0x08eb69b8`) |
+| `thunk_ui_list_widget_get_cursor` (`0x08eb7904`) | rel_deck | `ui_list_widget_get_cursor` (`0x08eb69d4`) |
+| `thunk_ui_destroy_duel_object` (`0x09863a9c`) | rel_duel_draw | `ui_destroy_duel_object` (`0x09861a68`) |
+| `thunk_system_pad_get_state` (`0x0989d1c4`) | rel_duel_draw | `thunk_system_pad_get_state` (`0x098bc794`) → `system_pad_get_state` |
+| `thunk_duel_core_get_phase` (`0x0989d598`) | rel_duel_draw | `thunk_duel_core_get_phase` (`0x098b98b4`) → `duel_core_get_phase` |
+| `thunk_duel_core_get_turn_counter` (`0x0989d5a0`) | rel_duel_draw | `thunk_duel_core_get_turn_counter` (`0x098b98c4`) → `duel_core_get_turn_counter` |
+| `thunk_duel_core_get_card_id_by_ref` (`0x0989d5a8`) | rel_duel_draw | `thunk_duel_core_get_card_id_by_ref` (`0x098b990c`) → `duel_core_get_card_id_by_ref` |
+| `thunk_duel_core_set_dialog_answer` (`0x0989d864`) | rel_duel_draw | `thunk_duel_core_set_dialog_answer` (`0x098b9a8c`) → `duel_core_set_dialog_answer` |
+| `thunk_duel_core_get_duel_state_block` (`0x0989d86c`) | rel_duel_draw | `thunk_duel_core_get_duel_state_block` (`0x098b9a9c`) → `duel_core_get_duel_state_block` |
+| `thunk_duel_core_close_input_if_answered` (`0x0989d90c`) | rel_duel_draw | `thunk_duel_core_close_input_if_answered` (`0x098bb50c`) → `duel_core_close_input_if_answered` |
+| `thunk_duel_core_close_input_with_answer_0d` (`0x0989d914`) | rel_duel_draw | `thunk_duel_core_close_input_with_answer_0d` (`0x098bb52c`) → `duel_core_close_input_with_answer_0d` |
+| `thunk_duel_core_get_open_input_mode` (`0x0989d91c`) | rel_duel_draw | `thunk_duel_core_get_open_input_mode` (`0x098bb49c`) → `duel_core_get_open_input_mode` |
+| `thunk_duel_core_push_command` (`0x0989d948`) | rel_duel_draw | `thunk_duel_core_push_command` (`0x098ba924`) → `duel_core_push_command` |
+| `thunk_duel_core_get_pending_action_count_result` (`0x0989df9c`) | rel_duel_draw | `thunk_duel_core_get_pending_action_count_result` (`0x098b9b7c`) → `duel_core_get_pending_action_count_result` |
+| `thunk_duel_effects_get_ritual_level_total` (`0x0989dfa4`) | rel_duel_draw | `thunk_duel_effects_get_ritual_level_total` (`0x098b9b84`) → `duel_effects_get_ritual_level_total` |
+| `thunk_duel_core_get_candidate_pick_limit` (`0x0989dfac`) | rel_duel_draw | `thunk_duel_core_get_candidate_pick_limit` (`0x098bb3bc`) → `duel_core_get_candidate_pick_limit` |
+| `thunk_duel_core_set_selected_candidate_index` (`0x0989dfb4`) | rel_duel_draw | `thunk_duel_core_set_selected_candidate_index` (`0x098bb3cc`) → `duel_core_set_selected_candidate_index` |
+| `thunk_duel_core_get_candidate_count` (`0x0989dfbc`) | rel_duel_draw | `thunk_duel_core_get_candidate_count` (`0x098bb3ec`) → `duel_core_get_candidate_count` |
+| `thunk_duel_core_get_candidate_entry` (`0x0989dfc4`) | rel_duel_draw | `thunk_duel_core_get_candidate_entry` (`0x098bb3dc`) → `duel_core_get_candidate_entry` |
+| `thunk_duel_core_get_candidate_display_flags` (`0x0989dfcc`) | rel_duel_draw | `thunk_duel_core_get_candidate_display_flags` (`0x098bb414`) → `duel_core_get_candidate_display_flags` |
+| `thunk_duel_core_set_candidate_pick_order` (`0x0989dfd4`) | rel_duel_draw | `thunk_duel_core_set_candidate_pick_order` (`0x098bb41c`) → `duel_core_set_candidate_pick_order` |
+| `thunk_duel_core_get_candidate_name_id` (`0x0989dfdc`) | rel_duel_draw | `thunk_duel_core_get_candidate_name_id` (`0x098bb3fc`) → `duel_core_get_candidate_name_id` |
+| `thunk_duel_core_get_current_link_card_id` (`0x0989e050`) | rel_duel_draw | `thunk_duel_core_get_current_link_card_id` (`0x098b9b8c`) → `duel_core_get_current_link_card_id` |
+| `thunk_duel_core_get_attack_state` (`0x0989e0d4`) | rel_duel_draw | `thunk_duel_core_get_attack_state` (`0x098b9b9c`) → `duel_core_get_attack_state` |
+| `thunk_duel_core_get_trigger_queue` (`0x0989e0dc`) | rel_duel_draw | `thunk_duel_core_get_trigger_queue` (`0x098b9ba4`) → `duel_core_get_trigger_queue` |
+| `thunk_ui_get_lp_display_target` (`0x0989e348`) | rel_duel_draw | `ui_get_lp_display_target` (`0x09858cbc`) |
+| `thunk_field_3d_set_duel_scene` (`0x098a0b3c`) | rel_duel_draw | `field_3d_set_duel_scene` (`0x0985b0ec`) |
+| `thunk_ui_duel_help_mode_start_close` (`0x098a2500`) | rel_duel_draw | `ui_duel_help_mode_start_close` (`0x098a25e4`) |
+| `thunk_ui_grid_select_free_confirm_window` (`0x098a4c60`) | rel_duel_draw | `ui_grid_select_free_confirm_window` (`0x098a58f4`) |
+| `thunk_ui_is_info_panel_idle` (`0x098abfb0`) | rel_duel_draw | `ui_is_info_panel_idle` (`0x098a6a50`) |
+| `thunk_ui_card_action_build_list` (`0x098af188`) | rel_duel_draw | `ui_card_action_build_list` (`0x098af338`) |
+| `thunk_ui_duel_options_draw_message` (`0x098b22d4`) | rel_duel_draw | `ui_duel_options_draw_message` (`0x098b1a90`) |
+| `thunk_ui_stub_noop_list_term` (`0x098b5284`) | rel_duel_draw | `ui_stub_noop_list_term` (`0x098b4340`) |
+| `thunk_ui_list_set_active` (`0x098b528c`) | rel_duel_draw | `ui_list_set_active` (`0x098b4348`) |
+| `thunk_ui_list_get_cursor` (`0x098b5294`) | rel_duel_draw | `ui_list_get_cursor` (`0x098b4364`) |
+| `thunk_duel_core_push_command` (`0x09be14bc`) | rel_duel_eng | `duel_core_push_command` (`0x09dc07f8`) |
+| `thunk_duel_core_push_command_unconditional` (`0x09be14c4`) | rel_duel_eng | `duel_core_push_command_unconditional` (`0x09dc08a4`) |
+| `thunk_ai_has_card_in_hand_or_field` (`0x09be1e00`) | rel_duel_eng | `ai_has_card_in_hand_or_field` (`0x09cfa5f8`) |
+| `thunk_ai_has_extra_deck_card_named` (`0x09be1e08`) | rel_duel_eng | `ai_has_extra_deck_card_named` (`0x09cf4b70`) |
+| `thunk_duel_effects_build_candidate_list` (`0x09be1e10`) | rel_duel_eng | `duel_effects_build_candidate_list` (`0x09cdc85c`) |
+| `thunk_duel_effects_can_activate_slot_card` (`0x09be1e18`) | rel_duel_eng | `duel_effects_can_activate_slot_card` (`0x09c52168`) |
+| `thunk_duel_effects_can_activate_hand_card` (`0x09be1e20`) | rel_duel_eng | `duel_effects_can_activate_hand_card` (`0x09c522d8`) |
+| `thunk_ai_get_battle_dominance` (`0x09be1e28`) | rel_duel_eng | `ai_get_battle_dominance` (`0x09d37490`) |
+| `thunk_ai_eval_attack` (`0x09be1e30`) | rel_duel_eng | `ai_eval_attack` (`0x09d06188`) |
+| `thunk_world_character_can_duel` (`0x09be3bb8`) | rel_duel_eng | `thunk_world_character_can_duel` (`0x09de702c`) → `world_character_can_duel` |
+| `thunk_system_memcpy` (`0x09be4c34`) | rel_duel_eng | `thunk_system_memcpy` (`0x09de5544`) → `system_memcpy` |
+| `thunk_duel_core_call_face_change_hook` (`0x09be50bc`) | rel_duel_eng | `duel_core_call_face_change_hook` (`0x09be20ac`) |
+| `thunk_system_get_net_active_flag` (`0x09be53b4`) | rel_duel_eng | `thunk_system_get_net_active_flag` (`0x09de4f94`) → `system_get_net_active_flag` |
+| `thunk_duel_core_net_receive_packet` (`0x09be5658`) | rel_duel_eng | `duel_core_net_receive_packet` (`0x09be558c`) |
+| `thunk_duel_effects_confirm_optional_trigger` (`0x09c43328`) | rel_duel_eng | `duel_effects_confirm_optional_trigger` (`0x09c431ac`) |
+| `thunk_ai_try_chain_tables` (`0x09d2fd78`) | rel_duel_eng | `ai_try_chain_tables` (`0x09d2f908`) |
+| `thunk_ai_get_visible_atk` (`0x09d4e340`) | rel_duel_eng | `ai_get_visible_atk` (`0x09cea360`) |
+| `thunk_duel_core_get_original_atk` (`0x09d4e348`) | rel_duel_eng | `duel_core_get_original_atk` (`0x09c0a62c`) |
+| `thunk_duel_core_get_level` (`0x09d4e530`) | rel_duel_eng | `duel_core_get_level` (`0x09c0a6a4`) |
+| `thunk_ai_handler_check_targets_1668` (`0x09d6b90c`) | rel_duel_eng | `ai_has_targets_on_both_sides` (`0x09ce9b54`) |
+| `thunk_dialogue_free_portrait_slots` (`0x090cf228`) | rel_field | `dialogue_free_portrait_slots` (`0x090cfbd0`) |
+| `thunk_world_free_overhead_icons` (`0x090d1908`) | rel_field | `world_free_overhead_icons` (`0x090d3db8`) |
+| `thunk_ui_options_draw_string` (`0x090eec3c`) | rel_field | `ui_options_draw_string` (`0x090ee3f8`) |
+| `thunk_shop_lib_draw` (`0x090d8330`) | rel_shop | `shop_draw_scene` (`0x090ddb08`) |
+| `thunk_shop_free_resources` (`0x090dbe7c`) | rel_shop | `shop_free_resources` (`0x090dbeec`) |
+| `thunk_save_find_top_character` (`0x08e9dafc`) | rel_story | `thunk_save_find_top_character` (`0x08eb0d2c`) → `save_find_top_character` |
+| `thunk_dialogue_op_if_flag` (`0x08ea7ab0`) | rel_story | `dialogue_op_if_flag` (`0x08ea7a2c`) |
+| `thunk_dialogue_op_set_flag` (`0x08ea8710`) | rel_story | `dialogue_op_set_flag` (`0x08ea86ac`) |
+| `thunk_world_advance_story_stage` (`0x08ea8728`) | rel_story | `world_advance_story_stage` (`0x08eab3c0`) |
+| `thunk_audio_stop_bgm` (`0x08ea9894`) | rel_story | `audio_stop_bgm` (`0x08eaa878`) |
+| `thunk_audio_story_stop_all_sounds_1500ms` (`0x08ea989c`) | rel_story | `audio_story_stop_all_sounds_1500ms` (`0x08eaa930`) |
+| `thunk_dialogue_op_npc_set_variant` (`0x08ea9a34`) | rel_story | `dialogue_op_npc_set_variant` (`0x08ea99c4`) |
+| `thunk_audio_play_sound` (`0x08eaa6b4`) | rel_story | `thunk_audio_play_sound` (`0x08eaf27c`) → `audio_play_sound` |
+| `thunk_audio_prefetch_snddat_block` (`0x08eaa714`) | rel_story | `thunk_audio_prefetch_snddat_block` (`0x08eaf21c`) → `audio_prefetch_snddat_block` |
+| `thunk_ui_update_turn_timer_blink` (`0x0989c638`) | rel_duel_draw | `ui_update_turn_timer_blink` (export entry, created 2026-11-04) |
+| `thunk_ui_set_player_action_validator` (`0x0989c6d4`) | rel_duel_draw | `ui_set_player_action_validator` (export entry, created 2026-11-04) |
+| `thunk_ui_set_card_action_auto_choose` (`0x0989c72c`) | rel_duel_draw | `ui_set_card_action_auto_choose` (export entry, created 2026-11-04) |
+| `thunk_ui_set_confirm_prompt_validator` (`0x0989c734`) | rel_duel_draw | `ui_set_confirm_prompt_validator` (export entry, created 2026-11-04) |
+| `thunk_ui_card_info_show_instance` (`0x0989c908`) | rel_duel_draw | `ui_card_info_show_instance` (export entry, created 2026-11-04) |
+| `thunk_duel_core_view_get_local_side` (`0x0989c954`) | rel_duel_draw | `duel_core_view_get_local_side` (export entry, created 2026-11-04) |
+| `thunk_duel_core_view_get_hand_count` (`0x0989c95c`) | rel_duel_draw | `duel_core_view_get_hand_count` (export entry, created 2026-11-04) |
+| `thunk_ui_is_message_window_open` (`0x0989c990`) | rel_duel_draw | `ui_is_message_window_open` (export entry, created 2026-11-04) |
+| `thunk_field_3d_board_set_word_098e666c` (`0x0989cc3c`) | rel_duel_draw | `field_3d_board_set_word_098e666c` (export entry, created 2026-11-04) |
+| `thunk_ui_set_portrait_expression_slot` (`0x0989cc44`) | rel_duel_draw | `ui_set_portrait_expression_slot` (export entry, created 2026-11-04) |
+| `thunk_audio_build_current_cutin_voice_queue` (`0x0989d4c0`) | rel_duel_draw | `audio_build_current_cutin_voice_queue` (export entry, created 2026-11-04) |

@@ -1223,7 +1223,7 @@ address,group,name
 0x09d1d0c4,ai,ai_handler_counter_harmful_link_1a24_1a25
 0x09d1d230,ai,ai_handler_check_phase_13f2
 0x09d1d314,ai,ai_handler_check_board_13a7
-0x09d1d3dc,ai,ai_handler_sim_attack_1d96
+0x09d1d3dc,ai,ai_handler_check_phase_1d96
 0x09d1d79c,ai,ai_handler_check_draw_1ab2
 0x09d1d81c,ai,ai_handler_check_targets_148d
 0x09d1d8f8,ai,ai_handler_react_to_event_12ba
@@ -1262,11 +1262,11 @@ address,group,name
 0x09d1fb58,ai,ai_handler_check_phase_1d1e
 0x09d1fca8,ai,ai_handler_check_phase_12f3
 0x09d1fe30,ai,ai_handler_check_board_131e
-0x09d1fe58,ai,ai_handler_check_upkeep_costs_175a
+0x09d1fe58,ai,ai_handler_check_targets_175a
 0x09d20058,ai,ai_handler_check_phase_137e
 0x09d2019c,ai,ai_handler_check_graveyard_1490
 0x09d20250,ai,ai_handler_check_phase_1378
-0x09d202b0,ai,ai_handler_check_deck_counts_14f0
+0x09d202b0,ai,ai_handler_check_draw_14f0
 0x09d20424,ai,ai_handler_has_candidate_1359
 0x09d20518,ai,ai_handler_check_graveyard_151d
 0x09d20788,ai,ai_handler_can_discard_15a8_1887
@@ -1392,7 +1392,7 @@ address,group,name
 0x09d2e488,ai,ai_handler_check_graveyard_1ca1
 0x09d2e5dc,ai,ai_handler_check_board_12fb
 0x09d2e688,ai,ai_handler_check_lp_1421
-0x09d2e85c,ai,ai_handler_check_race_combo_15ae
+0x09d2e85c,ai,ai_handler_burn_15ae
 0x09d2ec70,ai,ai_handler_has_two_candidates_1974
 0x09d2ecfc,ai,ai_handler_can_choose_candidate_1dd5
 0x09d2ed94,ai,ai_handler_check_dominance_15f6
@@ -5809,9 +5809,9 @@ address,group,name
 0x09c0b7b8,duel_core,duel_core_call_get_attribute,M,8-byte entry before duel_core_get_attribute_mask; shared body is duel_core_get_attribute (DNA Transplant 0x171f, Attribute Chameleon 0xec8, Clear cards)
 0x09c0d4c4,duel_core,duel_core_call_graveyard_card_may_leave,M,8-byte entry before duel_core_graveyard_card_may_leave; shared body: Iron Wall / can_banish_from_graveyard, then Transmigration Break 0x1d36 gives 0
 # registry hygiene 2026-11-03: group only, default name kept (no name has an H/M basis); evidence per row
-0x09be1dc4,duel_core,FUN_09be1dc4,M,true when the candidate-list word 0x09e29918 is in 7..0x48 (read by 20 ai/duel functions); between duel_core_set_dialog_answer and duel_core_get_duel_state_block
-0x09be26f4,duel_core,FUN_09be26f4,M,decompilation fails; only caller duel_core_record_duel_result; calls deck_get_duel_setup_tail_block and save_get_record_table
-0x09be4bd8,duel_core,FUN_09be4bd8,M,sets 0x09e01eb4/0x09e01eb8/0x09e01ebc (read by 0x09be4bf4); module caller rel_duel_mgr duel_core_setup_engine_for_duel
-0x09be4bf4,duel_core,FUN_09be4bf4,M,returns the pointer 0x09e01ebc set by 0x09be4bd8 (writes 0x09e01eb8 through it when 0x09e01eb4 == 1)
-0x09be5000,duel_core,FUN_09be5000,L,returns 0; no caller; between duel_core_copy_dialog_text_without_codes and duel_core_net_debug_print_packet
-0x09cdfbac,duel_effects,FUN_09cdfbac,M,predicate on a 2-byte card id + kind-nibble record (true for kinds 0xb/0xa; bit 4 for 6/7; card 0x1598 for kind 2); no direct caller; inside the duel_effects rule-update range
+0x09be1dc4,duel_core,duel_core_is_multi_pick_list_mode,H,round 5 (2026-11-04): basis in docs/subsystems/functions/duel_core.md
+0x09be26f4,duel_core,duel_core_update_duel_records,H,round 5 (2026-11-04): basis in docs/subsystems/functions/duel_core.md
+0x09be4bd8,duel_core,duel_core_set_output_binding,M,round 5 (2026-11-04): basis in docs/subsystems/functions/duel_core.md
+0x09be4bf4,duel_core,duel_core_flush_output_binding,M,round 5 (2026-11-04): basis in docs/subsystems/functions/duel_core.md
+0x09be5000,duel_core,duel_core_stub_return_0_09be5000,H,round 5 (2026-11-04): basis in docs/subsystems/functions/duel_core.md
+0x09cdfbac,duel_effects,duel_effects_is_spirit_reaper_target_marker,H,round 5 (2026-11-04): basis in docs/subsystems/functions/duel_effects.md

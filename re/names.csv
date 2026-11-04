@@ -2663,3 +2663,5 @@ address,group,name
 0x08867f7c,audio,audio_set_word_08dd311c,H,stores its argument in 0x08dd311c; which audio_init and audio_start_sound read (round 4)
 0x0886d86c,audio,audio_get_word_08dd3134,H,returns 0x08dd3134; which audio_init and audio_set_callback_08dd3130 write (round 4)
 0x0886d8e4,audio,audio_stub_return_1_0886d8e4,M,returns 1; no caller (round 4)
+0x0881d8f4,container,container_resolve_path_lbn,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/container.md
+0x08832a4c,card_db,card_db_get_id_by_index,H,round 5 (2026-11-04): function created; basis in docs/subsystems/functions/card_db.md

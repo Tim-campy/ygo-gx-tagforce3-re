@@ -2,13 +2,14 @@
 
 Reference table generated in the documentation round of 2026-10-31 and extended in the round of 2026-11-03. Each row is a function that reached the `documented` stage (`docs/PROGRESS.md`): its prototype, purpose, return value, side effects and callers, read from the Ghidra decompilation with the names of that round. The same text is the function's plate comment in Ghidra (`re/documented*.tsv`, applied by `tools/ghidra/ApplySignatures.java`). How the subsystem works as a whole is in [`../card_db.md`](../card_db.md); pointers to structures are typed `void *` and the structure is named in the summary.
 
-Functions: 45 (BOOT.BIN 45).
+Functions: 46 (BOOT.BIN 46).
 
 
 ## `BOOT.BIN`
 
 | Address | Prototype | Summary |
 | --- | --- | --- |
+| `0x08832a4c` | `int card_db_get_id_by_index(int index)` | Created 2026-11-04 (Ghidra had no function here): returns the card id (low 14 bits of the u16 at +0) of the 8-byte CARD_Prop record index (table pointer 0x08924d48), the inverse of card_db_index_of_id. No side effects. No direct caller in BOOT.BIN; exported (libehsys_rel; import stubs in every Ghidra-imported module, none called). |
 | `0x08836da8` | `int card_db_is_collection_excluded(int card_id)` | Binary search of card_id in the sorted u16 table at 0x088a0880 (indices 0-15); returns 1 when found, else 0: cards not counted by save_get_card_collection_permille. No side effects. Callers: 1 (save_get_card_collection_permille). |
 | `0x0883c4dc` | `void * card_db_get_view_card_image(int card_id, int artwork)` | Returns card_db_cip_get_image(*0x08acc9a0, card_id, artwork) for the card viewer's .cip reader, or 0 when that reader is not ready (card_db_cip_is_ready). Side effects: those of card_db_cip_get_image (may queue a read). Callers: 5 (ui_draw_card_detail_view_at, ui_draw_card_detail_view_pair_at, ui_draw_card_face, ui_update_card_view_state, ...). |
 | `0x0883cafc` | `void * card_db_open_cardh_cip(void *reader, int reader_size, int preload)` | Initialises a .cip reader for the language's cardh file (path table 0x088a12b0 indexed by save_get_language): clears 0xdc bytes, root +0x80 = 3, size +0x84, flag bit 2 = preload & 1 (whole-file preload mode), path at +0, and queues the 0x800-byte header read into +0xac with callback card_db_on_cip_header_read. Returns reader. Side effects: reader, a file-thread request. No direct caller. Exported; called from draw (1), rel_field (1), rel_shop (2), rel_deck (1), rel_title (1). |

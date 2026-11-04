@@ -15,7 +15,7 @@ address,group,name
 0x090eeca4,container,thunk_container_read_file
 0x090eecac,container,thunk_container_read_async
 0x090eecb4,container,thunk_container_get_root_path
-0x090eecbc,,thunk_FUN_0881d8f4
+0x090eecbc,container,thunk_container_resolve_path_lbn
 0x090eecc4,system,thunk_system_load_module
 0x090eeccc,system,thunk_system_queue_module_load
 0x090eecd4,container,thunk_container_get_file_size
@@ -405,7 +405,7 @@ address,group,name
 0x090ef8d4,card_db,thunk_card_db_get_icon_name
 0x090ef8dc,card_db,thunk_card_db_get_genre_name
 0x090ef8e4,card_db,thunk_card_db_index_of_id
-0x090ef8ec,,thunk_FUN_08832a4c
+0x090ef8ec,card_db,thunk_card_db_get_id_by_index
 0x090ef8f4,card_db,thunk_card_db_get_name
 0x090ef8fc,card_db,thunk_card_db_get_description
 0x090ef904,card_db,thunk_card_db_is_valid
