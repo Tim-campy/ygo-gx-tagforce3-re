@@ -65,6 +65,19 @@ For every pack except 15 and 47 (and for those too when the player owns all of a
 
 `give_random_card` / `give_booster` (story opcodes 50098/50099, `docs/formats/story.md`) use the copies of these lists inside `rel_story.prx` with their own rarity range; they do not touch the shop's rarity box (`rel_story` never calls `save_get_pack_entries` or `save_set_pack_entry`).
 
+## Cards in no pack (2026-11-04)
+
+Joining the pack table (`tables.py packs`) with `cardinfo_eng` gives 3,553 cards, 3,477 of them in at least one pack and **76 in none**. None of the 76 is a story gift: the `give_card`/`if_card_marked`/`mark_card` operands of `EveB.bin` (`story.py events`) name 38 distinct cards, all of them pack cards. The 76 split as follows (static reading with capstone; analysis scripts kept outside the repository):
+
+| Group | Cards | How the game treats them | Conf. |
+| --- | --- | --- | --- |
+| Tokens | 52: `3751` and `3900`–`3950` (kind 21) | Never collectable; `card_db_is_token` excludes them from every random card draw. | H |
+| Underground-duel prize list | 5: `5189`, `5181`, `4343`, `4842`, `4844` (Philosopher's Stone - Sabatier, Illusion Gate, Raigeki, Monster Reborn, Pot of Greed) | `rel_underground` reward picker `+0x6a28` (module offset), mode `0x0e`: copies the 5 `u32` ids at module `+0x17a94` and gives the one with the fewest free copies (`deck_count_free_card_copies`, BOOT export). | H (code), M (that mode `0x0e` is the prize case) |
+| Excluded from random rewards and from the collection percentage | 16: `3752`, `3789`, the three Egyptian Gods `4998`–`5000`, `6989`, `7332`–`7341` | Listed both in the underground exclusion list (below) and in the 16 sorted ids at `BOOT.BIN` `0x088a0880` that `card_db_is_collection_excluded` (`0x08836da8`) removes from the collection percentage (`save_get_card_collection_permille`). The game therefore does not expect the player to own them; 11 of them (`6989`, `7332`–`7341`) have a passcode, so the password machine is the likely route for those, while `3752`, `3789` and the Gods have passcode 0. | H (lists), L (route) |
+| Excluded from random rewards only | 3: `3763`, `3787`, `3790` | In the underground exclusion list but counted in the collection percentage; no route found in the story, packs or the underground; candidates are the conversion machine and the password machine (all three have passcode 0, which rules out a password). | L |
+
+The underground reward picker (`rel_underground` `+0x6a28`, modes `0x10`, `0x0e`, 7 and the default): every mode except `0x0e` walks the card ids `0xe88`–`0x1f39` (3720–7993) and keeps the ids that exist (`card_db_is_valid`), are not tokens (`card_db_is_token`) and are not in the **exclusion list** at module `+0x17b58` (24 `u32` ids ended by −1, tested by `+0x6dc8`: the 5 prizes, the 16 collection-excluded cards and `3763`/`3787`/`3790`); it then filters by rarity (`card_db_get_prop_bits22`, cardinfo word 1 bits 22–24): default mode rarity 0 or 1, mode 7 rarity 3 or 4, mode `0x10` one rarity drawn per reward from the 16-byte rows at `+0x17aa8` (176 bytes copied, 11 rows of four `u32` percentages for rarity 0, 1, 3 and 4, compared cumulatively with `rand() % 100`; the row index comes from `+0xdcd0` on work `+0xa60`); one of the kept ids is chosen with `system_rand_shifted() % count` and appended to the reward list at work `+0x54`. This also confirms the rarity reading of word 1 bits 22–24 (`cardinfo.md`).
+
 ## Writer and round trip
 
 `tables.read_packs()` keeps each pack's descriptor address and tier list addresses with the values; `tables.write_packs(prx, packs)` writes the 48 records, the 48 descriptors and the card id lists back at those addresses (a port can relocate them by changing the addresses), and `tables.pack_spans()` lists the bytes the table owns. The round trip overwrites those bytes with a filler, writes the model back and compares the whole module: byte-identical (`pack_table` is `reimplemented`):
@@ -75,7 +88,7 @@ python3 -I tools/roundtrip.py --check <PSP_GAME> --only pack_table
 
 ## Open questions
 
-- Pack names and artwork: which string table and texture belong to each pack index (`shop/all_<lang>.ehp` has `strTbl` with 35 entries and `pack_explain_str` with 392).
-- Confirm in PPSSPP: a single purchase (DP before/after, save byte `+0x1542a + p`, counter `+0x16602`, one rarity entry written), and the rarity entries after 20 packs of one kind. Which visible element the shoulder-button purchase (mode 1) is in the UI was read from the input mask only.
+- Pack names and artwork: which string table and texture belong to each pack index (`shop/all_<lang>.ehp` has `strTbl` with 35 entries and `pack_explain_str` with 392). **Answered elsewhere** (port-readiness audit, 2026-11-04): `string-tables.md` (`pack_name_str_<l>.bin` in the `BOOT.BIN` archive, `pack_explain_str_<l>.bin` in `shop/all_<l>.ehp`); the artwork mapping is cosmetic.
+- Confirm in PPSSPP: a single purchase (DP before/after, save byte `+0x1542a + p`, counter `+0x16602`, one rarity entry written), and the rarity entries after 20 packs of one kind. Which visible element the shoulder-button purchase (mode 1) is in the UI was read from the input mask only. **Answered elsewhere** (port-readiness audit, 2026-11-04): `verification/results/2026-10-31-sessionE-P.md` E16, pass.
 - The 99-entry card list at save `+0x161f6` (count `+0x161f4`) whose copies the result list shows (`0x08857158`/`0x088571c8`; presumably the trunk or a deck).
-- How the 76 cards that are in the database but in no pack are obtained (rewards, starter deck, story).
+- ~~How the 76 cards that are in the database but in no pack are obtained~~: answered statically 2026-11-04, see "Cards in no pack" below. Still open: the rules of the password machine (`rel_password`) and of the card conversion machine (`rel_conv_machine`), the two remaining routes.

@@ -26,5 +26,5 @@ python3 -I tools/roundtrip.py --check <PSP_GAME> --only limit_list
 
 ## Open questions
 
-- `deck_set_limit` writes the status into a per-card table; is that table part of save data (does the game support editing or updating the list)?
+- `deck_set_limit` writes the status into a per-card table; is that table part of save data (does the game support editing or updating the list)? **Answered elsewhere** (port-readiness audit, 2026-11-04): yes: per-card status in the save collection record, byte 2 bits 0–1 (`save.md` "Card collection").
 - Header bytes before the table (`0x7073`, `0x61`) and the data after it (`(0x2b28, 3)`, `(0x2b40, 3)`, …) are unrelated or unexplained.

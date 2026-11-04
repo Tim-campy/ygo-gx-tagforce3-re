@@ -194,4 +194,4 @@ python3 -I tools/roundtrip.py --check <PSP_GAME> --only field_map_lighting,islan
 - The scripted placements behind cells 10000/10001 (`world_send_npc_list`, locations 5 and 25) and the anonymous extras on locations 2 and 4.
 - Which part of `bm_parts.gim` and which EHF layout each island area uses; the exact on-screen marker sprite.
 - Whether `0x090d3f54` draws the talk balloon (the cell lists of maps 21 and 27 suppress it).
-- PPSSPP confirmation of the door-opening distance, the midnight lock and the arrival cells.
+- PPSSPP confirmation of the door-opening distance, the midnight lock and the arrival cells. **Answered elsewhere** (port-readiness audit, 2026-11-04): `verification/results/2026-10-31-sessionE-W.md` E11 (arrival cells) and E12 (doors at midnight), both pass.

@@ -87,5 +87,9 @@ Writer and round trip: `tools/exe_tables.py` (`shop_opponent_list`, 104 `u16`) w
 ## Open questions
 
 - ~~The source of the shop bytes for packs 9–14, 41/42 and 46~~: settled 2026-11-04 (weekday, daily clerk pick, button code; above).
-- The meaning of the save progress flags `+0x1c0e9` bits 4, 5, 7 and `+0x1c0ea` bit 0, and of minigame records 0, 1, 2, 7, 8 (`save.md`).
+- ~~The meaning of the save progress flags `+0x1c0e9` bits 4, 5, 7 and `+0x1c0ea` bit 0~~: writers found statically 2026-11-04 (port-readiness audit; capstone scan of every `jal` to the `save_set_progress_flag_*` functions in `BOOT.BIN` and, through the import stubs, in all 36 modules):
+  - `+0x1c0e9` bit 4 (`save_set_progress_flag_e9_bit4`) and bit 0 (`_e9_bit0`): set only by `rel_story` `+0xfd4`, which counts the (character, variant) rows 2–142 whose finished-partner-story flag is set (`save_test_character_flag_bit2`, character flags `0x1bf8c`); bit 4 when the count is ≥ 1, bit 0 when it is ≥ 6. So bit 4 = "first partner story finished", bit 0 = "six partner stories finished" (H for the code, M for the wording).
+  - `+0x1c0e9` bit 5: set only by `rel_underground` `+0x1c20`, when its work word `+0x1c` has reached 50 (an underground-duel counter; which one is not traced, M).
+  - `+0x1c0e9` bit 7 and `+0x1c0ea` bit 0: set only by `rel_umd_replace` (`+0x1f60` and `+0x1e3c`), the UMD-swap scene that reads another disc through `sceUmdUser`. These two unlocks depend on the player inserting another UMD; the port must decide how to grant them (no disc swap exists on the 3DS).
+  - Still open: minigame records 0, 1, 2, 7, 8 (`save.md`; PPSSPP differential save 6).
 - What the upper 15 bits of the shop opponent list encode, and whether the 104 entries are opponents or duel bonuses.

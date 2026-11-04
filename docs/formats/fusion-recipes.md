@@ -96,4 +96,4 @@ python3 -I tools/roundtrip.py --check <PSP_GAME> --only fusion_recipes,ritual_ta
 
 - Confirm the slot-matching tie rules of `0x09cb97c4` (ambiguous matches, `0x09e29060`) in PPSSPP with a Fusion whose materials overlap (Elemental Hero Divine Neos, Ojama Knight).
 - `0x09e29060` is also used to sum the materials' ATK for UFOroid Fighter and Evil Hero Dark Gaia; check that the two uses never overlap.
-- The data after the recipe table (`0x09dec2e8`–`0x09dec4d4`) is not identified.
+- ~~The data after the recipe table (`0x09dec2e8`–`0x09dec4d4`) is not identified~~: answered statically 2026-11-04 (port-readiness audit): it is compiler switch **jump tables**, not game data. Every word is an unrelocated module offset into `.text` (first word `0x000d7e84` = `0x09cb9284` at the runtime base, inside the fusion code next to the slot matcher `0x09cb97c4`; the later entries run from `0x000e09a8` to `0x000eaa3c`), 123 `u32` entries in all up to `0x09dec4d0`; the ritual table starts right after. Nothing for the port to extract.

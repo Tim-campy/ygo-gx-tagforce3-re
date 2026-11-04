@@ -101,4 +101,4 @@ One generic player serves all of them. It is a thin layer over the `sceMpeg` imp
 - The header bytes between `+0x10` and `+0x55` and the tails of the stream entries (frame rate, ATRAC3plus parameters) are not decoded; only the fields above are used.
 - Whether the audio track is the full soundtrack for the movie or only the voice and effects (the bitrate is answered: 744-byte frames, 128,166 bit/s).
 - Whether the PSP player really drops 2,416 samples (one frame + decoder delay) before the first video frame; check the A/V offset in PPSSPP.
-- The call sites of the player (who opens each file, whether a button press can skip it) are not traced.
+- The call sites of the player (who opens each file, whether a button press can skip it) are not traced. **Answered elsewhere** (port-readiness audit, 2026-11-04): `verification/results/2026-10-31-sessionE-T.md` E2 and `psmf-movies.md` ("played from").

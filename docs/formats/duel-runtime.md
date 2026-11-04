@@ -49,7 +49,7 @@ Written by the duel manager (`rel_duel_mgr`, `duel_core_setup_engine_for_duel`) 
 | `0x09e029a8` | 4 | `u32` | First player (side that takes turn 1); copied to `0x09e2d1d8` | `duel_core_set_first_player`; `0x09dc7dc4` | H |
 | `0x09e029ac` | 0x300 | deck`[4]` | Four in-memory deck structures of 0xc0 bytes (`deck.md`), indexed by duelist 0–3; a tag duel loads 2 and 3 into the sides | `duel_core_get_duelist_deck`/`_set_duelist_deck`, `tag_duel_start_with_partner_decks` | H |
 | `0x09e02cac` | 4 | `u32` | Duel rule/LP mode: 1 → 1,000 LP, 2 → 2,000, 3 → 4,000, other → 8,000; 6 forbids setting cards, 7 forbids Tributes, 8 forbids position changes, 9 forbids attacks | `0x09dc7dc4`; `duel_core_can_set_face_down`, `duel_core_is_tribute_allowed`, `duel_core_can_change_position`, `duel_core_can_monster_attack` | H (LP values), M (6–9 as special rule duels) |
-| `0x09e02cb0` | 4 | `u32` | Extra duel result word (set by the duel manager and the end-of-duel driver) | `duel_core_set_duel_result_extra`/`_get`; `duel-phases.md` | M (meaning unknown) |
+| `0x09e02cb0` | 4 | `u32` | Final duel result from the local side's view: `duel_core_run_duel_flow` copies `0x09e2d1f0` here when the flow ends (1 local side won, 2 opponent won, 3 draw); 0 = no result (the record step returns at once). `duel_core_record_duel_result` stores it at set-up tail `+0x20`, which `rel_story` passes to `world_record_duel_result` (`world.md`, "Back from a story duel"); value 4 is also tested there (card milestone of `0x1468`) and must come from the duel manager's setter. Settled 2026-11-04 (port-readiness audit) from the documented writers. | `duel_core_set_duel_result_extra`/`_get`, `duel_core_run_duel_flow`, `duel_core_record_duel_result`; `duel-phases.md` | M-H (1–3), L (4) |
 | `0x09e02cb4` | 4 | `u32` | Duel result copied out at the end of the duel | `duel_core_set_duel_result`/`_get`, command 5 handler `0x09dbbf38` | H |
 
 ## Tag partner waiting area (`tag_waiting_area`)
@@ -117,6 +117,46 @@ Written by `duel_core_raise_timing_event(code, arg)` (`0x09ccaae4`); consumed by
 | `0x09e28fc0` | 128 | `u32[32]` | Event arguments (for card events the low 9 bits are a card instance, bit 9 / bit 16 a side; per-code layout in the readers) | same; `chain.md` link `+0x14` | H (array), M (argument packing) |
 
 Neighbouring response-window words `0x09e29044` (window state), `0x09e29048` (window pending), `0x09e2904c` (activation made) belong to the window driver (`battle.md`, `chain.md`), not to the queue.
+
+### Event codes by raiser (2026-11-04)
+
+A capstone scan of `rel_duel_eng` (every `jal duel_core_raise_timing_event`, with the last write of `a0` in the 16 instructions before the call or in the delay slot; caller names from `re/functions.csv`) finds **52 call sites**. 41 pass a constant code, 2 pass 0 explicitly, 9 pass a computed code. The meaning column is read from what the raiser does (its documented behaviour in `docs/subsystems/functions/duel_core.md`); it names the game event, not every card that reacts to it. This is the event vocabulary the port's trigger system needs; per-card reactions remain in the effect handlers.
+
+| Code | Raised by (call sites) | Event | Conf. |
+| --- | --- | --- | --- |
+| `0x00` | `duel_core_chain_step`; link-duel packet 0x16 | A chain link was activated (also the "empty queue" value, above) | M |
+| `0x01` | `duel_core_step_draw_phase` | Draw Phase | H |
+| `0x02` | `duel_core_step_standby_phase` (code kept in a register) | Standby Phase (`duel-phases.md`) | H |
+| `0x03`, `0x04` | `duel_core_step_main_phase` (2) | Main Phase → Battle Phase, Main Phase → End Phase | H |
+| `0x05` | `duel_core_step_end_phase` (code kept in a register) | End Phase (`duel-phases.md`) | H |
+| `0x08` | `duel_effects_resolve_magical_hats` | Set cards shuffled among the zones (Magical Hats; the same handler also raises a computed code) | M |
+| `0x09` | `duel_core_flip_card_face`, `duel_core_change_position` | Battle position or face changed | M |
+| `0x0a` | `duel_core_place_spell_trap_from_hand`, resolve handlers `0x19ae/0x1a7d`, `0x1aca`, `0x1e0e` | A spell/trap placed in a zone: certainly when Set face-down (`0x1e0e` raises it right after turning itself face-down); whether an activation from the hand raises it too is not read | M (Set), L (activation) |
+| `0x0b` | `duel_core_change_position` | Position change, second event of the same call (code 9 is the first) | L |
+| `0x0c` | `duel_core_flip_card_face` | Card flipped face-up | M |
+| `0x0d` | `duel_core_battle_step_damage_calc` | Damage calculation | H |
+| `0x0e` | `duel_core_battle_step_inflict_damage` | Battle damage step (inflict) | H |
+| `0x0f` | `duel_core_apply_battle_damage` | Battle damage applied | H |
+| `0x10` | `duel_core_inflict_damage` | Effect damage | H |
+| `0x11` | `duel_core_gain_lp` | Life Point gain | H |
+| `0x12` | `duel_core_raise_attack_event` | Attack event with the attack word (attacker, target, direct) | H |
+| `0x13` | `duel_core_battle_step_attack_declared` | Attack declared | H |
+| `0x14` | `duel_core_battle_step_damage_start` (3) | Start of the Damage Step | H |
+| `0x16` / `0x1c` | `duel_core_send_field_card` (one of the two, chosen by a local flag of the send) | A field card was sent (destroyed vs. otherwise sent: hypothesis) | L |
+| `0x17` | `duel_core_battle_step_end` | End of the Battle Phase | H |
+| `0x18` | `duel_core_equip_card_ex` | Card equipped | M |
+| `0x19` | `duel_core_move_field_card_to_slot`, `duel_effects_swap_control` (2) | Control changed / card moved to another zone | M |
+| `0x1a` | `duel_core_draw_cards_ex` | Cards drawn (outside the normal draw as well) | M |
+| `0x1b` | `duel_core_add_list_card_to_hand` (2), `duel_core_add_deck_card_to_hand_ex` | Card added to the hand from the Deck or a pile | M |
+| `0x1d` | `duel_core_send_deck_ref_to_graveyard_ex` | Card sent from the Deck to the Graveyard | M |
+| `0x1f` | `duel_core_banish_graveyard_card_ex`, `duel_core_send_list_card_to_graveyard` | Card moved between piles (Graveyard ↔ banished) | M |
+| `0x20` | `duel_core_summon_raise_trigger` via `duel_core_summon_step_normal`, `duel_core_run_summon_procedure` | Normal Summon (or Tribute Summon) succeeded | H |
+| `0x21` | via `duel_core_summon_step_flip` | Flip Summon succeeded | H |
+| `0x22` | via `duel_core_summon_step_procedure` | Special Summon by the card's own procedure (incl. Synchro, contact fusion) succeeded | H |
+| `0x25` | 4 return/move helpers (`return_hand_card_to_deck`, `return_graveyard_card_to_deck_ex`, `return_banished_card_to_graveyard`, `return_banished_card_to_deck`), resolve handlers `0x1528`, `0x1a73/0x1d11`, `duel_core_step_standby_phase` (2) | Card returned to the Deck or Graveyard; also the Standby upkeep event (`duel-phases.md`) | M |
+| computed | `duel_core_send_hand_card` (code from its caller), `duel_core_queue_summon_event_triggers` (caller's code), `duel_effects_resolve_magical_hats` | Discard / hand-to-Graveyard codes and the effect Special Summon codes; the values up to `0x25` that no constant raiser passes (`0x06`, `0x07`, `0x15`, `0x1e`, `0x23`, `0x24`) are the candidates | L |
+
+The summon codes come from the four constant arguments of `duel_core_summon_raise_trigger` (`0x09dac2e0`): `0x20` at `0x09daf9b4`/`0x09db20ec`, `0x21` at `0x09dafe8c`, `0x22` at `0x09db1920`. With these names, the per-code lists of `duel_effects_is_activatable_in_window` (`0x09bf2910`, `functions/duel_effects.md`) read as the **Damage Step activation rule**: in a window opened for `0x0d` (damage calculation), `0x0e`/`0x0f` (battle damage), `0x10` (effect damage), `0x14` (start of the Damage Step) or `0x16`, only Counter Traps, 23 always-allowed cards and the card ids listed for that code may be activated; for `0x11`–`0x13`, `0x15` and every other code the function returns 0, so the caller (`duel_effects_can_respond_in_window`) falls back to the normal rules (M: the fallback is read from the caller's name and use, not traced). What remains open is the exact code that each computed raiser passes; the PPSSPP check G1 in `docs/verification/ppsspp-plan.md` settles it with one logging breakpoint.
 
 ## Fusion and Synchro material state (`summon_material_state`)
 
@@ -333,6 +373,6 @@ The other rows of this document are runtime state with no instance in a file or 
 
 - Meaning of the instance-table bits 14–15 and byte `+0x03`, of list-entry bits 2, 4–6 and 15 of `u16 +2`, and whether effect-record byte `+0x03` is ever used.
 - Input-state words `0x09e2d25c` and `0x09e2d294`; four of the seven executor masks at `0x09e2bba8`–`0x09e2bbc3`.
-- `0x09e02cb0` (extra duel result) and the gate `0x09de4d0c` of the list-activation collector.
+- `0x09e02cb0` (extra duel result) and the gate `0x09de4d0c` of the list-activation collector. **Answered elsewhere** (port-readiness audit, 2026-11-04): the gate `0x09de4d0c` is the import stub of `card_db_get_spell_speed` (`functions/import-stubs.md`); the AI does not read `0x09e02cb0` (`ai.md`).
 - Prompt kinds 4, 7 and 8 (workers not read).
 - Confirm in PPSSPP: the battle damage records for one attack with piercing (`battle.md`), the phase override stack during an AI turn, and the material state during a Fusion.

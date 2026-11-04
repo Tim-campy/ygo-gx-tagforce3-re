@@ -48,4 +48,4 @@ EHP archives are documented in `ehp.md`.
 
 - Is `BOOT.BIN` the same program as `EBOOT.BIN`? Hypothesis, medium confidence (sizes differ by 340 bytes). Confirm by comparing BOOT.BIN against the module PPSSPP loads at runtime.
 - Formats still to identify: the member types listed in `ehp.md` (the `snd/` banks are in `sound.md`, the `script/` archives in `story.md`).
-- Which `gmodule/` PRX modules are loaded, by whom and when.
+- Which `gmodule/` PRX modules are loaded, by whom and when. **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/modules.md` (module table, loaders and scene ids).

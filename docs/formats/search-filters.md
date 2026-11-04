@@ -145,7 +145,7 @@ The tool runs every builder with `a1` = the record's card id: a path-sensitive k
 ## Open questions
 
 - Filter `0x10000`: the second condition (card `0x1e74`, absent from cardinfo, with the Lightsworn list `0x08862688`) — which card is `0x1e74` and why it blocks Lightsworn candidates; confirm the Metalsilver Armor reading in PPSSPP.
-- `0x09c0cb98`'s fifth argument (Deck/hand option `0x8` passes 1, option `0x10`/`0x4` passes 0).
+- `0x09c0cb98`'s fifth argument (Deck/hand option `0x8` passes 1, option `0x10`/`0x4` passes 0). **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/effect-helpers-predicates.md` (`duel_core_can_special_summon_card_to`, argument 5 = face-up).
 - Graveyard options `0x40`–`0x200`: the meaning of entry byte `+2` bits 2–5.
 - Extra Deck options `0x4`, `0x8`: the per-card lists in BOOT `0x08864ff8`, `0x08865ad8`, `0x08863a34`.
 - Archetype `0x1f` (BOOT `0x08861d6c`): predicate without a card-id list (13 builders use it).

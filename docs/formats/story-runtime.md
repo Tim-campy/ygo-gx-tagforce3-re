@@ -196,5 +196,5 @@ python3 -I tools/roundtrip.py --check <PSP_GAME> --saves external/ppsspp/saves -
 ## Open questions
 
 - Content of the story sub-blocks `+0x3504`, `+0x3528`, `+0x3570`, `+0x3584` and of the second record set `+0x35b8`, and the 4 bytes at `+0x3524`.
-- Field state `+0x34` (writer), `+0x160`–`+0x168` (meanings), and whether the item counters `+0x94` are the item menu's counts.
+- Field state `+0x34` (writer), `+0x160`–`+0x168` (meanings), and whether the item counters `+0x94` are the item menu's counts. **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/world.md` ("Inventory": 50 counters at `+0x94`, opcodes 50081–50083) and the field-state table there for `+0x160`–`+0x168`.
 - Field save block `+0x03` and `+0x08`.

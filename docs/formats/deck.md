@@ -77,7 +77,7 @@ The records cover recipes 0–461 contiguously without gaps or overlaps (owner 1
 
 ## Recipe level table: `0x089143f0`
 
-462 `u16` values, one per named recipe, all 1–10. `deck_get_recipe_level(index)` (`0x0885c2dc`) returns the value for 0 ≤ index < 462 and 1 otherwise. Hypothesis (medium): the deck's strength. `rel_underground` `0xde88` draws the underground opponent's deck at random among the recipes 0–461 of a requested level ("Who uses which recipe"); `rel_title`, `rel_recipeviewer` and `rel_duel_eng` (six calls) also read it, not traced. In `BOOT.BIN`, `deck_load_recipe` calls it and ignores the result.
+462 `u16` values, one per named recipe, all 1–10. `deck_get_recipe_level(index)` (`0x0885c2dc`) returns the value for 0 ≤ index < 462 and 1 otherwise. Hypothesis (medium): the deck's strength. `rel_underground` `0xde88` draws the underground opponent's deck at random among the recipes 0–461 of a requested level ("Who uses which recipe"); `rel_title` and `rel_recipeviewer` also read it (not traced); `rel_duel_eng` uses the opponents' average level for the experience reward of a won duel (`duel_core_record_duel_result`, see "Open questions"). In `BOOT.BIN`, `deck_load_recipe` calls it and ignores the result.
 
 ## Owner variant table: `0x08916730`
 
@@ -209,8 +209,8 @@ python3 -I tools/roundtrip.py --check <PSP_GAME> --only recipe_names,recipe_owne
 - `rel_story` duel mode 6 (`0xa098`, set-up byte `0x33358`): it loads the set-up recipes of duellists 0 and 1 with `deck_load_recipe` directly (except 466), so code 465 there would load the placeholder `RCP465.ydc`; which game mode this is was not traced.
 - The recipe card list at `0x089150b8`: what reads set-up record `+0x14c` (key cards for the AI, the versus screen or the recipe viewer).
 - The `stage` argument and mode of `deck_select_owner_variant`, and the value compared with 2000 for owner 8.
-- What `rel_duel_eng` does with the recipe level (six calls) and what decides the level that `rel_underground` asks for.
-- The player's deck format in save data, and whether it is the 0xc0-byte in-memory struct.
-- The image container indexed by `fileTbl` / `sameCardTbl` slots (`card/*.cip` headers contain the id range `0xe88`–`0x1f39`).
+- ~~What `rel_duel_eng` does with the recipe level (six calls)~~: answered statically 2026-11-04 (port-readiness audit, capstone scan of the six `jal` to the import stub `0x09de71ac`): all six are in `duel_core_record_duel_result` (`0x09be4648`), which averages the opponents' recipe levels (`0x09e01e44`) after a won duel and grants duelist experience = level × 2 in default rules, half otherwise, 10 online (`save_add_duelist_exp`; `functions/duel_core.md`). Still open: what decides the level that `rel_underground` asks for.
+- The player's deck format in save data, and whether it is the 0xc0-byte in-memory struct. **Answered elsewhere** (port-readiness audit, 2026-11-04): `save.md` "Deck slots" (127 slots of `0x16c` bytes at `0x048c8`, each holding the `0xc0`-byte deck struct).
+- The image container indexed by `fileTbl` / `sameCardTbl` slots (`card/*.cip` headers contain the id range `0xe88`–`0x1f39`). **Answered elsewhere** (port-readiness audit, 2026-11-04): `cip.md` (`fileTbl.dat` is not the `.cip` map; the `.cip` files are indexed by card id).
 - Deck tutorial: the wait kinds 3/4 (who advances `+0x22c34`), `wait_button` mode 1, the `cursor` argument, and the highlight regions; strings 0, 1, 3, 84 and 228 are not referenced by the scripts.
-- The zero-terminated card lists at `BOOT.BIN` file offsets `0xa3560`–`0xa3c80` and the id runs in `rel_conv_machine.prx`.
+- The zero-terminated card lists at `BOOT.BIN` file offsets `0xa3560`–`0xa3c80` and the id runs in `rel_conv_machine.prx`. **Answered elsewhere** (port-readiness audit, 2026-11-04): the `BOOT.BIN` lists are the `+0x84`/`+0x8c` recipe-card and key-card lists of the character table (`character-table.md`; pointers at stride `0x94` from `0x088aa510`). The `rel_conv_machine` runs belong to the conversion machine (`packs.md` "Cards in no pack").

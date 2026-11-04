@@ -258,10 +258,10 @@ The bytecode findings (10-byte instructions, `EveBI` record starts, text referen
 
 ## Open questions
 
-- The driver around `0xb3c8` (how the field module picks the record to run, how the exit codes are consumed).
+- The driver around `0xb3c8` (how the field module picks the record to run, how the exit codes are consumed). **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/world.md` (event driver: `world_driver_next_event`, `world_driver_handle_result`).
 - Which save fields the `BOOT.BIN` getters read (DP, per-character points, pack state, picture bits). The field side of the 33 requests is now listed in `docs/subsystems/world.md` ("Field request table"); requests 27 and 30 remain unexplained.
 - The meaning of `talk`'s `a3` flag (0/1; 148 uses with 1, often on lines like "..."), of `npc_event`'s `(301, n)` pair, of the `duel_rules`/`duel_option` bytes, and the order of the duel follow-up keys (win/loss/draw?).
 - Every opcode in use now has a name (the nine formerly open ones and 50126–50128 were read on 2026-10-30). Readings that a PPSSPP trace should confirm: which on-screen element each `hud_marker` value points at (sub-index 0–4 of marker A), the 1,500 ms fade of `bgm_stop`, and what story state 46 after `finish_partner_story` shows. Unused opcodes still without a name in `tools/story.py`: 50096, 50101, 50123–50125, 50141, 50154 (handler read: BGM prefetch), 50164, and the unread `if` getters (50030 and 50042 read).
-- The `《Cnnn_k》` forms 1–5, and whether `nnn` equals the speaker id in `a1` of 50001/50002/50009. The ranges overlap (2–141 vs 001–151), but this is not proven.
-- Where `《…》` placeholders and `$M`/`$C` are expanded in code, and whether the bracketed tokens in `SysMsg` are placeholders at all.
+- The `《Cnnn_k》` forms 1–5, and whether `nnn` equals the speaker id in `a1` of 50001/50002/50009. The ranges overlap (2–141 vs 001–151), but this is not proven. **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/dialogue.md` (`dialogue_expand_name_tokens`: `C` = event key `a1` as three digits plus the name-form digit).
+- Where `《…》` placeholders and `$M`/`$C` are expanded in code, and whether the bracketed tokens in `SysMsg` are placeholders at all. **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/dialogue.md` (`dialogue_expand_card_names`, `dialogue_expand_name_tokens`, `dialogue_replace_token`).
 - Whether the empty lines (158 per language) are ever displayed.

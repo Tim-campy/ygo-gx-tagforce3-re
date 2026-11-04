@@ -159,7 +159,7 @@ So `cardinfo_ehp`, `card_prop`, `card_dict`, `card_samepict`, `card_genre` and `
 
 ## Open questions
 
-- The meaning of word 1 bits 22–24 (read only through the export `0x08832bdc`; trace a module caller).
+- The meaning of word 1 bits 22–24 (read only through the export `0x08832bdc`; trace a module caller). **Answered elsewhere** (port-readiness audit, 2026-11-04): a 3-bit **rarity** field: `card_db.md` (word 1 bits 22–24) and `packs.md` "Cards in no pack" (the underground reward picker filters by it: rarity 0/1, 3/4).
 - `CARD_Genre`: who sets bits 0 (New Card) and 38 (different artwork) at run time, and whether the table at `0x0889f980` is the deck editor's filter order (trace the deck editor in PPSSPP).
 - Why `CARD_SamePict` lists record 855, which has only one image in the `.cip` files.
 - What the game does with descriptions longer than its 0x77a-byte buffers (`card_db_get_description` rotates four of them at `0x08924d5c`).

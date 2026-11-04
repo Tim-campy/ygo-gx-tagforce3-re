@@ -432,7 +432,7 @@ Proposal (d). `name_alias` stays a locating tag, except for the cards of the exp
 - **Stat-modifier arithmetic.** Cards located in `duel_core_compute_card_stats` by the `stat_modifier` tag (69 of the engine-mapped cards); `params.stat_mods[].values` holds the constant only when the case body is a straight constant. Since schema 6 the chain is an `iteration` chain and its cases give the per-iteration ATK/DEF accumulator changes, including amounts that scale with a count (`+500 * duel_core_count_spell_traps()`), as stack-slot updates in the chain's `values` and in generated `engine_branches` rows; which stack slot is ATK and which is DEF is not yet labelled.
 - **Unresolved chains.** 77 of the 307 compare chains are still `unresolved` (142 in schema 5, 244 with the schema-4 evaluator); 4,075 cases stay `computed`: unknown inputs 2,146 (a register or stack slot set before the chain in a way the entry state does not keep), the path limit 1,265 (bodies whose own branches still exceed 32 paths after merging), and jump tables and indirect calls 217 (section "Compare chains"). Their cases are joined with `value` null and a `reason`; `own` still gives the case's join state and calls where it has them. `expression` values name helpers, and many of those are still unnamed (`fn_<address>`): naming them makes the expressions readable without rerunning anything.
 - **Unnamed helpers.** Completeness depends on names in `re/functions.csv`. The `full` share rises as the naming worklist of `effect-classification.md` is worked off.
-- **Variant selection.** `variant` is the position of the record. The rule that picks a variant at run time (`duel_effects_select_record_variant`) is not part of the spec.
+- **Variant selection.** `variant` is the position of the record. The rule that picks a variant at run time (`duel_effects_select_record_variant`) is not part of the spec; it is decoded in `effect-tables.md` ("Variant selection rule").
 - **AI semantics.** `ai[]` gives membership and handler names only. The handlers' conditions are not decoded.
 - **Stat-modifier constants** come from a fall-through scan of the case body and can miss values computed elsewhere.
 
@@ -485,8 +485,8 @@ On the disc there are 3,590 generated rows for 1,904 cards (schema 5: 3,483 rows
 
 ## Open questions
 
-- The run-time variant rule per card, needed to pick the right record when a card has several.
-- What the generic field and equip fallback handlers (`0x09c74ba4`, `0x09c748a8`) do beyond the stat modifiers.
+- ~~The run-time variant rule per card, needed to pick the right record when a card has several~~: decoded statically 2026-11-04 (port-readiness audit): `effect-tables.md`, "Variant selection rule" (every per-card rule of `duel_effects_select_record_variant`, keyed on the chain link's event code, location, event argument and the Spirit default).
+- What the generic field and equip fallback handlers (`0x09c74ba4`, `0x09c748a8`) do beyond the stat modifiers. **Answered elsewhere** (port-readiness audit, 2026-11-04): `effect-helpers-misc.md` (`duel_effects_destroy_old_field_spell_step` `0x09c74ba4` and the equip step `0x09c748a8`) and `functions/duel_effects.md`.
 - Why 47 engine-supported ids have no `cardinfo` record (cut cards, Japanese-only cards).
 - For each `engine_only` card, what the branch selected by its id does beyond the function's rule (the semantic tags of `card-refs.md` say which rule; the conditional branches are decoded only in `engine_branches`).
 - The meaning of the per-card values of the `expression` and `unresolved` chains whose cases call AI helpers (`ai_estimate_card_atk` `0x09ce536c`, `ai_find_candidate_index_by_card` `0x09d3ba48`, `ai_board_add_interest_record` `0x09d8fb44`, now named and documented in `docs/subsystems/ai.md`), and of the generated `engine_branches` rows: they give the register or call the case sets, not what the shared tail does with it.

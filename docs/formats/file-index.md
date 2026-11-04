@@ -42,5 +42,5 @@ Entries are sorted with `system_qsort` and searched with `system_bsearch`, both 
 ## Open questions
 
 - Comparator `0x0881dfd4`: it calls `system_strcasecmp`, so lookups are probably case-insensitive; confirm by reading it. The lookup key is the path after `disc0:` (`buf + 6`).
-- What the device positioning helper `0x0881e448` does before each read (only the descriptor argument survives decompilation).
-- Confirm at runtime in PPSSPP: index size, first entries, and that `0x089218dc` becomes 1 after boot.
+- What the device positioning helper `0x0881e448` does before each read (only the descriptor argument survives decompilation). **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/container.md`: `container_io_lseek` is a plain `sceIoLseek` call.
+- Confirm at runtime in PPSSPP: index size, first entries, and that `0x089218dc` becomes 1 after boot. **Answered elsewhere** (port-readiness audit, 2026-11-04): `verification/results/2026-10-31-sessionE-T.md` E1, pass.

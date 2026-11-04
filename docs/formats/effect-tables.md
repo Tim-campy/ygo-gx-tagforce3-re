@@ -58,6 +58,35 @@ The selector is bits 4–5 of byte `+3` of the card structure passed in; "field 
 4. adds the variant index from `duel_effects_select_record_variant` (`0x09ce28ec`), a chain of per-card rules (for example, card `0x1eea` uses `u16 card[6] − 1`; card `0x1da5` picks variant 1 or 2 from the same `>> 6` field);
 5. returns the record, or 0.
 
+### Variant selection rule (`duel_effects_select_record_variant`, decoded 2026-11-04)
+
+Read in full from a capstone disassembly of `0x09ce28ec`–`0x09ce2e50` (port-readiness audit). The argument is the **chain link** (`chain.md`, 24-byte link): `+0x00` card id, `+0x02` bits 1–5 location and bits 6–11 the **event code** that triggered the effect (`ev` below; codes in `duel-runtime.md`, "Event codes by raiser"), `+0x03` bits 4–5 the table selector, `+0x14` the event argument. The function returns the index added to the card's first record. Every rule, in the order the code tests the card id:
+
+| Cards (hex ids) | Variant |
+| --- | --- |
+| `0x1eea` | `u16 +0x0c` − 1 (0 when that is negative) |
+| `0x1ec4` | 1 when the event argument `+0x14` is non-zero, else 0 |
+| `0x1e5a`, `0x0eb2` | 1 when the card's location (`+0x02` bits 1–5) is the Graveyard (`0x0e`), else 0 |
+| `0x1e1f` | 1 when bits 10–13 of the event argument are ≥ 5; otherwise the default rule |
+| `0x1da5` | `ev` 5 → 1; `ev` 1 → 2; otherwise the default rule |
+| `0x1d98` | `ev == 0x17` (end of the Battle Phase) |
+| `0x1da4` | `ev` 2 → 1; `ev` 5 → 2; otherwise the default rule |
+| `0x1d9f` | 0 when the event argument's instance (`+0x14 & 0x1ff`) is the card's own instance (`+0x04` bits 5–13); else 1, or 2 when `+0x16` bits 2–3 are non-zero |
+| `0x1d0a` | `ev == 0x25` |
+| `0x1db0`, `0x1cf4` | `u16 +0x0c == 2` |
+| `0x1f1f`, `0x1cfc`, `0x1cd8`, `0x1b08`, `0x19bd`, `0x1877`, `0x1370`, `0x1286` | `ev == 2` (Standby Phase) |
+| `0x1cb1` | 0 unless `ev == 0x12` (attack event); then 1 when the attack word's target slot (`+0x14` bits 6–9) equals the card's own slot (`+0x02` bits 1–5), else 2 |
+| `0x1cb0` | `ev` 8 → 0; `ev` `0x16` → 1; any other → 2 |
+| `0x1ebe`, `0x1caf` | `ev == 0x12` |
+| `0x1ca3` | 0 unless the selector is 1 (M1); then 1 when the event argument is non-zero |
+| `0x1dc8`, `0x1da2`, `0x1d6d`, `0x1c86`, `0x1c4d`, `0x1b51`, `0x1ab0` | `ev == 0x16` |
+| `0x1e2a`, `0x1dc1`, `0x1d38`, `0x1d08`, `0x1c75`, `0x1c74`, `0x1c73`, `0x1b8f` | `ev == 8` |
+| `0x1534` | `ev != 0` |
+| `0x1f1e`, `0x1e75`, `0x1e37`, `0x1cf2`, `0x1cf1`, `0x19c0`, `0x1911`, `0x1315`, `0x11cf`, `0x0e8c` | `ev == 5` (End Phase) |
+| any other card (default rule) | 0, except for a **Spirit** monster (`card_db_is_spirit`, through the stub `0x09de4a7c`) whose link uses selector 1 (M1): then 1 for every event other than 5 (End Phase), so the End Phase return-to-hand effect is variant 0 and the Spirit's other effect variant 1 |
+
+Comparisons yield 1 for true and 0 for false. With this table and the event codes, the run-time record of a multi-record card is fully determined by the link; `tools/card_effects.py` reports the records by position (`effects[].variant`), so a port picks `records[variant(link)]`. Confidence: high for the rules (straight-line code, no calls besides the Spirit test), medium for the event names they depend on.
+
 Wrappers then call one slot each: `duel_effects_call_handler_08` / `_08_b` (`0x09ce30a4`, `0x09ce3174`; 25 and 158 callers, each with its own recursion counter at `0x09e28f80` / `0x09e28f7c`), `duel_effects_call_handler_0c` / `_0c_b` (`0x09ce3048`, `0x09ce3c30`), `duel_effects_call_activation_step` (`0x09ce3da0`), `duel_effects_call_handler_14` (`0x09ce3e24`); `duel_effects_has_table3_record` (`0x09ce2ff0`) only tests whether an M3 record exists. Eighteen functions call the lookup; the slot used by the other eight is not yet established.
 
 ## 8-byte lists
@@ -212,5 +241,5 @@ The archetype predicate table at `BOOT.BIN` `0x0889e2d8` (63 words) is read and 
 - Target filter: why the `0x800` cards skip the immunity check; the purpose of bit `0x8000` and of the `0x1de1` test under `0x40000`; confirm slot `+0x10` bits 11 and 12 in PPSSPP.
 - The effect-context fields read by the computed draw counts (`+0x0c`, `+0x12`, `+0x15`, `+0x16`), and the computed cases of the LP-cost chain.
 - The card-structure fields behind the selector and the `0x24` test.
-- The cards with effects and no record in any table: handled by compare chains (1,379 functions in the module test card ids directly)?
-- `duel_effects_check_rule_list` (`0x09ce27c4`) walks 112 `(function, argument)` pairs at `0x09dedaf8`; what these global rules are.
+- The cards with effects and no record in any table: handled by compare chains (1,379 functions in the module test card ids directly)? **Answered elsewhere** (port-readiness audit, 2026-11-04): yes: `card-effect-spec.md` (`engine_only`, 273 released cards) and `card-refs.md`.
+- `duel_effects_check_rule_list` (`0x09ce27c4`) walks 112 `(function, argument)` pairs at `0x09dedaf8`; what these global rules are. **Answered elsewhere** (port-readiness audit, 2026-11-04): `subsystems/duel_effects.md` ("Rule list") and the `rule_*` rows of `functions/duel_effects.md`.

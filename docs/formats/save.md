@@ -356,4 +356,4 @@ Since 2026-11-04 (model schema 2) the flag bytes have a codec (gallery 0–69, p
 - Which minigame owns each of the nine high scores (the game index → record map is in `save-minigame-blocks.md`; the module → game index link is runtime data), and what the 49 record values and 108 duel-bonus entries are (text ids `0x1020` onwards in `rel_duelrecord` would name them).
 - What slot 0, the stored decks and the card list hold (deck editor), and the content of the `0x200`-byte edit block.
 - Whether `rel_title` rejects a save whose OpenPSID differs from the console's (the checksum only detects in-memory edits).
-- The meaning of the other save modes (7, 8, `0x16`).
+- The meaning of the other save modes (7, 8, `0x16`). **Answered elsewhere** (port-readiness audit, 2026-11-04): `verification/results/2026-10-31-sessionE-T.md` (SDK save modes DELETE, SIZES, GETSIZE).
