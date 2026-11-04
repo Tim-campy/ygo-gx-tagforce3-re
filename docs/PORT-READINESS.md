@@ -72,7 +72,7 @@ The 16 blocking items of `open-questions-triage.md`, grouped into tasks, in orde
 | **B5** After the staff roll | 28 | What the game shows after the ending, whether the stage resets for a new partner | P: E15 (needs a late save); alternatively S: `rel_story` states 48/50 | Open |
 | **B6** Lost chapter duel | 30 | Whether step 3 starts from the map after a lost step-2 duel, or the duel repeats | P: **G2** | Open |
 | **B7** Minigame records | 103, 107 | Which minigame owns which of the nine high-score records (shop unlock rules read them) | P: E23 (differential save 6) | Open |
-| **B8** Password and conversion machines | (new; from 98) | The rules of `rel_password` and `rel_conv_machine`, the only routes left for 19 cards that are in no pack (`packs.md`, "Cards in no pack") | S: read both modules (1 day); P: **G3** confirms the password rule | Open |
+| **B8** Password and conversion machines | (new; from 98), 97 | The rules of `rel_password` and `rel_conv_machine`, the only routes left for 19 cards that are in no pack (`packs.md`, "Cards in no pack") | S done: both modules read (`shop.md`, "Password machine and conversion machine"): a passcode registers any card except `6989` for the lab rental list (no copy, no cost); the conversion machine trades 10–99 cards for one card from 90 result lists (`6989` only with 59). Eight no-pack cards have no route in either machine (external gifts/DLC: port decision). **P: G3** (rewritten) confirms the rental entry | **Settled statically (H)**; G3 confirms |
 
 ### Settled in this audit (static, capstone)
 

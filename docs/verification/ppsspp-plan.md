@@ -900,10 +900,10 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 
 ### G3. The password machine and the collection-excluded cards
 
-- **Hypothesis** (`packs.md`, "Cards in no pack"): 16 cards are excluded from the collection percentage and from random rewards; 11 of them (`6989`, `7332`–`7341`) have a passcode in `cardinfo` and are expected to be obtainable only through the password machine (`rel_password`, lab hub); `3763`, `3787`, `3790` have passcode 0 and no known route.
-- **Steps**: from free roam, save (`G3-a`). In the lab hub open the password screen and enter the passcode of card `7332` (read it from your own `cardinfo` export, `tools/cardinfo.py`; do not paste it into the results). Note what the game answers (accepted, refused, cost). Then enter the passcode of one ordinary pack card you do **not** own, and one you own. Save (`G3-b`).
-- **Record**: per passcode: the message class (accepted / refused / already owned / other, in your words), DP before/after, the changed save offsets between `G3-a` and `G3-b` (collection record of the card: `save.md`, "Card collection").
-- **Expected**: the rule of the password machine (needs the card owned first, or any card, or only some), and whether the excluded cards come through it.
+- **Hypothesis** (static, B8: `shop.md`, "Password machine and conversion machine"; H for the rule): a passcode is refused only for card `6989` (the refusal list at `rel_password +0x83f8`); every other card with a passcode is accepted at no cost and only sets collection byte 0 bit 0 (`save_set_card_flag_bit0`), adding no copy. The card then appears in the lab's rental picker (`rel_select_card` mode 0). Cards `7332`–`7341` are obtainable only this way; `6989` only from the conversion machine with exactly 59 cards fed in.
+- **Steps**: from free roam, save (`G3-a`). In the lab hub open the password screen and enter the passcode of card `7332` (read it from your own `cardinfo` export, `tools/cardinfo.py`; do not paste it into the results), then the passcode of `6989`, then that of a pack card you own. Note what the game answers each time. Open the lab rental screen, move `7332` into the rental list and save (`G3-b`). Try to put `7332` into a deck.
+- **Record**: per passcode the message class (accepted / refused / other, in your words); DP before/after; between `G3-a` and `G3-b` the collection record of `7332` (byte 0 bit 0, copy count; `save.md`, "Card collection"), the count of the save card list at `+0x161f4`, the new id at `+0x161f6` and its state byte at `+0x162bc` (static reading leaves this value open: the builder stores 4, but only states 1–3 count for decks); whether `7332` can be put into a deck.
+- **Expected**: `6989` refused, the other two accepted; bit 0 set, no copy added, no DP change; one rental entry. *(Optional, needs ≥ 59 spare cards: feed exactly 59 cards into the conversion machine and check that the result comes from the 59-card list, which holds `6989`.)*
 
 ### G4. *(optional, confirmation)* The story duel result word
 
@@ -919,7 +919,7 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 | --- | --- | --- | --- | --- |
 | G1 computed event codes | | `0x16`/`0x1c` split, discard code, effect-summon code | | |
 | G2 step after a lost chapter duel | | step stays 2, or 3 starts from the map | | |
-| G3 password machine | | rule and route of the excluded cards | | |
+| G3 password machine | | 6989 refused, others accepted, bit 0 only, rental entry | | rental state byte |
 | G4 story duel result | | 1 win, 2 loss | | |
 
 ## Reporting results

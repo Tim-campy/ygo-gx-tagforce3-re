@@ -7,7 +7,7 @@ Every bullet of every "Open questions" list in `docs/subsystems/*.md` and `docs/
 - **W** non-blocking, part of the card-effect and AI fidelity workstream: a port can implement the behaviour from the official card text and the documented engine rules; the binary only adds the original's exact numbers and quirks.
 - **N** non-blocking: fidelity detail (timing, look, unused or dead code, debug paths, Sony library internals, zero bytes, naming, link play, UI layout the port redesigns).
 
-Totals: 573 items: B 16, R 145, W 18, N 394.
+Totals: 573 items: B 16, R 146, W 18, N 393.
 
 | Document | Items | B | R | W | N |
 | --- | --- | --- | --- | --- | --- |
@@ -32,7 +32,7 @@ Totals: 573 items: B 16, R 145, W 18, N 394.
 | `formats/gim.md` | 2 |  |  |  | 2 |
 | `formats/hmp.md` | 2 |  |  |  | 2 |
 | `formats/limit-list.md` | 2 |  | 1 |  | 1 |
-| `formats/packs.md` | 4 |  | 3 |  | 1 |
+| `formats/packs.md` | 4 |  | 4 |  |  |
 | `formats/psmf-movies.md` | 4 |  | 1 |  | 3 |
 | `formats/save-minigame-blocks.md` | 2 | 1 |  |  | 1 |
 | `formats/save.md` | 6 | 1 | 1 |  | 4 |
@@ -282,7 +282,7 @@ Totals: 573 items: B 16, R 145, W 18, N 394.
 | --- | --- | --- | --- |
 | 95 | Pack names and artwork: which string table and texture belong to each pack index (`shop/all_<lang>.ehp` has `strTbl` with 35 entries and … | R | `formats/string-tables.md` (`pack_name_str`, `pack_explain_str`). |
 | 96 | Confirm in PPSSPP: a single purchase (DP before/after, save byte `+0x1542a + p`, counter `+0x16602`, one rarity entry written), and the rarity … | R | `verification/results/2026-10-31-sessionE-P.md` E16. |
-| 97 | The 99-entry card list at save `+0x161f6` (count `+0x161f4`) whose copies the result list shows (`0x08857158`/`0x088571c8`; presumably the trunk or a … | N |  |
+| 97 | The 99-entry card list at save `+0x161f6` (count `+0x161f4`) whose copies the result list shows (`0x08857158`/`0x088571c8`; presumably the trunk or a … | R | B8 (2026-11-04): the lab rental list, `subsystems/shop.md` "Password machine and conversion machine". |
 | 98 | How the 76 cards that are in the database but in no pack are obtained (rewards, starter deck, story). | R | Settled in this audit: `formats/packs.md`, "Cards in no pack" (tokens, underground prizes, collection-excluded cards); the password and conversion routes are blocking item B8. |
 
 ## `formats/psmf-movies.md`

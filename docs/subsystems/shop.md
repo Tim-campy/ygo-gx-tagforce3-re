@@ -140,6 +140,48 @@ Sort keys (`shop_get_result_sort_key` / `shop_get_result_group_key`, mode = key 
 - Cell width of `shop_draw_small_digits` size variants 1 and 2 (hidden register).
 - Rarity 2 plays no reveal sound; check whether that is intended or another value is used.
 
+## Password machine and conversion machine (lab hub, 2026-11-04)
+
+The two lab-hub card machines are separate modules started by `rel_labo` (`ui_password_start`/`_update`, `ui_conv_machine_start`/`_update`). Neither is part of the shop, but both are the remaining card sources next to the packs (`formats/packs.md`, "Cards in no pack"), so they are specified here. Static reading with capstone (task B8 of `PORT-READINESS.md`); the modules' load bases are unknown, so **every address below is a module offset** (`+0x…`, unrelocated, base 0). Imports were named with `tools/prx_imports.py <BOOT.BIN> <module> 0 re/functions.csv` (BOOT functions by their registry names, module libraries through `re/game-libs.csv`). Neither module calls a DP (money) accessor: **both machines are free**.
+
+### Password machine (`rel_password`, module id `0x1a`)
+
+| Step | Rule | Evidence | Conf. |
+| --- | --- | --- | --- |
+| Entry | Eight decimal digits, kept as one byte each in the work block at `+0x16437`–`+0x1643e` (most significant first). | Loop at `+0x26a4`: `value = value × 10 + digit` over 8 bytes from `+0x16437`. | H |
+| Lookup | `card_db_find_by_passcode(value)` (`0x08832c34`): linear scan of ids `0xe88`–`0x1f39` against `CARD_Pass` (`cardinfo.md`); passcode 0 never matches. 3,399 cards have a passcode and no two cards share one, so the result is unique. | `+0x26d0`; the duplicate count from `cardinfo` (`extracted/cards_eng.csv`). | H |
+| Refusal | Refused (state 5, failure message) when the id is outside `0xe88`–`0x1f39`, `card_db_is_valid` fails, or the id is in the **refusal list** at `+0x83f8` (9 × `u16`: `5000, 3787, 4998, 3763, 4999, 3790, 3752, 3789, 6989`) tested by `+0x336c`. | `+0x26dc`–`+0x2710`. | H |
+| Refusal-list quirk | `+0x336c` is a binary search (`lo = 0`, `hi = 8`), but the list is not sorted and nothing sorts it (the module's only `system_qsort` sorts the 17 × 16-byte table at `+0x82c8`). Only `6989` (Elemental Hero Air Neos) is reached by the search, and it is also the only listed card with a non-zero passcode: the other eight have passcode 0 and are already rejected by the lookup. Effective rule: **every card with a passcode except `6989`**. | Simulation of the search over the stored order; passcodes from `cardinfo`. | H |
+| Accept | No ownership test, no "already registered" test, no cost. State 4 shows the card (`card_db_cip_get_image` with the art variant `save_get_card_value_bits4_6`), waits at least `0x79` frames, then on circle/cross (pad mask `0x6000`) or after `0x259` frames calls `save_set_card_flag_bit0(id)` (`0x088564a8`). | `+0x26f4`–`+0x2744`, `+0x2a68`–`+0x2ad8`. | H |
+| Save write | Only collection record byte 0 **bit 0** of the card ("registered by password", `formats/save.md`, "Card collection"). No copy is added (`save_change_card_count` is not imported by the module). | Call census: `save_set_card_flag_bit0` has one caller in all 36 modules, `rel_password +0x2ac0`; no BOOT caller. | H |
+
+**What registration gives.** Bit 0 has exactly one reader in the game: `save_test_card_flag_bit0` from `rel_select_card +0x2598`, inside the list builder `+0x2568`. That builder makes the left-hand list of the card picker's **mode 0**: every valid id `0xe88`–`0x1f39` with bit 0 set, one copy each (entry byte 4 bits 0–6 = 1). Mode 0's right-hand list is the save **card list** at `+0x161f4` (`formats/save.md`, 99 entries; builder `+0x2684`), and on exit (`+0x3088`) mode 0 rewrites that list from the right-hand side: count (`save_set_card_list_count`), ids (`save_set_card_list_entry`) and each entry's state (byte 5 bits 2–4, `save_set_card_list_state`). The save card list is the pool that `deck_count_free_card_copies`, `deck_count_free_card_copies_2` and `deck_check_deck_valid` add to the owned copies (states 1–3): extra, rented copies for decks. `rel_labo` opens the picker in mode 0 (`ui_select_card_open(0, 0, 0, 0)` at `+0x324` and `+0x3bc`; the picker loads `labo/rental.ehp`). So: **a passcode unlocks the card for the rental list; the player then places it in the 99-entry rental list from the lab, one copy per registered card, and decks may use it as if owned.** (H for the data flow; M for "rental" as the player-facing meaning and for the per-card limit of one; the state value a newly placed entry gets is not traced: the builder stores 4, which `deck_count_free_card_copies` would not count, so the move into the right-hand list presumably rewrites it. PPSSPP G3 records it.)
+
+### Conversion machine (`rel_conv_machine`, module id `0x0e`)
+
+| Step | Rule | Evidence | Conf. |
+| --- | --- | --- | --- |
+| Input | The card picker in **mode 1** (`ui_select_card_open(1, …, &count, ids)` at `+0x52c`, count starting at 0). Left list: every valid id with free copies `> 0` (`deck_count_free_card_copies_2`: owned minus copies in the player's deck, plus rental-list entries), builder `rel_select_card +0x2458`. Right list capacity 99 (`0x63`). | `+0x4e0`–`+0x564`; `rel_select_card +0x2018`. | H |
+| Minimum | Fewer than 10 cards: nothing happens (message, back to the machine's menu, state 7). | `+0x5e0`: `count < 10` branch. | H |
+| Cost | Each selected card loses one owned copy: `save_change_card_count(id, 0)` for each of the `count` ids. | `+0x60c`–`+0x634`. | H |
+| Result | One card, drawn uniformly from the **result list for `count`**: `list[count − 10][system_rand_shifted() % length]`. | `+0x1a38`, called at `+0xa4c` (skip) and `+0xec8` (end of the animation); result kept at work `+0x78cf4`. | H |
+| Award | On circle/cross at the result screen: `save_change_card_count(result, 1)` (one copy; a never-owned card becomes "new"). Triangle first opens the card viewer (`ui_card_viewer_open`) and returns. | `+0x15b0`–`+0x15d4`, `+0x1578`. | H (call), M (button roles) |
+| Save writes | Only the card counts above. No flag, no counter, no DP. | Import census of the module. | H |
+
+**Result-list table** (`rel_conv_machine` `.data`, module `+0xb014`): 90 records of 8 bytes, index `count − 10` for `count` = 10–99.
+
+| Offset | Size | Field |
+| --- | --- | --- |
+| `+0x0` | 4 | Pointer (relocated; module offset in the file) to a `u16` card-id array in `.data` (`+0x9494`–`+0xb013`). |
+| `+0x4` | 4 | Number of ids in the array (28–40). |
+
+The arrays hold 3,475 ids in total, each id in exactly one array, so the number of cards fed in decides which card can come out. They are exactly the pack cards (`packs.md`) minus three (`3737` Jurassic Impact, `6834` Power Wall, `7351` Phantom of Chaos, which only packs 45 and 47 give) plus **`6989` Elemental Hero Air Neos**, in the array for 59 cards (1 chance in 39). Rarity (cardinfo word 1 bits 22–24) rises with the count: the arrays for 10–30 cards are almost all rarity 0, those for 94–99 mostly rarity 3–4. A port reads the table from the module at these offsets (no extractor step exists yet).
+
+### Open questions (lab machines)
+
+- The state value a password card's rental entry has after it is moved into the rental list (builder stores 4; `deck_count_free_card_copies` counts 1–3), and whether the rental list may hold two entries of one card. PPSSPP G3.
+- The meaning of the 17 × 16-byte table at `rel_password +0x82c8` that the module sorts at start-up (presumably the digit-pad layout or message table; not needed for the rule).
+
 ## Open questions
 
 - What bit 0 of `0x090facf6` changes in the pack states.
