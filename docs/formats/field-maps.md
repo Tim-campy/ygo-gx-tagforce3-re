@@ -29,7 +29,7 @@ Numbers used below: **story location** `L` (0–30, the field state's location),
 | 27, 28, 29, 30 | 39, 40, 41, 42 |
 | 0 and anything else | 30 |
 
-The inverse maps 37 and 38 (second versions of the dorm outside and of room 203) to 6 and 13; no location loads them through this switch (scripts or another path must, open question).
+The inverse maps 37 and 38 (second versions of the dorm outside, `bg_01_02`, and of room 203, `bg_02_07`) to 6 and 13; no location loads them through this switch. **Nothing in the game loads them** (settled 2026-11-04, static): the map archive is loaded only by field request 3 (`world_field_load_map`, `rel_field` `0x090d921c`, entry 3 of the request table `+0x2df0c`, which stores the request's first word as the current map `0x09106bec`), and its one sender in `rel_story` (`world_send_exit_cells`, `0x08ea0860`, the only `world_field_request(3, …)` call) passes `world_location_to_map_id(location)`, which never returns 37 or 38. No other module imports `libfield_rel` (`modules.md`), and scripts give locations, not maps (`scene_map` sets the location, `world_send_scene_setup` `0x08ea0758`). The only code that names map 37 is the field module's debug map menu (`world_field_debug_line_to_location`, `0x090cf0b8`, one menu line → 37); map 38 is named nowhere. The field code still treats 37 like 12 (door entries of map index 26, door sounds, the walk block of column 14, `world.md`), so the second dorm is an unused alternative build of the same place. The port can ship maps 12 and 13 only (high for the code paths; a disc-wide constant scan cannot exclude a computed id, but every map-id producer is accounted for).
 
 **Correction to earlier notes**: the selector table at `rel_story` `+0x1f968` is *not* the location → map mapping. It returns the **exit-group key** (`world_select_exit_group`), which equals `M` for locations 1–26 but is 37, 38, 39 for locations 27, 28, 29 (maps 39, 40, 41). Basis: the script set-up cells (`scene_player`, `npc_position` after `scene_map L`) fall on walkable cells for 1,214 of 1,218 positions with the switch above, but only 1,186 with the selector (all 9 positions of location 29 and 3 of location 27 fail, and location 30 has no selector record); the exit cells of group 37 (`x` = 60) fit the 64 × 64 grid of map 39, not the 33 × 46 grid of map 37.
 
@@ -189,7 +189,7 @@ python3 -I tools/roundtrip.py --check <PSP_GAME> --only field_map_lighting,islan
 
 ## Open questions
 
-- What loads maps 37 and 38 (no location maps to them), and what selects the second dorm version.
+- ~~What loads maps 37 and 38, and what selects the second dorm version~~: nothing in normal play; only the field debug menu loads 37, and 38 is unreferenced ("Location ↔ map", settled 2026-11-04).
 - The meaning of `0x08e9b460()` (arrival in room 204) and of the direction values 0–7.
 - The scripted placements behind cells 10000/10001 (`world_send_npc_list`, locations 5 and 25) and the anonymous extras on locations 2 and 4.
 - Which part of `bm_parts.gim` and which EHF layout each island area uses; the exact on-screen marker sprite.

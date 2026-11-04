@@ -115,6 +115,67 @@ The field save block (story block `+0x345c`, `0xa8` bytes) starts with the **sto
 - Story scripts change them with `world_change_char_points(char, delta)` (`rel_story` `0x08e9d9c0`, called from opcodes 50084/50085): the new value is clamped to `[0, cap]` with **cap = `world_get_points_cap()`** (`0x08eab450`) = table `rel_story` `+0x2e528` indexed by the story stage: stage 1 → 1000, 2 → 2000, …, 8 and 9 → 8000. So friendship can only grow as the story advances (high for the code, medium for the reading). The return value (+1 / −1 / 0) drives the up/down/no-change display (field request 28).
 - **Partner**: `u16` at save `+0x16e12` (`save_get_partner_field`, `0x08857be8`): bits 4–11 character, bits 12–15 variant, bit 0 a flag (`0x08857cd8`). `save_get_partner(&variant)` (`0x088550c8`) and `save_set_partner(c, v)` (`0x08855110`). The partner chooses the deck slot (`0x08856730`) and unlocks partner packs in the shop.
 
+### Partner choice (character list mode 3)
+
+Settled 2026-11-04 by static reading (capstone over `rel_charalist.prx` at module offsets, base unknown; `rel_story`, `rel_title`, `BOOT.BIN`). Answers `chapter-table.md`'s "Which characters the partner choice offers" (triage #29). High for the code paths, medium where noted.
+
+**Who opens it.** On a new game `world_story_init` (`0x08e9f3ac`) sets system flags `0x14` and `0x1f`; field overlay 7 then opens the character list with `ui_charalist_open(3, 0)` (`world_state_start_charalist`, `0x08ea3334`; mode 1 without flag `0x14`). The title's new-cycle path opens the same mode (`rel_title` `ui_title_update_charalist_select`, `0x08ec8d44`, `a0` = 3) before `ui_title_start_story`. `ui_charalist_open` (`rel_charalist` `+0x4b0`) keeps the mode in the low nibble of the state byte at module `+0xe900`.
+
+**The rule.** The list builder (`rel_charalist` `+0x37cc`) walks characters 2–142 (`0x8e`); a character must exist (`+0x8c74`: `world_character_exists(c, 0)`, ids `0x94`/`0x95` refused) and at least one of its variants must pass the mode's save-flag test (jump table `+0xd71c`). The per-character variant list (`+0x4d98`, jump table `+0xd764`) keeps only the variants that pass the same test. Entries go to three pages by category (0, 2, other).
+
+| Mode (`ui_charalist_open` a0) | Opened by | Test on the row's save character flags (`save.md`, "Character flags") |
+| --- | --- | --- |
+| 0, 1 | database character list (`rel_title`; `rel_story` overlay 7 outside a new game) | byte 0 bit 3 (`save_test_character_flag_bit3`) |
+| 2 | wireless partner pick, communication (`rel_title`) | byte 0 bit 0 |
+| **3** | **partner choice** (new game, new story cycle) | **byte 0 bit 1** (`save_test_character_flag_bit1`) |
+| 4 | partner deck select (`ui_title_step_partner_deck_select`) | byte 1 bit 0 |
+| 5 | mini-game opponent select (`ui_minigame_menu_update_opponent_select`) | byte 0 bit 1 |
+
+So the partner choice offers exactly the `(character, variant)` rows whose character-flag byte 0 **bit 1** is set. The choice is stored with `save_set_partner(character, variant)` (`rel_charalist` `+0x63a4`); the same module builds the team name from the player's and the partner's names (`+0x62f0`, `save_set_team_name`; medium for the caller chain).
+
+**Writers of bit 1** (the only ones: `save_set_character_flag_bit1`, `0x08855274`, has two callers):
+
+- `save_init_character` (`0x08854188`, new game through `save_init_partner_decks`): characters 2–7, variant 0 (JUDAI, SYOU, MANJOUME, RYO, REI, ASUKA in the table's record names). **This is the roster of a first game.**
+- `world_set_flag1_if_partner_deck(c, v)` (`rel_story` `0x08eac1e4`): sets bit 1 only when `world_character_has_partner_deck(c, v)` (`0x0885ba2c`): the character can duel (category ∉ {4, 5}), its category is not 3, and `(c, v)` is not `(2, 2)`, `(16, 1)`, `(27, 0)`, `(37, 1)`, `(38, 1)`, `(39, 1)` or `(41, 1)`. Callers:
+  - `world_recompute_completion_flags` (`0x08e9b9d4`), run by `world_driver_finish_partner_story` at the end of every partner story, with the table below;
+  - `world_story_init` on a new game when progress flag `0x1c0e9` bit 4 is set (at least one story finished): every table row with a partner deck and **at least 10 wins** against that character (`save_get_duel_count_vs(0, c)` ≥ 10, `0x08e9fdb4`–`0x08e9fe30`);
+  - `world_story_init` back from a duel with system flag `0x36` (an event-211 duel): the pair of table `0x08eb5110` selected by event-211 word 0 (1 → 124, 122; 2 → 125, 121; 3 → 126, 123), variant 0.
+
+**Unlock table of `world_recompute_completion_flags`** (`0x08e9b9d4`–`0x08e9c3d0`). `N` = number of table rows of characters 2–142 whose bit 2 (partner story finished) is set; `fin(c, v)` = bit 2 of that row; `e9.7` and `ea.0` are the UMD-swap progress flags (`shop-rules.md`). Every line is evaluated on every call (flags are only ever set). `(c, v)` = bit 1 of that row through `world_set_flag1_if_partner_deck`.
+
+| Condition | Also sets | Bit 1 on |
+| --- | --- | --- |
+| always | story flag `0x81`; progress `e9` bit 4 if `N` ≥ 1, `e9` bit 0 if `N` ≥ 6 | — |
+| `fin(2,0)` | system `0x41`; `0x66`; `0x67` | `(2,1)`; `(43,0)`; `(44,0)` |
+| `fin(3,0)` | system `0x42`, `0x43`; `0x63` | `(3,1)`, `(3,2)`; `(40,0)` |
+| `fin(4,0)` | system `0x44`; `0x62` | `(4,1)`; `(39,0)` |
+| `fin(4,1)` | system `0x56`; `0x57` | `(28,0)`; `(29,0)` |
+| `fin(5,0)` | system `0x45`; `0x60` | `(5,1)`; `(37,0)` |
+| `ea.0` | system `0x46`; `0x4b` | `(6,1)`; `(8,1)` |
+| `e9.7` | system `0x47`, `0x48`; `0x4a` | `(6,2)`, `(6,3)`; `(8,0)` |
+| `fin(7,0)` | system `0x49` | `(7,1)` |
+| `fin(7,0)` or `fin(7,1)` | system `0x53`; `0x58` | `(20,2)`; `(31,0)` |
+| `fin(8,0)` or `fin(8,1)` | system `0x61` | `(38,0)` |
+| `fin(11,0)` | system `0x50` | `(15,0)` |
+| `fin(12,0)` | system `0x4d`; `0x4e` | `(12,1)`; `(13,0)` |
+| `fin(16,0)` | system `0x51` | `(16,1)` (refused by the gate: no effect) |
+| `fin(17,0)` | system `0x52` | `(18,0)` |
+| `fin(19,0)` | system `0x4f` | `(14,0)` |
+| `fin(20,0)` or `fin(20,1)` | system `0x59`; `0x68` | `(32,0)`; `(45,0)` |
+| `fin(22,0)` | system `0x5c` | `(34,0)` |
+| `fin(23,0)` | system `0x5d` | `(35,0)` |
+| `fin(33,0)` | system `0x5b` | `(33,1)` |
+| `fin(36,0)` | system `0x5f` | `(36,1)` |
+| (`e9.7` and `ea.0`) or `fin(27,0)` or `fin(27,1)` | story flag `0x86` (with the second row) | `(24,0)`, `(26,0)` |
+| `N` ≥ 1 | system `0x54`, `0x55`, `0x5a` | `(9,0)`, `(10,0)`, `(11,0)`, `(16,0)`, `(17,0)`, `(19,0)`, `(20,0)`, `(20,1)`, `(21,0)`, `(22,0)`, `(23,0)`, `(25,0)`, `(30,0)`, `(33,0)`; characters 47–120 variant 0; bit **3** (not 1) on characters 127–141 variant 0 |
+| `N` ≥ 2 | system `0x4c`; `0x64` | `(12,0)`; `(41,0)` |
+| `N` ≥ 3 | system `0x5e`; `0x65` | `(36,0)`; `(42,0)` |
+| `N` ≥ 4 | — | characters 121–126 variant 0 |
+| `N` ≥ 5 | story flag `0x87` | `(27,1)` |
+| `N` ≥ 7 | system `0x69` | `(46,0)` |
+
+Consequences for the port: the first game offers six partners; Misawa (8) and the alternative variants need finished stories or the UMD-swap flags; categories 3–5 (142, 127–141, 0–1) are never offered, so the chapter table's uninitialised-row path and the category-4/5 ending offset are dead (`chapter-table.md`). Record names of the ids used above (character table `+0x04`): 9 KENZAN, 10 EDO, 11 JOHANN, 12 SAIOH, 13 MIZUCHI, 14 NAPOLEON, 15 AMMON, 16 JIM, 17 OBRIEN, 18 COBRA, 19 CRONOS, 20 FUBUKI, 21 TAIZAN, 22 JUNKO, 23 MOMOE, 24 BURAMAJI_GIRL, 25 JINZO, 26 SEIKO, 27 TOME, 28 CHOSAKU, 29 SYOUJI, 30 AYUKAWA, 31 BOY, 32 SARAH, 33 TITAN, 34 MEIKYU_OLD, 35 MEIKYU_YOUNG, 36 DAITOKUJI, 37 KAMYURA, 38 TANIYA, 39 ZARUGU, 40 ABIDOS, 41 KAGEMARU, 42 HAYATO, 43 YUBEL, 44 MISTER_T, 45 FUJIWARA, 46–126 ZAKO_* (generic students), 127–141 non-duellists (category 4), 142 the mini-game opponents (category 3). PPSSPP confirmation: check G7 proposed for `verification/ppsspp-plan.md` (partner list on a new game and after one finished story).
+
 ## Money and level
 
 - **DP**: `u32` at save `+0xfdfc` (`save_get_player_value(0)`, read by `if_dp`); `save_add_dp(n)` (`0x08854ba0`) clamps to 0–999,999,999; a positive `n` is also added to `u32 +0xfe00` (capped at 999,999,999; presumably the total DP earned, low). It reads only `a0`: the `a1 = 200` seen in PPSSPP for a sandwich is a leftover register value. Story `dp_add`/`dp_sub` go through field request 24 (display) (medium).
@@ -521,7 +582,7 @@ Returning (`world_story_init`, same mode still set): 3 → state `0x22` (overlay
 
 - Chapter step 3 → `world_queue_next_chapter_event` (the chapter duel's aftermath), state `0xb`.
 - System flag `0x36` (an event-211 record was queued): maps entry word 0 (3/2/1 → 2/1/0) to a pair of characters in table `0x08eb5110` (2 × u32 per entry) and unlocks both (`world_set_flag1_if_partner_deck(c, 0)`), then the `(211, n, 2)` follow-up.
-- Otherwise, without system flag `0xc`: result 0 or 3 → `(opponent a1, 8, 5)`, `(partner a1, 7, 3)`, then the `duel_then_c` key or `(301, 7, 0x20)`; result 2 → `(opp, 8, 4)`, `(partner, 7, 2)`, `duel_then_b` or `(301, 7, 0x1f)`; any other result → `(opp, 8, 3)`, `(partner, 7, 1)`, `duel_then_a` or `(301, 7, n)` with n = seen deck level of opponent A (averaged with B in a tag duel) clamped to 1–10, plus 10 when the partner asked for the duel and 20 in a tag duel (n = 1–30). Reading result 1 as a win and 0/3 as loss/draw is a hypothesis (M: the "1" branch is the one that rates the opponent).
+- Otherwise, without system flag `0xc`: result 0 or 3 → `(opponent a1, 8, 5)`, `(partner a1, 7, 3)`, then the `duel_then_c` key or `(301, 7, 0x20)`; result 2 → `(opp, 8, 4)`, `(partner, 7, 2)`, `duel_then_b` or `(301, 7, 0x1f)`; any other result → `(opp, 8, 3)`, `(partner, 7, 1)`, `duel_then_a` or `(301, 7, n)` with n = seen deck level of opponent A (averaged with B in a tag duel) clamped to 1–10, plus 10 when the partner asked for the duel and 20 in a tag duel (n = 1–30). Result 1 is a win, 2 a loss, 3 a draw (the duel result word, `duel-runtime.md` `0x09e02cb0`), so the follow-up keys are **`duel_then_a` = win, `duel_then_b` = loss, `duel_then_c` = draw** (or no result); `duel_then_d` (`+0x38`, opcode 50134) is never used by the scripts. Consistent with the data: every `duel_then_a` names `(301, 3, 41)` (`series_win`) and every `_b`/`_c` names `(301, 3, 42)` (`series_loss`) (high, settled 2026-11-04). A lost must-win duel (set-up `+0x195` = 1) does not come back here at all (retry or title, "Duel set-up" below).
 - With system flag `0xc` (set on return from mode 8; presumably a tournament or series, L): clears it, sets `0xd`, `score = (result is 1 ? 500 : 0) + *BOOT 0x0885bddc()`, field state `+0x168 = score` (the `TES` text token prints it); queues `(301, 2, 6)`, `(301, 2, 7…11)` by score (< 500, < 1000, < 2000, < 4000, else), `(301, 9, 1)` + `(partner, 4, 2)` when score ≥ 1000 else `(301, 9, 2)` + `(partner, 4, 3)`, for score ≥ 1000 one of `(301, 2, 0xe…0x13)` by band (1000–1099, 1100–1299, 1300–1599, 1600–1999, 2000–3999, ≥ 4000), and `(301, 2, 0xd)`.
 
 Duel tally (field state `+0x20`, four words a, b, c, d; `world_record_duel_result`): counted only when system flag `0x12` (an opponent slot was the partner) or `0x13` (the player's side was the partner) is set; both are cleared. Result 0/3 → c + 1; result 2 → a + 1 (flag 0x12) or b + 1 (0x13); other results → b + 1 (0x12) or a + 1 (0x13). So the tally counts duels involving the partner, split by side; d is never changed here (M for the meaning).
@@ -550,13 +611,16 @@ Exit codes (`0x08ece540`): `0x66` → overlay 1 (shop), `0x67` → overlay 4 (se
 | Address | Field |
 | --- | --- |
 | `0x08ecdd58` (`+0x190`) | u8 mode: 1 story duel, 2 default duel (tutorial list), 6 partner duels instead of the player |
-| `0x08ecdd59` | u8 rule from `duel_rules` value (1, else 2) |
+| `0x08ecdd59` (`+0x191`) | u8 **duel format**: 1 single duel, 2 match (best of three: `duel_core_get_match_result`, `0x09be2218`, scores up to three duels, 2 points per win, 1 per draw, 4 points win). Written by `duel_rules` third argument (1 → 1, anything else → 2; every script passes 1). Read by the `rel_duel_mgr` start, versus and result screens (`ui_duel_start_init`, `ui_duel_versus_*`, `ui_duel_result_*`) and `duel_core_get_match_result` |
 | `0x08ecdd5a` | u8 1 single, 2 tag |
 | `0x08ecdd5b` | u8 duel set-up mode (from `0x08ece420`) |
-| `0x08ecdd5c`, `0x08ecdd5d` | u8 rule byte, u8 (0 when `duel_rules` kind is 2, else 1) |
+| `0x08ecdd5c` (`+0x194`) | u8 **duel music set** = `duel_rules` second argument (raw). `duel_core_setup_engine_for_duel` copies the six `u16` tracks at `rel_duel_mgr` `0x08eb9548 + 0xc·value` (two 3-track tables: 0 none; 1 and 2 `{35, 36, 38}`, `{5, 6, 5}`; 3 `{39, 40, 41}`, `{5, 6, 5}`; 4 `{42, 43, 44}`, `{5, 7, 5}`; 5 `{45, 37, 45}`, `{5, 7, 5}`) and plays the first; `audio_duel_mgr_reload_sound_banks` and `ui_duel_start_init` load or fade in music bank 9 for values 4 and 5, bank 8 otherwise. Scripts use 3 (109 set-ups) and 1 (the five `(301, 5, 1/2)` free-roam duel menus) |
+| `0x08ecdd5d` (`+0x195`) | u8 **result policy** from `duel_rules` first argument: 1 → 1, 2 → 0, other → 1. Value 1 = **must-win duel**: unless the player won (tail `+0x20` ≠ 1) the result screen opens `result_<l>.ehp` `strTbl.bin` entry 218 (try again; giving up loses unsaved progress), and when the duel stays lost (`duel_core_get_match_result` = 2) the duel manager jumps to the title (`system_scene_jump(6, 0xd, 1)`, `0x08e9e208`) instead of returning to the story. Value 0 (what the story writes for argument 2) = no retry prompt; the result goes back to the story. Value 2 (not written by the story) = entry 217, "duel again with the same settings", after any result. Readers: `system_duel_mgr_scene_main` `0x08e9e1e4`, `ui_duel_result_update` `0x08ea3cd0`, `ui_duel_result_handle_input` `0x08ea457c`, `ui_duel_result_open_message` `0x08ea4c40`; none prompts in match format (`+0x191` = 2). The chapter records (201–218, 76 set-ups) pass 1; the generic `301` duels (38 set-ups) pass 2 |
+| `0x08ecdd5e` (`+0x196`) | u8 **LP mode** = `duel_option` first argument: 0 → 8000, 1 → 2000, 2 → 4000, 3 → 12000, 4 → 16000, 5 → custom `u32` `+0x198`/`+0x19c` (`duel_core_get_setup_start_lp`, `rel_duel_mgr` `0x08ea9ef0`) |
+| `0x08ecdd5f` (`+0x197`) | u8 **time limit** = `duel_option` second argument: 0 none, 1 → 900, 2 → 1800, 3 → 5400, 4 → 9000 (units of the duellist timers, `duel_core_reset_turn_timers`, `0x08eaa878`). With `+0x196` = `+0x197` = 0 the duel counts as "default rules" for the DP award (`duel_core_setup_has_default_rules`). Every story set-up passes `duel_option 0, 0` (114 uses) |
 | `0x08ecdd6c` + `i · 0x1ac` | duellist slot `i` (0–3): `+0 u16` character (1 = the player), `+2 u16` variant, `+8 u16` recipe (`0x1d1` the player's deck, `0x1d2` the partner's own deck when system flag 2 is set; no recipe name), `+0x18` name (0x32 bytes), `+0x4a` recipe name (0x40 bytes), `+0x8c` loaded deck |
 
-Slots: single duel 0 = player, 1 = opponent; tag duel 0 = the player's partner, 1 = opponent A, 2 = player, 3 = opponent B; mode 6: 0 = the partner, 1 = opponent. Completeness byte `0x08ece424`: bit 0 own side/opponent A, bit 1 opponent (B), bit 2 partner, bit 3 rules, bit 4 (set elsewhere, presumably `duel_then`, L); `world_is_duel_setup_complete` needs bits 0–4. Request block: `+0x00/+0x04` opponent A and variant, `+0x08/+0x0c` opponent B, `+0x44` u8 flags: bit 0 tag, bit 1 partner-requested, bit 2 "pair" flag (set when the duel was requested in free roam; then `world_prepare_story_duel` saves the opponent's duel-pair partner with `save_set_byte_16e10`).
+Slots: single duel 0 = player, 1 = opponent; tag duel 0 = the player's partner, 1 = opponent A, 2 = player, 3 = opponent B; mode 6: 0 = the partner, 1 = opponent. Completeness byte `0x08ece424`: bit 0 own side/opponent A, bit 1 opponent (B), bit 2 partner, bit 3 rules (set by `duel_rules`, `world_set_duel_rules` `0x08ea4838`), bit 4 follow-up key (set by `duel_then_a`, `0x08ea48a8`; H); `world_is_duel_setup_complete` needs bits 0–4. Request block: `+0x00/+0x04` opponent A and variant, `+0x08/+0x0c` opponent B, `+0x44` u8 flags: bit 0 tag, bit 1 partner-requested, bit 2 "pair" flag (set when the duel was requested in free roam; then `world_prepare_story_duel` saves the opponent's duel-pair partner with `save_set_byte_16e10`).
 
 #### Partner, chapter and daily events
 
@@ -584,7 +648,7 @@ State `0x2e` (`world_state_start_staff_roll`) → frame callbacks in `0x08ecd98c
 #### Open questions (rel_story)
 - Content of story block `+0x3570` (opcode 50141) and the exact role of `0x08ecd980` beyond "first map entry after a new game" (field request 27).
 - ~~The BOOT functions `0x0885bddc`, `0x0885bd4c`, … (scene parameter blocks of modes 5–11)~~: settled 2026-11-04, see "Mini-game parameter blocks" below. Still open: what each mini-game reads from its block beyond words 0 and 1, and the role of words 2–5 (-1 from the story, -1/0 from the menu).
-- Duel result values in deck block `T + 0x20` (1 = win?) and the meaning of tally word d.
+- ~~Duel result values in deck block `T + 0x20` (1 = win?)~~: 1 win, 2 loss, 3 draw (`duel-runtime.md`, `0x09e02cb0`; follow-up order in "Back from a story duel", settled 2026-11-04). Open: the meaning of tally word d.
 - System flag `0xc`/`0xd` (mode 8 return): which game mode it is.
 - Whether the restart branch of `world_story_init` (location `0xe`, player position) is reachable.
 
@@ -604,7 +668,7 @@ The last 15 default-named `world` functions were named and documented in the 202
 
 Words `+0x00`/`+0x04` of each block are the opponent character and its variant (from the story: the partner; from the menu: the chosen character). Each block is followed by one word with its own getter (`world_get_<game>_params_end`: `0x0885bd58`, `…bd70`, `…bd88`, `…bda0`, `…bdb8`, `…bdd0`), which nothing calls in `BOOT.BIN`, in the Ghidra-imported modules or in the mini-game modules.
 
-In `rel_field`: `world_field_debug_line_to_location` (`0x090cf0b8`) maps the debug map-menu line 0–0x1d to a location id through the jump table at module `+0x24968` (each case loads its constant in a branch delay slot, so Ghidra shows empty cases; read from the disassembly); `world_get_map_variant_for_period` (`0x090d0c80`) maps light period 1 → 0, 2 → 1, 3 and 4 → 2 (else 0), the map variant whose group mask `world_bind_map_archive` applies to every map mesh.
+In `rel_field`: `world_field_debug_line_to_location` (`0x090cf0b8`) maps the debug map-menu line 0–0x1d to a **field map id** (correction 2026-11-04: the constants 1–5, 12, 13–24, 25–27, 29–32, 36, 37, 39, 41 and 42, the last for any line ≥ 0x1e, are map ids, not story locations, which stop at 30; this menu is the only code that loads map 37, `field-maps.md`) through the jump table at module `+0x24968` (each case loads its constant in a branch delay slot, so Ghidra shows empty cases; read from the disassembly); `world_get_map_variant_for_period` (`0x090d0c80`) maps light period 1 → 0, 2 → 1, 3 and 4 → 2 (else 0), the map variant whose group mask `world_bind_map_archive` applies to every map mesh.
 
 ## Open questions
 

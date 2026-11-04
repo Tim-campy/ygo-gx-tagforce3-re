@@ -1020,6 +1020,10 @@ Resources: module 0x1d (card picker `ui_select_card_*`), `cardh.cip` in a 0x1350
 - What sets the partner menu's OSK flag +0x148 to 1 and who advances name-entry step 1 -> 2 (not in this half).
 - The OSK parameter block field at `0x09aedfec` (result) and the halfword language table `0x08ee8c38` contents.
 
+### Character list modes (`rel_charalist`, read 2026-11-04)
+
+`ui_charalist_open(mode, config)` (export at module `+0x4b0`; module base unknown, offsets are module offsets) keeps `mode` in the low nibble of the state byte `+0xe900`. The list builder `+0x37cc` lists characters 2–142 that exist and have at least one variant passing the mode's save character-flag test (jump table `+0xd71c`; per-variant lists `+0x4d98`, table `+0xd764`), on three pages by category (0, 2, other): modes 0/1 byte 0 bit 3 (database list), 2 bit 0 (wireless partner pick), **3 bit 1 (partner choice)**, 4 byte 1 bit 0 (partner deck select), 5 bit 1 (mini-game opponent). Mode 3 is opened by the story on a new game (`world_state_start_charalist`) and by `ui_title_update_charalist_select`; the choice is stored with `save_set_partner` (`+0x63a4`). Roster and unlock rules: `world.md`, "Partner choice (character list mode 3)" (high for the code).
+
 ## Open questions
 
 - Which menu state uses which of the 41 `rel_title` functions that read `tushin_msg`, and the selector `k` of the 25 `ui_title_get_message` calls whose table is chosen at runtime (a PPSSPP breakpoint on `0x08e9cbf0` would give `(index, k)` per screen).

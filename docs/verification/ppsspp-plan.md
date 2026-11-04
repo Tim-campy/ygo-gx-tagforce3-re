@@ -929,6 +929,14 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 - **Record**: the record table bytes `+0x290`, `+0x14c + 0x1e`, `+0x1b8 + 0x3c` in `G6-a`/`G6-b` (`save.md`, record table); the result screen's bonus lines (in your words); DP before/after.
 - **Expected**: `+0x290` = `0x1e`; after the win `+0x14c + 0x1e` = 1, `+0x1b8 + 0x3c` = the opponent's recipe level, a "New Challenge Bonus" line and +200 DP on top of the other bonuses.
 
+### G7. *(optional, confirmation)* Partner list and must-win story duels
+
+- **Hypothesis** (settled statically, B4; `world.md`, "Partner choice (character list mode 3)" and "Duel set-up"): the partner choice lists exactly the (character, variant) rows with character-flag byte 0 bit 1; a new game sets it for characters 2–7 variant 0; chapter duels are must-win (`duel_rules` a = 1, set-up `+0x195` = 1), generic duels are not.
+- **Breakpoints**: execute `save_test_character_flag_bit1` (`0x088552cc`), **Log** `char {a0} var {a1} ret {v0}` (log `v0` at the return), while the list builds.
+- **Steps**: (1) new game: open the partner choice and note the characters offered; (2) with a save after one finished partner story, open it again (expect 9, 10, 11 and 47–120 added, not 121–126); (3) lose a chapter duel: note whether a retry is offered, decline it and note where the game goes; (4) lose a generic free-roam duel: note whether a retry is offered and what follows.
+- **Record**: the characters offered in (1) and (2) (ids from the log), the screen reached in (3) and (4).
+- **Expected**: (1) 2–7 variant 0 only; (2) as listed; (3) a retry prompt, the title screen (scene `0xd`) when declined; (4) no retry prompt, the loss follow-up `(301, 3, 42)` runs.
+
 **Session G results**
 
 | Check | Recorded | Expected | Pass? | Notes |
@@ -939,6 +947,7 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 | G4 story duel result | | 1 win, 2 loss | | |
 | G5 flag bits per action | | bits 18–20, 24–26; slot 25/30 | | pcs |
 | G6 challenge `0x1e` record and bonus | | `+0x14c+0x1e` = 1, level stored, +200 DP | | |
+| G7 partner list, lost chapter / generic duel | | 2–7 v0; retry then title; no retry | | |
 
 ## Reporting results
 

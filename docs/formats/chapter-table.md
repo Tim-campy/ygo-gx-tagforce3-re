@@ -35,7 +35,7 @@ Observed on the disc (`world.py chapters --check`, `failing: 0`):
 | 0 | 9–45 | Same search. |
 | 1, 3, 4, 5, other | 46–126 (1), 142 (3), 127–141 (4), 0–1 (5) | First row whose header word 1 is **1** (row 58), whatever the character. |
 
-When the search finds nothing the function returns an uninitialised register (`s3`); on the disc this happens only for `(16, 1)`, `(37, 1)`, `(38, 1)`, `(39, 1)` and `(41, 1)`, which are presumably not offered as partners (low). It also calls `BOOT` `0x0885ae0c` (`+0x09` of the row) and discards the result.
+When the search finds nothing the function returns an uninitialised register (`s3`); on the disc this happens only for `(16, 1)`, `(37, 1)`, `(38, 1)`, `(39, 1)` and `(41, 1)`, which are never offered as partners (high, settled 2026-11-04): the partner choice offers only rows whose save character-flag bit 1 is set (`world.md`, "Partner choice"), and `world_character_has_partner_deck` (`0x0885ba2c`), the gate of every bit-1 writer except the new-game rows 2–7, refuses exactly these five pairs. The uninitialised path is therefore unreachable with the shipped data. It also calls `BOOT` `0x0885ae0c` (`+0x09` of the row) and discards the result.
 
 ## Looking up an entry
 
@@ -82,6 +82,6 @@ Other places that use the table:
 ## Open questions
 
 - What the game shows after the staff roll (state 48/50 and later) and whether the stage is reset for a new partner (only `world_init_calendar` writes stage 1, from the new-game paths `0x08e9fd90`, `0x08e9fe5c` and the system-flag-20 start `0x08ea343c`).
-- Which characters the partner choice offers (decides whether the rowless variants and the category-4/5 offsets matter).
-- The step-3 location test (when does a step-3 event start from the map rather than after the duel: a lost duel?). PPSSPP: watch field block bytes 0–1 across one chapter.
+- ~~Which characters the partner choice offers~~: **settled 2026-11-04** (static, capstone): the rows with save character-flag byte 0 bit 1 set, which are characters 2–7 variant 0 on a new game and grow with every finished partner story by the unlock table of `world_recompute_completion_flags`; see `world.md`, "Partner choice (character list mode 3)". The rowless variants are never offered (above); category 3, 4 and 5 characters never get bit 1 (`world_character_has_partner_deck` refuses them), so the category-4/5 ending offset `partner − 46` is never used; category 1 (46–126) becomes available as stories are finished (47–120 after one, 121–126 after four or through an event-211 duel, 46 after seven).
+- The step-3 location test (when does a step-3 event start from the map rather than after the duel: a lost duel?). PPSSPP: watch field block bytes 0–1 across one chapter. Static note (2026-11-04): every chapter record (`201`–`218`) sets up its duel with `duel_rules` first argument 1 (set-up byte `+0x195` = 1, `story.md`), and with that byte a lost duel never returns to the story: the result screen offers a retry and declining it jumps to the title (`rel_duel_mgr` `system_duel_mgr_scene_main` `0x08e9e1e4`). Only a won or drawn chapter duel comes back, so "after a lost duel" cannot be the case; the PPSSPP check stays for the other paths.
 - Rows 57 and 59–63 and the header word `kind` have no reader; perhaps left over from a category-keyed design (low).

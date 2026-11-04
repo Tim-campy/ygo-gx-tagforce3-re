@@ -7,7 +7,7 @@ Every bullet of every "Open questions" list in `docs/subsystems/*.md` and `docs/
 - **W** non-blocking, part of the card-effect and AI fidelity workstream: a port can implement the behaviour from the official card text and the documented engine rules; the binary only adds the original's exact numbers and quirks.
 - **N** non-blocking: fidelity detail (timing, look, unused or dead code, debug paths, Sony library internals, zero bytes, naming, link play, UI layout the port redesigns).
 
-Totals: 573 items: B 12, R 152, W 18, N 391.
+Totals: 573 items: B 9, R 155, W 18, N 391.
 
 | Document | Items | B | R | W | N |
 | --- | --- | --- | --- | --- | --- |
@@ -16,7 +16,7 @@ Totals: 573 items: B 12, R 152, W 18, N 391.
 | `formats/card-effect-spec.md` | 10 |  | 2 | 7 | 1 |
 | `formats/card-refs.md` | 4 |  |  |  | 4 |
 | `formats/cardinfo.md` | 4 |  | 1 |  | 3 |
-| `formats/chapter-table.md` | 4 | 3 |  |  | 1 |
+| `formats/chapter-table.md` | 4 | 2 | 1 |  | 1 |
 | `formats/character-table.md` | 2 |  |  |  | 2 |
 | `formats/cip.md` | 7 |  |  |  | 7 |
 | `formats/deck.md` | 11 |  | 5 |  | 6 |
@@ -25,7 +25,7 @@ Totals: 573 items: B 12, R 152, W 18, N 391.
 | `formats/effect-tables.md` | 6 |  | 3 | 2 | 1 |
 | `formats/ehf.md` | 6 |  | 5 |  | 1 |
 | `formats/ehp.md` | 3 |  | 1 |  | 2 |
-| `formats/field-maps.md` | 6 | 1 | 1 |  | 4 |
+| `formats/field-maps.md` | 6 |  | 2 |  | 4 |
 | `formats/field-tables.md` | 2 |  | 1 |  | 1 |
 | `formats/file-index.md` | 3 |  | 2 |  | 1 |
 | `formats/fusion-recipes.md` | 3 |  | 1 |  | 2 |
@@ -40,7 +40,7 @@ Totals: 573 items: B 12, R 152, W 18, N 391.
 | `formats/shop-rules.md` | 3 |  | 2 |  | 1 |
 | `formats/sound.md` | 5 |  | 3 |  | 2 |
 | `formats/story-runtime.md` | 3 |  | 1 |  | 2 |
-| `formats/story.md` | 7 | 1 | 3 |  | 3 |
+| `formats/story.md` | 7 |  | 4 |  | 3 |
 | `formats/string-tables.md` | 4 |  | 1 |  | 3 |
 | `formats/tgm.md` | 8 |  | 2 |  | 6 |
 | `formats/tutorial.md` | 6 |  |  |  | 6 |
@@ -134,8 +134,8 @@ Totals: 573 items: B 12, R 152, W 18, N 391.
 | # | Question (shortened) | Class | Settles / answered in |
 | --- | --- | --- | --- |
 | 28 | What the game shows after the staff roll (state 48/50 and later) and whether the stage is reset for a new partner (only `world_init_calendar` writes … | B (P) | B5: PPSSPP E15 (needs a late save) or static reading of `rel_story` states 48/50. |
-| 29 | Which characters the partner choice offers (decides whether the rowless variants and the category-4/5 offsets matter). | B (S) | B4: read the character-list filter of `ui_charalist` mode 3 (system flag `0x14`). |
-| 30 | The step-3 location test (when does a step-3 event start from the map rather than after the duel: a lost duel?). PPSSPP: watch field block bytes 0–1 … | B (P) | B6: PPSSPP G2. |
+| 29 | Which characters the partner choice offers (decides whether the rowless variants and the category-4/5 offsets matter). | R | B4 settled statically (2026-11-04): `subsystems/world.md`, "Partner choice (character list mode 3)": rows with character-flag byte 0 bit 1; first game characters 2-7 variant 0; later unlocks from the table of `world_recompute_completion_flags`; the rowless variants and categories 3-5 are never offered. Optional PPSSPP G7. |
+| 30 | The step-3 location test (when does a step-3 event start from the map rather than after the duel: a lost duel?). PPSSPP: watch field block bytes 0–1 … | B (P) | B6: PPSSPP G2. Static note (B4, M): chapter duels are must-win (`duel_rules` a=1), so a lost one ends in a retry or the title and never returns to step 3 (`formats/chapter-table.md`). |
 | 31 | Rows 57 and 59–63 and the header word `kind` have no reader; perhaps left over from a category-keyed design (low). | N |  |
 
 ## `formats/character-table.md`
@@ -225,7 +225,7 @@ Totals: 573 items: B 12, R 152, W 18, N 391.
 
 | # | Question (shortened) | Class | Settles / answered in |
 | --- | --- | --- | --- |
-| 75 | What loads maps 37 and 38 (no location maps to them), and what selects the second dorm version. | B (S) | B4: find who passes map ids 37/38 and selects the second dorm (`rel_field`/`rel_story`). |
+| 75 | What loads maps 37 and 38 (no location maps to them), and what selects the second dorm version. | R | B4: `formats/field-maps.md`, "Location ↔ map": nothing in play loads maps 37/38 (37 only from the field debug map menu, 38 unreferenced). |
 | 76 | The meaning of `0x08e9b460()` (arrival in room 204) and of the direction values 0–7. | N |  |
 | 77 | The scripted placements behind cells 10000/10001 (`world_send_npc_list`, locations 5 and 25) and the anonymous extras on locations 2 and 4. | N |  |
 | 78 | Which part of `bm_parts.gim` and which EHF layout each island area uses; the exact on-screen marker sprite. | N |  |
@@ -355,7 +355,7 @@ Totals: 573 items: B 12, R 152, W 18, N 391.
 | --- | --- | --- | --- |
 | 128 | The driver around `0xb3c8` (how the field module picks the record to run, how the exit codes are consumed). | R | `subsystems/world.md` (event driver). |
 | 129 | Which save fields the `BOOT.BIN` getters read (DP, per-character points, pack state, picture bits). The field side of the 33 requests is now listed … | N |  |
-| 130 | The meaning of `talk`'s `a3` flag (0/1; 148 uses with 1, often on lines like "..."), of `npc_event`'s `(301, n)` pair, of the … | B (S) | B4: read the `rel_duel_mgr` readers of the set-up bytes behind `duel_rules`/`duel_option`. |
+| 130 | The meaning of `talk`'s `a3` flag (0/1; 148 uses with 1, often on lines like "..."), of `npc_event`'s `(301, n)` pair, of the … | R | B4: `duel_rules` = result policy `+0x195` (must-win with retry), music set `+0x194`, format `+0x191`; `duel_option` = LP mode `+0x196`, time limit `+0x197`; follow-ups `_a` win, `_b` loss, `_c` draw (`formats/story.md`, `subsystems/world.md`). `talk` a3 left open (non-blocking). |
 | 131 | Every opcode in use now has a name (the nine formerly open ones and 50126–50128 were read on 2026-10-30). Readings that a PPSSPP trace should … | N |  |
 | 132 | The `《Cnnn_k》` forms 1–5, and whether `nnn` equals the speaker id in `a1` of 50001/50002/50009. The ranges overlap (2–141 vs 001–151), but this is … | R | `subsystems/dialogue.md` (`dialogue_expand_name_tokens`). |
 | 133 | Where `《…》` placeholders and `$M`/`$C` are expanded in code, and whether the bracketed tokens in `SysMsg` are placeholders at all. | R | `subsystems/dialogue.md`. |
