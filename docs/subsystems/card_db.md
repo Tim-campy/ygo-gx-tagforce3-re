@@ -96,7 +96,7 @@ The summon-class predicates in `BOOT.BIN` (`0x08863a34`–`0x08865e64`) are inli
 
 `card_db_can_be_special_summoned` (`0x08864ff8`) combines both tables. It rejects Spirit monsters (kind 7) and a 41-id list of monsters that can never be Special Summoned. Extra Deck monsters pass only with fusion class 0 or 4. Main Deck monsters fail with condition class 2 or 4. What each condition class means (for example, whether 2 means "only by its own effect" and 4 means "only by a named card") is still an open question. A port can copy the tables as data.
 
-`card_db_classify_for_viewer` (`0x08865e64`) actually returns the **spell speed** used by the chain engine (`chain.md`, "Spell speed"): spells 1 (Quick-Play 2), traps 2 (Counter 3), monsters 1, except about 60 quick-effect monsters, which give 2. The card viewer (`ui_card_viewer_draw`) uses the same value. A rename to `card_db_get_spell_speed` is suggested. `card_db_is_neos_or_elemental_hero` (`0x08862968`) is the predicate for fusion material code `0x1e` (archetype `0x39`). It is the union of seven inlined id lists.
+`card_db_get_spell_speed` (`0x08865e64`) actually returns the **spell speed** used by the chain engine (`chain.md`, "Spell speed"): spells 1 (Quick-Play 2), traps 2 (Counter 3), monsters 1, except about 60 quick-effect monsters, which give 2. The card viewer (`ui_card_viewer_draw`) uses the same value. Renamed 2026-11-04 to `card_db_get_spell_speed` (formerly `card_db_classify_for_viewer`). `card_db_is_neos_or_elemental_hero` (`0x08862968`) is the predicate for fusion material code `0x1e` (archetype `0x39`). It is the union of seven inlined id lists.
 
 ## Open questions
 

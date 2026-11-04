@@ -93,8 +93,8 @@ The record is copied as three words (`lwc1`/`swc1` of `+0`, `+4`, `+8`) from a l
 | `+0x03` | 1 | u8 | From-field flag: the choice is a Gemini summon of a monster already on the field | `ai_submit_summon_from_hand`, `ai_execute_planned_summon`, `ai_try_final_normal_summon` | H |
 | `+0x04` | 1 | u8 | Set face-down: the submitted position mode is 6 instead of 4 | `ai_submit_summon_from_hand` | H |
 | `+0x05` | 1 | u8 | Summon already handled / pending flag: when set, `ai_can_normal_summon_now` refuses and `ai_execute_planned_summon` reports done | `ai_can_normal_summon_now` (`0x09d39ba8`), `ai_try_final_normal_summon`, `ai_main_state_summon` | M |
-| `+0x06` | 2 | u16 | Card that needs special handling (non-zero = yes) | `ai_choice_has_special_card` reads it; written by `ai_choose_normal_summon`, `ai_choose_special_summon` | M |
-| `+0x08` | 4 | u32 | Unknown word written by `ai_choose_special_summon`, `ai_eval_extra_deck_summon`, `ai_try_adjust_monster_position`, `ai_try_hand_special_summons` and read by the Extra Deck evaluators | Access scan only | L (unknown) |
+| `+0x06` | 2 | u16 | Card that needs special handling (non-zero = yes) | `ai_choice_has_special_card` reads it; written by `ai_choose_normal_summon`, `ai_choose_conditional_normal_summon` | M |
+| `+0x08` | 4 | u32 | Unknown word written by `ai_choose_conditional_normal_summon`, `ai_eval_extra_deck_summon`, `ai_try_adjust_monster_position`, `ai_try_hand_special_summons` and read by the Extra Deck evaluators | Access scan only | L (unknown) |
 
 Rating (tier 1–5 plus an ATK/DEF tie-breaker) is computed in `ai_rate_summon_candidate` and is not stored in the record (`ai.md`, "Summon choice"). Unknown: the meaning of `+0x08`.
 

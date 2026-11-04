@@ -462,7 +462,7 @@ Rules: a row is added only for a branch that was read in the decompilation; it d
 - `function`: the chain;
 - `when`: empty, because the chain's timing is not decoded;
 - `effect`: `chain_case:<label>`;
-- `amount`: the case's `own` text (join state and calls, for example `a1=124 at 0x09cc0bac` for the prompt text id that `duel_effects_get_target_prompt_text` passes on, or `calls duel_core_is_field_spell(4340)`);
+- `amount`: the case's `own` text (join state and calls, for example `a1=124 at 0x09cc0bac` for the prompt text id that `duel_effects_show_target_prompt` passes on, or `calls duel_core_is_field_spell(4340)`);
 - `confidence`: L;
 - `basis`: the case target.
 

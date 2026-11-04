@@ -404,7 +404,7 @@ Generic characters: 51 × 84 cells in a 512 × 256 sheet, split at row 61 into a
 #### Name mismatches
 
 - `world_get_npc_event_key`: returns the NPC words `+0xdc/+0xe0/+0xe4`, used only for the HUD target panel; no evidence they are an event key (L for the current name).
-- `world_clip_player_motion`: also used for the partner, not only the player.
+- `world_clip_character_motion` (formerly `world_clip_player_motion`; renamed 2026-11-04): also used for the partner, not only the player.
 - `world_island_draw_menu_text` and `dialogue_draw_text_to_screen_edge`: bodies not decompiled (skipped).
 - `world_check_npc_loaded`: also completes field request 7 (busy word and the turned NPC).
 
@@ -412,7 +412,7 @@ Generic characters: 51 × 84 cells in a 512 × 256 sheet, split at row 61 into a
 - Who writes occupancy value 5, and what the pool-entry word `+0x20` (eviction lock) is.
 - The meaning of the HUD words `+0xdc/+0xe0/+0xe4` from the request-7 record, and of NPC `+0xcc`.
 - The NPC wander step (jump table `0x090f80cc`) and the analogue-stick word at pad `+0x18` used by the island map.
-- Whether `world_clip_player_motion` reads the fifth value its callers pass (run flag / 0); the decompilation shows four parameters.
+- Whether `world_clip_character_motion` reads the fifth value its callers pass (run flag / 0); the decompilation shows four parameters.
 - `world_draw_object_list` disables texturing while R is held (pad bit 0x200) — intentional or debug leftover.
 - Field action 1 (prompt 128 confirmed) is not in the `world.md` action table; its story-side handling needs checking.
 - `field-maps.md` says pick-ups end the walk with "field action 15"; in this code a pick-up enters command **state** 0xf (card get) and action 15 is PDA result 10. Needs reconciliation.

@@ -118,12 +118,12 @@ The following small functions were read in full (prototype, side effects and cal
 | `0x0882caa8` | `system_movie_audio_queue_push` | `system_movie_decode_audio` |
 | `0x0882cf44` | `system_movie_reader_close` | `system_movie_play` |
 | `0x0882d344`, `0x0882d3b4`, `0x0882d3f8` | `system_movie_control_flags_create`, `_destroy`, `_clear` | `system_movie_play` |
-| `0x0882d434`, `0x0882d464` | `system_movie_wait_waitflag_bit0`, `_bit1` | `system_movie_display_show_next_frame`, `system_movie_display_thread`; `system_movie_flush_video` |
+| `0x0882d434`, `0x0882d464` | `system_movie_wait_waitflag_bit0`, `_bit1` | `system_movie_display_show_next_frame`, `system_movie_display_thread`; `system_movie_decode_loop` |
 
 ### Findings to reconcile (from the round), settled on 2026-10-31 (round 2)
 
 - `0x08809fec` `system_acosf` → **`system_asinf` (changed, H).** The wrapper calls only `system_ieee754_asinf` and, on a domain error, fills the `matherr` record with the name string at `0x088779ac`, which reads "asinf". Its callers `0x0881c258`/`0x0881c3b0` are VFPU helpers.
-- `system_movie_create_player` (`0x0882b964`) → **`system_movie_play` (changed, H).** It creates the sceMpeg player, starts the display, read and sound threads, runs `system_movie_flush_video` (the playback loop), waits for the threads, deletes them and frees everything; the return value is 1 when the playback was cut short (state 10). Its wrappers are now `system_call_movie_play` (`0x0882b95c`) and `system_movie_play_with_volume` (`0x0883debc`).
+- `system_movie_create_player` (`0x0882b964`) → **`system_movie_play` (changed, H).** It creates the sceMpeg player, starts the display, read and sound threads, runs `system_movie_decode_loop` (the playback loop), waits for the threads, deletes them and frees everything; the return value is 1 when the playback was cut short (state 10). Its wrappers are now `system_call_movie_play` (`0x0882b95c`) and `system_movie_play_with_volume` (`0x0883debc`).
 - `save_tick_frame_counter` (`0x088359f4`) → **`system_run_frame_services` (changed, H; still documented).** Per main-loop iteration it advances the play-time counter at game state `+0xc` (`save.md`), calls `0x08835bf0(4)` while `0x08aa5698` is set, `audio_update_voice_queues` and `audio_update_frame`. The prototype in `re/documented.tsv` is renamed with it.
 - Duplicate `system_vfpu_*` names → **changed (M).** The second and third copies (`0x0881b508`–`0x0881b878`, `0x0881c5dc`, `0x0881c5f8`, `0x0881c630`) are byte-identical to the first ones at `0x08819970`–`0x08819cc0` and have no caller; they are now `<name>_b` / `_c`. `0x0881a838` `sceVfpuMatrix4Zero` (VFPU `vmzero.q`) and `0x0881a818` `system_vfpu_vmidt_q` (`vmidt.q`, identity) are **not** swapped: kept.
 
@@ -149,7 +149,7 @@ Still unnamed (281 registry rows, about 1 %): 52 own functions and the 229 thunk
 
 ## Documentation round of 2026-10-31
 
-Method: every program in `ghidra/TF3.gpr` was dumped read-only with the current names (decompilation, callers, callees and tags of every function). Named but undocumented functions were ranked (those already described in `docs/`, exported functions whose import stubs depend on them, then size) and read in packs of 60-110 functions per group; a row was written only when the whole body was read, with the prototype corrected for tail calls and hidden pass-through arguments (in doubtful cases from the disassembly), and skipped otherwise (296 skips: hidden arguments, lost tail calls, unresolved import stubs, failed decompilations, VFPU code, and 3 names contradicted by the body: `rel_deck` `deck_stub_noop_save_stored_deck` is the sceRtc import, `ui_card_viewer_get_frame_tick` returns the frame rate, `ui_help_disable_ruby` is empty). 33 rows whose writer flagged a decompiler artefact or an inferred return value were withdrawn before applying. All prototypes were parsed by `ApplySignatures.java` in a read-only session before the registry refresh. Result: 4,707 functions read and documented, plus 10,856 import stubs whose targets are documented (below). A re-read of 16 random rows against the decompilation found no error. The per-group tables are in `functions/`.
+Method: every program in `ghidra/TF3.gpr` was dumped read-only with the current names (decompilation, callers, callees and tags of every function). Named but undocumented functions were ranked (those already described in `docs/`, exported functions whose import stubs depend on them, then size) and read in packs of 60-110 functions per group; a row was written only when the whole body was read, with the prototype corrected for tail calls and hidden pass-through arguments (in doubtful cases from the disassembly), and skipped otherwise (296 skips: hidden arguments, lost tail calls, unresolved import stubs, failed decompilations, VFPU code, and 3 names contradicted by the body: `rel_deck` `deck_stub_noop_save_stored_deck` is the sceRtc import, `ui_card_viewer_get_frame_rate` returns the frame rate, `ui_help_disable_ruby` is empty). 33 rows whose writer flagged a decompiler artefact or an inferred return value were withdrawn before applying. All prototypes were parsed by `ApplySignatures.java` in a read-only session before the registry refresh. Result: 4,707 functions read and documented, plus 10,856 import stubs whose targets are documented (below). A re-read of 16 random rows against the decompilation found no error. The per-group tables are in `functions/`.
 
 ## Import stubs of documented functions
 
@@ -407,10 +407,10 @@ Netconf parameter block `0x08db3ad0` (0x44 bytes): size, language (`system_get_u
 
 #### Name mismatches
 
-- `system_font_is_no_line_start_char` / `system_font_is_no_line_end_char` return true when the character is NOT in the forbidden table (i.e. "may start/end a line"); the callers use them that way.
+- `system_font_may_start_line` (formerly `system_font_is_no_line_start_char`; renamed 2026-11-04) / `system_font_may_end_line` return true when the character is NOT in the forbidden table (i.e. "may start/end a line"); the callers use them that way.
 - `system_wcs_format_hex_padded` does not produce hexadecimal: it divides by 10 and takes the remainder modulo 15 (bug in the game); `%x` in `system_swprintf` is therefore broken, and the letter base passed for `%X`/`%x` ('X' - 0x17) would give 'K'/'k' for digit 10.
-- `system_movie_read_sectors` is the sceMpeg ring-buffer callback (reads packets, not sectors as such; same size 0x800).
-- `system_movie_flush_video` is the whole decode loop, not only a flush.
+- `system_movie_ringbuffer_callback` (formerly `system_movie_read_sectors`; renamed 2026-11-04) is the sceMpeg ring-buffer callback (reads packets, not sectors as such; same size 0x800).
+- `system_movie_decode_loop` (formerly `system_movie_flush_video`; renamed 2026-11-04) is the whole decode loop, not only a flush.
 - `system_font_draw_glyph_sprite_8x8`: its range test is always true (draws every character).
 - `system_duel_mgr_stub_noop_*` (rel_duel_mgr `0x08eb5894`-`0x08eb58b4`): 8-byte entries in the import-stub area; by their call sites they are unresolved import stubs of `libdeck_swap_rel` and `libtutorial_rel` (start/update/draw), not game no-ops (medium).
 - `system_get_file_size_from_offset` leaves the file open.

@@ -169,7 +169,7 @@ These functions confirm and extend `summon.md` (both sections).
 - **Slot `+14` target-choice handlers** step `0x09e28f70`, return 0 while busy and return 1 when done. A chosen card is appended as a link target in this form: side | location << 1 | instance << 5 | generation << 14. The first five targets go into `u16 +0x08…`. Later targets go through command `0x28` into the extra-target ring, and `u16 +0x12` keeps the ring base. Each target also gets a target marker.
 
   Examples are `duel_effects_target_choice_shared_0eb7_x31` (`0x09cc3374`, list mode and hint per card) and `duel_effects_target_choice_1935` (`0x09cc88e0`). The second stores the copied card as target 5 and then runs that card's activation step and target choice under its id.
-- `duel_effects_get_target_prompt_text` (`0x09cbf5c4`) maps about 400 card ids to about 48 hint messages and shows the hint. It returns nothing.
+- `duel_effects_show_target_prompt` (`0x09cbf5c4`, formerly `duel_effects_get_target_prompt_text`; renamed 2026-11-04 because it returns nothing) maps about 400 card ids to about 48 hint messages and shows the hint.
 - `duel_effects_get_candidate_param` (`0x09cc0dd0`) extracts, per card, the parameter that a card passes to its candidate builder.
 - `duel_effects_collect_graveyard_candidates` (`0x09ccf768`) is the Graveyard scanner behind 119 callers. Its filter and option bits are listed in its row: same/different name, kind, icon, entry flags, Normal/Effect monster, properly summoned, Special-Summonable.
 

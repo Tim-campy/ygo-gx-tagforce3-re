@@ -2192,7 +2192,7 @@ Stubs: 13451, for 2660 targets.
 | `card_db_is_fusion_class_summonable` (`0x08864c60`) | BOOT.BIN | rel_deck `0x08eb8d70` (0), rel_duel_draw `0x098bcebc` (0), rel_duel_eng `0x09de4cf4` (1), rel_duel_mgr `0x08eb3334` (0), rel_field `0x090ef7dc` (0), rel_shop `0x090e5dbc` (0), rel_story `0x08eaec14` (0), rel_title `0x08edf400` (0) |
 | `card_db_can_be_special_summoned` (`0x08864ff8`) | BOOT.BIN | rel_deck `0x08eb8d78` (0), rel_duel_draw `0x098bcec4` (0), rel_duel_eng `0x09de4cfc` (14), rel_duel_mgr `0x08eb333c` (0), rel_field `0x090ef7e4` (0), rel_shop `0x090e5dc4` (0), rel_story `0x08eaec1c` (0), rel_title `0x08edf408` (0) |
 | `card_db_is_extra_deck_unrestricted` (`0x08865ad8`) | BOOT.BIN | rel_deck `0x08eb8d80` (0), rel_duel_draw `0x098bcecc` (0), rel_duel_eng `0x09de4d04` (2), rel_duel_mgr `0x08eb3344` (0), rel_field `0x090ef7ec` (0), rel_shop `0x090e5dcc` (0), rel_story `0x08eaec24` (0), rel_title `0x08edf410` (0) |
-| `card_db_classify_for_viewer` (`0x08865e64`) | BOOT.BIN | rel_deck `0x08eb8d88` (0), rel_duel_draw `0x098bced4` (0), rel_duel_eng `0x09de4d0c` (2), rel_duel_mgr `0x08eb334c` (0), rel_field `0x090ef7f4` (0), rel_shop `0x090e5dd4` (0), rel_story `0x08eaec2c` (0), rel_title `0x08edf418` (0) |
+| `card_db_get_spell_speed` (`0x08865e64`) | BOOT.BIN | rel_deck `0x08eb8d88` (0), rel_duel_draw `0x098bced4` (0), rel_duel_eng `0x09de4d0c` (2), rel_duel_mgr `0x08eb334c` (0), rel_field `0x090ef7f4` (0), rel_shop `0x090e5dd4` (0), rel_story `0x08eaec2c` (0), rel_title `0x08edf418` (0) |
 | `tag_duel_start_partner_switch` (`0x0989c674`) | rel_duel_draw | rel_duel_mgr `0x08eafc0c` (1) |
 | `duel_core_record_duel_result` (`0x09be4648`) | rel_duel_eng | rel_duel_draw `0x098b9adc` (0), rel_duel_mgr `0x08eaff54` (1) |
 | `duel_core_detach_effects_of_moved_card` (`0x09be5eb8`) | rel_duel_eng | rel_duel_draw `0x098ba7c4` (0), rel_duel_mgr `0x08eb0c3c` (0) |
@@ -2286,8 +2286,8 @@ Stubs: 13451, for 2660 targets.
 | `ai_choose_candidate_with_temp_link` (`0x09ceb830`) | rel_duel_eng | rel_duel_draw `0x098bb9d4` (0), rel_duel_mgr `0x08eb1e4c` (0) |
 | `ai_choose_target_with_temp_link` (`0x09ceba44`) | rel_duel_eng | rel_duel_draw `0x098bb9dc` (0), rel_duel_mgr `0x08eb1e54` (0) |
 | `ai_choose_cost_with_temp_link` (`0x09cebd00`) | rel_duel_eng | rel_duel_draw `0x098bb9e4` (0), rel_duel_mgr `0x08eb1e5c` (0) |
-| `ai_check_monster_position_change` (`0x09cecc54`) | rel_duel_eng | rel_duel_draw `0x098bb95c` (0), rel_duel_mgr `0x08eb1dd4` (0) |
-| `ai_check_card_condition` (`0x09cee284`) | rel_duel_eng | rel_duel_draw `0x098bb964` (0), rel_duel_mgr `0x08eb1ddc` (0) |
+| `ai_choose_position_for_change` (`0x09cecc54`) | rel_duel_eng | rel_duel_draw `0x098bb95c` (0), rel_duel_mgr `0x08eb1dd4` (0) |
+| `ai_choose_summon_position_by_card` (`0x09cee284`) | rel_duel_eng | rel_duel_draw `0x098bb964` (0), rel_duel_mgr `0x08eb1ddc` (0) |
 | `ai_is_card_worth_keeping` (`0x09cf11ac`) | rel_duel_eng | rel_duel_draw `0x098bb72c` (0), rel_duel_mgr `0x08eb1ba4` (0) |
 | `ai_get_card_rank` (`0x09cf16d8`) | rel_duel_eng | rel_duel_draw `0x098bb734` (0), rel_duel_mgr `0x08eb1bac` (0) |
 | `ai_is_ranked_card_with_low_atk` (`0x09cf1998`) | rel_duel_eng | rel_duel_draw `0x098bb73c` (0), rel_duel_mgr `0x08eb1bb4` (0) |

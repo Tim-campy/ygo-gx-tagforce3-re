@@ -125,7 +125,7 @@ Sort keys (`shop_get_result_sort_key` / `shop_get_result_group_key`, mode = key 
 
 #### Name mismatches
 
-- `shop_draw_spell_trap_icon` and `shop_draw_attribute_icon` (not in this material) look swapped: `shop_draw_results_row` passes the card attribute to `shop_draw_spell_trap_icon` and, for non-monsters, `card_db_get_icon` to `shop_draw_attribute_icon`; `shop_draw_results_group_label` does the same for sort keys 11 (attribute) and 12 (spell/trap icon). Medium; read the two functions to confirm.
+- Resolved 2026-11-04: the two icon drawers were swapped and are renamed. `shop_draw_attribute_icon` (`0x090e3064`, formerly `shop_draw_spell_trap_icon`) receives `card_db_get_attribute` from `shop_draw_results_row` (at `(0xb3, y + 0x28)`) and from `shop_draw_results_group_label` for sort key 11; `shop_draw_spell_trap_icon` (`0x090e2fe8`, formerly `shop_draw_attribute_icon`) receives `card_db_get_icon` of a non-monster (at `(0xc4, y + 0x28)`) and sort key 12. Basis: the call sites in the decompilation of `shop_draw_results_row` (high).
 - `shop_results_jump_to_group`: its documented parameter is called `forward`, but `shop_results_find_group_boundary(0)` searches forward and a non-zero argument searches backward (`shop_results_page_step` passes 1 for triangle and 0 for cross).
 - `shop_setup_opening_fog_view` also sets up lighting (light block `0x0973ad0c`, light 0, ambient) for the opening stage; the name is acceptable but incomplete.
 

@@ -82,7 +82,7 @@ When a check fails for the local player (`0x09e02994 & 1`), it leaves a reason c
 - `normal_flag` ≥ 1 marks the summon as using the turn's Normal Summon (flag byte bit 2); `normal_flag − 1` is a tribute count already chosen (bits 4–5; the AI passes it, the human path passes 1 = none chosen yet).
 - Flag byte bit 0 = "preparation needed" and bit 6 = "procedure pending"; it also clears bit 3 of player word `+0x120` for both sides (`0x09bf101c`).
 
-AI callers: `ai_execute_summon`, `ai_choose_special_summon`; effect callers: `0x09c80e24`, `0x09ca76a0` (effects that grant a summon), `duel_core_activate_from_list` (Synchro/contact fusion from the extra deck), and `duel_core_execute_player_action`.
+AI callers: `ai_execute_summon`, `ai_choose_conditional_normal_summon`; effect callers: `0x09c80e24`, `0x09ca76a0` (effects that grant a summon), `duel_core_activate_from_list` (Synchro/contact fusion from the extra deck), and `duel_core_execute_player_action`.
 
 ### The summon record (`0x09e290bc`, `0x3c` bytes)
 

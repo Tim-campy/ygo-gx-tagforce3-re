@@ -1,7 +1,7 @@
 # Names applied to gmodule/rel_duel_mgr.prx (runtime base 0x08e9aa00, shared slot: registry ids are prefixed with the module name).
 # Evidence in docs/subsystems/ui.md (scene map).
 address,group,name
-0x08ea0198,ui,ui_duel_mgr_get_string_table
+0x08ea0198,ui,ui_duel_mgr_get_archive_member
 # Naming round 2026-10-31 (docs/subsystems/<group>.md, "Function families named in the 2026-10-31 round").
 # Rows below carry two extra columns, confidence (H/M) and basis, which ApplyNames.java ignores.
 # family duel_link
@@ -80,7 +80,7 @@ address,group,name
 0x08ea7dac,ui,ui_duel_result_draw_number,M,draws an integer digit by digit ('0'+n%10) right to left with spacing, optional zero padding and a minus sign
 0x08ea7ed8,ui,ui_duel_result_draw_scroll_arrow,M,arrow sprite 0xee with alpha pulsing over the frame counter period
 0x08ea815c,ui,ui_duel_result_draw_scrollbar,M,track and thumb sized visible/total, plus up/down arrows 0x08ea7ed8
-0x08ea8434,ui,ui_duel_result_get_frame_counter,M,returns word +4 of system_get_frame_timing()
+0x08ea8434,ui,ui_duel_result_get_frame_rate,M,returns word +4 of system_get_frame_timing()
 0x08ea8454,ui,ui_duel_result_draw_centered_text,M,sets font size, centres text by width 0x08846168>>6 in a cell
 0x08ea84fc,ui,ui_duel_result_draw_label_box,M,member 5 bar 0xd8/0xe1/0xdb plus icon 0xa2 or 0xad and text
 0x08ea86ac,ui,ui_duel_result_draw_outcome_badge,M,member 5 frame and badge sprite for kind 1/2/3 (0x90, 0xa8, 0xc0)
@@ -109,9 +109,9 @@ address,group,name
 0x08e9f98c,ui,ui_duel_start_draw,M,draw step of the frame callback (state 4): background, layouts 0-3, hands, cursor, markers per start state
 0x08e9fd08,ui,ui_duel_start_free,M,system_heap_free of start work +0xc0 and clears 0x08ebaa90
 0x08e9fd34,ui,ui_duel_start_set_modules_ready,M,sets bit 7 of start work byte +0xc; called once 0x08eaa104 reports the duel modules loaded
-0x08e9fdcc,ui,ui_duel_start_play_member2_anim,M,ui_duel_mgr_get_string_table(2) layout; frame range per kind 0-3 via 0x0881e914 and flags +0xb8
-0x08e9ff7c,ui,ui_duel_start_play_member3_anim,M,ui_duel_mgr_get_string_table(3) layout; frame range per kind 0-6 (0x28,0x27,0x4f,0x9f,0x77) via 0x0881e914
-0x08ea012c,ui,ui_duel_start_is_anim_done,M,layout of ui_duel_mgr_get_string_table(id): current frame (0x0881e9d8) >= last-1 of range (0x0881ebbc)
+0x08e9fdcc,ui,ui_duel_start_play_member2_anim,M,ui_duel_mgr_get_archive_member(2) layout; frame range per kind 0-3 via 0x0881e914 and flags +0xb8
+0x08e9ff7c,ui,ui_duel_start_play_member3_anim,M,ui_duel_mgr_get_archive_member(3) layout; frame range per kind 0-6 (0x28,0x27,0x4f,0x9f,0x77) via 0x0881e914
+0x08ea012c,ui,ui_duel_start_is_anim_done,M,layout of ui_duel_mgr_get_archive_member(id): current frame (0x0881e9d8) >= last-1 of range (0x0881ebbc)
 0x08ea023c,ui,ui_janken_init_hand_layout,M,three 0x1a-byte hand records per side at start work +0x1c: start/target positions 0x208+0x5a*i and 0x96, cursor +4 = 1
 0x08ea0404,ui,ui_duel_mgr_copy_rect,M,copies four u16 (x, y, w, h); used for hand position records
 0x08ea042c,ui,ui_janken_step_hand_tween,M,per-side frame counter +0x10: quadratic ease of the three hands from +0x1e to +0x2e over n frames; returns 1 when done
@@ -119,15 +119,15 @@ address,group,name
 0x08ea06c0,ui,ui_janken_update_choice,M,pad left/right cycles cursor +4 mod 3 with SE 0x7a04; link packets; CPU pick 0x08ea2450; hover update
 0x08ea118c,ui,ui_janken_copy_hand_record,M,copies a 13-u16 (0x1a-byte) hand record
 0x08ea11fc,ui,ui_janken_update_reveal,M,reveal state machine: tweens both sides' hands (0x08ea042c 2/4 frames) by choice +5 (1/2/3), then 0x08ea023c on repeat
-0x08ea185c,ui,ui_janken_update_link_exchange,M,link only: waits for peer packet 0x08850bb8/0x088509e8 type 5 sub 2, takes seed into set-up +0x188 and the peer hand
+0x08ea185c,ui,ui_janken_update_turn_order_choice,M,link only: waits for peer packet 0x08850bb8/0x088509e8 type 5 sub 2, takes seed into set-up +0x188 and the peer hand
 0x08ea2038,ui,ui_janken_update_result,M,result phases with member 2/3 anims and SE 0x7a7d; then versus screen 8 or 9 (tag) via 0x08eab5fc
 0x08ea2288,ui,ui_duel_start_update_versus,M,runs ui_duel_versus_update; link sync packets type 5; when done fade 0x08844ec0 and BGM fade 600
 0x08ea2450,ui,ui_janken_pick_cpu_hand,M,system_rand_shifted%100: <20 same as cursor +4, else (cursor+2)%3 or (cursor+1)%3 -> +5
 0x08ea2584,ui,ui_janken_reset_round,M,after a tie: link packet (5,1,0) or re-layout 0x08ea023c, message string_table(5) words 2/3/4, clears flags
-0x08ea26f0,ui,ui_duel_start_draw_layout,M,draws layout ui_duel_mgr_get_string_table(id) with frame timing (0x0881ec8c); special colour for id 3
+0x08ea26f0,ui,ui_duel_start_draw_layout,M,draws layout ui_duel_mgr_get_archive_member(id) with frame timing (0x0881ec8c); special colour for id 3
 0x08ea286c,ui,ui_janken_draw_hands,M,layout 4: draws the three hand records of both sides (0x08ea294c)
 0x08ea294c,ui,ui_janken_draw_hand_card,M,draws one 0x50 x 0x74 hand card with cos-scaled flip angle +0x10; face by choice bits
-0x08ea2b30,ui,ui_janken_draw_choice_icons,M,layout 4: draws chosen-hand icons +0xba/+0xbc at (0x96,0xb4) and (0xfa,0xb4)
+0x08ea2b30,ui,ui_janken_draw_result_labels,M,layout 4: draws chosen-hand icons +0xba/+0xbc at (0x96,0xb4) and (0xfa,0xb4)
 0x08ea2c30,ui,ui_janken_draw_cursor,M,layout 4: corner and edge sprites around the hand at cursor +4
 0x08ea2e38,ui,ui_janken_draw_side_marker,M,layout 4: 0x24 x 0x24 marker at the left (0) or right (1) side
 0x08ea9d6c,ui,ui_duel_start_free_archive,M,system_heap_free of start archive 0x08eba1d8 (Movie heap), clears loaded flag 0x08eba1d4

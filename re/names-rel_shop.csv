@@ -42,8 +42,8 @@ address,group,name
 0x090e28ec,shop,shop_get_frame_style_index,M,maps card frame 0/1/2/3/7/8/10 to row style 0/1/2/3/5/6/4, else -1
 0x090e2984,shop,shop_draw_small_digits,H,draws number param_4 with 7x9 digit cells right to left, fixed width or until 0
 0x090e2f38,shop,shop_draw_race_icon,M,cell ((n-1)%7, (n-1)/7)*17 of the icon atlas, special cell for 0x15; called with the card race by row/label draws
-0x090e2fe8,shop,shop_draw_attribute_icon,M,cell (n-1)*17 in row v=0x33 of the icon atlas; called with the card attribute by row/label draws
-0x090e3064,shop,shop_draw_spell_trap_icon,M,cell grid at v=0x44 with remapping 7->14, 8->7, 9->13; the icon branch of row/label draws
+0x090e2fe8,shop,shop_draw_spell_trap_icon,M,cell (n-1)*17 in row v=0x33 of the icon atlas; shop_draw_results_row passes card_db_get_icon of a non-monster (formerly shop_draw_attribute_icon; swapped 2026-11-04 after reading the call sites)
+0x090e3064,shop,shop_draw_attribute_icon,M,cell grid at v=0x44 with remapping 7->14, 8->7, 9->13; shop_draw_results_row passes card_db_get_attribute (formerly shop_draw_spell_trap_icon; swapped 2026-11-04)
 0x090e3210,shop,shop_draw_level_badge,M,9x9 star sprite then number cell ((n-1)%6, (n-1)/6) of 19x11 cells; called with the card level
 0x090e3368,shop,shop_draw_stat_value,M,ATK/DEF style value: kind 2/3 icon sprite, kind 0/1 label from 0x090efb78 + 10*kind, then the number
 0x090e3668,shop,shop_get_card_thumb_cell,M,thumbnail page/cell from entry file index (/0x187, %0x17, 22x30 cells); marked cards with a 0x088565dc variant use the alt list

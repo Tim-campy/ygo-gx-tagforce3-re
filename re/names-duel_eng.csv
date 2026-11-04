@@ -122,7 +122,7 @@ address,group,name
 0x09d8c280,ai,ai_try_comeback_cards
 0x09d8c300,ai,ai_try_battle_cards
 0x09d8c508,ai,ai_try_main_cards
-0x09d92d5c,ai,ai_choose_special_summon
+0x09d92d5c,ai,ai_choose_conditional_normal_summon
 0x09d92afc,ai,ai_execute_summon
 0x09d1bb24,ai,ai_choose_normal_summon
 0x09d1b338,ai,ai_rate_summon_candidate
@@ -1179,7 +1179,7 @@ address,group,name
 0x09c9375c,duel_effects,duel_effects_resolve_physical_double
 0x09c01e10,duel_core,duel_core_count_graveyard_names_by_attribute
 0x09daa7d4,duel_core,duel_core_summon_step_fog_king
-0x09cbf5c4,duel_effects,duel_effects_get_target_prompt_text
+0x09cbf5c4,duel_effects,duel_effects_show_target_prompt
 0x09cd2978,duel_effects,duel_effects_collect_turn_counter_candidates
 0x09c09e00,duel_core,duel_core_get_link_effect_kind
 0x09cde3e0,duel_effects,duel_effects_apply_unique_name_rule
@@ -1196,7 +1196,7 @@ address,group,name
 0x09c4c140,duel_effects,duel_effects_cost_monster_activation
 0x09c34e2c,duel_effects,duel_effects_filter_spell_target_by_card
 0x09c38800,duel_effects,duel_effects_filter_slot_target_by_card
-0x09cee284,ai,ai_check_card_condition
+0x09cee284,ai,ai_choose_summon_position_by_card
 0x09ce536c,ai,ai_estimate_card_atk
 0x09ce9c64,ai,ai_estimate_off_field_atk
 0x09ce767c,ai,ai_estimate_card_def
@@ -1223,7 +1223,7 @@ address,group,name
 0x09d1d0c4,ai,ai_handler_counter_harmful_link_1a24_1a25
 0x09d1d230,ai,ai_handler_check_phase_13f2
 0x09d1d314,ai,ai_handler_check_board_13a7
-0x09d1d3dc,ai,ai_handler_check_phase_1d96
+0x09d1d3dc,ai,ai_handler_sim_attack_1d96
 0x09d1d79c,ai,ai_handler_check_draw_1ab2
 0x09d1d81c,ai,ai_handler_check_targets_148d
 0x09d1d8f8,ai,ai_handler_react_to_event_12ba
@@ -1262,11 +1262,11 @@ address,group,name
 0x09d1fb58,ai,ai_handler_check_phase_1d1e
 0x09d1fca8,ai,ai_handler_check_phase_12f3
 0x09d1fe30,ai,ai_handler_check_board_131e
-0x09d1fe58,ai,ai_handler_check_targets_175a
+0x09d1fe58,ai,ai_handler_check_upkeep_costs_175a
 0x09d20058,ai,ai_handler_check_phase_137e
 0x09d2019c,ai,ai_handler_check_graveyard_1490
 0x09d20250,ai,ai_handler_check_phase_1378
-0x09d202b0,ai,ai_handler_check_draw_14f0
+0x09d202b0,ai,ai_handler_check_deck_counts_14f0
 0x09d20424,ai,ai_handler_has_candidate_1359
 0x09d20518,ai,ai_handler_check_graveyard_151d
 0x09d20788,ai,ai_handler_can_discard_15a8_1887
@@ -1392,7 +1392,7 @@ address,group,name
 0x09d2e488,ai,ai_handler_check_graveyard_1ca1
 0x09d2e5dc,ai,ai_handler_check_board_12fb
 0x09d2e688,ai,ai_handler_check_lp_1421
-0x09d2e85c,ai,ai_handler_burn_15ae
+0x09d2e85c,ai,ai_handler_check_race_combo_15ae
 0x09d2ec70,ai,ai_handler_has_two_candidates_1974
 0x09d2ecfc,ai,ai_handler_can_choose_candidate_1dd5
 0x09d2ed94,ai,ai_handler_check_dominance_15f6
@@ -2182,7 +2182,7 @@ address,group,name
 0x09d60440,ai,ai_choose_target_for_1f1a,M,ai_choose_target_by_card dispatches card 0x1f1a; own best attacker ATK into ctx+0x12
 0x09d605c8,ai,ai_choose_target_for_179f_17b8_1889_1c9f,M,first generic pre-check of ai_choose_target_by_card (ai.md); acts only for 0x1c9f,0x1889,0x17b8,0x179f; FUN_09d4e62c score
 0x09d60760,ai,ai_choose_target_for_12d1,M,second pre-check of ai_choose_target_by_card (ai.md); acts only for 0x12d1 (Mind Control); FUN_09d4e6f0 score
-0x09d64b68,ai,ai_choose_cost_for_tribute_cards,M,ai_choose_cost_by_card pre-check for a card list (0x123b Crush Card Virus, 0x1300 Horn of Heaven, 0x16a0, 0x188c ...); FUN_09d4e62c score
+0x09d64b68,ai,ai_choose_cost_slot_targeted_by_link,M,ai_choose_cost_by_card pre-check for a card list (0x123b Crush Card Virus, 0x1300 Horn of Heaven, 0x16a0, 0x188c ...); FUN_09d4e62c score
 0x09d67474,ai,ai_submit_cost_choice,M,sets view side 0x09e02ffa, ai_choose_cost_by_card mandatory then optional, duel_core_submit_player_action(...,0xb); fallback 0x09dcfb0c
 0x09d675c0,ai,ai_choose_hand_card_for_1a19,M,ai_choose_hand_card_by_card dispatches 0x1a19 (Elemental Absorber); attribute counts, ai_choose_hand_card_to_send
 0x09d67a98,ai,ai_choose_cost_for_1e88,M,Mist Condor 0x1e88 estimate_off_field_atk, level <= 4 check, FUN_09d5f378 score; called by FUN_09d67c8c
@@ -2239,7 +2239,7 @@ address,group,name
 0x09d6e34c,ai,ai_is_graveyard_benefit_card,M,id list Treeborn Frog, Necro Gardna, Helpoemer, Marie the Fallen One, Necroshade, Phoenix Blade...; caller ai_reject_candidate
 0x09d704b0,ai,ai_has_hand_monster_to_give_away,M,scans hand for Ameba, Morphing Jar, Mist Archfiend, Arcana Force 0 (with 0x142a Creature Swap); callers Creature Swap/cost handlers
 # family ai_card_rating
-0x09cee118,ai,ai_eval_hand_card_condition,M,ai_check_card_condition on hand entry (+0x124 list); on -1 simulates the card (0x09d17310), restores snapshot, scores with 0x09ceb448
+0x09cee118,ai,ai_eval_hand_card_condition,M,ai_choose_summon_position_by_card on hand entry (+0x124 list); on -1 simulates the card (0x09d17310), restores snapshot, scores with 0x09ceb448
 0x09cf11ac,ai,ai_is_card_worth_keeping,M,ai-helpers.md: ai_choose_discard refuses the card when 0x09cf11ac marks it worth keeping; per-card chain incl. Forbidden One pieces 0xfb7-0xfbb
 0x09cf55c0,ai,ai_fill_link_hints_for_1ba2,M,writes current link (0x09e28e44) words +0x0a..+0x12 from plan value, dominance and 0x1ba2/0x1b9f ATK; picks slot with 0x09cf58c8
 0x09cf5790,ai,ai_score_card_for_current_link,M,ATK/DEF of card plus tier bonuses 0x10000-0x40000 for 0x1b9f..0x1ba6 depending on current link words +0x0a..+0x12
@@ -5654,7 +5654,7 @@ address,group,name
 0x09d4e6f0,ai,ai_score_target_for_12d1,M,Address loaded in ai_choose_target_for_12d1 (Mind Control); moves the slot to the other side in sim, scores with 0x09d39c2c + ai_score_plan_improvement
 0x09d4ecc0,ai,ai_score_target_for_0eba,M,Address loaded in ai_choose_target_by_card case 0xeba (Dark Psycho Eye); visible ATK, or battle stat + ai_can_attack_now
 0x09d4ed94,ai,ai_score_equip_target_by_planned_attack,M,Shared by ai_choose_target_by_card cases 0xec6, 0x1e3d, 0x1237, 0x1e46, 0x130d ... 0x1842; own slot ATK when its plan entry attacks and destroys
-0x09d4ee9c,ai,ai_score_target_for_0ec8,M,Address loaded in ai_choose_target_by_card case 0xec8 (Attribute Chameleon); records link slot, ai_choose_declared_attribute without current ones
+0x09d4ee9c,ai,ai_get_declared_attribute_for_0ec8,M,Address loaded in ai_choose_target_by_card case 0xec8 (Attribute Chameleon); records link slot, ai_choose_declared_attribute without current ones
 0x09d4fbe0,ai,ai_score_cost_for_1e79,M,Address loaded in ai_choose_cost_by_card case 0x1e79 (id only, no name in cards.csv); 1 for the link's own slot, else 2 or 3 by 0x09c004fc
 0x09d4ffb0,ai,ai_score_target_for_12e2,M,Scorer of 0x09d501f4 (Magical Arm Shield 0x12e2): moves the opponent monster to own zone in sim, ai_sim_current_attack result tiers
 0x09d501f4,ai,ai_choose_target_for_12e2,M,Called from ai_choose_target_by_card case 0x12e2 (Magical Arm Shield); free own zone, shuffled opponent slots scored by 0x09d4ffb0
@@ -5667,7 +5667,7 @@ address,group,name
 0x09d5d9ac,ai,ai_score_cost_for_19b3_attacker,M,Address in ai_choose_cost_for_19b3 (Super Junior Confrontation) for opponent slots; ai_sim_battle_resolve per mask slot, results 0x09e27fd4/d8
 0x09d5db28,ai,ai_score_cost_for_19b3_defender,M,Address in ai_choose_cost_for_19b3 for own slots; ai_sim_battle_resolve against ctx +8 attacker, LP and destroy tiers
 0x09d5ee90,ai,ai_score_cost_for_1e49,M,Address in ai_choose_cost_by_card case 0x1e49 (Equip Shot); attaches the equip effect to the slot, ai_eval_attack, detaches
-0x09d5f120,ai,ai_choose_cost_for_1e49,M,Address in ai_choose_cost_by_card case 0x1e49 (Equip Shot); shuffles ai_get_target_mask slots scored by 0x09d5ee90
+0x09d5f120,ai,ai_score_best_cost_for_1e49,M,Address in ai_choose_cost_by_card case 0x1e49 (Equip Shot); shuffles ai_get_target_mask slots scored by 0x09d5ee90
 0x09d5f2c0,ai,ai_score_cost_for_140b,M,Address in ai_choose_cost_by_card case 0x140b (Insect Imitation); ai_try_choose_candidates kind 6 with the level, estimated ATK*100 - ATK
 0x09d5fd40,ai,ai_score_flip_target_for_1d78_1d7b,M,Address loaded twice in ai_choose_target_for_1d78_1d7b (Worm Barses/Erokin); own flip effect rank (ai_eval_flip_effect, ai_rank_card_by_genre)
 0x09d67754,ai,ai_score_target_for_12dc,M,Scorer of 0x09d678ac (Ectoplasmer 0x12dc): half card ATK vs opponent LP, Lich Lord 0x1beb / Malice Doll 0x17de tiers
@@ -5769,7 +5769,7 @@ address,group,name
 # family position
 0x09ceb448,ai,ai_choose_monster_position,M,Returns 1/0/-1 from opponent best attacker ATK vs own ATK/DEF and LP; 0x09d16ef0 stores it as slot +0x06 battle position (0 = Attack), -1 -> ATK<DEF
 0x09cec874,ai,ai_survives_attacks_with_monster,M,Opponent best/total attacker ATK minus this monster's ATK vs own LP; battle stoppers, Spirit Barrier 0x17fe, Sanctuary 0x175e, Clear Wall 0xec4; 0 = lethal
-0x09cecc54,ai,ai_check_monster_position_change,M,Callers ai_try_adjust_monster_position and ai_decide_optional_activation; per-card chain (Venom Swamp, spirits, plan entries, 0x09cec874) returning 0/1
+0x09cecc54,ai,ai_choose_position_for_change,M,Callers ai_try_adjust_monster_position and ai_decide_optional_activation; per-card chain (Venom Swamp, spirits, plan entries, 0x09cec874) returning 0/1
 # family ritual
 0x09ccd218,duel_effects,duel_effects_get_ritual_level_total,M,Returns 0x09e28f64 (Level total still to cover in the Ritual states, summon.md); neighbours duel_effects_filter_ritual_* and can_ritual_summon_entry
 # family session_timer
