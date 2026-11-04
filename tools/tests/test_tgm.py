@@ -123,6 +123,14 @@ def build_tma(material=0):
     return header + entry + tracks + keys
 
 
+class NameTest(unittest.TestCase):
+    def test_cstring_reads_shift_jis(self):
+        # Names in TGM files are NUL-terminated cp932; all of them are ASCII on the reference disc.
+        name = bytes([0x83, 0x4A, 0x81, 0x5B, 0x83, 0x68])  # katakana "kaado", in Shift-JIS
+        data = bytes([0xFF]) + name + bytes(1) + b"tail"
+        self.assertEqual(tgm.cstring(data, 1), name.decode("cp932"))
+
+
 class VertexLayoutTest(unittest.TestCase):
     def test_sizes_of_vertex_types_seen_on_the_disc(self):
         expected = {0x502: 12, 0x542: 18, 0x543: 24, 0x55F: 28, 0x15F: 24, 0x143: 20, 0x51E: 20,
