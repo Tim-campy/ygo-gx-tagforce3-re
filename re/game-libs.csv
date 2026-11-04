@@ -16,10 +16,10 @@ libcardalbum_rel,0x0ab67a89,ui,ui_card_album_draw,H,called while update returns 
 libcharalist_rel,0x0b63a183,ui,ui_charalist_open,H,called with (mode, config) right after module 0xd loads (rel_title, rel_story 0x08ea3334)
 libcharalist_rel,0xfd65b042,ui,ui_charalist_update,H,polled after open; 1 chosen, 2 cancelled, 0 running (rel_title), rel_story 0x08ea338c
 libcharalist_rel,0x6e5ebe0f,ui,ui_charalist_update_ex,M,ui_title_update_wireless_partner_pick polls it instead of update with a flag argument; same 0/1/2 results
-libcharalist_rel,0xe11636ec,ui,ui_charalist_e11636ec,M,called with the config word before reading the selected character and variant (ui_title_get_charalist_choice); role unknown
-libcharalist_rel,0x953239e8,ui,ui_charalist_953239e8,M,export of libcharalist_rel without a caller in the analysed modules
-libcharalist_rel,0xdf67151f,ui,ui_charalist_df67151f,M,export of libcharalist_rel without a caller in the analysed modules
-libcharalist_rel,0x558dbb5f,ui,ui_charalist_558dbb5f,M,export of libcharalist_rel without a caller in the analysed modules
+libcharalist_rel,0xe11636ec,ui,ui_charalist_pick_random_character,M,called with the config word before reading the selected character and variant (ui_title_get_charalist_choice); role unknown; renamed 2026-11-04 from ui_charalist_e11636ec after reading the export body
+libcharalist_rel,0x953239e8,ui,ui_charalist_build_lists_headless,M,export of libcharalist_rel without a caller in the analysed modules; renamed 2026-11-04 from ui_charalist_953239e8 after reading the export body
+libcharalist_rel,0xdf67151f,ui,ui_charalist_select_entry_by_index,M,export of libcharalist_rel without a caller in the analysed modules; renamed 2026-11-04 from ui_charalist_df67151f after reading the export body
+libcharalist_rel,0x558dbb5f,ui,ui_charalist_free,M,export of libcharalist_rel without a caller in the analysed modules; renamed 2026-11-04 from ui_charalist_558dbb5f after reading the export body
 libcharalist_rel,0x342a4009,ui,ui_charalist_get_selected_character,M,first picker result, stored +0x44 and passed as the opponent (rel_title minigame menu)
 libcharalist_rel,0xbac2ba34,ui,ui_charalist_get_selected_variant,M,second picker result, stored +0x48 next to the character id (rel_title)
 libcharalist_rel,0x99d1857c,ui,ui_charalist_draw,H,called only from draw paths while the picker is open (rel_title) and while update returns 0 (rel_story 0x08ea338c)
@@ -44,7 +44,7 @@ librecipe_viewer_rel,0x099048e2,deck,deck_recipe_viewer_update,H,polled while it
 librecipe_viewer_rel,0x363d43c5,deck,deck_recipe_viewer_draw,H,called from the frame callback while the viewer runs (rel_deck, rel_title draw state, rel_story 0x08ea3074)
 libselect_card_rel,0xbf2b46d7,ui,ui_select_card_open,H,called with (mode, {heap, art reader, archive}, &count, list) after module 0x1d loads (rel_title card trade, rel_story 0x08ea3174)
 libselect_card_rel,0x5b395307,ui,ui_select_card_update,H,polled each frame; 1 = picking finished (rel_title), rel_story 0x08ea31a4
-libselect_card_rel,0x0787468b,ui,ui_select_card_0787468b,M,read by the card-trade gate query 0x08edceac (rel_title); role unknown
+libselect_card_rel,0x0787468b,ui,ui_select_card_request_exit,M,read by the card-trade gate query 0x08edceac (rel_title); role unknown; renamed 2026-11-04 from ui_select_card_0787468b after reading the export body
 libselect_card_rel,0x4d3d501f,ui,ui_select_card_close,M,called by ui_card_trade_release when the picker is open
 libselect_card_rel,0xcfa64443,ui,ui_select_card_draw,H,ui_title_draw_module_overlays in card-trade mode; rel_story 0x08ea31a4 while update returns 0
 libselect_card_rel,0xae4aa6ec,ui,ui_select_card_ae4aa6ec,M,export of libselect_card_rel without a caller in the analysed modules

@@ -321,6 +321,10 @@ The six `duel_core` and the one `duel_effects` function that still had Ghidra de
 - The last two arguments that `duel_core_filter_valid_attack_target` passes to `is_valid_attack_target`, and the pass-through arguments of `duel_core_view_can_activate_slot_card` and `duel_core_call_face_change_hook`, are hidden by the decompiler; read the disassembly.
 - The extra duel result values 1–3 used by `record_duel_result` (`0x09e02cb0`). (The function `0x09be26f4` it calls is `duel_core_update_duel_records`, above.)
 
+## The tutorial module (round 6, 2026-11-04)
+
+`rel_tutorial` is now in the Ghidra project (module offsets, ids `rel_tutorial:0x…`) and every function is documented (`modules/rel_tutorial.md`, which adds to `docs/formats/tutorial.md`: the copied message window, ten window slots of which the scripts use three, the stencil "spotlight", the text escapes `@`, `$0`-`$4`, `$$`, and the START quit menu that makes `duel_core_tutorial_is_busy` return 1).
+
 ## Open questions
 
 - The rest of the player structure (`+0x34`–`+0x11f` besides the field slots, `+0xa0c`–`+0xb3b`). Life Points at `+0x00` are established statically (`battle.md`); confirm in PPSSPP.

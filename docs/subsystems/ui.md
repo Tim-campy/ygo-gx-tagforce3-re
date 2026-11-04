@@ -1020,6 +1020,108 @@ Resources: module 0x1d (card picker `ui_select_card_*`), `cardh.cip` in a 0x1350
 - What sets the partner menu's OSK flag +0x148 to 1 and who advances name-entry step 1 -> 2 (not in this half).
 - The OSK parameter block field at `0x09aedfec` (result) and the halfword language table `0x08ee8c38` contents.
 
+
+## Round 6 (2026-11-04): functions created from code outside functions
+
+226 functions that `tools/ghidra/RepairOrphanCode.java` created in the nine modules of the earlier rounds (`system.md`, "Registry hygiene, round 6") were named and documented (rel_duel_draw 171, rel_deck 21, rel_field 10, rel_duel_mgr 8, rel_shop 8, rel_story 5, rel_title 1). Most are reached only through data: cut-in descriptor callbacks, the duel UI mode table, menu item and dialog callbacks, comparators. Their rows are in `functions/<group>.md`. Findings (from the decompilation, and for the tables from the module images; confidence high unless marked):
+
+### rel_duel_draw
+
+#### Cut-in descriptor set-up routines and their callbacks
+
+The 44 per-character set-up routines of `rel_duel_draw` (`0x09842f74`-`0x0984cb30`, plus `0x098b5ff0`, `0x098b8898`, `0x098b8ddc`, `0x098b932c`, `0x098b95e8`) are now functions. Each writes the callbacks of one family into the 0x38-byte descriptor built by `field_3d_cutin_init_default_desc`, so the body itself proves which callbacks belong together (the earlier "address adjacency" link between a set-up routine and its callbacks is confirmed for all families). Names follow `rel_cutin_viewer` (batch A1): `field_3d_cutin_<family>_setup_desc`, `_map_node`, `_resolve_motion`; the 31 families that also exist in the viewer appear in the same order with the same map-node sizes.
+
+- Descriptor slot `+0x30` (missing from the slot table in `field_3d.md`): a **voice-motion picker** callback, set by `field_3d_cutin_shared_setup_desc` (`field_3d_cutin_shared_pick_voice_motion`), `field_3d_cutin_chr02v2_setup_desc` (`0x098b8c28`) and `field_3d_cutin_chr02v0_setup_desc` (`0x098b9178`). The two new pickers are the shared algorithm with a one-entry table (12 bytes: motion, voice key, flag) at `0x098d4b30` and `0x098d4be0`. Its caller is not in this batch (presumably the frame code calling through the descriptor, hypothesis, medium).
+- `+0x34` attach tables set by set-up routines: `0x098ccc50` (tbl098ccc60), `0x098cd900` (tbl098cd910), `0x098cda50` (tbl098cda70), `0x098cdb10` (tbl098cdb30), `0x098ce730` (tbl098ce740), and in the shared family `0x098d3e38` (keys 0x80/0x81), `0x098d3e20` (0x88), `0x098d3e08` (0x78), `0x098d3df0` (0x90), `0x098d3dd8` (0x70).
+- `+0x20` resolve-motion overrides: tbl098cd860 (motion 0x1a -> 0xf9 or 0xf6 by duel set-up byte +0x194), tbl098cdb30 (0x1a -> 0xfa or 0xf6), shared (`0x098b80ec`: character 5 variant 0, motions 7 and 0x16 -> animation 0xe7 when the slot card id +0x160 is 0x1ab2 and the scene list has entry 0xe7, a card-specific cut-in).
+- tbl098ccfa0 (character 7) does not set `+0x2c`; the default from `field_3d_cutin_init_default_desc` is the same routine.
+- Map-node callbacks map the 38 generic node indices 0..0x25 to model node indices. Most are switches with 27-32 non-zero entries; some first remap index 0x1d (to 0x15 in tbl098ccc60/tbl098ce550, to 0x1a in tbl098cdb30/tbl098ce740, to 0 in chr19, to 1 in chr02v2). tbl098cd910, chr19 and chr95 use if-chains with 16-19 entries. tbl098cd540 (character 0x14) switches on variant 1 vs others; **tbl098cdd10 (character 8) tests variant 0 but both branches contain the same switch**. The generic player families tbl098cd2c0 / tbl098cd360 pick switches by `world_get_character_model_ids` bytes (and characters 0x6f, 0x74-0x78 for tbl098cd360). The shared map node (`0x098b6210`, 6260 bytes) keys its switches by character << 3 | variant: 0x4c0, 0x4b8, 0x4b0, 0x160, 0x169, 0x168, 0x158, 0x28, 0x61, 0x60, 0x88, 0x70, 0x68, 0x90, 0x78, 0x31, 0x30, 0x48, 0x58, 0x50, 0x80/0x81.
+- Defaults: `0x09843b64` (`field_3d_cutin_default_map_node`) and `0x09843b6c` (`field_3d_cutin_default_get_attach_offset`) both return 0.
+- Characters of the eight families that exist only in `rel_duel_draw` (from `field_3d_cutin_get_chara_setup`): chr1d 0x1d, tbl098ce4b0 0x15, tbl098ce550 0x26, tbl098ce5f0 4 (variant != 0), tbl098ce690 4 (variant 0), tbl098ce740 0x21, chr1b 0x1b, tbl098ce880 0x27; shared family: 9..0x12, 0x2b..0x2d, 0x96..0x98.
+
+#### Duel UI mode table `0x098d1f5c` (read from the module image)
+
+Rows are 0x14 bytes at 0x098d1f5c + mode x 0x14: `+0x00` enter, `+0x04` draw, `+0x08` update, `+0x0c` exit (as in `ui.md`), plus a word `+0x10` that holds mode + 1 in every row except mode 0xa (holds 0xa) and mode 0xc (holds 0x80); its use is unknown. Row 0 is all zero; then:
+
+| Row addr | mode | enter | draw | update | exit |
+| --- | --- | --- | --- | --- | --- |
+| 0x098d1f70 | 1 | ui_field_cursor_mode_enter | ui_field_cursor_mode_draw | ui_field_cursor_mode_update | ui_field_cursor_mode_exit (0x098a3dac) |
+| 0x098d1f84 | 2 | ui_card_list_picker_mode_enter (0x098a3dc4, no-op) | 0x098a3dcc | ui_card_list_picker_mode_update (0x098a3dd4) | 0x098a3e84 |
+| 0x098d1f98 | 3 | ui_aux_window_mode_enter (0x098a3e8c, no-op) | 0x098a3e94 (j ui_draw_aux_window) | ui_aux_window_mode_update (0x098a3e9c) | 0x098a3ef0 (j ui_reset_aux_window) |
+| 0x098d1fac | 4 | 0x098a3ef8 (j ui_message_window_mode_enter_noop) | 0x098a3f00 | ui_message_window_mode_update (0x098a3f08) | 0x098a3fa4 |
+| 0x098d1fc0 | 5 | ui_card_viewer_mode_enter (0x098a3fb8) | ui_card_viewer_mode_draw (0x098a3fd0) | ui_card_viewer_mode_update | ui_card_viewer_mode_exit (0x098a4250) |
+| 0x098d1fd4 | 6 | ui_cutin_mode_enter (0x098a20e4) | ui_cutin_mode_draw (0x098a20f4) | ui_cutin_mode_update | ui_cutin_mode_exit (0x098a20ec) |
+| 0x098d1fe8 | 7 | ui_flag_message_mode_enter | ui_flag_message_mode_draw (0x098a2d8c) | ui_flag_message_mode_update | ui_flag_message_mode_exit (0x098a2d84) |
+| 0x098d1ffc | 8 | ui_duel_help_mode_enter | ui_duel_help_mode_draw | ui_duel_help_mode_update | ui_duel_help_mode_exit |
+| 0x098d2010 | 9 | ui_duel_options_mode_enter | ui_duel_options_mode_draw (0x098a26fc) | ui_duel_options_mode_update | 0x098a26f4 (j ui_options_free) |
+| 0x098d2024 | 0xa | tag_duel_partner_switch_mode_enter (0x098a294c) | tag_duel_partner_switch_mode_draw (0x098a2978) | tag_duel_update_partner_switch_mode | tag_duel_partner_switch_mode_exit (0x098a296c) |
+| 0x098d2038 | 0xb | 0 | ui_duel_movie_mode_draw (0x098a4298) | 0 | 0 |
+| 0x098d204c | 0xc | ui_debug_reset_card_picker | ui_debug_card_picker_draw (0x098a0d7c) | ui_debug_card_picker_update (0x098a1460) | 0x098a0d74 |
+
+The table is followed by the L+R expression picker masks (`0x098d205c`). Answers to open questions of `ui.md`: the rows of modes 2, 3, 4, 0xa are as above, and **mode 0xc is the debug card placement menu** (pick a card id by digit or sort position, face and position, place it with `ui_debug_place_card`; change the Field Spell backdrop; set LP to 0 for one or both sides). Addresses `0x098a3dcc`, `0x098a3e84`, `0x098a3e94`, `0x098a3ef0`, `0x098a3ef8`, `0x098a3f00`, `0x098a3fa4`, `0x098a26f4`, `0x098a0d74` are mode-table entries that are still not functions in Ghidra (several are 8-byte `j` stubs).
+
+#### Other callbacks
+
+- Duel objects (`ui_create_duel_object`: +0x08 draw, +0x0c update, +0x10 free): summon effect object `0x09861b90` (draw, empty) / `0x09861ba0` (update) / `0x09861b98` (free, not in this batch); card display update `0x0986221c`; wait object update `0x09863a94` raises its flag every frame (confirms the medium hypothesis in `ui_create_wait_object`).
+- Summon pop-up context (0x18 bytes): +0x00 card id, +0x04 pop-up task, +0x08 state (1 waiting for the pop-up, 2 shown), +0x0c start time, +0x10 answered, +0x14 side. After 0.5 s (card display: 1.25 s) a CPU-only side skips the confirm prompt; otherwise the word-3 confirm prompt opens when the duel mode allows action 4.
+- `ui_on_value_increment_popup_done` starts card effect task kind = value for card 0x169c when value < 0x14 (a counter card with its own count effect).
+- Effect completion callbacks: card set (`+0x98 = -1`), card travel (`+0x8d` bit 4 cleared), release (handle holder -1, object destroyed), stacked-draw glow (done word +0x0c = 1), cut-in face texture load (slot +0x24 cleared).
+- `ui_draw_attack_arrow`: 60 billboards 20 x 20 along a Hermite curve (start +0x54, end +0x60, tangents from 0x098cf688/0x098cf694 x 500), alpha from the 64 segment bytes, plus a 35 x 35 head quad raised 17.5 on y (VFPU matrix code, lower confidence for the head placement).
+- Dialog set-up callbacks (`(window, before_open)`): card prompt `0x098a7a5c`, coin call `0x098a9750`, card row `0x098a9a2c`, number choice `0x098aa968`, card yes/no `0x098abc7c` (also called after opening to centre the items). Card row update `0x098a9b14` (states 0 pick, 1 confirm sub-window, 2 closing) and decide `0x098a9acc` (answer = bit mask of picked values).
+- `ui_draw_polyline_frame` helpers `0x098a7398`-`0x098a7950`: four corner pieces, three edge pieces (plus the documented `ui_emit_polyline_segment_down`) and one joint rectangle mirrored into four quadrants. The texture rectangles are u16 (u, v, w, h) at style record offsets +0x00, +0x08, +0x10, +0x18 (corners), +0x20, +0x28, +0x30, +0x38 (edges) and +0x50 (joint) with the record base **0x098d2cb0** + style x 0x58 (the docs give 0x098d2cd8, which is the +0x28 rectangle of style 0; correction, confidence medium).
+- Comparators: draw command table `0x0989961c`, resource tables `0x0989ff00` (u32), deck ids `0x0989ff20` (u16), movie table `0x098a44d8` (two words), card list sort records `0x098ae2e0` / `0x098ae36c` (key +4, sentinel -0x8001 last, ties by original position).
+- Card list picker: item draw `0x098ac968` and footer `0x098ad078` (sort/filter labels, horizontal scroll bar, confirm button greyed until enough picks).
+- Duel help: image-load callback `0x098b3cb8`; topic list item background `0x098b4acc`; index list callbacks `0x098b5530` (scroll bar), `0x098b5550` (item), `0x098b5718` (item background). These five have exact copies in `rel_deck` (`0x08eb5fe8`, `0x08eb713c`, `0x08eb7ba0`, `0x08eb7bc0`, `0x08eb7d88`).
+
+### rel_deck
+
+- Menu item callbacks: filter menu `0x08ea3248` (records 0x08ebd274), list tools `0x08ea816c` (0x08ebd528), deck options `0x08ea8198` (0x08ebd540; items 1, 2, 4, 5 grey by the disabled mask), trunk option `0x08ea8224` (0x08ebd564; item 0 is an icon + strTbl caption), sort key `0x08eab298` (0x08ebda60), sort direction `0x08eab2c8` (0x08ebdaa4). Item records are 6 bytes.
+- Layout chooser drawer `0x08ea7fe0`: 4 x 2 grid of 32 x 16 icons from resource 0x800a (u = (i >> 2) x 0x20 + 0x40, v = (i & 3) x 0x10 + 0x40).
+- `deck_on_sub_module_loaded` (`0x08eaa338`) stores the module handle for the recipe viewer / deck tutorial runners; `ui_deck_free_archive_buffers` (`0x08eaa56c`, reached by the 8-byte stub `0x08ea5f84`) frees the editor archive and the card-art buffer.
+- Sort comparators `0x08eab6bc` / `0x08eab744` (sentinel -2 last); identical code in `rel_shop` (`0x090dd5d8` / `0x090dd660`).
+- Text search: scope label `0x08eace20` (strTbl 0x83 filtered view / 0x82 whole list), history item `0x08ead38c` (8 entries of 0x40 bytes at 0x08ebeee0), keyboard callback `0x08ead65c`.
+- Help viewer callbacks as listed under rel_duel_draw.
+
+### rel_duel_mgr
+
+- Library exports used by `rel_underground` (export words 0x08eb5a24, 0x08eb5a30, 0x08eb5a34): `system_duel_mgr_lib_update_duel` (returns 1 while running; otherwise ends the duel as aborted and sets state 0x12), `system_duel_mgr_lib_poll_draw_loading`, `system_duel_mgr_lib_begin_duel` (engine set-up, fade 6, state 0xb).
+- Result page draw table `0x08eb93f0` = {summary page 0x08ea59c8, list A page 0x08ea620c, list B page 0x08ea6630, list C page 0x08ea6c34}.
+- `tag_duel_on_partner_switch_done` (`0x08e9b9f4`) clears 0x08eba038; `ui_duel_start_on_archive_loaded` (`0x08ea9d5c`) sets 0x08eba1d4 (confirms the medium hypothesis in `ui_duel_start_load_archive`).
+
+### rel_field
+
+- **The module entry `0x090ced00` registers the field debug mode** (`world_field_debug_main` / `world_field_debug_shutdown`, argument 0x0910532c) when started as a scene; the normal field presumably runs through the library interface (hypothesis, medium).
+- Sprite-resource callbacks of `world_init_character_object` (cb_a fills object +0x04, cb_b +0x08): NPCs `0x090dd2cc`/`0x090dd2e4` (cb_a also stores the record at slot +0xa4), partner `0x090dd8a4`/`0x090dd8c0` (also 0x0910c530/0x0910c534), player `0x090df5ac`/`0x090df5c8` (also 0x0910c680/0x0910c684). `world.md` calls the player pair "motion callbacks"; they are resource callbacks.
+- Picture load callback `0x090d3294` (0x09105a90 picture, 0x09105a8c ready).
+
+### rel_shop
+
+- 3D allocator pair `shop_heap_alloc` / `shop_heap_free` (heap *0x090facec) passed to `field_3d_set_allocator`; scene leave callback `0x090d86f8`; sort window items `0x090dd1c4` / `0x090dd1f0`; comparators `0x090dd5d8` / `0x090dd660`; list window draw callback `0x090dfd30` (selected pack: seen percentage, price, cards per pack, name).
+
+### rel_story / rel_title
+
+- `world_story_module_start` (`0x08e9aa00`) registers `world_story_scene_main` with end routine `0x08e9ac40` (no-op); `0x08e9ac50` is the no-op leave callback; `0x08e9eb80` compares character ids (never returns 0); `0x08eaacb8` returns calendar word +0x08 (initialised to 5; meaning unknown).
+- `rel_title` `0x08ec6e14`: no-op end routine of the title scene.
+
+#### Name mismatches
+
+`twin:` lines that are masked false matches (identical machine code once relocations are masked, different targets):
+- `rel_shop:0x090d7a0c` / `0x090d7a1c` twin `audio_heap_free` -> `shop_heap_alloc` (it allocates) / `shop_heap_free`.
+- `rel_story:0x08eaacb8` twin `world_get_scene_ctx_word8` (reads 0x08ec9130) -> `world_get_calendar_word_08` (reads 0x08ecea68).
+- `0x0989961c` twin BOOT `world_compare_model_key` -> `ui_compare_draw_command_event` (same `*a - *b` code; the duel draw already has `ui_compare_first_word` with this body, so a purpose name was preferred).
+- `rel_duel_mgr:0x08ea9d5c` twin `card_db_on_cardinfo_loaded` -> `ui_duel_start_on_archive_loaded`.
+- `rel_field:0x090ced00` and `rel_story:0x08e9aa00` twin `shop_module_start` -> `world_field_module_start` / `world_story_module_start`.
+- `0x098a87a4` twin `ui_card_list_draw_sort_menu` (window 0x09bde130) -> `ui_draw_aux_window` (window 0x09bdd744).
+Twin names kept: `ui_options_free` (`0x098b0360`, frees the duel options block 0x09be0d5c, same shape as rel_field's) and `deck_compare_u16_ascending` (`rel_deck:0x08eaa350`).
+
+#### Open questions
+
+- Who calls descriptor slot `+0x30` (voice-motion picker), and when (state +0x48 == 2)?
+- Mode-table entries that are still labels: `0x098a3dcc`, `0x098a3e84`, `0x098a3f00`, `0x098a3fa4`, `0x098a0d74`, and the 8-byte stubs `0x098a3e94`, `0x098a3ef0`, `0x098a3ef8`, `0x098a26f4`; the meaning of the `+0x10` word of each mode row.
+- Meaning of `+0x06` and byte `+0x04` bits 0-1 of the text search record (`ui_on_search_query_entered`), of calendar word +0x08, and of the word array 0x091052d8 / data word 0x090fbdc8 in the field debug mode.
+- `ui_engine_option_list_passthrough` (window +0x10c): which window hook +0x10c is.
+- `0x08ea3a10` (17 x 17 icon of resource 0x800a) has no reference in the module image; possibly unused.
+
 ## Open questions
 
 - Which menu state uses which of the 41 `rel_title` functions that read `tushin_msg`, and the selector `k` of the 25 `ui_title_get_message` calls whose table is chosen at runtime (a PPSSPP breakpoint on `0x08e9cbf0` would give `(index, k)` per screen).

@@ -1558,7 +1558,7 @@ address,group,name
 0x000079e4,deck,thunk_deck_select_owner_variant
 0x000079ec,ui,thunk_ui_select_card_open
 0x000079f4,ui,thunk_ui_select_card_update
-0x000079fc,ui,thunk_ui_select_card_0787468b
+0x000079fc,ui,thunk_ui_select_card_request_exit
 0x00007a04,ui,thunk_ui_select_card_close
 0x00007a0c,ui,thunk_ui_select_card_draw
 0x00007a14,ui,thunk_ui_select_card_ae4aa6ec

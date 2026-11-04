@@ -1,0 +1,19 @@
+# Names applied to gmodule/rel_html_view.prx (runtime base unknown: image base 0x0, module offsets; registry ids are prefixed with the module name).
+address,group,name
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_html_view.md and the function tables) or from identical machine code in a named module.
+0x00000000,system,system_html_view_register_scene
+0x00000034,system,system_html_view_scene_main
+0x00000084,system,system_html_view_scene_end
+0x0000008c,system,system_html_view_load_net_modules
+0x00000134,system,system_html_view_unload_net_modules
+0x00000178,system,system_html_view_init_http
+0x00000244,system,system_html_view_term_http
+0x00000278,system,system_html_view_init_network
+0x00000358,system,system_html_view_term_network
+0x0000039c,system,system_html_view_get_language
+0x00000414,system,system_html_view_append_url
+0x00000420,system,system_html_view_build_download_dir
+0x00000470,system,system_html_view_start_viewer
+0x000005a0,system,system_html_view_update_viewer
+0x00000650,system,system_html_view_init
+0x00000670,system,system_html_view_step

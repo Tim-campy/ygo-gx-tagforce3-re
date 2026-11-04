@@ -6,10 +6,10 @@ address,group,name
 0x000013dc,ui,thunk_ui_charalist_open
 0x000013e4,ui,thunk_ui_charalist_update
 0x000013ec,ui,thunk_ui_charalist_update_ex
-0x000013f4,ui,thunk_ui_charalist_e11636ec
-0x000013fc,ui,thunk_ui_charalist_953239e8
-0x00001404,ui,thunk_ui_charalist_df67151f
-0x0000140c,ui,thunk_ui_charalist_558dbb5f
+0x000013f4,ui,thunk_ui_charalist_pick_random_character
+0x000013fc,ui,thunk_ui_charalist_build_lists_headless
+0x00001404,ui,thunk_ui_charalist_select_entry_by_index
+0x0000140c,ui,thunk_ui_charalist_free
 0x00001414,ui,thunk_ui_charalist_get_selected_character
 0x0000141c,ui,thunk_ui_charalist_get_selected_variant
 0x00001424,ui,thunk_ui_charalist_draw
@@ -1587,7 +1587,7 @@ address,group,name
 0x00004544,ui,thunk_ui_password_update
 0x0000454c,ui,thunk_ui_select_card_open
 0x00004554,ui,thunk_ui_select_card_update
-0x0000455c,ui,thunk_ui_select_card_0787468b
+0x0000455c,ui,thunk_ui_select_card_request_exit
 0x00004564,ui,thunk_ui_select_card_close
 0x0000456c,ui,thunk_ui_select_card_draw
 0x00004574,ui,thunk_ui_select_card_ae4aa6ec

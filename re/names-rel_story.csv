@@ -649,3 +649,9 @@ address,group,name
 0x08ea3800,world,world_state_update_duel_record,H,ui_duel_record_update; 0 -> draw, else result 11
 # family talk_windows
 0x08eac798,dialogue,dialogue_call_close_talk_windows,H,disassembly: j dialogue_close_talk_windows (next function); caller dialogue_op_close_talk_of
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_story.md and the function tables) or from identical machine code in a named module.
+0x08e9aa00,world,world_story_module_start
+0x08e9ac40,world,world_story_scene_end_noop
+0x08e9ac50,world,world_story_scene_leave_noop
+0x08e9eb80,world,world_compare_character_id
+0x08eaacb8,world,world_get_calendar_word_08

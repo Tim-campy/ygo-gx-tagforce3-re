@@ -1,0 +1,18 @@
+# Names applied to gmodule/rel_labo.prx (runtime base unknown: image base 0x0, module offsets; registry ids are prefixed with the module name).
+address,group,name
+# Round 6 (2026-11-04) documentation of the newly imported modules and the functions created from code outside functions: names from reading (basis and confidence in docs/subsystems/modules/rel_labo.md and the function tables) or from identical machine code in a named module.
+0x00000000,ui,ui_labo_register_scene
+0x00000034,ui,ui_labo_scene_main
+0x00000974,ui,ui_labo_scene_end
+0x0000097c,ui,ui_labo_draw_frame
+0x00000a04,ui,ui_labo_frame_leave
+0x00000a0c,ui,ui_labo_draw_menu
+0x00000b50,ui,ui_labo_load_voice_test
+0x00000bb4,ui,ui_labo_load_voice_banks
+0x00000c3c,ui,ui_labo_update_voice_test
+0x00000f20,ui,ui_labo_draw_voice_character
+0x00000f98,ui,ui_list_window_draw_text
+0x00000fb8,ui,ui_labo_draw_voice_line
+0x0000119c,ui,ui_window_draw_text_box_px
+0x000011b8,ui,ui_labo_draw_voice_test
+0x00001338,ui,ui_labo_get_voice_sound_id

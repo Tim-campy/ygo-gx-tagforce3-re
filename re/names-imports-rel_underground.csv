@@ -1558,8 +1558,8 @@ address,group,name
 0x00014ac8,deck,thunk_deck_select_owner_variant
 0x00014ad0,system,thunk_system_duel_mgr_lib_init
 0x00014ad8,system,thunk_system_duel_mgr_scene_shutdown
-0x00014ae0,,thunk_FUN_08e9db84
+0x00014ae0,system,thunk_system_duel_mgr_lib_update_duel
 0x00014ae8,system,thunk_system_duel_mgr_lib_run_frame
 0x00014af0,system,thunk_system_duel_mgr_lib_start_duel_draw
-0x00014af8,,thunk_FUN_08e9dcb0
-0x00014b00,,thunk_FUN_08e9dcb8
+0x00014af8,system,thunk_system_duel_mgr_lib_poll_draw_loading
+0x00014b00,system,thunk_system_duel_mgr_lib_begin_duel

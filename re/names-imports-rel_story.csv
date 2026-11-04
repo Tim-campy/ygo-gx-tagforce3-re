@@ -6,10 +6,10 @@ address,group,name
 0x08eadfdc,ui,thunk_ui_charalist_open
 0x08eadfe4,ui,thunk_ui_charalist_update
 0x08eadfec,ui,thunk_ui_charalist_update_ex
-0x08eadff4,ui,thunk_ui_charalist_e11636ec
-0x08eadffc,ui,thunk_ui_charalist_953239e8
-0x08eae004,ui,thunk_ui_charalist_df67151f
-0x08eae00c,ui,thunk_ui_charalist_558dbb5f
+0x08eadff4,ui,thunk_ui_charalist_pick_random_character
+0x08eadffc,ui,thunk_ui_charalist_build_lists_headless
+0x08eae004,ui,thunk_ui_charalist_select_entry_by_index
+0x08eae00c,ui,thunk_ui_charalist_free
 0x08eae014,ui,thunk_ui_charalist_get_selected_character
 0x08eae01c,ui,thunk_ui_charalist_get_selected_variant
 0x08eae024,ui,thunk_ui_charalist_draw
@@ -1598,7 +1598,7 @@ address,group,name
 0x08eb119c,deck,thunk_deck_recipe_viewer_draw
 0x08eb11a4,ui,thunk_ui_select_card_open
 0x08eb11ac,ui,thunk_ui_select_card_update
-0x08eb11b4,ui,thunk_ui_select_card_0787468b
+0x08eb11b4,ui,thunk_ui_select_card_request_exit
 0x08eb11bc,ui,thunk_ui_select_card_close
 0x08eb11c4,ui,thunk_ui_select_card_draw
 0x08eb11cc,ui,thunk_ui_select_card_ae4aa6ec
