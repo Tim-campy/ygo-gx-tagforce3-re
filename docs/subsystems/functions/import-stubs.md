@@ -2,7 +2,7 @@
 
 A game module calls `BOOT.BIN` (library `libehsys_rel`) and the duel modules (`libduel_eng_rel`, `libduel_draw_rel`, `libfield_rel`) through 8-byte import stubs in its `.sceStub.text`; the module loader patches each stub into a jump to the exported function. `tools/prx_imports.py` resolves every stub by library and NID and names it `thunk_<target>` (`docs/subsystems/system.md`, "The `libehsys_rel` export library"). A stub has no behaviour of its own, so once its target is documented the stub is documented with the target's prototype (renamed), a summary that names the target, and the stub's own callers in the module (in its Ghidra plate comment, `re/documented*.tsv`). This table lists, per documented target, the stubs that reached the `documented` stage this way and how many call sites each has.
 
-Stubs: 11526, for 2405 targets.
+Stubs: 11542, for 2407 targets.
 
 | Target | Program | Stubs (module address, direct callers) |
 | --- | --- | --- |
@@ -2411,3 +2411,5 @@ Stubs: 11526, for 2405 targets.
 | `field_3d_sample_rotation_track` (`0x088314e4`) | BOOT.BIN | rel_deck `0x08eb8990` (0), rel_duel_draw `0x098bcadc` (3), rel_duel_eng `0x09de4914` (0), rel_duel_mgr `0x08eb2f54` (0), rel_field `0x090ef3fc` (0), rel_shop `0x090e59dc` (0), rel_story `0x08eae834` (0), rel_title `0x08edf020` (0) |
 | `field_3d_apply_tma` (`0x08832428`) | BOOT.BIN | rel_deck `0x08eb8a00` (0), rel_duel_draw `0x098bcb4c` (0), rel_duel_eng `0x09de4984` (0), rel_duel_mgr `0x08eb2fc4` (0), rel_field `0x090ef46c` (0), rel_shop `0x090e5a4c` (0), rel_story `0x08eae8a4` (0), rel_title `0x08edf090` (0) |
 | `field_3d_cutin_play_for_card` (`0x0989d434`) | rel_duel_draw | rel_duel_mgr `0x08eafce4` (12) |
+| `audio_set_sound_volume` (`0x08869e70`) | BOOT.BIN | rel_deck `0x08eb9478` (0), rel_duel_draw `0x098bd5c4` (0), rel_duel_eng `0x09de53fc` (0), rel_duel_mgr `0x08eb3a3c` (0), rel_field `0x090efee4` (1), rel_shop `0x090e64c4` (0), rel_story `0x08eaf31c` (0), rel_title `0x08edfb08` (0) |
+| `audio_stop_sound` (`0x0886c164`) | BOOT.BIN | rel_deck `0x08eb9400` (0), rel_duel_draw `0x098bd54c` (1), rel_duel_eng `0x09de5384` (0), rel_duel_mgr `0x08eb39c4` (1), rel_field `0x090efe6c` (0), rel_shop `0x090e644c` (0), rel_story `0x08eaf2a4` (0), rel_title `0x08edfa90` (1) |

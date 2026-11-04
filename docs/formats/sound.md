@@ -227,10 +227,46 @@ The `BOOT.BIN` bank offset and first-id tables (`boot_sound_tables`) are written
 python3 -I tools/roundtrip.py --check <PSP_GAME> --only boot_sound_tables,voiceidchgtbl
 ```
 
+## `SHDS` sound header in `BOOT.BIN` (2026-11-04)
+
+The driver's sound header is a static block in `BOOT.BIN` at runtime address `0x0887b5e0` (file offset `0x77634`), magic `"SHDS"` (`0x53444853`). `audio_bind_sound_header` (`0x08867938`) accepts it when `u16 +0x08 & 0xfff0 == 0x50` and stores it in `0x08dd3004`. Read from the driver code in the 2026-11-04 documentation round (`docs/subsystems/audio.md`) and checked against the disc: the computed table positions land exactly on the bank-offset table `0x0889cf20` described above (high).
+
+| Offset | Type | Meaning |
+| --- | --- | --- |
+| `+0x00` | `char[4]` | `SHDS` |
+| `+0x08` | u16 | version, `0x50` on this disc |
+| `+0x0c` | u16 | music banks / music ids (48): ids below this are BGM, one cue per bank |
+| `+0x0e` | u16 | ids beyond the banks (30,731) |
+| `+0x10` | u16 | other banks (680) |
+| `+0x34` | `u32[ids]` | attribute word per global sound id; ids = `+0x0c + +0x10 + +0x0e` = 31,459 |
+| then | 16-byte records `[banks]` | bank records (banks = `+0x0c + +0x10` = 728); `+0x08` is the bank size `audio_load_bank` reads (the "size-like value" above) |
+| then | `u32[banks]` | bank offsets in `psp_snddat.bin` (= `0x0889cf20`) |
+| then | `u16[banks]` | first global id of each bank (= `0x0889da80`) |
+
+Attribute word (one per global sound id):
+
+| Bits | Meaning |
+| --- | --- |
+| byte 0 bits 0–3 | sound type: 0 SAS note sequence, 1 sound script (frame-timed event list), 2–3 one-shot PS-ADPCM on sceSas, 4 and 5 ATRAC streams (4 vs 5 = ATRAC3plus vs ATRAC3, hypothesis, medium-high) |
+| byte 0 bit 5 (`0x20`) | voice category |
+| byte 0 bit 6 (`0x40`) | two ADPCM layers |
+| byte 0 bit 7 (`0x80`) | may not steal other sounds' SAS voices |
+| byte 1 | priority (a new sound cannot evict a playing one with a higher value) |
+| byte 2 | maximum simultaneous instances |
+| byte 3 | `0x01` no 3D positioning, `0x02` no distance volume, `0x04` no 3D pan, `0x08` Doppler pitch, `0x10` ignore mix presets and pause groups, `0x20` no reverb send, `0x80` decoded but not mixed (streams) |
+
+Runtime semantics the port must reproduce (driver code, medium-high unless stated; details in `audio.md`):
+
+- **Cue `+0x10` is a random-variation count.** A sound effect or voice whose cue has `+0x10 = k > 0` plays cue `N + r`, `r` random in `0..k-1`, never repeating the previous pick for the same (owner, id) pair (32-entry history `0x08dd3010`); a non-zero `+0x11` replaces the random pick by a counter cycling through `+0x11` values. About 4,670 cues on the disc have `+0x10` in 2–6. `audio_play_se_unlimited` bypasses it.
+- Cue `+0x02`: BGM ducking level while the sound plays (`((15 − v) × 0x1112) >> 4` / 0x1000, smallest wins, 150 ms fades); `+0x03`: retrigger lock in mixer grains × 6; `+0x04`: volume/stop group (selectors `0xfffffe00 | group`); `+0x05`: mix-preset row; `+0x18`: duration in ms; `+0x1c`: minimum audible level for culling positional sounds; `+0x1d`: exclusive group.
+- Envelope `+0x04`/`+0x06` are ADSR1/ADSR2 for `sceSasSetSimpleADSR` and `+0x08` bit 0 the loop flag of `sceSasSetVoice` (confirms the hypotheses above); the sample's `u16 pitch` is the sceSas pitch at the root note.
+- **Every RIFF wave loops forever when it has a `smpl` chunk**: `audio_start_atrac_voice` calls `sceAtracSetLoopNum(id, -1)`, so the 11 effect waves with loops loop too; a stop switches to `sceAtracSetLoopNum(id, 0)` and lets the stream play out.
+- Output: 44,100 Hz stereo s16 in grains of 256 frames; the driver's tick is one grain (`ms × 10 / 58`).
+
 ## Open questions
 
-- Cue flags (`0x02`), `0x04`, `0x10` and `0x11`, and envelope bytes `0x08`–`0x0B`: how the player uses them (trace the sceSas/sceAtrac calls in PPSSPP).
-- The play call itself: which `BOOT.BIN` function takes a global sound id (candidates around `0x08826458`/`0x088265ac`, called from `0x08841514`–`0x0884155c`), and how a bank gets loaded.
+- ~~Cue flags `0x02`, `0x04`, `0x10`, `0x11`, envelope byte `0x08`~~: answered statically 2026-11-04 ("`SHDS` sound header" above); envelope bytes `0x09`–`0x0B` beyond the reverb send `+0x09` and a PPSSPP confirmation of the variation pick remain.
+- ~~The play call and bank loading~~: answered 2026-11-04: `audio_start_sound` (`0x0886b37c`) and its wrappers take the global id; `audio_load_bank` reads a whole bank (size from the `SHDS` bank record) at its offset plus the stream base `0x08dd3114` (`audio.md`).
 - How the duel chooses among the three banks of a voice set, and which voice ids the duel uses for the 52-cue generic-student sets.
-- Banks 709–711 (28, 19 and 19 cues) and the extra small-bank groups without a voice set: which characters or scenes use them.
-- The `smpl` loops are decoded and carried over (see "Decoding to PCM"); still open: whether the game also loops the 11 effect waves that have one, and how the player passes loop points to sceAtrac (`sceAtracSetLoopNum` call sites).
+- Banks 709–711: partly answered 2026-11-04: 709 is loaded by the title, 710/711 by the free roam (with 712, 713, 715–717, 727); the duel loads 719 plus music bank 8 or 9. Which characters' lines they hold is still open.
+- ~~Whether the game loops the 11 effect waves with a `smpl` chunk~~: answered 2026-11-04: yes, every RIFF wave is registered with `sceAtracSetLoopNum(-1)` (medium-high, static).

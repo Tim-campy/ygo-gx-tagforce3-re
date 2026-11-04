@@ -2062,11 +2062,6 @@ address,group,name
 0x0886b10c,audio,audio_stop_sound_internal,M,resolves the handle, audio_stop_sound_object(obj, fade, 1), then 0x08868180
 0x0886c164,audio,audio_stop_sound,M,stops a sound with a fade; for BGM restores ATRAC config and resumes the next BGM slot; story bgm_stop uses it (story.md)
 0x0886c31c,audio,audio_stop_sounds_by_selector,M,selectors 0xfffffdf7..0xfffffdfb pick sounds by category mask, 0xfffffeXX by group, 0xffffffXX by bank; calls audio_stop_sound
-0x0886c484,audio,audio_stop_all_se_and_voices,M,audio_stop_sound on every active sound with key bit 0x100000 set
-0x0886c4ec,audio,audio_stop_all_voices,M,audio_stop_sound on every active sound with key & 0x300000 == 0x300000 (category 2)
-0x0886c4f8,audio,audio_stop_all_se,M,audio_stop_sound on every active sound with key & 0x300000 == 0x100000 (category 1)
-0x0886c504,audio,audio_stop_all_bgm,M,audio_stop_sound on every active sound with key & 0x300000 == 0 (category 0)
-0x0886c510,audio,audio_stop_all_sounds,M,audio_stop_sound on every node of the active list 0x08dce608
 0x0886c51c,audio,audio_stop_bank_sounds,M,audio_stop_sound on every active sound whose bank (0x08866bc4) equals the argument
 # family sound_streams
 0x0886958c,audio,audio_get_sound_play_position,M,converts sample counter +0x24 by codec type (+0x1e & 0xf: 0, 1, 2-5) with float constants; -1 if no object
