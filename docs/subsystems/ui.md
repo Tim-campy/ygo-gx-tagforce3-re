@@ -239,7 +239,7 @@ Scope of this batch (295 functions): the BOOT.BIN `.ehf` layout player (`0x0881e
 #### Corrections to existing docs
 
 - `ehf.md` stage `+0x08`: frame step in vsyncs (60 / value fps, capped by the game frame rate) — resolved, high.
-- `ehf.md` add channel: four unsigned bytes added as a colour offset (not `s8 × 2`); multiply is `s8 × 256 / 127`; track flag bit 6 is a morph weight channel; bits 4 and 5 both trigger reading add bytes.
+- `ehf.md` add channel: four unsigned bytes added as a colour offset (not `s8 × 2`); multiply is `s8 × 256 / 127`; track flag bit 6 is a morph weight channel; bits 4 and 5 both trigger reading add bytes. `tools/ehf.py` follows this since 2026-11-04 (parser, nesting `add = own.add + own.mul × parent.add`, writer; all 1,225 files round-trip).
 - `ehf.md` interpolation (linear, hold outside keys) and re-placing at an occupied depth (new instance, track restarts) — confirmed from code.
 - `ehf.md` "words 4-5 presumably patched": not patched; the player interprets the primitive records itself. Header `+0x38` is a run-time player-buffer pointer.
 - `ehf.md` `.tmf`: bit 0 additive (confirmed), bit 4 linear filtering (new).

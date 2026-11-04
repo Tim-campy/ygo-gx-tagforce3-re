@@ -76,12 +76,29 @@ def parse_nodes(data, offset, size):
     return nodes
 
 
+def channel_present(flags, bit):
+    """Whether key data of channel `bit` is stored: bits 0-3 by their own flag; the add channel (bit 4) when
+    flag bit 4 or 5 is set (the layout player reads the add bytes for either; docs/formats/ehf.md)."""
+    return bool(flags & 0x30) if bit == 4 else bool(flags >> bit & 1)
+
+
+def key_stride(flags):
+    """Bytes per key: the u16 frame plus 4 bytes per stored channel."""
+    return 2 + 4 * sum(channel_present(flags, bit) for bit in range(len(CHANNELS)))
+
+
+def compose_colour(pmul, padd, mul, add):
+    """Colour transform of a child under its parent, as the layout player nests them: multiply = parent x own,
+    add = own add + own multiply x parent add (docs/formats/ehf.md; this differs from Flash)."""
+    return [p * m for p, m in zip(pmul, mul)], [a + m * p for a, m, p in zip(add, mul, padd)]
+
+
 def parse_track(data, offset, limit):
     """One keyframe track: base transform, dequantisation steps and keys."""
     *floats, flags, count, stride, pad = TRACK_HEAD.unpack_from(data, offset)
     if flags & ~0x3F:
         raise EhfError(f"track at {offset:#x}: unknown channel flags {flags:#x}")
-    expected = 2 + 4 * bin(flags & 0x1F).count("1")  # bit 5 (seen twice) adds no key data
+    expected = key_stride(flags)
     if count and stride != expected:
         raise EhfError(f"track at {offset:#x}: stride {stride} for flags {flags:#x}, expected {expected}")
     start = offset + TRACK_HEAD.size
@@ -93,13 +110,11 @@ def parse_track(data, offset, limit):
         key = {"frame": struct.unpack_from("<H", data, pos)[0]}
         pos += 2
         for bit, name in enumerate(CHANNELS):
-            if flags >> bit & 1:
+            if channel_present(flags, bit):
                 if bit < 3:
                     key[name] = struct.unpack_from("<hh", data, pos)
-                elif bit == 3:
+                else:  # multiply and add: four unsigned bytes r, g, b, a
                     key[name] = tuple(data[pos:pos + 4])
-                else:
-                    key[name] = struct.unpack_from("<4b", data, pos)
                 pos += 4
         keys.append(key)
     return {"base": tuple(floats[:6]), "steps": tuple(floats[6:]), "flags": flags, "pad": pad, "keys": keys,
@@ -230,6 +245,102 @@ def build_tmf(flags):
     return bytes((0x01 if f["additive"] else 0) | (0x10 if f["bit4"] else 0) | f["other"] for f in flags)
 
 
+# --- Writer ---------------------------------------------------------------------------------------
+
+def decode(data):
+    """Lossless model of an .ehf: the parsed layout, plus the non-zero bytes no structure claims (`gaps`,
+    [(offset, bytes)]) and the work area when it is not zero. build() inverts it byte for byte."""
+    layout = parse(data)
+    gaps = []
+    for start, end in _coverage(layout, len(data)):
+        chunk = data[start:end]
+        pos = 0
+        while pos < len(chunk):
+            if chunk[pos]:
+                stop = pos
+                while stop < len(chunk) and chunk[stop]:
+                    stop += 1
+                gaps.append((start + pos, chunk[pos:stop]))
+                pos = stop
+            else:
+                pos += 1
+    work_off, work_size = layout["sections"][1]
+    work = None if layout["work_zero"] else data[work_off:work_off + work_size]
+    return {"layout": layout, "gaps": gaps, "work": work}
+
+
+def _build_nodes(nodes):
+    return b"".join(NODE.pack(-1 if n["object"] is None else n["object"] // 16, n["track"], n["depth"], n["clip"],
+                              n["wait"]) for n in nodes)
+
+
+def _build_track(track):
+    flags = track["flags"]
+    stride = track["stride"]
+    out = bytearray(TRACK_HEAD.pack(*track["base"], *track["steps"], flags, len(track["keys"]), stride, track["pad"]))
+    for key in track["keys"]:
+        raw = bytearray(struct.pack("<H", key["frame"]))
+        for bit, name in enumerate(CHANNELS):
+            if channel_present(flags, bit):
+                raw += struct.pack("<hh", *key[name]) if bit < 3 else bytes(key[name])
+        if key and len(raw) != stride:
+            raise EhfError(f"track at {track['offset']:#x}: key of {len(raw)} bytes, stride {stride}")
+        out += raw
+    return bytes(out)
+
+
+def _put(out, offset, raw):
+    out[offset:offset + len(raw)] = raw
+
+
+def build(model):
+    """Inverse of decode(): header and section table, stage, work area, main timeline, objects (shape and clip
+    headers, display lists, vertices, animation tables and tracks, clip timelines), texture names, gaps."""
+    layout = model["layout"]
+    sections = layout["sections"]
+    out = bytearray(sections[-1][0] + sections[-1][1])
+    out[:4] = MAGIC
+    for index, (offset, size) in enumerate(sections):
+        struct.pack_into("<II", out, 0x10 + 8 * index, offset, size)
+    (stage_off, _), (work_off, _), (tl_off, _), (obj_off, _), (names_off, _) = sections
+    _put(out, stage_off, STAGE.pack(layout["frames"], bytes(layout["background"]), layout["rate"], layout["zero"],
+                                    *layout["rect"]))
+    if model["work"] is not None:
+        _put(out, work_off, model["work"])
+    _put(out, tl_off, _build_nodes(layout["timeline"]))
+    for rel, obj in layout["objects"].items():
+        base = obj_off + rel
+        anim_off, anim_size = obj["blocks"]["animation"]
+        if obj["type"] == SHAPE:
+            dl_off, dl_size = obj["blocks"]["display_list"]
+            vtx_off, vtx_size = obj["blocks"]["vertices"]
+            _put(out, base, struct.pack("<I3f6I", SHAPE, *obj["anchor"], obj["scale"], dl_off, dl_size, vtx_off,
+                                        vtx_size, anim_off, anim_size) + obj["pad"])
+            _put(out, base + dl_off, b"".join(struct.pack("<6I", *prim["words"]) for prim in obj["prims"]))
+            for prim in obj["prims"]:
+                pos = base + vtx_off + prim["vaddr"]
+                for uv, xyz in prim["vertices"]:
+                    raw = (struct.pack("<HH", *uv) if uv else b"") + struct.pack("<3h", *xyz)
+                    _put(out, pos, raw)
+                    pos += len(raw)
+        else:
+            tl_rel, tl_size = obj["blocks"]["timeline"]
+            _put(out, base, struct.pack("<6I", CLIP, obj["frames"], tl_rel, tl_size, anim_off, anim_size) + obj["pad"])
+            _put(out, base + tl_rel, _build_nodes(obj["timeline"]))
+        anim = base + anim_off
+        if anim_size >= 4:
+            _put(out, anim, struct.pack(f"<{len(obj['tracks'])}I",
+                                        *(t["offset"] - anim if t else 0 for t in obj["tracks"])))
+        for track in obj["tracks"]:
+            if track:
+                _put(out, track["offset"], _build_track(track))
+    for slot, name in layout["names"].items():
+        _put(out, names_off + slot, name.encode("cp932") + b"\0")
+    for offset, raw in model["gaps"]:
+        _put(out, offset, raw)
+    return bytes(out)
+
+
 # --- Consistency checks ---------------------------------------------------------------------------
 
 WORK_HEAD, WORK_INSTANCE = 0x78, 0x28
@@ -358,7 +469,7 @@ def find_member(path, member):
 # --- Evaluation and rendering ---------------------------------------------------------------------
 
 def track_state(track, frame):
-    """Transform (a, b, c, d, tx, ty), colour multiply (4 floats) and add (4 ints) of a track at a frame.
+    """Transform (a, b, c, d, tx, ty), colour multiply (4 floats) and add (4 values, 0-255) of a track at a frame.
     Keys are linearly interpolated (hypothesis) and held before the first and after the last key."""
     a, b, c, d, tx, ty = track["base"]
     s_t, s_scale, s_skew = track["steps"]
@@ -391,7 +502,7 @@ def track_state(track, frame):
     if "multiply" in k0:
         mul = [v / 128 for v in lerp("multiply")]
     if "add" in k0:
-        add = [v * 2 for v in lerp("add")]
+        add = lerp("add")  # four unsigned bytes added to the colour (0-255 per channel)
     return (a, b, c, d, tx, ty), mul, add
 
 
@@ -434,8 +545,7 @@ def draw_list(layout, frame):
             track = obj["tracks"][node["track"]]
             matrix, mul, add = track_state(track, local - placed)
             matrix = compose(parent, matrix)
-            mul = [p * m for p, m in zip(pmul, mul)]
-            add = [p + a for p, a in zip(padd, add)]
+            mul, add = compose_colour(pmul, padd, mul, add)
             if obj["type"] == CLIP:
                 frames = max(obj["frames"], 1)
                 walk(obj["timeline"], (local - placed) % frames, matrix, mul, add, path + (depth,))
@@ -572,7 +682,7 @@ UNKNOWN_KINDS = {
     "clip.pad_18": "8 bytes at clip+0x18, zero on the disc",
     "track.pad_2a": "u16 at track+0x2A, zero on the disc",
     "track.flag_bit5": "channel flag bit 5: no key data, meaning unknown",
-    "key.add": "4-byte colour-add channel (flag bit 4); encoding unknown, s8 x 2 is a low-confidence guess",
+    "key.add": "colour-add channel (flag bit 4 or 5): four unsigned bytes added to the colour",
     "tmf.bit4": ".tmf flag bit 4 (0x10), meaning unknown",
     "tmf.other_bits": ".tmf bits other than 0 and 4 (none on the disc)",
     "gap": "bytes inside the file that no decoded structure covers (padding when zero)",
@@ -643,7 +753,7 @@ def _track_json(track, index):
             if name in key:
                 out[name] = list(key[name])
         if "add" in key:
-            out["add_raw"] = _hex(v & 0xFF for v in key["add"])
+            out["add_raw"] = _hex(key["add"])
         keys.append(out)
     return {"index": index, "offset": track["offset"],
             "base_matrix": list(track["base"][:4]), "base_translate": list(track["base"][4:]),
@@ -664,7 +774,7 @@ def _timeline_json(timeline):
 
 def evaluate_frame(layout, frame, digits=6):
     """Flattened draw list of one main-timeline frame, in draw order. Uses the tool's hypotheses: linear
-    key interpolation, clips loop, parent x child matrices, multiplied colour multiply, summed colour add."""
+    key interpolation, clips loop, parent x child matrices, colours nested by compose_colour()."""
     out = []
 
     def walk(timeline, local, parent, pmul, padd, path, chain):
@@ -672,8 +782,7 @@ def evaluate_frame(layout, frame, digits=6):
             obj = layout["objects"][node["object"]]
             matrix, mul, add = track_state(obj["tracks"][node["track"]], local - placed)
             matrix = compose(parent, matrix)
-            mul = [p * m for p, m in zip(pmul, mul)]
-            add = [p + a for p, a in zip(padd, add)]
+            mul, add = compose_colour(pmul, padd, mul, add)
             link = {"depth": depth, "object": node["object"], "track": node["track"],
                     "placed_at": placed, "local_frame": local - placed}
             if obj["type"] == CLIP:
@@ -734,7 +843,7 @@ def to_json(layout, data, tmf=None, members=None, source=None, prefix="", frames
             note("track.pad_2a", track["offset"] + 0x2A, track["pad"])
             if track["flags"] & 0x20:
                 note("track.flag_bit5", track["offset"] + 0x24, track["flags"])
-            if track["flags"] & 0x10:
+            if track["flags"] & 0x30:
                 pos = track["offset"] + TRACK_HEAD.size
                 note("key.add", pos, len(track["keys"]), f"{len(track['keys'])} keys, raw in keys[].add_raw")
         entry = {"id": rel, "offset": base, "record_index": rel // 16,

@@ -110,8 +110,8 @@ Track:
 | 1 | scale (3,486) | `s16 qa, qd` | `a += qa × step1`, `d += qd × step1` |
 | 2 | skew (608) | `s16 qb, qc` | `b += qb × step2`, `c += qc × step2` |
 | 3 | multiply (11,150) | `u8 r, g, b, a` | colour × value / 128 (`0x7F` ≈ 1.0, never above `0x80`) |
-| 4 | add (5,941) | 4 bytes | Colour offset; the tool reads `s8 × 2` (hypothesis, low); the game reads four unsigned bytes (player code, 2026-11-04, high; see "Open questions") |
-| 5 | ? (2 tracks, `ryusen01.ehf`) | none | Unknown; stride ignores it |
+| 4 | add (5,941) | `u8 r, g, b, a` | Colour offset: the four unsigned bytes are added to the colour (through the GE emissive colour; player code, 2026-11-04, high). The player reads them when flag bit 4 **or** bit 5 is set. `tools/ehf.py` reads them this way since 2026-11-04 (it read `s8 × 2` before). |
+| 5 | add trigger (2 tracks, `ryusen01.ehf`) | none of its own | Also makes the player read the add bytes; on the disc it only occurs together with bit 4 (flags `0x39`, one track stored in two archives), so the stride `2 + 4 × (popcount(flags & 0xF) + (flags & 0x30 ≠ 0))` equals the bit-4 count on every file |
 
 The base values are the centre of each channel's range, and quantised values span about ±32,760, so a step is (range / 2) / 32,767. Example: a rotation from 30° to 0° at scale 1.5 is stored as base `[1.3995, -0.375, 0.375, 1.3995]`, scale keys from -32,759 to 32,760 with step `3.07e-6` (±0.1) and skew keys with step `1.14e-5` (±0.375); the reconstructed matrix keeps `|scale| = 1.5` at every key, which pins down the channel assignment.
 
@@ -171,10 +171,10 @@ Design rules: every decoded value is stored as read (floats as the exact f32 val
 | `timeline` | Main timeline records in file order: `index`, `frame` (running frame at which the record executes), `action` (`place`/`remove`), `object` (object `id` or `null`), `track`, `depth`, `clip_depth`, `wait`. |
 | `objects` | `id` (byte offset in section 3; a record stores `id / 16`), `type` (`shape`/`clip`), `offset` (absolute), `record_index` (`id / 16`), `blocks` (`{name: {offset, size}}` relative to the object: `display_list`, `vertices`, `animation` for shapes; `timeline`, `animation` for clips), `tracks` (by track index; `null` for an unused table entry). Shapes add `anchor` `[x, y]` (twips), `vertex_scale`, `primitives`; clips add `frames` and `timeline` (same record form as the main timeline). |
 | primitive | `type` (`triangle_strip`, `triangle_fan`, `line_strip`, …), `prim_code`, `rgb`, `alpha`, `vertex_type`, `texture_slot` (index or `null` = untextured), `texture` (name), `vertex_offset` (in the vertex block), `words` (the six raw display-list words as hex), `vertices` (`[{uv: [u, v] or null, xyz: [x, y, z]}]`, raw 16-bit values). |
-| track | `index`, `offset` (absolute), `base_matrix` `[a, b, c, d]`, `base_translate` `[tx, ty]`, `steps` `{translate, scale, skew}`, `flags`, `channels` (names of bits 0–4 set), `flag_bit5`, `key_stride`, `pad_2a`, `keys`: `[{frame, translate: [qx, qy], scale: [qa, qd], skew: [qb, qc], multiply: [r, g, b, a], add: [4 × s8], add_raw: hex}]` with only the present channels. |
+| track | `index`, `offset` (absolute), `base_matrix` `[a, b, c, d]`, `base_translate` `[tx, ty]`, `steps` `{translate, scale, skew}`, `flags`, `channels` (names of bits 0–4 set), `flag_bit5`, `key_stride`, `pad_2a`, `keys`: `[{frame, translate: [qx, qy], scale: [qa, qd], skew: [qb, qc], multiply: [r, g, b, a], add: [r, g, b, a] (4 × u8), add_raw: hex}]` with only the present channels. |
 | `unknown` | `[{kind, offset, raw, where?}]`: every instance of a field whose meaning is not established, with its absolute offset (for `tmf.*`, `offset` is the slot index and `where` is `"tmf"`). Kinds below. |
 | `gaps` | `[{offset, size, zero, raw?}]`: byte ranges no structure claims (alignment padding, the tails of name slots after the NUL, and any other unreferenced bytes); `raw` hex only when not all zero. |
-| `frames` | Omitted with `--no-frames`. One entry per main-timeline frame: `{frame, draw: [...]}`, the flattened draw list in draw order. Each draw: `path` (depths from the main timeline down), `object`, `track`, `clip_depth`, `chain` (`[{depth, object, track, placed_at, local_frame}]` from the outermost clip to the shape), `matrix` `[a, b, c, d, tx, ty]` (twips, stage coordinates before subtracting `xmin/ymin`), `multiply` (4 floats, 1.0 = unchanged), `add` (4 values), rounded to 6 decimals. This is a convenience produced with the tool's hypotheses (linear interpolation, looping clips, parent × child composition, multiplied colour multiply, summed colour add, `add = 2 × s8`); the raw `timeline`/`tracks` are authoritative. |
+| `frames` | Omitted with `--no-frames`. One entry per main-timeline frame: `{frame, draw: [...]}`, the flattened draw list in draw order. Each draw: `path` (depths from the main timeline down), `object`, `track`, `clip_depth`, `chain` (`[{depth, object, track, placed_at, local_frame}]` from the outermost clip to the shape), `matrix` `[a, b, c, d, tx, ty]` (twips, stage coordinates before subtracting `xmin/ymin`), `multiply` (4 floats, 1.0 = unchanged), `add` (4 values), rounded to 6 decimals. This is a convenience produced with the tool's hypotheses (linear interpolation, looping clips, parent × child composition, multiply = parent × own, add = own add + own multiply × parent add as the player nests them, add bytes unsigned); the raw `timeline`/`tracks` are authoritative. |
 
 Unknown-field census from `ehf.py json --check` over the whole disc (1,225 converted, 0 failures, 8,234 texture references resolved; each `gim_member` was also confirmed to resolve through `ehp.find_leaf` to the same bytes):
 
@@ -185,13 +185,23 @@ Unknown-field census from `ehf.py json --check` over the whole disc (1,225 conve
 | `shape.pad_28` | 7,881 | 0 | Always zero. |
 | `clip.pad_18` | 365 | 0 | Always zero. |
 | `track.pad_2a` | 20,889 | 0 | Always zero. |
-| `track.flag_bit5` | 2 | 2 | Unknown flag, no key data (`ryusen01.ehf`). |
-| `key.add` | 5,941 tracks | 5,941 | Colour-add encoding unknown (raw bytes kept per key). |
+| `track.flag_bit5` | 2 | 2 | Add trigger (only with bit 4 on the disc; `ryusen01.ehf`). |
+| `key.add` | 5,941 tracks | 5,941 | Colour-add channel, four unsigned bytes (raw bytes also kept per key). |
 | `tmf.bit4` | 993 slots | 993 | Unknown. |
 | `tmf.other_bits` | 0 | 0 | No other bits are used. |
 | `gap` | 12 | 12 | See below. |
 
 So 10 kinds are tracked and 5 still carry data whose meaning is unknown: `stage.field_08`, `track.flag_bit5`, the `add` channel, `.tmf` bit 4 and one stray padding pattern. The zero-only kinds (`field_0c`, the three pads) are recorded so a rebuilt file can be checked byte for byte. Gaps total 149,960 bytes, all zero except one case: `start_duel10.ehf`, present identically in the 12 `duel/basic_*.ehp` archives, has the 4 bytes `0b 80 7f 7f` in the 16-byte alignment padding after the shape at object `0x1e0` (its animation block ends at object offset `0x12c`, the next object starts at `0x130`). No structure points there; they are most likely stale buffer bytes left by the converter (hypothesis, low), and they are kept raw in `gaps`.
+
+## `.ehf` writer and round trip
+
+`ehf.decode(data)` returns the parsed layout plus the non-zero bytes no structure claims (`gaps`: the stale padding bytes listed above and nothing else) and the work area when it is not zero (it is zero in every file); `ehf.build(model)` writes the header and section table, the stage, the main timeline, every object (shape header with anchor, vertex scale and block table; the six display-list words of each primitive; the vertices; clip header and timeline; the animation offset table and each track's head and keys, add bytes as four `u8`) and the texture names, then the gap bytes. All 1,225 `.ehf` on the disc (loose and nested archives, gzip members, and the archives embedded in `BOOT.BIN` and the modules) rebuild byte for byte with the corrected add channel (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only ehf
+```
+
+Synthetic tests: `tools/tests/test_ehf.py` (`EhfAddChannelTest`, `EhfWriterTest`).
 
 ## `.tmf` writer and round trip
 
@@ -201,7 +211,7 @@ So 10 kinds are tracked and 5 still carry data whose meaning is unknown: `stage.
 
 - ~~What `ui_bind_ehf` writes into words 4–5 of each primitive~~: answered 2026-11-04 (static, high): nothing; the player reads the 6-word primitive records itself. `ui_bind_ehf` calls the texture callback on each 16-byte texture slot and then stores the slot's `.tmf` byte (0 without a `.tmf`) in slot word `+0x0c`, overwriting characters 12–15 of the name, so long names cannot leak into the flags. Header `+0x38` is a run-time pointer to a player buffer.
 - ~~Stage field `0x08`~~: answered 2026-11-04 (high): vsyncs per layout frame, so a layout runs at 60 / value frames per second, capped by the game's frame rate; the caller's draw block word 0 is a tick and the layout advances once per new tick. Still open: whether the background colour is drawn.
-- ~~Interpolation and the `add` channel~~: answered 2026-11-04 (high): keys interpolate linearly and hold the first/last value outside their range; the add channel is four **unsigned** bytes applied as a colour offset (through the GE emissive colour), not `s8 × 2` as `tools/ehf.py` reads it (the tool still needs that fix); multiply is `s8 × 256 / 127`; the player reads the add bytes when bit 4 or bit 5 is set (the tool counts bit 4 only and its key-stride check passes on every file, so the two flagged bit-5 tracks either also have bit 4 or no keys; not re-checked), and flag bit 6 is an extra morph-weight channel. Nesting: `add = own.add + own.mul × parent.add / 256`, which differs from Flash.
+- ~~Interpolation and the `add` channel~~: answered 2026-11-04 (high): keys interpolate linearly and hold the first/last value outside their range; the add channel is four **unsigned** bytes applied as a colour offset (through the GE emissive colour), not `s8 × 2` (`tools/ehf.py` fixed on 2026-11-04: parser, evaluation, JSON export and writer); multiply is `s8 × 256 / 127`; the player reads the add bytes when bit 4 or bit 5 is set (re-checked 2026-11-04: the only bit-5 track, flags `0x39` in `ryusen01.ehf`, also has bit 4, so the stride is the same either way; the tool now reads the add bytes for either bit), and flag bit 6 is an extra morph-weight channel. Nesting: `add = own.add + own.mul × parent.add / 256`, which differs from Flash.
 - ~~`.tmf` bits~~: answered 2026-11-04 (high): bit 0 additive blending, bit 4 bilinear filtering; without a `.tmf` every slot gets 0 (normal blending, nearest filtering).
 - ~~Re-placing at an occupied depth~~: answered 2026-11-04: it creates a new instance, so the track restarts (as the tool does).
 - Line-strip primitives (16) are not drawn by the tool.

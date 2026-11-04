@@ -22,7 +22,7 @@ def align(data, boundary=16):
 
 def track(base=(1, 0, 0, 1, 0, 0), steps=(0, 0, 0), flags=0, keys=()):
     """keys: list of bytes, each a full key record (frame first)."""
-    stride = 2 + 4 * bin(flags & 0x1F).count("1") if keys else 0
+    stride = 2 + 4 * (bin(flags & 0x0F).count("1") + bool(flags & 0x30)) if keys else 0
     return struct.pack("<9f4H", *base, *steps, flags, len(keys), stride, 0) + b"".join(keys)
 
 
@@ -84,6 +84,51 @@ CLIP_AT = len(SHAPE0) + len(SHAPE1)
 CLIP2 = clip(4, [(len(SHAPE0) // 16, 0, 1, 0, 2), (-1, 0, 1, 0, 2)], anim(track()))
 SAMPLE = build(30, [(0, 0, 1, 0, 0), (CLIP_AT // 16, 0, 2, 0, 20), (-1, 0, 2, 0, 10)],
                [SHAPE0, SHAPE1, CLIP2], ["tex_a", "tex_b"], instances=3)
+
+
+class EhfAddChannelTest(unittest.TestCase):
+    def test_add_is_four_unsigned_bytes(self):
+        add_track = track(flags=0b010000, keys=[struct.pack("<H4B", 0, 0xFF, 0x80, 0, 4),
+                                                 struct.pack("<H4B", 10, 0xFF, 0x00, 0, 4)])
+        data = build(1, [(0, 0, 1, 0, 1)], [shape(anim(add_track), texture=None)], [])
+        parsed = ehf.parse(data)["objects"][0]["tracks"][0]
+        self.assertEqual(parsed["keys"][0]["add"], (0xFF, 0x80, 0, 4))
+        _, _, add = ehf.track_state(parsed, 5)
+        self.assertEqual(add, [255.0, 64.0, 0.0, 4.0])  # no doubling, no sign
+
+    def test_bit5_alone_also_stores_add_bytes(self):
+        self.assertEqual(ehf.key_stride(0x20), 6)
+        self.assertEqual(ehf.key_stride(0x30), 6)
+        self.assertEqual(ehf.key_stride(0x0F), 18)
+        t = track(flags=0b100000, keys=[struct.pack("<H4B", 0, 1, 2, 3, 4)])
+        data = build(1, [(0, 0, 1, 0, 1)], [shape(anim(t), texture=None)], [])
+        self.assertEqual(ehf.parse(data)["objects"][0]["tracks"][0]["keys"][0]["add"], (1, 2, 3, 4))
+
+    def test_nesting(self):
+        mul, add = ehf.compose_colour([1.0, 1.0, 1.0, 1.0], [10, 20, 30, 0], [0.5, 1.0, 0.0, 1.0], [1, 2, 3, 4])
+        self.assertEqual(mul, [0.5, 1.0, 0.0, 1.0])
+        self.assertEqual(add, [6.0, 22.0, 3.0, 4.0])  # own add + own multiply x parent add
+
+
+class EhfWriterTest(unittest.TestCase):
+    def test_sample_round_trips(self):
+        self.assertEqual(ehf.build(ehf.decode(SAMPLE)), SAMPLE)
+
+    def test_add_track_and_stale_gap_round_trip(self):
+        add_track = track(flags=0b111001, keys=[struct.pack("<Hhh4B4B", 0, -5, 7, 1, 2, 3, 4, 0xFE, 0x80, 0, 9)])
+        data = bytearray(build(1, [(0, 0, 1, 0, 1)], [shape(anim(add_track, track()), texture=None)], ["t"]))
+        names = struct.unpack_from("<I", data, 0x30)[0]
+        data[names + 5] = 0x42  # a stale byte after the texture name's NUL
+        model = ehf.decode(bytes(data))
+        self.assertEqual([(o, raw) for o, raw in model["gaps"]], [(names + 5, b"B")])
+        self.assertEqual(ehf.build(model), bytes(data))
+
+    def test_build_writes_every_structure(self):
+        model = ehf.decode(SAMPLE)
+        model["layout"]["frames"] = 31
+        rebuilt = ehf.build(model)
+        self.assertNotEqual(rebuilt, SAMPLE)
+        self.assertEqual(ehf.parse(rebuilt)["frames"], 31)
 
 
 class EhfParseTest(unittest.TestCase):
@@ -328,7 +373,7 @@ class EhfJsonTest(unittest.TestCase):
         self.assertTrue({"stage.field_08", "stage.field_0c", "shape.pad_28", "track.pad_2a", "track.flag_bit5",
                          "key.add"} <= kinds)
         key = doc["objects"][0]["tracks"][0]["keys"][0]
-        self.assertEqual((key["add"], key["add_raw"]), ([-1, 2, 0, 0], "ff020000"))
+        self.assertEqual((key["add"], key["add_raw"]), ([255, 2, 0, 0], "ff020000"))  # four unsigned bytes
         stage = next(u for u in doc["unknown"] if u["kind"] == "stage.field_08")
         self.assertEqual((stage["offset"], stage["raw"]), (0x48, 2))
         self.assertIsNone(doc["tmf"])
