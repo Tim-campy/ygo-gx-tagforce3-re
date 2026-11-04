@@ -13,6 +13,7 @@ The checks are grouped into sessions so that each needs as little play as possib
 | D | One single duel against a CPU, with staged hands | D1, D2: the 16-link chain limit and the 16-trigger limit (replaces the former optional A11) | 1 duel, about 30 min |
 | E | Outside the duel, in seven scene blocks: boot and title, save/load, free roam, shop, deck editor, tutorial lesson, minigames | E1–E24 (E6, E14, E15, E17 optional): file index, opening movie, title message tables, sound play call, save regions, `hud_marker`, BGM fade, arrival cells, door locks, chapter stage/step, story state 46, one pack purchase and the rarity box, deck-editor and progress bytes, `rel_tutorial` base, `.ydq` draw order, tutorial resumption, minigame scores and result table | 10–45 min per block, about 3 h in all |
 | F | Duels: own turns, CPU turns, a field-spell duel, saves around duels, and D2 | F1–F12 (F8 optional): turn-0 draw, LP writers, direct and piercing attacks, A6 steps 3–6, Magic Jammer, the AI plan comparison (the seven `ai.md` checks), the `ddstrtbl` HUD tables, backdrop frame rate, duel-record saves, D2 | about 2 h 30 in five blocks |
+| G | Port-readiness leftovers (`docs/PORT-READINESS.md`): one logged duel, one lost chapter duel, the password machine, a story duel with the partner | G1–G4: timing-event codes of the computed raisers, step 3 after a lost chapter duel, the password route of the collection-excluded cards, the story duel result word | about 1 h 15 |
 
 Legal boundary (`CLAUDE.md`): savestates, `.sym` exports, `DATA0` files and memory dumps contain game data. They stay under `external/ppsspp/` or `ghidra/` (both git-ignored; `*.ppst` and `*.sym` are ignored as well) and are never committed. Result tables record only addresses, small numbers and card ids, never dumps.
 
@@ -876,6 +877,50 @@ Run D2 exactly as written in Session D (staging with S1, Card Destruction `0x12d
 | F12 (D2) sides of links 1–16 | | turn player's first | | |
 | F12 (D2) second chain from the remainder | | `N − 16` links | | |
 | Edits (S1/S2/S3, E-X1) | | all listed | | |
+
+## Session G: port-readiness leftovers
+
+Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of its "Blocking questions" list that static reading could not settle. Module bases as in Session 0 (`rel_duel_eng` `0x09be1400`, M1) and E0 (`rel_story` `0x08e9aa00`); `S` is the save-state address of M2.
+
+### G1. Timing-event codes of the computed raisers
+
+- **Hypothesis**: `duel_core_raise_timing_event(code, arg)` (`0x09ccaae4`) has 52 call sites; 41 pass a constant (`duel-runtime.md`, "Event codes by raiser"), the others compute the code: `duel_core_send_field_card` raises `0x16` or `0x1c` (destroyed vs. otherwise sent, hypothesis), `duel_core_send_hand_card` the code its caller passes (discard vs. cost), `duel_core_queue_summon_event_triggers` the code of an effect Special Summon, `duel_effects_resolve_magical_hats` a second code. The unexplained values are `0x06`, `0x07`, `0x15`, `0x1e`, `0x23`, `0x24`.
+- **Breakpoint**: execute `0x09ccaae4`, **Break** off, **Log** `ev {a0} arg {a1} ra {ra}`. Nothing else.
+- **Steps**: one duel against a CPU (any deck that can do these; staging with memory edits is allowed under the policy). Do, and note the turn of each: (1) destroy a monster by battle; (2) destroy a card with a spell or trap effect; (3) Tribute Summon; (4) discard a card for a cost and, if possible, by an effect ("discard" text); (5) Special Summon a monster with an effect (e.g. from the Graveyard); (6) send a Deck card to the Graveyard and banish a Graveyard card, if the deck allows; (7) let the CPU attack.
+- **Record**: the `ev`/`ra` pairs next to the action that caused them (codes and addresses only).
+- **Expected**: `ra` − 8 is one of the 52 call sites; (1) and (2) give `0x16`/`0x1c` from `duel_core_send_field_card` (which is which is the answer); (4) gives the discard code from `duel_core_send_hand_card`; (5) a code from `duel_core_queue_summon_event_triggers` (`0x23` or `0x24` expected). Each newly seen value names one of the unexplained codes.
+
+### G2. Step 3 after a lost chapter duel
+
+- **Hypothesis** (`chapter-table.md`, open question): step 3 of a partner chapter starts right after the step-2 duel when it is won; after a loss, the step-3 record starts from the map instead (or the step repeats). The location test is read statically but not its result path.
+- **Preparation**: the E13 set-up (save `E13-pre`, memory edit E-X1, the E13 breakpoints and the standing `queue` log).
+- **Steps**: run E13 up to the step-2 duel; **lose** it (surrender or let the CPU win). Return to free roam; note the stage/step bytes `[S + 0x1a270]`/`[S + 0x1a271]` and the `queue` log; walk to the step's location and to one other map.
+- **Record**: the step byte after the loss, any key queued on the return and on each map entry, and whether the duel is offered again.
+- **Expected**: one of: the step stays 2 and the duel is offered again at the location; or the step becomes 3 and its record starts on the next map entry. Either answer closes the question.
+
+### G3. The password machine and the collection-excluded cards
+
+- **Hypothesis** (`packs.md`, "Cards in no pack"): 16 cards are excluded from the collection percentage and from random rewards; 11 of them (`6989`, `7332`–`7341`) have a passcode in `cardinfo` and are expected to be obtainable only through the password machine (`rel_password`, lab hub); `3763`, `3787`, `3790` have passcode 0 and no known route.
+- **Steps**: from free roam, save (`G3-a`). In the lab hub open the password screen and enter the passcode of card `7332` (read it from your own `cardinfo` export, `tools/cardinfo.py`; do not paste it into the results). Note what the game answers (accepted, refused, cost). Then enter the passcode of one ordinary pack card you do **not** own, and one you own. Save (`G3-b`).
+- **Record**: per passcode: the message class (accepted / refused / already owned / other, in your words), DP before/after, the changed save offsets between `G3-a` and `G3-b` (collection record of the card: `save.md`, "Card collection").
+- **Expected**: the rule of the password machine (needs the card owned first, or any card, or only some), and whether the excluded cards come through it.
+
+### G4. *(optional, confirmation)* The story duel result word
+
+- **Hypothesis** (settled statically, M-H; `duel-runtime.md`, `0x09e02cb0`): the set-up tail word `T + 0x20` that `world_record_duel_result` (`rel_story` `0x08ea4dac`) receives is the engine's final result from the local side: 1 won, 2 opponent won, 3 draw.
+- **Breakpoint**: execute `0x08ea4dac`, **Log** `duel_result {a0}`.
+- **Steps**: one story duel won, one lost (with the partner on either side if possible, so that the tally also moves).
+- **Record**: `a0` after each duel and the result shown on screen.
+- **Expected**: 1 after the win, 2 after the loss.
+
+**Session G results**
+
+| Check | Recorded | Expected | Pass? | Notes |
+| --- | --- | --- | --- | --- |
+| G1 computed event codes | | `0x16`/`0x1c` split, discard code, effect-summon code | | |
+| G2 step after a lost chapter duel | | step stays 2, or 3 starts from the map | | |
+| G3 password machine | | rule and route of the excluded cards | | |
+| G4 story duel result | | 1 win, 2 loss | | |
 
 ## Reporting results
 
