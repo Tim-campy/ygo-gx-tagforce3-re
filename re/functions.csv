@@ -14313,7 +14313,7 @@ rel_deck:0x08eb8054,ui_help_measure_chapter_item,ui,documented,208
 rel_deck:0x08eb8124,ui_help_chapter_split_text_lines,ui,documented,12
 rel_deck:0x08eb8130,ui_help_set_chapter_font,ui,documented,72
 rel_deck:0x08eb8178,ui_help_is_sub_item,ui,documented,64
-rel_deck:0x08eb81b8,deck_stub_noop_save_stored_deck,deck,documented,8
+rel_deck:0x08eb81b8,thunk_sceRtcGetCurrentClockLocalTime,sdk,documented,8
 rel_deck:0x08eb81c0,thunk_deck_tutorial_draw,deck,documented,8
 rel_deck:0x08eb81c8,thunk_deck_tutorial_start,deck,documented,8
 rel_deck:0x08eb81d0,thunk_deck_tutorial_update,deck,documented,8
@@ -21318,11 +21318,11 @@ rel_duel_mgr:0x08eb5874,thunk_duel_core_tutorial_fire_event_handler,duel_core,do
 rel_duel_mgr:0x08eb587c,thunk_duel_core_tutorial_on_answer,duel_core,documented,8
 rel_duel_mgr:0x08eb5884,thunk_duel_core_tutorial_redraw_hint,duel_core,documented,8
 rel_duel_mgr:0x08eb588c,thunk_duel_core_tutorial_is_busy,duel_core,documented,8
-rel_duel_mgr:0x08eb5894,system_duel_mgr_stub_noop_frame_hook_a,system,documented,8
-rel_duel_mgr:0x08eb589c,system_duel_mgr_stub_noop_tutorial_hook,system,documented,8
-rel_duel_mgr:0x08eb58a4,system_duel_mgr_stub_noop_deckswap_hook_a,system,documented,8
-rel_duel_mgr:0x08eb58ac,system_duel_mgr_stub_noop_deckswap_hook_b,system,documented,8
-rel_duel_mgr:0x08eb58b4,system_duel_mgr_stub_noop_frame_hook_b,system,documented,8
+rel_duel_mgr:0x08eb5894,thunk_duel_core_tutorial_on_duel_end,duel_core,documented,8
+rel_duel_mgr:0x08eb589c,thunk_duel_core_tutorial_is_finished,duel_core,documented,8
+rel_duel_mgr:0x08eb58a4,thunk_deck_swap_start,deck,documented,8
+rel_duel_mgr:0x08eb58ac,thunk_deck_swap_update,deck,documented,8
+rel_duel_mgr:0x08eb58b4,thunk_deck_swap_draw,deck,documented,8
 0x09be1400,duel_core_post_ui_event,duel_core,documented,72
 0x09be1448,duel_core_is_ui_event_busy,duel_core,documented,52
 0x09be147c,duel_core_set_ui_event_hook,duel_core,documented,12

@@ -86,6 +86,8 @@ The recipe viewer and the deck tutorial are separate modules (files `0x1b` and `
 
 The deck-related library modules are now in the Ghidra project and documented, each with a module document: `rel_deckswap` (side decking between duels: a cut-down copy of the editor with main, extra and side lists; leaving requires the original counts; 90-second limit in network play), `rel_decktutorial` (the deck-building tutorial; its "wait button" opcode presses the button itself and opcode `0x13` sets the text-search query, correcting `docs/formats/deck.md`; the tutorial deck comes from a sample table at module `+0x212ac`, not from the save, and the save's per-card flags are backed up and restored), `rel_recipeviewer` (three tabs: 50 stored decks, unlocked recipes 1-461, imported decks of 0x1c0 bytes; three modes) and `rel_select_card` (card picker with three modes: the story's 99-card list, the conversion machine and labo, and the wireless trade). See `modules/rel_deckswap.md`, `modules/rel_decktutorial.md`, `modules/rel_recipeviewer.md`, `modules/rel_select_card.md`, and for `rel_limitlist` (forbidden lists imported from the Memory Stick) `modules/rel_limitlist.md`.
 
+Stored decks: `deck_save_to_stored_deck` writes the current local time (`sceRtcGetCurrentClockLocalTime`) at record `+0x44`, so the record keeps its save time (round 7 audit).
+
 ## Open questions
 
 - What deck slot 0 holds, and which slot `save_get_partner(0)` (`0x088550c8`) returns for the current partner (`deck_get_member_slot` gives slot 1 for member 0 and that slot for any other member).
