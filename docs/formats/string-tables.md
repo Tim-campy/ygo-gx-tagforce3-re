@@ -66,10 +66,12 @@ Families of layout A (files counted over all languages and all archives that car
 
 Registry row `chr_wordstbl` (`re/formats.csv`). Purpose: the caption shown in a duel cut-in or in the voice test while a character's voice line plays.
 
-- **Files.** `chr_wordstbl_<l>.bin` in each `duel/cutin_<cut-in>.ehp` and `duel/zakov<n>.ehp`, and the same tables as `chrcutin_<cut-in>_wordstbl_<l>.bin` / `chrzakov<n>_wordstbl_<l>.bin` in `database/charalist.ehp` (voice test, `%s_wordstbl_<l>.bin`, `ui.md`). `<l>` is the language letter.
+- **Files.** `chr_wordstbl_<l>.bin` in each `duel/cutin_<cut-in>.ehp` and `duel/zakov<n>.ehp`, and the same tables as `chrcutin_<cut-in>_wordstbl_<l>.bin` / `chrzakov<n>_wordstbl_<l>.bin` in `labo/voicetest.ehp` (voice test, `%s_wordstbl_<l>.bin`, `ui.md`; 366 + 198 files there, 570 `chr_wordstbl_<l>.bin` in `duel/`; corrected 2026-11-04, the voice-test copies are not in `database/charalist.ehp`). `<l>` is the language letter.
 - **Layout.** Layout A above, unchanged: `u32 count`, `u32 12`, `u32 string_base`, `count` × `u32` offsets, UTF-16LE strings; with the end offset (so `count − 1` captions). Every one of the 1,134 files parses as layout A in the census (high).
 - **Indexing.** A caption is not addressed by voice cue directly: the cut-in's voice-id map (`chr_voiceidchgtbl.bin` / `*_voiceidchgtbl.bin`, `sound.md`, "`*_voiceidchgtbl.bin`: voice → caption") gives, for each cue of each bank, the caption index into this table. Evidence: entry counts equal cue counts in every map, cues sharing a wave share a caption, and captions match their events (`sound.md`, high).
 - **Reader.** `tools/strtbl.py` (strings), `tools/voices.py` (cue → caption).
+
+- **Writer and round trip.** `strtbl.parse` → `strtbl.build` (layout A with end offset) rebuilds all 1,134 caption tables byte for byte (`python3 -I tools/roundtrip.py --check <PSP_GAME> --only chr_wordstbl`); `chr_wordstbl` is `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`).
 
 Status: layout and indexing established (high); which code path fetches the caption in `rel_duel_draw` is not traced (the accessor is the generic `card_db_get_dictionary_word`).
 

@@ -309,10 +309,12 @@ There is no header besides the count and no end record. The meaning of the `0x68
 - `tuto_cmd_NN.bin`: `tutorial.cmd_decode()` gives `{kind, code, side, a, b, c}` (`kind` tutorial for `0x4000`, engine otherwise, end for word 0); `tutorial.cmd_build()` inverts it.
 - `tuto_text_<l>.bin`: `tutorial.text_build(lines, language)` writes the `(offset, size)` pairs and each line followed by zero bytes up to the next multiple of 4: at least one in Shift-JIS, at least **four** in UTF-16 (a line of 4n + 2 bytes gets 6 zero bytes, one of 4n bytes gets 4), as on the disc.
 
-All 50 `.ydq`, 17 scripts and 6 text tables rebuild byte for byte (`ydq`, `tuto_cmd`, `tuto_text` are `reimplemented`):
+- Legacy `NN_duel_command.bin` (`tuto_legacy_cmd`): `tutorial.legacy_decode()` gives `{code, side, a, b, c}` per record (code = bits 0–14 of `op`, side = bit 15); `tutorial.legacy_build()` writes the `u16` count and the records. All 20 copies on the disc (lessons 01–04 in each of the five `tutorial/tutorial_<l>.ehp`) rebuild byte for byte; `tuto_legacy_cmd` is `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`).
+
+All 50 `.ydq`, 17 scripts, 6 text tables and 20 legacy command files rebuild byte for byte (`ydq`, `tuto_cmd`, `tuto_text`, `tuto_legacy_cmd` are `reimplemented`):
 
 ```
-python3 -I tools/roundtrip.py --check <PSP_GAME> --only ydq,tuto_cmd,tuto_text
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only ydq,tuto_cmd,tuto_text,tuto_legacy_cmd
 ```
 
 ## Open questions

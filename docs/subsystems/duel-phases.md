@@ -109,6 +109,8 @@ The phase menu (`duel_core_show_phase_menu`, `0x09dc78cc`) is only shown to a hu
 
 `duel_core_run_effect_battle` (`0x09ddac64`, called from the pending-work function `0x09c0e8b8`) enters the same table at index 5 and runs it while the index is at most 7: a battle started by an effect skips the declaration steps and steps 8–10 (medium). Every step is described in detail in `battle.md`.
 
+The three step tables (`duel_flow_steps` `0x09e01dbc`, `turn_steps` `0x09e01da0`, `battle_steps` `0x09e01dcc`) are NULL-terminated code-pointer arrays in `rel_duel_eng`'s `.data` (module offsets in the file); `tools/exe_tables.py` reads and writes them and they round-trip byte for byte (`reimplemented`, 2026-11-04, `docs/formats/duel-runtime.md`, "Writers and round trip").
+
 ## Phase-changing commands
 
 The engine command queue (`0x09e29100`, 256 entries of 8 bytes, count `0x09e29900`; `tutorial.md`) is drained one command at a time by `duel_core_process_command_queue` (`0x09dc1050`): the first entry is copied to the current command at `0x09e290f8` (`u16 op`, bit 15 = side, low 12 bits = code; `u16 a, b, c` at `0x09e290fa`, `+fc`, `+fe`), the rest of the queue shifts down, `0x09e29904` is set while the command runs and `0x09e29908` is its sub-step. `duel_core_execute_command` (`0x09dc0974`) dispatches on the code with a jump table of 104 cases (1–`0x68`). Most handlers post a UI event with `duel_core_post_ui_event` (`0x09be1400`: stores four arguments at `0x09e01e14` and calls the hook at `0x09e01e10`) and then wait while `duel_core_is_ui_event_busy(event)` (`0x09be1448`) reports the animation is still running.

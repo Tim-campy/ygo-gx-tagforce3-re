@@ -56,7 +56,7 @@ Observations (see also "Who uses which recipe" below): 611 of 661 main decks lis
 | `0xa2` | 2 × 15 | extra deck ids |
 | `0xc0` | | end |
 
-Note that memory order (main, side, extra) differs from file order (main, extra, side). Confidence high (store offsets read from `0x0885c43c`–`0x0885c4f8`). The deck slots in the game state (`0x48c8 + 0x16c·s`) use the same struct at slot `+0x4c` (`deck_get_slot_cards`, `deck_copy_slot_cards` copies `0xc0` bytes; `save.md`).
+Note that memory order (main, side, extra) differs from file order (main, extra, side). Confidence high (store offsets read from `0x0885c43c`–`0x0885c4f8`). The deck slots in the game state (`0x48c8 + 0x16c·s`) use the same struct at slot `+0x4c` (`deck_get_slot_cards`, `deck_copy_slot_cards` copies `0xc0` bytes; `save.md`), and so do the stored decks at `+0x54`. Writer and round trip (`deck_struct`, `reimplemented` 2026-11-04): `save._decode_deck_struct` (three counts, the main/side/extra lists with stale slots past each count) → `save._encode_deck_struct` rebuilds every non-empty deck struct of the seven plaintext saves byte for byte, 882 instances (126 deck slots per save; the stored decks are empty), through JSON (`roundtrip.py --saves … --only deck_struct`; `docs/verification/results/2026-11-04-format-raises-2.md`).
 
 ## Recipe names: `recipe_name_<l>.bin`
 

@@ -106,7 +106,7 @@ Allocation rounds the size up to 16, picks the best-fitting free block (`system_
 
 ## `ui_resource_table`: per-scene UI resource records (12 bytes each)
 
-Scene modules look up their UI members (textures, layouts, string tables) by a 16-bit id through a sorted table of records. In `rel_deck` the table is at `0x08ebd84c` (module `+0x22e4c`), 41 records with ids `0x8001`–`0x8045`; the same routine and record layout exist with their own tables in `rel_deckswap` (`+0x9c8c`), `rel_decktutorial` (`+0x11324`), `rel_select_card` (`+0xc334`), `rel_recipeviewer` (`+0x5ad4`) and `rel_shop` (`shop_get_archive_member`, 21 records). Prose: `docs/subsystems/ui.md`.
+Scene modules look up their UI members (textures, layouts, string tables) by a 16-bit id through a sorted table of records. In `rel_deck` the table is at `0x08ebd84c` (module `+0x22e4c`), 41 records with ids `0x8001`–`0x8045`; the same routine and record layout exist with their own tables in `rel_deckswap` (`+0x9c8c`), `rel_decktutorial` (`+0x11324`), `rel_select_card` (`+0xc334`), `rel_recipeviewer` (`+0x5ad4`) and `rel_shop` (`shop_get_archive_member`, 21 records). Those routines pick a table by the id's high bits and pass `(table, count)` to the binary search as immediates; the full set (read from the code, 2026-11-04) is 11 tables, 234 records: `rel_deck` `+0x22e4c` × 41; `rel_decktutorial` `+0x21d2c` × 41; `rel_deckswap` `+0x1891c` × 41 and `+0x18b30` × 2; `rel_select_card` `+0x19338` × 41, `+0x19534` × 1, `+0x19540` × 1, `+0x1955c` × 1; `rel_recipeviewer` `+0xc384` × 41 and `+0xc58c` × 3; `rel_shop` `+0x20c50` × 21. The 41-record tables are copies of the editor's set; the small ones hold the module's own layouts (ids with `0x1000`/`0x2000`/`0x4000` set in the upper half-word, which the search ignores). Prose: `docs/subsystems/ui.md`.
 
 | Offset | Size | Type | Field | Evidence | Conf. |
 | --- | --- | --- | --- | --- | --- |
@@ -115,6 +115,18 @@ Scene modules look up their UI members (textures, layouts, string tables) by a 1
 | `+0x08` | 4 | `char *` | `format`: member name or `sprintf` format with a `%c` for the language letter (`"jegfis"[save_get_language()]`; ids `0x8036`/`0x8037` use the region string `"jabgfisb"`) | Pointers into the module's string area (for example `cis_all.gim`, `panel.gim`); `ui_deck_get_resource` | H |
 
 An `.ehf` member also gets its `.tmf` companion bound on first use (`ui.md`). `rel_field` uses a different 12-byte record (`{u32 ?, char *member, void *cache}` at `+0x2f548`, `ui_field_find_resource`), documented in `ui.md`; it is not this row.
+
+## Writers and round trip
+
+`tools/exe_tables.py` reads and writes three of these tables; the round trip blanks every owned byte, writes the model and compares the whole executable, byte-identical for all, so they are `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`):
+
+| Row | Owned bytes | Instances |
+| --- | --- | --- |
+| `root_path_table` | the 10 words at `0x0889fb24` and the nine NUL-terminated paths they point at | 1 |
+| `card_language_suffixes` | the 6 × 8 bytes at `0x08878c88` | 1 |
+| `ui_resource_table` | the 12-byte records (`id`, `cache` = 0, `format` pointer) and the NUL-terminated format strings | 11 tables in 6 modules (list above) |
+
+`scene_stack`, the file thread block (`file_request_ring`) and `heap_header` are runtime state with no instance in a file, so they stay `documented`.
 
 ## `card_language_suffixes`: language code table (`0x08878c88`, 6 × 8 bytes)
 

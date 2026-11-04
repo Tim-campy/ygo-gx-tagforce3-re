@@ -552,6 +552,62 @@ class Tmt:
         return p
 
 
+# --- Scene block of flag-2 TGMT files (tgm_etc_scene) -------------------------------------------
+
+LIGHT_ROLES = ("type", "on", "ambient_r", "ambient_g", "ambient_b", "diffuse_r", "diffuse_g", "diffuse_b",
+               "specular_r", "specular_g", "specular_b", "attenuation_constant", "attenuation_linear",
+               "attenuation_quadratic", "spot_cutoff", "spot_exponent")
+CAMERA_ROLES = ("focal_length", "film_aperture", "near", "far")
+SCENE_ROLES = {
+    84: CAMERA_ROLES + ("fog_switch", "fog_r", "fog_g", "fog_b", "fog_near", "fog_far", "ambient_r", "ambient_g",
+                        "ambient_b") + tuple(f"unread_{k}" for k in range(13, 20))
+        + tuple(f"light{i}_{role}" for i in range(4) for role in LIGHT_ROLES),
+    42: CAMERA_ROLES + tuple(f"constant_{k}" for k in range(4, 10)) + tuple(f"visibility_{i}" for i in range(32)),
+}
+
+
+def scene_track_count(tmt):
+    """Leading scalar tracks of a flag-2 file: those before the first track a node uses (docs/formats/tgm.md)."""
+    used = [base for tbase, _, sbase, _ in tmt.nodes for base in (tbase, sbase) if base not in (0xFFFF, -1)]
+    return min(used) if used else tmt.track_count
+
+
+def read_scene(tmt):
+    """Scene block of a flag-2 ("-etc") TGMT: {'layout': leading track count, 'tracks': [{'role', 'count',
+    'first', 'keys': [[frame, value, handle1, handle2], ...]}]}; roles per docs/formats/tgm.md, "Scene block"."""
+    if not tmt.flags & TMT_FLAG_CAMERA:
+        raise ValueError("not a flag-2 (camera/scene) TGMT")
+    count = scene_track_count(tmt)
+    roles = SCENE_ROLES.get(count, ())
+    tracks = []
+    for index in range(count):
+        n, first = tmt.tracks[index]
+        tracks.append({"role": roles[index] if index < len(roles) else f"track_{index}", "count": n, "first": first,
+                       "keys": [list(key) for key in tmt.scalar_keys(index)]})
+    return {"layout": count, "tracks": tracks}
+
+
+def scene_spans(tmt, scene):
+    """File byte ranges the scene block owns: its track-table entries and the keys they reference."""
+    spans = [(tmt.tracks_offset, TRACK.size * scene["layout"])] if scene["layout"] else []
+    spans += [(tmt.keys_offset + SCALAR_KEY.size * t["first"], SCALAR_KEY.size * len(t["keys"]))
+              for t in scene["tracks"] if t["keys"]]
+    return spans
+
+
+def write_scene(data, scene):
+    """Write the scene block's track entries and keys back into a TGMT (offsets from its own header)."""
+    tmt = Tmt(data)
+    out = bytearray(data)
+    for index, track in enumerate(scene["tracks"]):
+        if len(track["keys"]) != track["count"]:
+            raise ValueError(f"scene track {index}: {len(track['keys'])} keys for count {track['count']}")
+        TRACK.pack_into(out, tmt.tracks_offset + TRACK.size * index, track["count"], track["first"])
+        for k, key in enumerate(track["keys"]):
+            SCALAR_KEY.pack_into(out, tmt.keys_offset + SCALAR_KEY.size * (track["first"] + k), *key)
+    return bytes(out)
+
+
 # --- TGMA parser ---------------------------------------------------------------------------------
 
 class Tma:

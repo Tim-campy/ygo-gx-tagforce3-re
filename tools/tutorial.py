@@ -666,6 +666,21 @@ def legacy_parse(blob):
     return [(2 + RECORD.size * i,) + RECORD.unpack_from(blob, 2 + RECORD.size * i) for i in range(count)]
 
 
+def legacy_decode(blob):
+    """NN_duel_command.bin -> [{'code', 'side', 'a', 'b', 'c'}] (engine command code in bits 0-14 of op, side in
+    bit 15; for code 0x68, a & 0xff is the sub-operation). The record count is implied by the list length."""
+    return [{"code": word & 0x7FFF, "side": word >> 15, "a": a, "b": b, "c": c}
+            for _, word, a, b, c in legacy_parse(blob)]
+
+
+def legacy_build(records):
+    """Inverse of legacy_decode(): u16 count, then 8-byte records u16 op, a, b, c (no end record)."""
+    out = bytearray(struct.pack("<H", len(records)))
+    for r in records:
+        out += RECORD.pack(r["code"] | r["side"] << 15, r["a"], r["b"], r["c"])
+    return bytes(out)
+
+
 def legacy_message_count(blob):
     """NN_message_res.bin is a headed string table (layout A, no end offset): u32 count first."""
     count, table = struct.unpack_from("<II", blob, 0)

@@ -76,6 +76,8 @@ Read only by `shop_get_opponents_beaten_permille` (`0x090d9dd4`): for `i` = 0–
 
 So the percentage is in effect "entries 0–103 of the 108 duel-bonus states that are non-zero". That the 104 entries are opponents (as the registry name says) is a hypothesis (low): the save block they index is the duel-bonus table of the record table, which `rel_duel_eng` fills after duels. Another `u16` table follows directly at `+0x205d8`.
 
+Writer and round trip: `tools/exe_tables.py` (`shop_opponent_list`, 104 `u16`) writes the list back in place in `rel_shop.prx`; the round trip is byte-identical, so the row is `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`). The rules themselves (`shop_unlock_rules`) are code, not a table, and stay `documented`.
+
 ## Open questions
 
 - The source of the shop byte `0x090faa70` (packs 9–14) and of the bytes `0x090fad50` (packs 41/42) and `0x090facf6` (pack 46).

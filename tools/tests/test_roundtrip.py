@@ -478,5 +478,169 @@ class ModuleTableWriterTest(unittest.TestCase):
         self.assertEqual(modules.read_scene_table(modules.prx_imports.Elf(boot, modules.BOOT_BASE)), pairs)
 
 
+class ExecutableTableTest(unittest.TestCase):
+    def test_generic_table_with_strings_and_lists(self):
+        et = tool("exe_tables")
+        elf = fake_elf(0x400)
+        table = et.Table("m", 0x100, [("id", "H"), ("pad", "2s"), ("name", "str"), ("cards", ("list", "n", "H")),
+                                      ("n", "I"), ("bytes", "3b"), ("tail", "b")], 2)
+        put(elf, 0x100, struct.pack("<H2sIII3bb", 7, b"\0\x09", 0x200, 0x300, 2, -1, 2, 3, 4))
+        put(elf, 0x114, struct.pack("<H2sIII3bb", 8, b"\0\0", 0, 0, 0, 0, 0, 0, 0))
+        put(elf, 0x200, b"abc\0")
+        put(elf, 0x300, struct.pack("<2H", 0x1234, 0x0EA8))
+        data = bytes(elf)
+        model = et.read(data, table)
+        self.assertEqual(model["rows"][0], {"id": 7, "pad": "0009", "name": 0x200, "cards": 0x300, "n": 2,
+                                            "bytes": [-1, 2, 3], "tail": 4})
+        self.assertEqual(model["rows"][1]["id"], 8)
+        self.assertEqual((model["strings"], model["lists"]), ({0x200: "abc"}, {0x300: [0x1234, 0x0EA8]}))
+        self.assertEqual(roundtrip.rewrite_problems("t", data, et.spans(data, table, model),
+                                                    lambda blob, m: et.write(blob, table, m), model), [])
+        model["strings"][0x200] = "abd"
+        self.assertNotEqual(et.write(data, table, model), data)
+        with self.assertRaises(ValueError):
+            et.write(data, table, {**model, "rows": model["rows"][:1]})
+
+    def test_declared_tables_have_consistent_layouts(self):
+        et = tool("exe_tables")
+        self.assertEqual(et.TABLES["boot_character_table"][0].record.size, 0x94)
+        self.assertEqual(et.TABLES["list_activation_table"][0].size, 23 * 16)
+        self.assertEqual(et.TABLES["duel_command_dispatch"][0].size, 420)
+        self.assertEqual(sum(t.count for t in et.TABLES["ui_resource_table"]), 234)
+        for row_id in et.TABLES:
+            self.assertIn(row_id, roundtrip.CHECKS)
+
+    def test_shds_header(self):
+        et = tool("exe_tables")
+        model = {"version": 0x50, "music_banks": 2, "extra_ids": 1, "other_banks": 1, "reserved": "00" * 40,
+                 "attributes": [0x01020304, 5, 6, 7], "bank_records": [[0, 0, 0x1000, 0], [0, 1, 0x800, 0],
+                                                                          [0, 0, 0x10, 2]],
+                 "bank_offsets": [0, 0x1000, 0x1800], "first_ids": [0, 1, 2]}
+        raw = et.build_shds(model)
+        self.assertEqual(len(raw), et.shds_size(model))
+        elf = fake_elf(et.SHDS_ADDRESS + len(raw))
+        put(elf, et.SHDS_ADDRESS, raw)
+        boot = bytes(elf)
+        self.assertEqual(et.read_shds(boot), model)
+        self.assertEqual(roundtrip.rewrite_problems("shds", boot, et.shds_spans(boot, model), et.write_shds, model),
+                         [])
+        with self.assertRaises(ValueError):
+            et.build_shds({**model, "first_ids": [0]})
+
+
+class MoreFileWriterTest(unittest.TestCase):
+    def test_legacy_tutorial_commands(self):
+        tutorial = tool("tutorial")
+        blob = struct.pack("<H", 2) + struct.pack("<4H", 0x8056, 1, 0, 0) + struct.pack("<4H", 0x68, 0x0300, 4, 9)
+        records = tutorial.legacy_decode(blob)
+        self.assertEqual(records[0], {"code": 0x56, "side": 1, "a": 1, "b": 0, "c": 0})
+        self.assertEqual(records[1]["a"] & 0xFF, 0)
+        self.assertEqual(tutorial.legacy_build(records), blob)
+        with self.assertRaises(ValueError):
+            tutorial.legacy_decode(blob + b"\0")
+
+    def test_elf_module_codec(self):
+        modules = tool("modules")
+        elf = fake_elf(0x40)
+        put(elf, 0, pattern(0x40, 21))
+        data = bytes(elf)
+        model = modules.elf_decode(data)
+        self.assertEqual([s["name"] for s in model["sections"]], ["", ".data", ".shstrtab"])
+        self.assertEqual(modules.elf_build(model), data)
+        # a PSP relocation section and a stray byte outside every section
+        size = 0x40
+        names = b"\0.data\0.shstrtab\0.rel.data\0"
+        relocs = struct.pack("<4I", 0x10, 0x00010002, 0x20, 0x00000104)
+        shoff = PAYLOAD + size + len(relocs) + len(names) + 3
+        header = bytearray(data[:0x34])
+        struct.pack_into("<I", header, 0x20, shoff)
+        struct.pack_into("<HHH", header, 0x2E, 40, 4, 2)
+        body = bytes(header) + data[0x34:PAYLOAD + size] + relocs + names + b"\x00\x7f\x00"
+        sections = (bytes(40) + struct.pack("<10I", 1, 1, 3, 0, PAYLOAD, size, 0, 0, 4, 0)
+                    + struct.pack("<10I", 7, 3, 0, 0, PAYLOAD + size + len(relocs), len(names), 0, 0, 1, 0)
+                    + struct.pack("<10I", 17, modules.SHT_PSP_REL, 0, 0, PAYLOAD + size, len(relocs), 0, 1, 4, 8))
+        blob = body + sections
+        model = modules.elf_decode(blob)
+        rel = model["sections"][3]
+        self.assertEqual(rel["name"], ".rel.data")
+        self.assertEqual(rel["relocations"], [[0x10, 2, 0, 1, 0], [0x20, 4, 1, 0, 0]])
+        self.assertEqual(model["gaps"], [(shoff - 2, "7f")])
+        self.assertEqual(modules.elf_build(model), blob)
+
+    def test_tgm_scene_block(self):
+        tgm = tool("tgm")
+        leading, node_tracks = 42, 3
+        tracks = leading + node_tracks
+        keys = [(k % 5, float(k), 0.5 * k, -1.0) for k in range(tracks)]
+        tracks_offset = 0x38 + 8
+        keys_offset = tracks_offset + 8 * tracks
+        rot_tracks = keys_offset + 16 * len(keys)
+        size = (rot_tracks + 15) // 16 * 16
+        header = struct.pack("<4sI5I7I", b"TGMT", 0x38, tracks_offset, keys_offset, rot_tracks, rot_tracks, size,
+                             1, tracks, len(keys), 0, 0, 5, tgm.TMT_FLAG_CAMERA)
+        blob = bytearray(header + struct.pack("<HhhH", leading, -1, -1, 0)
+                         + b"".join(struct.pack("<II", 1, k) for k in range(tracks))
+                         + b"".join(struct.pack("<Ifff", *key) for key in keys))
+        blob += bytes(size - len(blob))
+        blob = bytes(blob)
+        tmt = tgm.Tmt(blob)
+        scene = tgm.read_scene(tmt)
+        self.assertEqual(scene["layout"], 42)
+        self.assertEqual([t["role"] for t in scene["tracks"][:5]], ["focal_length", "film_aperture", "near", "far",
+                                                                    "constant_4"])
+        self.assertEqual(scene["tracks"][41]["role"], "visibility_31")
+        self.assertEqual(scene["tracks"][3]["keys"], [[3, 3.0, 1.5, -1.0]])
+        self.assertEqual(roundtrip.rewrite_problems("scene", blob, tgm.scene_spans(tmt, scene), tgm.write_scene,
+                                                    scene), [])
+        self.assertEqual(len(tgm.SCENE_ROLES[84]), 84)
+        self.assertEqual(tgm.SCENE_ROLES[84][20:22], ("light0_type", "light0_on"))
+
+
+class SaveRegionCodecTest(unittest.TestCase):
+    def test_story_sub_blocks_and_flag_bytes(self):
+        save = tool("save")
+        data = bytearray(save.SAVE_SIZE)
+        struct.pack_into("<I", data, 0, save.VERSION)
+        record = save.STORY_BASE + 0x5C * 3
+        struct.pack_into("<HHIIII", data, record, 21, 0, 0x41200000, 7, 20, 1)
+        struct.pack_into("<I", data, record + 0x1C, 5)
+        struct.pack_into("<H", data, record + 0x40, 65000)
+        field = 0x1A0E0
+        struct.pack_into("<IIffI", data, field, 3, 6, 11.25, 7.75, 4)
+        struct.pack_into("<I", data, field + 8, 0x7FC00001)  # a NaN x keeps its bit pattern
+        struct.pack_into("<i", data, field + 0x30, -1)
+        block = 0x1A270
+        data[block:block + 4] = bytes([2, 1, 5, 0])
+        data[block + 0x1C:block + 0x1F] = bytes([7, 5, 0xFF])
+        struct.pack_into("<I", data, 0x1B0EC + 8, 1 << 4)
+        data[0x153E4 + 3] = 1
+        data[0x153E4 + 70 + 17] = 1
+        data[0x153E4 + 200] = 0x5A
+        model = json.loads(json.dumps(save.to_model(bytes(data))))
+        regions = model["regions"]
+        records = regions["story_block.runtime_records"]
+        self.assertEqual([r["index"] for r in records], [3])
+        self.assertEqual((records[0]["location"], records[0]["cell_x"], records[0]["character"],
+                          records[0]["event_variant"]), (21, 20, 5, 65000))
+        state = regions["story_block.field_state"]
+        self.assertEqual((state["location"], state["player_x"], state["player_y"], state["talk_target"]),
+                         (3, {"bits": 0x7FC00001}, 7.75, -1))
+        saved = regions["story_block.field_save_block"]
+        self.assertEqual((saved["stage"], saved["chapter_step"], saved["pairing_order"][:3]), (2, 1, [7, 5, 255]))
+        self.assertEqual(regions["story_block.flag_block"]["system_flags_65_128"], [16, 0])
+        self.assertEqual(regions["flag_bytes"]["gallery"], {"3": 1})
+        self.assertEqual(regions["flag_bytes"]["pack_bought"], {"17": 1})
+        self.assertEqual(regions["flag_bytes"]["unused"], [[82, "5a"]])
+        self.assertEqual(save.from_model(model), bytes(data))
+        self.assertEqual(save.region_problems(bytes(data)), [])
+
+    def test_new_checks_are_registered(self):
+        for key in ("save_character_flags", "save_record_table", "save_flag_bytes", "save_card_list",
+                    "save_progress_bytes", "story_block", "story_field_save_block", "story_flag_block", "deck_struct",
+                    "gmodule_prx", "chr_wordstbl", "tuto_legacy_cmd", "tgm_etc_scene", "ehf", "snd_shds_header"):
+            self.assertIn(key, roundtrip.CHECKS)
+        self.assertIn("story_block.field_save_block", roundtrip.SAVE_REGIONS["story_block"])
+
+
 if __name__ == "__main__":
     unittest.main()

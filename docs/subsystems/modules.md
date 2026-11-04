@@ -20,6 +20,8 @@ The 36 `gmodule/` files are plain ELF (`e_type 0xffa0`, relocatable PRX). Each h
 - **Module-info names** are `mod<name>`, with three exceptions: `rel_cutin_viewer` and `rel_movie_viewer` are both `modtemplate` (they export `libtemplate_rel`), and `rel_html_view` is `module_htmlview`.
 - **`module/libfont.prx`** is encrypted (`~SCE` header, then `~PSP` with name `sceFont_Library`, attribute `0x0006`, compressed, `elf_size` 37,258). The tool only reads that plain header; the module is not decrypted.
 
+- **Writer and round trip** (`gmodule_prx`, `reimplemented` 2026-11-04). `modules.elf_decode(data)` turns a plain module into its ELF header fields, program headers, section headers with names, and section contents; the PSP relocation sections (type `0x700000a0`, 8-byte entries) are decoded into `[offset, type, offset segment, address segment, high byte]` (types on the disc: 4 `R_MIPS_26` 81,068, 5 `HI16` 45,664, 6 `LO16` 45,663, 2 `R_MIPS_32` 30,781; high byte always 0), every other section is kept as bytes, and any non-zero byte outside every header and section is kept as a gap (there are none: alignment padding is zero in all 36). `modules.elf_build(model)` writes them back. All 36 `gmodule/*.prx` rebuild byte for byte (`python3 -I tools/roundtrip.py --check <PSP_GAME> --only gmodule_prx`; [`results/2026-11-04-format-raises-2.md`](../verification/results/2026-11-04-format-raises-2.md)). Tests: `tools/tests/test_roundtrip.py` (`MoreFileWriterTest.test_elf_module_codec`).
+
 ## Load mechanism
 
 Two loaders sit on top of one asynchronous file thread.

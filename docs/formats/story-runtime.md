@@ -183,6 +183,16 @@ The `rel_story` → `rel_field` request interface (`world_field_request(n, …)`
 
 The meaning of each request number (0 scene set-up … 32 end field) is the table in `world.md`, "Field request table". Requests 27 and 30 are open there.
 
+## Writers and round trip
+
+- **Story block** (`save.py`, `MODEL_SCHEMA` 2): the save model splits the block into its sub-blocks; the runtime character records (140 × `0x5c`, every field above including the alignment halves), the event queue, the field state (`f32` positions kept exactly; a non-finite value would keep its bit pattern), the calendar (9 `u32`), the field save block, the 256 flag bits, the sandwich-seen bits and the flag block have field codecs; the blocks whose content is unknown (`+0x3250`, `+0x3504`–`+0x3584`, `+0x35b8`) are kept as runs of non-zero bytes. All seven plaintext saves rebuild byte for byte, sub-block by sub-block, through JSON. `story_block` and `story_field_save_block` hold real data in those saves and are `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`). The flag block is zero in all seven saves, so `story_flag_block` stays `documented`, as the maintainer decided for the other all-zero save regions, until a save with a story flag 129–192 or system flag 65–128 set round-trips.
+- **Calendar tables and field request table**: `tools/exe_tables.py` (`story_calendar_tables`: `{period, unused}` × 8, 7 day-off words, 10 points caps; `field_request_table`: 33 × `{start, poll, unused}`) writes them back in place in `rel_story.prx` / `rel_field.prx`; both round-trip byte for byte and are `reimplemented` (same results file).
+- `story_vm_state` is in `rel_story`'s `.bss` and has no file or save instance (stays `documented`).
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --saves external/ppsspp/saves --only story_block,story_field_save_block,story_flag_block,story_calendar_tables,field_request_table
+```
+
 ## Open questions
 
 - Content of the story sub-blocks `+0x3504`, `+0x3528`, `+0x3570`, `+0x3584` and of the second record set `+0x35b8`, and the 4 bytes at `+0x3524`.

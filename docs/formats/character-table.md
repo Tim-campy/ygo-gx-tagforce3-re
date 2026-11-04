@@ -43,9 +43,18 @@ Pointer fields hold `BOOT.BIN` addresses of NUL-terminated ASCII names (relocate
 | `+0x84` | 4 | ptr | Card-id list used by the deck editor to flag the owner's recipe cards | M | `world_get_character_pointer_pair_84`, caller `deck_flag_listed_recipe_cards` |
 | `+0x88` | 4 | `u32` | Count of that list (0–6; 0 in 111 records) | M | same |
 | `+0x8c` | 4 | ptr | Key-card id list for voice lines | M | `world_get_character_pointer_pair_8c`, caller `audio_voice_is_character_key_card` |
-| `+0x90` | 4 | `u32` | Count of that list (0 in 111 records, else 8–12) | M | same |
+| `+0x90` | 4 | `u32` | Count of that list (0 in 111 records, else 3–29; corrected 2026-11-04) | M | same |
 
 The fields `+0x44`–`+0x77` look like duel tuning values and are identical across variants of a character; `world.md` keeps the hypothesis (low) that a module outside the Ghidra project reads them.
+
+## Writer and round trip
+
+`tools/exe_tables.py` (`boot_character_table`) reads the 174 records with every field of the table above (pads included), the 655 distinct NUL-terminated names the pointer fields reference, and the 126 card-id lists of `+0x84`/`+0x8c` (`u16` card ids, `+0x88`/`+0x90` entries each; the lists lie back to back from `0x088a7524`, each 4-byte aligned, which confirms the 2-byte element). The writer writes records, strings and lists back in place. The round trip blanks every owned byte of `BOOT.BIN` (records, strings, lists), writes the model and compares the whole executable: byte-identical, so `boot_character_table` is `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`):
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only boot_character_table
+python3 -I tools/exe_tables.py dump <PSP_GAME> boot_character_table -o extracted/tables/characters.json
+```
 
 ## Open questions
 

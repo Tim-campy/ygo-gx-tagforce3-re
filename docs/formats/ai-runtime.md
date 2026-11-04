@@ -214,6 +214,8 @@ Purpose: the seven functions of the AI's main-phase state machine, called by `ai
 
 Entry: `u32` code pointer, stored as a module offset with a type-2 (`R_MIPS_32`) relocation; the PRX relocation section has entries for indices 0–6 only, so index 7 is a true NULL (H). The word after it (`0x09e01bc4`) is also 0 and is not read with a step index ≤ 7 (step 8 is turned into 4 before any table read), so the table is 8 entries, 32 bytes (H). Runner semantics (`ai_main_phase_step`, H): step 0 becomes 5 when the phase word `0x09e2d1e8` is 4 (Main Phase 2); a non-zero return `r` advances the step by `r` and clears `0x09e03000`; a NULL entry returns 5, and so does an advance to a step other than 7 while the word `0x09e2d228` is non-zero; reaching 7 loops back to 2 up to three times (`0x09dd09f4`, `0x09dd0b88`); reaching 8 sets step 4 and returns 3 (go to battle). Step descriptions: `ai.md`, "Main-phase decision loop".
 
+Writer and round trip: `tools/exe_tables.py` (`ai_main_steps`, 8 `u32` module offsets, NULL included) writes the table back in place; blanking its 32 bytes in `rel_duel_eng.prx` and writing the model reproduces the module byte for byte, so the row is `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`). The other rows of this document are runtime state (module `.bss` or engine pools) with no file or save instance.
+
 ## `ai_combat_tricks`: combat trick list (`0x09e27ff8`, 16 bytes)
 
 Purpose: the battle-time cards the AI could play this turn; the battle planner replays its plan once per entry and keeps the better result (`ai.md`, "Battle plan").

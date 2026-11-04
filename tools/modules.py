@@ -75,6 +75,99 @@ def psp_header(data):
     return name, attr, comp, elf_size, psp_size
 
 
+# ----------------------------------------------------------------- plain ELF module codec (gmodule_prx)
+
+ELF_HEADER = struct.Struct("<16sHHIIIIIHHHHHH")
+ELF_HEADER_FIELDS = ("ident", "type", "machine", "version", "entry", "phoff", "shoff", "flags", "ehsize",
+                     "phentsize", "phnum", "shentsize", "shnum", "shstrndx")
+PROGRAM_FIELDS = ("type", "offset", "vaddr", "paddr", "filesz", "memsz", "flags", "align")
+SECTION_FIELDS = ("name_offset", "type", "flags", "addr", "offset", "size", "link", "info", "addralign", "entsize")
+SHT_NOBITS = 8
+SHT_PSP_REL = 0x700000A0  # PSP relocation section: 8-byte entries {u32 offset, u32 info}
+
+
+def _runs(raw, start=0):
+    """[(offset, hex)] of the non-zero runs of raw (offsets relative to `start`)."""
+    out, pos = [], 0
+    while pos < len(raw):
+        if raw[pos]:
+            end = pos
+            while end < len(raw) and raw[end]:
+                end += 1
+            out.append((start + pos, raw[pos:end].hex()))
+            pos = end
+        else:
+            pos += 1
+    return out
+
+
+def elf_decode(data):
+    """Plain PRX (ELF) -> {header, program_headers, sections, gaps, size}. Each section keeps its header fields,
+    its name and its contents: PSP relocation sections as [offset, type, offset_base, address_base, high] per
+    entry (info byte 0 = relocation type, byte 1 = segment of the offset, byte 2 = segment of the address),
+    other sections as bytes. `gaps` holds the non-zero bytes no header or section claims (alignment padding is
+    zero in every module of the disc). elf_build() inverts it byte for byte."""
+    if data[:4] != b"\x7fELF":
+        raise ValueError("not a plain ELF module")
+    header = dict(zip(ELF_HEADER_FIELDS, ELF_HEADER.unpack_from(data, 0)))
+    header["ident"] = header["ident"].hex()
+    claimed = [(0, ELF_HEADER.size)]
+    programs = [dict(zip(PROGRAM_FIELDS, struct.unpack_from("<8I", data, header["phoff"] + i * header["phentsize"])))
+                for i in range(header["phnum"])]
+    claimed.append((header["phoff"], header["phnum"] * header["phentsize"]))
+    raw_sections = [dict(zip(SECTION_FIELDS, struct.unpack_from("<10I", data,
+                                                                header["shoff"] + i * header["shentsize"])))
+                    for i in range(header["shnum"])]
+    claimed.append((header["shoff"], header["shnum"] * header["shentsize"]))
+    names = raw_sections[header["shstrndx"]]
+    sections = []
+    for sec in raw_sections:
+        entry = dict(sec)
+        entry["name"] = prx_imports_cstring(data, names["offset"] + sec["name_offset"]) if sec["type"] else ""
+        if sec["type"] != SHT_NOBITS and sec["size"]:
+            body = data[sec["offset"]:sec["offset"] + sec["size"]]
+            claimed.append((sec["offset"], sec["size"]))
+            if sec["type"] == SHT_PSP_REL and sec["size"] % 8 == 0:
+                entry["relocations"] = [[off, info & 0xFF, info >> 8 & 0xFF, info >> 16 & 0xFF, info >> 24]
+                                        for off, info in struct.iter_unpack("<II", body)]
+            else:
+                entry["data"] = body
+        sections.append(entry)
+    covered = bytearray(len(data))
+    for start, size in claimed:
+        covered[start:start + size] = b"\1" * size
+    gaps = [(offset, raw) for offset, raw in _runs(bytes(b if not c else 0 for b, c in zip(data, covered)))]
+    return {"header": header, "program_headers": programs, "sections": sections, "gaps": gaps, "size": len(data)}
+
+
+def prx_imports_cstring(data, offset):
+    return data[offset:data.index(b"\0", offset)].decode("ascii")
+
+
+def elf_build(model):
+    """Inverse of elf_decode(): headers, section contents at their offsets, then the non-zero gap bytes."""
+    out = bytearray(model["size"])
+    header = dict(model["header"])
+    header["ident"] = bytes.fromhex(header["ident"])
+    ELF_HEADER.pack_into(out, 0, *(header[f] for f in ELF_HEADER_FIELDS))
+    for i, program in enumerate(model["program_headers"]):
+        struct.pack_into("<8I", out, header["phoff"] + i * header["phentsize"], *(program[f] for f in PROGRAM_FIELDS))
+    for i, sec in enumerate(model["sections"]):
+        struct.pack_into("<10I", out, header["shoff"] + i * header["shentsize"], *(sec[f] for f in SECTION_FIELDS))
+        if "relocations" in sec:
+            body = b"".join(struct.pack("<II", off, kind | ofs << 8 | addr << 16 | high << 24)
+                            for off, kind, ofs, addr, high in sec["relocations"])
+        else:
+            body = sec.get("data", b"")
+        if len(body) != (sec["size"] if "relocations" in sec or "data" in sec else 0):
+            raise ValueError(f"section {sec['name']}: {len(body)} content bytes for size {sec['size']}")
+        out[sec["offset"]:sec["offset"] + len(body)] = body
+    for offset, raw in model["gaps"]:
+        chunk = bytes.fromhex(raw)
+        out[offset:offset + len(chunk)] = chunk
+    return bytes(out)
+
+
 class Module:
     """One PRX file: parsed ELF (elf is None when encrypted) and its library tables."""
 

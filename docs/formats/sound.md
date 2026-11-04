@@ -221,7 +221,7 @@ Its `sound` command (read-only, run on the maintainer's image on 2026-10-25):
 python3 -I tools/roundtrip.py --check <PSP_GAME> --only snd_cue,snd_adpcm_layer
 ```
 
-The `BOOT.BIN` bank offset and first-id tables (`boot_sound_tables`) are written by `voices.write_boot_tables()`; `voices.derive_boot_tables()` regenerates both from the bank sizes and cue counts, and the round trip checks that the derived tables equal the stored ones. The voice change tables (`*_voiceidchgtbl.bin`, 189 copies) are rebuilt by `voices.build_change_table()` (16 `u32` offsets from 64, then the `u16` sub-tables back to back). Both are `reimplemented`:
+The `BOOT.BIN` bank offset and first-id tables (`boot_sound_tables`) are written by `voices.write_boot_tables()`; `voices.derive_boot_tables()` regenerates both from the bank sizes and cue counts, and the round trip checks that the derived tables equal the stored ones. The voice change tables (`*_voiceidchgtbl.bin`, 283 copies: 189 in `database/` and `duel/`, 94 more in `labo/voicetest.ehp`, which the check covers since 2026-11-04) are rebuilt by `voices.build_change_table()` (16 `u32` offsets from 64, then the `u16` sub-tables back to back). Both are `reimplemented`:
 
 ```
 python3 -I tools/roundtrip.py --check <PSP_GAME> --only boot_sound_tables,voiceidchgtbl
@@ -242,6 +242,10 @@ The driver's sound header is a static block in `BOOT.BIN` at runtime address `0x
 | then | 16-byte records `[banks]` | bank records (banks = `+0x0c + +0x10` = 728); `+0x08` is the bank size `audio_load_bank` reads (the "size-like value" above) |
 | then | `u32[banks]` | bank offsets in `psp_snddat.bin` (= `0x0889cf20`) |
 | then | `u16[banks]` | first global id of each bank (= `0x0889da80`) |
+
+Header words other than the four named fields are zero (`+0x04`, `+0x0a`, `+0x12`–`+0x33`), and each 16-byte bank record holds only the bank size at `+0x08` (the other three words are zero for all 728 banks).
+
+**Writer and round trip** (`snd_shds_header`, `reimplemented` 2026-11-04): `exe_tables.read_shds(boot)` reads the header counts, the reserved header bytes, the 31,459 attribute words, the 728 bank records, the bank offsets and the first ids; `exe_tables.write_shds()` writes all 141,904 bytes back in place. The round trip blanks the whole block in `BOOT.BIN`, writes the model and compares the executable (byte-identical), and also checks that the bank offsets equal those of the `boot_sound_tables` reader (`python3 -I tools/roundtrip.py --check <PSP_GAME> --only snd_shds_header`; `docs/verification/results/2026-11-04-format-raises-2.md`).
 
 Attribute word (one per global sound id):
 

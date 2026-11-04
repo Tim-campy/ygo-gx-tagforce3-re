@@ -84,7 +84,7 @@ A door opens (`t` → 1, `t += 0.1 + 0.1·t` per frame, sound `0x090db820(kind)`
 | `+0x28f7c` | 14 × 8 | `{u32 x, u32 y}[14]` | List A, map 21 (count 14 is an immediate in the code) | H |
 | `+0x28fec` | 120 × 8 | `{u32 x, u32 y}[120]` | List B, map 27 (count 120, immediate); starts right after list A | H |
 
-Coordinates are presumably walk-grid cells, as elsewhere in the field code (medium). The meaning of the hidden marker is low (above). `world.py tables --table marker_hidden_cells` exports both lists.
+Coordinates are presumably walk-grid cells, as elsewhere in the field code (medium). The meaning of the hidden marker is low (above). `world.py tables --table marker_hidden_cells` exports both lists. Writer: `tools/exe_tables.py` (`field_marker_hidden_cells`, two tables of `{u32 x, u32 y}`); both lists rebuild in place byte for byte (`roundtrip.py --only field_marker_hidden_cells`), so the row is `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`).
 
 ## Walkability overrides (code)
 

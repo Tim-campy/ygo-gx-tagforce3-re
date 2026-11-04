@@ -20,6 +20,7 @@ Nothing is written to disk. Exit status 1 when any instance of a requested forma
 import argparse
 import importlib.util
 import json
+import struct
 import sys
 from pathlib import Path
 
@@ -188,13 +189,13 @@ def check_dlg_text(disc):
 # --------------------------------------------------------------------------------------------- archives
 
 def _archive_members(disc):
-    """[(archive label, member layout, [(name, bytes)])], one pass over the disc shared by ptrs_txt and tmf."""
+    """[(archive label, member layout, [(name, bytes)])], one pass over the disc shared by ptrs_txt, tmf and ehf."""
     if "archive_members" not in disc._cache:
         ehp = tool("ehp")
         found = []
         for label, data in disc.archives():
             members = [(name, blob) for name, blob in ehp.parse(data)
-                       if ehp.is_ptrs(name) or name.lower().endswith(".tmf")]
+                       if ehp.is_ptrs(name) or name.lower().endswith((".tmf", ".ehf"))]
             if members:
                 found.append((label, ehp.member_offsets(data), members))
         disc._cache["archive_members"] = found
@@ -224,6 +225,45 @@ def check_tmf(disc):
                 count += 1
                 if ehf.build_tmf(ehf.decode_tmf(blob)) != blob:
                     problems.append(f"{label}/{name}: differs")
+    return count, problems
+
+
+@check("ehf")
+def check_ehf(disc):
+    ehf = tool("ehf")
+    count, problems = 0, []
+    for label, _, members in _archive_members(disc):
+        for name, blob in members:
+            if name.lower().endswith(".ehf"):
+                count += 1
+                try:
+                    same = ehf.build(ehf.decode(blob)) == blob
+                except (ehf.EhfError, ValueError, struct.error) as error:
+                    problems.append(f"{label}/{name}: {error}")
+                    continue
+                if not same:
+                    problems.append(f"{label}/{name}: differs")
+    return count, problems
+
+
+@check("tgm_etc_scene")
+def check_tgm_etc_scene(disc):
+    """Scene block (leading scalar tracks) of every flag-2 TGMT on the disc, gzip members inflated."""
+    tgm = tool("tgm")
+    count, problems, seen = 0, [], set()
+    for path in tgm.iter_archives([disc.usrdir]):
+        for prefix, members, _ in tgm.archive_members(path.read_bytes()):
+            for name, raw_name, blob in tgm.tgm_members(members):
+                if blob[:4] != tgm.TGMT:
+                    continue
+                tmt = tgm.Tmt(blob)
+                if not tmt.flags & tgm.TMT_FLAG_CAMERA:
+                    continue
+                count += 1
+                scene = tgm.read_scene(tmt)
+                label = f"{path.relative_to(disc.usrdir).as_posix()}:{prefix}{raw_name}"
+                problems += rewrite_problems(label, blob, tgm.scene_spans(tmt, scene), tgm.write_scene, scene)                     if scene["layout"] else []
+                seen.add(scene["layout"])
     return count, problems
 
 
@@ -353,7 +393,8 @@ def check_snd_adpcm_layer(disc):
 @check("voiceidchgtbl")
 def check_voiceidchgtbl(disc):
     voices, ehp = tool("voices"), tool("ehp")
-    instances = [(label, blob) for label, blob in ehp.walk_paths([disc.usrdir / "database", disc.usrdir / "duel"])
+    instances = [(label, blob) for label, blob in ehp.walk_paths([disc.usrdir / "database", disc.usrdir / "duel",
+                                                                    disc.usrdir / "labo"])
                  if label.lower().endswith("voiceidchgtbl.bin")]
     return len(instances), [f"{label}: differs" for label, blob in instances
                             if voices.build_change_table(voices.parse_change_table(blob)) != blob]
@@ -549,6 +590,26 @@ def check_field_strtbl(disc):
     return strtbl_problems(instances)
 
 
+@check("chr_wordstbl")
+def check_chr_wordstbl(disc):
+    """Cut-in voice captions: chr_wordstbl_<l>.bin in duel/cutin_*.ehp and duel/zakov*.ehp, and the voice-test
+    copies chrcutin_*_wordstbl_<l>.bin / chrzakov*_wordstbl_<l>.bin in labo/voicetest.ehp."""
+    ehp = tool("ehp")
+    instances = [(label, blob) for label, blob in ehp.walk_paths([disc.usrdir / "duel", disc.usrdir / "labo"])
+                 if "_wordstbl_" in label.rsplit("/", 1)[-1] and label.endswith(".bin")]
+    return strtbl_problems(instances)
+
+
+@check("tuto_legacy_cmd")
+def check_tuto_legacy_cmd(disc):
+    """NN_duel_command.bin of the legacy tutorial/tutorial_<l>.ehp archives (not loaded by the game)."""
+    tutorial, ehp = tool("tutorial"), tool("ehp")
+    instances = [(label, blob) for label, blob in ehp.walk_paths([disc.usrdir / "tutorial"])
+                 if label.endswith("_duel_command.bin")]
+    return len(instances), [f"{label}: differs" for label, blob in instances
+                            if tutorial.legacy_build(tutorial.legacy_decode(blob)) != blob]
+
+
 # --------------------------------------------------------------------------------------------- system
 
 @check("module_descriptor")
@@ -570,6 +631,45 @@ def check_scene_table(disc):
                                modules.read_scene_table(boot))
 
 
+@check("gmodule_prx")
+def check_gmodule_prx(disc):
+    modules = tool("modules")
+    paths = sorted((disc.usrdir / "gmodule").glob("*.prx"))
+    problems = []
+    for path in paths:
+        data = path.read_bytes()
+        if modules.elf_build(modules.elf_decode(data)) != data:
+            problems.append(f"{path.name}: differs")
+    return len(paths), problems
+
+
+# --------------------------------------------------------------------------------------------- executable tables
+
+def _exe_row_check(row_id):
+    def run_check(disc):
+        et = tool("exe_tables")
+        tables = et.TABLES[row_id]
+        executables = {t.module: disc.boot if t.module == et.BOOT else disc.module(t.module) for t in tables}
+        return len(tables), et.row_problems(executables, row_id, rewrite_problems)
+    return run_check
+
+
+for _row_id in tool("exe_tables").TABLES:
+    CHECKS[_row_id] = _exe_row_check(_row_id)
+
+
+@check("snd_shds_header")
+def check_snd_shds_header(disc):
+    et = tool("exe_tables")
+    boot = disc.boot
+    model = et.read_shds(boot)
+    problems = rewrite_problems("BOOT.BIN SHDS header", boot, et.shds_spans(boot, model), et.write_shds, model)
+    if model["bank_offsets"] != list(tool("voices").boot_tables(tool("voices").prx_imports.Elf(boot, et.BOOT_BASE),
+                                                                 len(model["bank_offsets"]))[0]):
+        problems.append("SHDS bank offsets differ from the boot_sound_tables reader")
+    return 1, problems
+
+
 # --------------------------------------------------------------------------------------------- saves
 
 SAVE_REGIONS = {
@@ -585,6 +685,14 @@ SAVE_REGIONS = {
     "save_collection": ("collection",),
     "save_pack_records": ("packs",),
     "save_picture_bits": ("picture_bits",),
+    "save_character_flags": ("character_flags",),
+    "save_record_table": ("record_table",),
+    "save_flag_bytes": ("flag_bytes",),
+    "save_card_list": ("card_list_count", "card_list", "card_list_state"),
+    "save_progress_bytes": ("progress_bytes",),
+    "story_block": None,  # filled below: every story_block.* leaf
+    "story_field_save_block": ("story_block.field_save_block",),
+    "story_flag_block": ("story_block.flag_block",),
 }
 
 
@@ -619,8 +727,30 @@ def _save_check(format_id):
     return run_check
 
 
+SAVE_REGIONS["story_block"] = tuple(key for _, _, key in tool("save")._leaves() if key.startswith("story_block."))
+
 for _format_id in SAVE_REGIONS:
     CHECKS[_format_id] = _save_check(_format_id)
+
+
+@check("deck_struct")
+def check_deck_struct(disc):
+    """The 0xc0-byte deck struct inside every deck slot (+0x4c) and stored deck (+0x54) of every save."""
+    save = tool("save")
+    count, problems = 0, []
+    for name, data, _ in _save_results(disc):
+        for label, base, size, number, inner in (("slot", save.DECK_BASE, save.DECK_SIZE, save.DECK_COUNT, 0x4C),
+                                                 ("stored", save.STORED_BASE, save.STORED_SIZE, save.STORED_COUNT,
+                                                  0x54)):
+            for index in range(number):
+                raw = data[base + size * index + inner:base + size * index + inner + 0xC0]
+                if not any(raw):
+                    continue
+                count += 1
+                model = json.loads(json.dumps(save._decode_deck_struct(raw)))
+                if save._encode_deck_struct(model) != raw:
+                    problems.append(f"{name} {label} {index}: differs")
+    return count, problems
 
 
 # --------------------------------------------------------------------------------------------- runner
@@ -630,7 +760,7 @@ def run(disc, only=None, verbose=False):
     for format_id in sorted(CHECKS):
         if only and format_id not in only:
             continue
-        if format_id in SAVE_REGIONS and disc.saves is None:
+        if (format_id in SAVE_REGIONS or format_id == "deck_struct") and disc.saves is None:
             print(f"skip {format_id}: no --saves directory")
             continue
         try:

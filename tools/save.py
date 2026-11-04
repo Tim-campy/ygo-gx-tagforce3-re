@@ -327,7 +327,7 @@ def decode(data):
 # The round trip (json.dumps -> json.loads -> from_model) is byte-identical on every save in
 # external/ppsspp/saves (tools/roundtrip.py --saves ...).
 
-MODEL_FORMAT, MODEL_SCHEMA = "tf3-data0", 1
+MODEL_FORMAT, MODEL_SCHEMA = "tf3-data0", 2  # schema 2: story sub-block and flag-byte codecs
 
 
 def _runs(raw, merge=8):
@@ -637,6 +637,86 @@ def _int_codec(fmt):
     return (lambda raw: struct.unpack(fmt, raw)[0], lambda v: struct.pack(fmt, v))
 
 
+def _f32_value(raw):
+    """An f32 field as a float when finite (exact through JSON), else its bit pattern as {"bits": u32}."""
+    value, = struct.unpack("<f", raw)
+    return value if value == value and abs(value) != float("inf") else {"bits": struct.unpack("<I", raw)[0]}
+
+
+def _f32_raw(value):
+    return struct.pack("<I", value["bits"]) if isinstance(value, dict) else struct.pack("<f", value)
+
+
+def _struct_codec(fields):
+    """Codec of a fixed record: fields [(name, code)], code a struct code ("I", "21I", "4s" kept as hex, "f" an
+    f32 through _f32_value). Every byte belongs to a named field, padding included."""
+    layout = struct.Struct("<" + "".join("I" if code == "f" else code for _, code in fields))
+
+    def dec(raw):
+        values, out = list(layout.unpack(raw)), {}
+        for name, code in fields:
+            count = int(code[:-1]) if code[:-1] else 1
+            if code.endswith("s"):
+                out[name] = values.pop(0).hex()
+            elif code == "f":
+                out[name] = _f32_value(struct.pack("<I", values.pop(0)))
+            elif count > 1:
+                out[name], values = values[:count], values[count:]
+            else:
+                out[name] = values.pop(0)
+        return out
+
+    def enc(value):
+        raw = bytearray()
+        for name, code in fields:
+            count = int(code[:-1]) if code[:-1] else 1
+            v = value[name]
+            if code.endswith("s"):
+                raw += bytes.fromhex(v)
+            elif code == "f":
+                raw += _f32_raw(v)
+            else:
+                raw += struct.pack("<" + code, *(v if count > 1 else [v]))
+        return bytes(raw)
+
+    if layout.size != sum(struct.calcsize("<" + ("I" if code == "f" else code)) for _, code in fields):
+        raise ValueError("field codes do not tile the record")
+    return dec, enc, layout.size
+
+
+# Story block sub-blocks (docs/formats/story-runtime.md). Fields whose meaning is unknown keep their own name.
+RUNTIME_RECORD = _struct_codec([
+    ("location", "H"), ("pad_02", "H"), ("pos_x", "I"), ("pos_y", "I"), ("cell_x", "I"), ("cell_y", "I"),
+    ("facing", "B"), ("direction", "B"), ("byte_16", "B"), ("remark", "B"), ("spot", "H"), ("pad_1a", "H"),
+    ("character", "I"), ("variant", "I"), ("deck_index", "I"), ("event_location", "H"), ("pad_2a", "H"),
+    ("event_pos_x", "I"), ("event_pos_y", "I"), ("event_cell_x", "I"), ("event_cell_y", "I"),
+    ("event_facing", "B"), ("event_direction", "B"), ("event_byte_3e", "B"), ("event_remark", "B"),
+    ("event_variant", "H"), ("event_deck", "H"), ("event_value_44", "H"), ("duel_key", "3H"), ("talk_key", "3H"),
+    ("pad_52", "H"), ("record_flags", "I"), ("day_index", "I")])
+EVENT_QUEUE = _struct_codec([("keys", "24I"), ("ring_index", "I"), ("answer", "B"), ("series_wins", "B"),
+                             ("pad_66", "H")])
+FIELD_STATE = _struct_codec([
+    ("location", "I"), ("previous_location", "I"), ("player_x", "f"), ("player_y", "f"), ("direction", "I"),
+    ("partner", "I"), ("partner_variant", "I"), ("partner_row", "I"), ("duel_tally", "4I"), ("talk_target", "i"),
+    ("value_34", "I"), ("value_38", "I"), ("current_item", "I"), ("counters", "21I"), ("item_counters", "51I"),
+    ("value_160", "H"), ("value_162", "H"), ("value_164", "I"), ("value_168", "I")])
+FIELD_SAVE_BLOCK = _struct_codec([
+    ("stage", "B"), ("chapter_step", "B"), ("npc139_spot", "B"), ("byte_03", "B"), ("last_day", "I"),
+    ("word_08", "I"), ("story_flags_1_64", "2I"), ("system_flags_1_64", "2I"), ("pairing_order", "140B")])
+FLAG_BLOCK = _struct_codec([("story_flags_129_192", "2I"), ("system_flags_65_128", "2I")])
+RECORD_SIZE = 0x5C
+
+
+def _dec_flag_bytes(raw):
+    """Flag bytes (docs/formats/save.md): gallery 0-69, pack bought once 70-117, the rest without a reader."""
+    return {"gallery": _sparse(raw[:70]), "pack_bought": _sparse(raw[70:118]), "unused": _runs(raw[118:])}
+
+
+def _enc_flag_bytes(v):
+    return (bytes(_from_sparse(v["gallery"], 70)) + bytes(_from_sparse(v["pack_bought"], 48))
+            + _from_runs(v["unused"], 0xE10 - 118))
+
+
 def _text_codec(size):
     return (_text_field, lambda v: _encode_text(v, size))
 
@@ -670,6 +750,16 @@ CODECS = {
     "packs": (lambda raw: [_dec_pack(raw[PACK_SIZE * p:PACK_SIZE * (p + 1)]) for p in range(PACK_COUNT)],
               lambda v: b"".join(_enc_pack(p) for p in v)),
     "progress_bytes": (list, bytes),
+    "flag_bytes": (_dec_flag_bytes, _enc_flag_bytes),
+    "story_block.runtime_records": (_records(RUNTIME_RECORD[0], RECORD_SIZE, 140),
+                                    _unrecords(RUNTIME_RECORD[1], RECORD_SIZE, 140)),
+    "story_block.event_queue": EVENT_QUEUE[:2],
+    "story_block.field_state": FIELD_STATE[:2],
+    "story_block.calendar": _u32_codec(9),
+    "story_block.field_save_block": FIELD_SAVE_BLOCK[:2],
+    "story_block.story_bits_3590": (_dec_bits, lambda v: _enc_bits(v, 0x20)),
+    "story_block.sandwiches_seen": (_dec_bits, lambda v: _enc_bits(v, 8)),
+    "story_block.flag_block": FLAG_BLOCK[:2],
     "pad_16e0a": _int_codec("<H"),
     "max_story_cycle": _int_codec("<I"),
     "byte_16e10": _int_codec("<B"),
@@ -711,7 +801,7 @@ def to_model(data):
 
 def from_model(model):
     if model.get("format") != MODEL_FORMAT or model.get("schema") != MODEL_SCHEMA:
-        raise ValueError("not a tf3-data0 schema 1 model")
+        raise ValueError(f"not a {MODEL_FORMAT} schema {MODEL_SCHEMA} model")
     out = bytearray(SAVE_SIZE)
     for offset, size, key in _leaves():
         value = model["regions"][key]

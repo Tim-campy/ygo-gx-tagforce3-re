@@ -38,7 +38,7 @@ recipe_level_table,Recipe level table (BOOT.BIN 0x089143f0),deck,reimplemented,9
 recipe_variant_table,Owner deck variant table (BOOT.BIN 0x08916730),deck,reimplemented,804
 recipe_card_list,Recipe card list (BOOT.BIN 0x089150b8; 462 x 8-byte count and pointer),deck,reimplemented,0xe70
 duel_setup_duellist,Duel set-up duellist record (0x1ac bytes; recipe field and set-up codes 462-466),deck,documented,0x1ac
-deck_struct,In-memory deck struct (0xc0 bytes),deck,documented,0xc0
+deck_struct,In-memory deck struct (0xc0 bytes),deck,reimplemented,0xc0
 same_card_tbl,sameCardTbl.dat alternative artworks,deck,reimplemented,200
 file_tbl,fileTbl.dat card id list (deck editor thumbnails),deck,reimplemented,7006
 deck_tutorial_script,deck_tutorialNN.bin tutorial bytecode,deck,reimplemented,
@@ -55,7 +55,7 @@ save_collection,Save card collection (game state +0x11ba4; 3600 x 4 bytes; 3554 
 target_filter_flags,Target filter flag bits (rel_duel_eng.prx),duel_effects,documented,
 effect_param_chains,Per-card parameter compare chains (rel_duel_eng.prx),duel_effects,reimplemented,
 tmf,TMF per-texture flag bytes of an EHF layout,ui,reimplemented,
-gmodule_prx,Plain ELF game modules in gmodule/ (36; scene and library modules),system,documented,
+gmodule_prx,Plain ELF game modules in gmodule/ (36; scene and library modules),system,reimplemented,
 module_descriptor,Module descriptor record {id; root; name; kind; utility id} (BOOT.BIN 0x0889f57c / 0x0889fea4),system,reimplemented,16
 module_registry_entry,Module registry entry (BOOT.BIN 0x089235b4),system,documented,76
 scene_table,Scene id to module id table (BOOT.BIN 0x088a1478),system,reimplemented,248
@@ -64,23 +64,23 @@ scene_slot,ehscript scene slot state (BOOT.BIN 0x08920be4),system,documented,100
 ydq,Tutorial duel setup (.ydq; Shift-JIS INI text),duel_core,reimplemented,
 tuto_cmd,Duel-tutorial script (tuto_cmd_NN.bin),duel_core,reimplemented,
 tuto_text,Duel-tutorial text table (tuto_text_<l>.bin),duel_core,reimplemented,
-tuto_legacy_cmd,Legacy tutorial script (tutorial/ NN_duel_command.bin; not loaded by the game),duel_core,documented,
+tuto_legacy_cmd,Legacy tutorial script (tutorial/ NN_duel_command.bin; not loaded by the game),duel_core,reimplemented,
 voiceidchgtbl,Character voice change table (*_voiceidchgtbl.bin),audio,reimplemented,
-chr_wordstbl,Cut-in voice captions (chr_wordstbl_<l>.bin),audio,documented,
+chr_wordstbl,Cut-in voice captions (chr_wordstbl_<l>.bin),audio,reimplemented,
 boot_sound_tables,Sound bank offset and first-id tables (BOOT.BIN),audio,reimplemented,
-snd_shds_header,SHDS sound header and per-id attribute table (BOOT.BIN 0x0887b5e0),audio,documented,141904
-boot_character_table,Character table (BOOT.BIN 0x088aa510; 174 x 148 bytes),world,documented,
+snd_shds_header,SHDS sound header and per-id attribute table (BOOT.BIN 0x0887b5e0),audio,reimplemented,141904
+boot_character_table,Character table (BOOT.BIN 0x088aa510; 174 x 148 bytes),world,reimplemented,
 ai_priority_tables,Duel AI priority tables (rel_duel_eng 0x09dfd2dc-0x09e00800),ai,reimplemented,13604
 hmp,Field walk grid (.hmp; 0.5-unit height grid and walkable cells),world,reimplemented,
 field_map_table,Field map id to archive and mesh tables (rel_field.prx),world,reimplemented,
 field_door_table,Field door table (rel_field.prx +0x25334; 32 x 10 x 0x2c),world,verified,0x3700
 story_exit_cells,Location selector and exit-cell groups (rel_story.prx +0x1f968 / +0x1fb84),world,reimplemented,
 field_map_lighting,Map light mode and sky gradient per light period (rel_field.prx +0x28a7c / +0x28a34; 32 x 5 x 8 + 6 x 12 bytes),world,reimplemented,1352
-field_marker_hidden_cells,Cells without the character overhead sprite (rel_field.prx +0x28f7c / +0x28fec; 14 + 120 x 8 bytes),world,documented,1072
+field_marker_hidden_cells,Cells without the character overhead sprite (rel_field.prx +0x28f7c / +0x28fec; 14 + 120 x 8 bytes),world,reimplemented,1072
 field_maps,Per-map field data: location to map / door cells / walk overrides / arrival cells / per-location JSON,world,verified,
 field_strtbl,Field string tables (field_strtbl / _item / _mapname),world,reimplemented,
 story_calendar,Calendar block (save story block +0x3438; 0x24 bytes),world,verified,36
-save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,documented,348
+save_character_flags,Per character-row flags (save 0x1bf8c; 174 x 2 bytes),save,reimplemented,348
 shop_unlock_rules,Pack availability rules (rel_shop.prx 0x090d9e5c),shop,documented,
 fusion_recipes,Fusion recipe table (rel_duel_eng.prx 0x09debe98),duel_effects,reimplemented,1104
 ritual_table,Ritual monster/spell table (rel_duel_eng.prx 0x09dec4d4),duel_effects,reimplemented,128
@@ -105,14 +105,14 @@ duel_field_slot,Field slot (player block +0x34 + i x 0x14; slots 0-10; slot 11 i
 duel_card_list_entry,Card list entry of hand/deck/extra deck/graveyard/banished lists (card id + instance),duel_core,documented,4
 duel_card_instance,Card instance table (rel_duel_eng 0x09e2bbcc; 6-byte entries),duel_core,documented,0xc00
 duel_turn_state,Turn and phase globals (phase 0x09e2d1e8; turn side 0x09e2d1d8; turn counter 0x09e2d1e0; 0x09e2d1d8-0x09e2d22b),duel_core,verified,84
-duel_flow_steps,Duel-flow step table (rel_duel_eng 0x09e01dbc; NULL-terminated),duel_core,documented,12
-turn_steps,Turn step table (rel_duel_eng 0x09e01da0; 6 steps + NULL),duel_core,documented,28
-battle_steps,Battle Phase step table (rel_duel_eng 0x09e01dcc; 12 steps + NULL),duel_core,documented,52
+duel_flow_steps,Duel-flow step table (rel_duel_eng 0x09e01dbc; NULL-terminated),duel_core,reimplemented,12
+turn_steps,Turn step table (rel_duel_eng 0x09e01da0; 6 steps + NULL),duel_core,reimplemented,28
+battle_steps,Battle Phase step table (rel_duel_eng 0x09e01dcc; 12 steps + NULL),duel_core,reimplemented,52
 duel_command_queue,Engine command queue (0x09e29100; 256 x {u16 op a b c}; count 0x09e29900; current command 0x09e290f8),duel_core,documented,2048
-duel_command_dispatch,Engine command jump table (rel_duel_eng 0x09e00944; codes 1-0x68),duel_core,documented,420
+duel_command_dispatch,Engine command jump table (rel_duel_eng 0x09e00944; codes 1-0x68),duel_core,reimplemented,420
 phase_override_stack,Phase override stack (0x09e27fe4 u16[4]; depth 0x09e27fec),duel_core,documented,
-end_phase_checks,End Phase check table (rel_duel_eng 0x09e014f4; 8 function/argument pairs),duel_core,documented,64
-battle_end_checks,Battle Phase end check table (rel_duel_eng 0x09e00f5c; 31 function/argument pairs),duel_core,documented,248
+end_phase_checks,End Phase check table (rel_duel_eng 0x09e014f4; 8 function/argument pairs),duel_core,reimplemented,64
+battle_end_checks,Battle Phase end check table (rel_duel_eng 0x09e00f5c; 31 function/argument pairs),duel_core,reimplemented,248
 attack_state,Attack globals (rel_duel_eng 0x09e28620-0x09e2864b),duel_core,documented,44
 battle_replay_snapshot,Battle replay snapshot (0x09e28730; 12 words),duel_core,documented,48
 battle_record,Battle record (0x09e28650 + side x 0x48),duel_core,documented,72
@@ -125,11 +125,11 @@ summon_record,Summon record (0x09e290bc; queued copy at 0x09e29080),duel_core,do
 card_action_mask,Card action mask and player action codes (duel_core_get_card_action_mask),duel_core,documented,4
 player_input_state,Player input and answer globals (0x09e2d248-0x09e2d288),duel_core,documented,
 summon_material_state,Fusion and Synchro material state (0x09e29050-0x09e2906c),duel_core,documented,
-list_activation_table,List activation table (rel_duel_eng 0x09e00dbc; 23 records),duel_core,documented,
+list_activation_table,List activation table (rel_duel_eng 0x09e00dbc; 23 records),duel_core,reimplemented,
 send_batch_request,Send-batch request block (0x09e2d298-0x09e2d2bf; slot mask 0x09e2bba4),duel_core,documented,40
 card_request_block,Card request / pending action block (0x09e2d2dc-0x09e2d2ff),duel_core,documented,36
 prompt_request_block,Prompt request block (0x09e2d2c0-0x09e2d2d9; kind handlers 0x09debad4),duel_core,documented,28
-zone_preference_tables,Free-zone preference tables (rel_duel_eng 0x09deba0c monster / 0x09deba20 spell-trap),duel_core,documented,
+zone_preference_tables,Free-zone preference tables (rel_duel_eng 0x09deba0c monster / 0x09deba20 spell-trap),duel_core,reimplemented,
 duel_setup_params,Duel setup parameters (seed 0x09e02990; duelist kinds 0x09e02998; first player 0x09e029a8; LP mode 0x09e02cac),duel_core,documented,
 tag_waiting_area,Tag partner waiting area (0x09e02cb8 + side x 300),tag_duel,documented,300
 candidate_list,Candidate list (index 0x09e2991c; count 0x09e29920; entries 0x09e29928; meta 0x09e2a128),duel_effects,documented,3084
@@ -138,14 +138,14 @@ counter_type_table,Counter type table (rel_duel_eng 0x09deb97c; 20 words),duel_e
 archetype_predicates,Archetype predicate table (BOOT.BIN 0x0889e2d8; 63 functions),card_db,reimplemented,252
 genre_map_table,Genre index map (BOOT.BIN 0x0889f980; 35 u32),card_db,reimplemented,140
 cardinfo_globals,cardinfo member pointer globals (BOOT.BIN 0x08924d1c),card_db,documented,64
-card_language_suffixes,Language suffix table (BOOT.BIN 0x08878c88; 8 bytes per language),card_db,documented,48
+card_language_suffixes,Language suffix table (BOOT.BIN 0x08878c88; 8 bytes per language),card_db,reimplemented,48
 ai_snapshot_slot,AI state snapshot slot (0x09dff93c + n x 0x39f8; 10 slots),ai,documented,0x39f8
 ai_stat_snapshot,AI stat snapshot for simulated battles (0x09e0308c; 0x154 per side),ai,documented,680
 ai_battle_plan,AI battle plan (0x09e276e4 and 0x09e279c8 + side x 0x2e4),ai,documented,740
 ai_board_view,AI board view (0x09e28008 + side x 0x30c),ai,documented,780
 ai_context,AI main-phase state and context stack (0x09e02ff8-0x09e03030),ai,documented,
 ai_summon_choice,AI summon choice record (0x09e03080),ai,documented,12
-ai_main_steps,AI main-phase step table (rel_duel_eng 0x09e01ba4),ai,documented,
+ai_main_steps,AI main-phase step table (rel_duel_eng 0x09e01ba4),ai,reimplemented,
 ai_candidate_stack,AI candidate card stack (0x09e03004; depth 0x09e03024),ai,documented,32
 ai_combat_tricks,AI combat trick list (0x09e27ff8; up to 8 card ids),ai,documented,
 ai_attack_result,AI attack result record of ai_eval_attack (0x44 bytes),ai,documented,68
@@ -155,29 +155,29 @@ save_pack_records,Save pack records (game state +0x16604; 48 x 0x2a),save,verifi
 save_player_profile,Player profile: name / team / level / EXP / DP (game state +0xfd5c-0xfdff),save,verified,164
 save_duel_record,Duel-record block: totals / streaks / 143 per-character records (game state +0x10f10; 0x494 bytes),save,reimplemented,1172
 save_partner_word,Partner word (game state +0x16e12),save,verified,2
-story_block,Story block (game state +0x16e14),world,documented,
-story_field_save_block,Field save block: stage / chapter step / flags / pairing order (story block +0x345c),world,documented,168
+story_block,Story block (game state +0x16e14),world,reimplemented,
+story_field_save_block,Field save block: stage / chapter step / flags / pairing order (story block +0x345c),world,reimplemented,168
 story_flag_block,Story and system flag block (story block +0x42d8),world,documented,16
-story_calendar_tables,Calendar tables: light period (rel_story +0x208ec) / day off (+0x2e50c) / points cap (+0x2e528),world,documented,
+story_calendar_tables,Calendar tables: light period (rel_story +0x208ec) / day off (+0x2e50c) / points cap (+0x2e528),world,reimplemented,
 story_vm_state,Event interpreter state (rel_story +0x33b30),dialogue,documented,24
-field_request_table,Field request table (rel_field +0x2df0c; 33 x {start poll busy}),world,documented,396
-shop_opponent_list,Opponent list of the pack rules (rel_shop 0x090ef208; 104 entries),shop,documented,
+field_request_table,Field request table (rel_field +0x2df0c; 33 x {start poll busy}),world,reimplemented,396
+shop_opponent_list,Opponent list of the pack rules (rel_shop 0x090ef208; 104 entries),shop,reimplemented,
 file_request_ring,File thread request ring (BOOT.BIN 0x08920cb4; 32 x 0x60),container,documented,96
-root_path_table,Root path table (BOOT.BIN 0x0889fb24; 9 roots),container,documented,
+root_path_table,Root path table (BOOT.BIN 0x0889fb24; 9 roots),container,reimplemented,
 heap_header,HOGE heap header and block list (system_heap_create),system,documented,16
 psmf_movie,Sony PSMF movie (movie/*.pmf; AVC video + ATRAC3plus audio; 73 files; converted by psmf.py --convert),container,reimplemented,
 strtbl,UI string table (u32 count / 12 / base; UTF-16LE; end offset),ui,reimplemented,
 strtbl_offset_list,Offset-list string table (pack_name_str / pack_explain_str),shop,reimplemented,
-tgm_etc_scene,TGMT -etc scene block (leading tracks: camera lens; fog/ambient/4 lights or 32 visibility groups),field_3d,documented,
+tgm_etc_scene,TGMT -etc scene block (leading tracks: camera lens; fog/ambient/4 lights or 32 visibility groups),field_3d,reimplemented,
 tgm_model_instance,Runtime TGM model instance (BOOT.BIN 0x0882fa94: meshes/animations/frame/matrices/group mask),field_3d,documented,
 tgm_vtmt,.vtmt voice node animation (9 nodes; role unknown),field_3d,named,
-ui_resource_table,UI resource record {u32 id; void *cache; char *member format} looked up by id (rel_deck 0x08ebd84c and siblings; docs/subsystems/ui.md),ui,documented,12
+ui_resource_table,UI resource record {u32 id; void *cache; char *member format} looked up by id (rel_deck 0x08ebd84c and siblings; docs/subsystems/ui.md),ui,reimplemented,12
 save_header,Save header: version / frame counter / OpenPSID (game state +0x0; 0x20 bytes),save,verified,32
 save_stored_decks,Stored deck records (game state +0x20; 50 x 0x174),save,documented,372
 save_recipe_table,Recipe unlock table (game state +0x10b74; 462 x u16),save,documented,924
-save_record_table,Record table: record values / new bits / duel-bonus states (game state +0x113a4; 0x800 bytes),save,documented,2048
-save_flag_bytes,Per-index flag bytes: gallery / card milestones / pack first purchase (game state +0x153e4; 3600 bytes),save,documented,3600
+save_record_table,Record table: record values / new bits / duel-bonus states (game state +0x113a4; 0x800 bytes),save,reimplemented,2048
+save_flag_bytes,Per-index flag bytes: gallery / card milestones / pack first purchase (game state +0x153e4; 3600 bytes),save,reimplemented,3600
 save_card_list,Card list with per-entry states (game state +0x161f4; 2 + 99 x 2 + 99 x 2 bytes),save,documented,398
-save_progress_bytes,Monotonic progress bytes (game state +0x16de4; 38 bytes),save,documented,38
+save_progress_bytes,Monotonic progress bytes (game state +0x16de4; 38 bytes),save,reimplemented,38
 save_picture_bits,Picture-seen bit array (game state +0x1b0fc),save,documented,12
 save_minigame_blocks,Minigame blocks and high scores (game state +0x1be0c-0x1bf0b; record table +0xa0),save,named,256

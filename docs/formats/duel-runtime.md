@@ -278,7 +278,7 @@ The block is 28 bytes (the registry's 26 stops before the answer's high half). W
 | Offset | Size | Type | Field | Conf. |
 | --- | --- | --- | --- | --- |
 | `+0x00` | 4 | `u32` | Card id | H |
-| `+0x04` | 4 | `u32` | Location id of the list the card must be in (the shipped table uses `0x0d` Deck for 6 records and `0x0e` Graveyard for 17) | H (comparison), M (reading) |
+| `+0x04` | 4 | `u32` | Location id of the list the card must be in (the shipped table uses `0x0d` Deck for the first 7 records and `0x0e` Graveyard for the other 16; corrected 2026-11-04) | H (comparison), M (reading) |
 | `+0x08` | 4 | code pointer | Condition `(side, card_id, ref) → mask`; the collector calls it for each copy of the card in the list (newest first) and keeps the copies for which it is non-zero | H |
 | `+0x0c` | 4 | code pointer | Activation `(side, card_id, ref) → done` | H |
 
@@ -308,6 +308,26 @@ The End Phase functions are `duel_core_end_phase_post_turn_counters` (×5), `_up
 | `0x09deba20` | `+0x20a620` | 20 | `u32[5]` | Spell/trap-zone order 2, 3, 1, 4, 0, used as `5 + value` | `duel_core_find_free_spell_trap_zone` (`0x09bfc7a4`) | H |
 
 The finders return the first zone of the order that is empty and usable (`duel_core_is_zone_usable`, `effect-helpers-predicates.md`), or −1.
+
+## Writers and round trip
+
+The module tables of this document are read and written by `tools/exe_tables.py` (record layouts as in the sections above; code pointers keep the module offset stored in the file, runtime = `0x09be1400` + value, 0 = NULL). `tools/roundtrip.py` blanks each table's bytes in `rel_duel_eng.prx`, writes the model and compares the whole module; all are byte-identical, so these rows are `reimplemented` (2026-11-04, `docs/verification/results/2026-11-04-format-raises-2.md`):
+
+| Row | Table(s) | Records |
+| --- | --- | --- |
+| `duel_command_dispatch` | `+0x21f544` | 105 case pointers (entry 0 = default case `0x09dc103c`; 104 distinct stubs) |
+| `list_activation_table` | `+0x21f9bc` | 23 × `{card, location, condition, activation}` |
+| `battle_end_checks` | `+0x21fb5c` | 31 × `{function, argument}` |
+| `end_phase_checks` | `+0x2200f4` | 8 × `{function, argument}` |
+| `zone_preference_tables` | `+0x20a60c`, `+0x20a620` | 2 × 5 `u32` (both `2, 3, 1, 4, 0`) |
+| `duel_flow_steps`, `turn_steps`, `battle_steps` | `+0x2209bc`, `+0x2209a0`, `+0x2209cc` | 2 + NULL, 6 + NULL, 12 + NULL (`duel-phases.md`) |
+
+```
+python3 -I tools/roundtrip.py --check <PSP_GAME> --only duel_command_dispatch,list_activation_table,battle_end_checks,end_phase_checks,zone_preference_tables,duel_flow_steps,turn_steps,battle_steps
+python3 -I tools/exe_tables.py dump <PSP_GAME> list_activation_table -o extracted/tables/list_activation.json
+```
+
+The other rows of this document are runtime state with no instance in a file or a save, so they cannot be round-tripped (list in the results file).
 
 ## Open questions
 
