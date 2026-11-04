@@ -2636,35 +2636,35 @@ address,group,name
 # family window
 0x08842da8,ui,ui_window_measure_content_bottom,M,finds the window, returns inner y + text height (system_font_measure_text_box of +0x38 with the window's scale/shadow/ruby) or the plain bottom
 # registry hygiene 2026-11-03: group only, default name kept (no name has an H/M basis); evidence per row
-0x08817270,system,FUN_08817270,M,empty function (jr ra) without caller between system_stub_noop_main_thread_hook and the sdk Ccc imports; group from the neighbour
-0x08823dac,system,FUN_08823dac,M,swaps the word 0x089229b0 and returns the old value; the only other user is system_display_flip
-0x0882d338,system,FUN_0882d338,L,empty function without caller between system_movie_get_av_sync_state and system_movie_control_flags_create; group from the neighbours
-0x0882ef28,field_3d,FUN_0882ef28,L,swaps the word 0x08924b0c (no other reader in the dump); placed between field_3d_draw_pass and field_3d_apply_texmap_type1
-0x0882ef3c,field_3d,FUN_0882ef3c,L,swaps the word 0x08924b10 (no other reader in the dump); placed between field_3d_draw_pass and field_3d_apply_texmap_type1
-0x088359dc,system,FUN_088359dc,M,getter of 0x08ac2574 (setter 0x088359e8); between system_set_global_flags and system_run_frame_services; caller rel_title system_title_scene_start
-0x088359e8,system,FUN_088359e8,M,setter of 0x08ac2574 (getter 0x088359dc); caller rel_title ui_title_update_tutorial_list
-0x0883744c,system,FUN_0883744c,M,setter of 0x08ac2578 (next to 0x08ac2574); after system_apply_impose_language
-0x08837458,system,FUN_08837458,M,getter of 0x08ac2578 (setter 0x0883744c)
-0x08850610,system,FUN_08850610,H,net API wrapper: system_net_get_manager then 0x08852584 (copies the string 0x08dbfbcc; used by the system_adhoc_* functions)
-0x08850664,system,FUN_08850664,H,net API wrapper: system_net_get_manager then 0x088525a4 (net manager +0xbafc/+0xbb00); callers wireless/OSK screens of rel_title; rel_deck; rel_duel_mgr
-0x08850694,system,FUN_08850694,H,net API wrapper: system_net_get_manager then 0x088525c4 (net manager +0xbb00 flag); caller rel_duel_mgr ui_duel_result_init
-0x08852584,system,FUN_08852584,H,net manager method: strcpy of the adhoc string 0x08dbfbcc; caller 0x08850610
-0x088525a4,system,FUN_088525a4,H,net manager method: stores the argument at +0xbafc and (arg != 0) at +0xbb00; caller 0x08850664
-0x088525c4,system,FUN_088525c4,H,net manager method: stores a byte flag at +0xbb00; caller 0x08850694
-0x0885bd4c,world,FUN_0885bd4c,M,returns the constant address 0x08dc16a8; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bd58,world,FUN_0885bd58,M,returns the constant address 0x08dc16c0; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bd64,world,FUN_0885bd64,M,returns the constant address 0x08dc16c4; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bd70,world,FUN_0885bd70,M,returns the constant address 0x08dc16e0; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bd7c,world,FUN_0885bd7c,M,returns the constant address 0x08dc16e4; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bd88,world,FUN_0885bd88,M,returns the constant address 0x08dc1700; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bd94,world,FUN_0885bd94,M,returns the constant address 0x08dc1704; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bda0,world,FUN_0885bda0,M,returns the constant address 0x08dc1708; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bdac,world,FUN_0885bdac,M,returns the constant address 0x08dc170c; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bdb8,world,FUN_0885bdb8,M,returns the constant address 0x08dc1724; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bdc4,world,FUN_0885bdc4,M,returns the constant address 0x08dc1728; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bdd0,world,FUN_0885bdd0,M,returns the constant address 0x08dc173c; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x0885bddc,world,FUN_0885bddc,M,returns the constant address 0x08dc1740; a parameter block for a mini-game scene; filled by rel_story world_exit_story_scene and rel_title ui_minigame_menu_launch_game before system_scene_call (scene 0xf/0x11/0x13/0x15/0x19/0x1c); next to world_sort_character_tables
-0x08867b28,audio,FUN_08867b28,L,returns 1; no caller; between audio_set_stream_source and audio_init_voice
-0x08867f7c,audio,FUN_08867f7c,H,setter of 0x08dd311c; which audio_init and audio_start_sound read
-0x0886d86c,audio,FUN_0886d86c,H,getter of 0x08dd3134; which audio_init and audio_set_callback_08dd3130 write
-0x0886d8e4,audio,FUN_0886d8e4,L,returns 1; no caller; between audio_relocate_pointer_table and audio_start_bgm_track
+0x08817270,system,system_stub_noop_08817270,M,empty function (jr ra) without caller (round 4)
+0x08823dac,system,system_display_swap_word_089229b0,M,stores the argument in 0x089229b0 and returns the old value; the only other user of the word is system_display_flip (round 4)
+0x0882d338,system,system_stub_noop_0882d338,M,empty function without caller between the movie functions (round 4)
+0x0882ef28,field_3d,field_3d_swap_word_08924b0c,M,stores the argument in 0x08924b0c and returns the old value; exported; no reader in the dump (round 4)
+0x0882ef3c,field_3d,field_3d_swap_word_08924b10,M,stores the argument in 0x08924b10 and returns the old value; exported; no reader in the dump (round 4)
+0x088359dc,system,system_get_word_08ac2574,M,returns 0x08ac2574; module caller rel_title system_title_scene_start (round 4)
+0x088359e8,system,system_set_word_08ac2574,M,stores its argument in 0x08ac2574; module caller rel_title ui_title_update_tutorial_list (round 4)
+0x0883744c,system,system_set_word_08ac2578,M,stores its argument in 0x08ac2578; exported; no caller (round 4)
+0x08837458,system,system_get_word_08ac2578,M,returns 0x08ac2578; exported; no caller (round 4)
+0x08850610,system,system_net_copy_adhoc_string,H,system_net_get_manager then the method that strcpy's the string 0x08dbfbcc into the argument (round 4)
+0x08850664,system,system_net_set_word_bafc,H,system_net_get_manager then the method that stores the argument at manager +0xbafc and (arg != 0) at +0xbb00 (round 4)
+0x08850694,system,system_net_set_flag_bb00,H,system_net_get_manager then the method that stores (arg != 0) at manager +0xbb00 (round 4)
+0x08852584,system,system_net_mgr_copy_adhoc_string,H,strcpy(arg; 0x08dbfbcc); caller system_net_copy_adhoc_string (round 4)
+0x088525a4,system,system_net_mgr_set_word_bafc,H,stores the argument at +0xbafc and (arg != 0) at +0xbb00; caller system_net_set_word_bafc (round 4)
+0x088525c4,system,system_net_mgr_set_flag_bb00,H,stores a byte flag at +0xbb00; caller system_net_set_flag_bb00 (round 4)
+0x0885bd4c,world,world_get_blackjack_params,H,returns 0x08dc16a8 (0x18-byte block up to 0x08dc16c0) that world_exit_story_scene (mode 5) and ui_minigame_menu_launch_game (case 0) fill before calling scene 0xf (rel_blackjack); rel_blackjack is the only mini-game module that calls it (jal scan of every minigame module; round 4)
+0x0885bd58,world,world_get_blackjack_params_end,M,returns 0x08dc16c0; the word right after the blackjack block; no caller in BOOT.BIN or any module (round 4)
+0x0885bd64,world,world_get_dodge_params,H,returns 0x08dc16c4 (0x1c bytes); filled by world_exit_story_scene (mode 7) and ui_minigame_menu_launch_game (case 1) before scene 0x11 (rel_dodge); the only mini-game caller (round 4)
+0x0885bd70,world,world_get_dodge_params_end,M,returns 0x08dc16e0; the word right after the dodge block; no caller (round 4)
+0x0885bd7c,world,world_get_connection_params,H,returns 0x08dc16e4 (0x1c bytes); filled by world_exit_story_scene (mode 6) and ui_minigame_menu_launch_game (case 2) before scene 0x13 (rel_connection; 4 call sites) (round 4)
+0x0885bd88,world,world_get_connection_params_end,M,returns 0x08dc1700; the word right after the connection block; no caller (round 4)
+0x0885bd94,world,world_get_underground_params,H,returns 0x08dc1704 (one word); ui_minigame_menu_launch_game (case 4) clears it before scene 0x15; rel_underground calls it twice (round 4)
+0x0885bda0,world,world_get_underground_params_end,M,returns 0x08dc1708; the word right after the underground word; no caller (round 4)
+0x0885bdac,world,world_get_reversi_params,H,returns 0x08dc170c (0x18 bytes); filled by world_exit_story_scene (mode 9) and ui_minigame_menu_launch_game (case 5) before scene 0x19 (rel_reversi; the only mini-game caller) (round 4)
+0x0885bdb8,world,world_get_reversi_params_end,M,returns 0x08dc1724; the word right after the reversi block; no caller (round 4)
+0x0885bdc4,world,world_get_throw_params,H,returns 0x08dc1728 (0x14 bytes); filled by world_exit_story_scene (mode 0xb) and ui_minigame_menu_launch_game (case 6) before scene 0x1c; called by rel_throw and rel_throw_starter (round 4)
+0x0885bdd0,world,world_get_throw_params_end,M,returns 0x08dc173c; the word right after the throw block; no caller (round 4)
+0x0885bddc,world,world_get_minigame_score,M,returns 0x08dc1740; every mini-game module calls it once (blackjack; dodge; connection; underground; quiz; reversi; throw); ui_mini_result_apply_score stores the score there and world_story_init reads it after a mini-game (round 4)
+0x08867b28,audio,audio_stub_return_1_08867b28,M,returns 1; no caller (round 4)
+0x08867f7c,audio,audio_set_word_08dd311c,H,stores its argument in 0x08dd311c; which audio_init and audio_start_sound read (round 4)
+0x0886d86c,audio,audio_get_word_08dd3134,H,returns 0x08dd3134; which audio_init and audio_set_callback_08dd3130 write (round 4)
+0x0886d8e4,audio,audio_stub_return_1_0886d8e4,M,returns 1; no caller (round 4)

@@ -1743,14 +1743,14 @@ address,group,name
 # family zone_values
 0x09863730,ui,ui_update_counter_change_hold,M,duel-object update cb: holds UI event 0x27 (show counters), deletes itself when draw flag 8 is clear
 # registry hygiene 2026-11-03: group only, default name kept (no name has an H/M basis); evidence per row
-0x098419b4,field_3d,FUN_098419b4,M,setter of 0x098d53a8; caller field_3d_cutin_reset_current
-0x0985345c,field_3d,FUN_0985345c,M,setter of 0x098e666c; read by field_3d_board_sync_zone
+0x098419b4,field_3d,field_3d_cutin_set_word_098d53a8,M,stores its argument in 0x098d53a8; only caller field_3d_cutin_reset_current (round 4 rename of the default name)
+0x0985345c,field_3d,field_3d_board_set_word_098e666c,M,stores its argument in 0x098e666c; which field_3d_board_sync_zone reads; no direct caller (round 4)
 0x0989ddb8,duel_core,FUN_0989ddb8,M,view wrapper: duel_core_view_side_to_engine_b then duel_core_is_zone_usable_lenient (result discarded by Ghidra); among the duel_core_view_* functions; caller ui_update_zone_highlights
-0x098a35a0,ui,FUN_098a35a0,H,returns 1 unless ui_get_duel_ui_mode is 5/8/9; then (arg == 6)
-0x098a3db8,ui,FUN_098a3db8,M,setter of 0x09bdd0ec; caller ui_duel_open_card_list_picker
-0x098a6194,ui,FUN_098a6194,M,getter of the message-window word 0x09bdd3e8 (setter 0x098a6550); next to ui_start_close_message_window
-0x098a61a0,ui,FUN_098a61a0,M,tests the message-window word 0x09bdd3ec == 0 (setter 0x098a655c)
-0x098a6550,ui,FUN_098a6550,M,setter of 0x09bdd3e8; callers ui_duel_open_card_action_menu; ui_duel_open_card_info_menu
-0x098a655c,ui,FUN_098a655c,M,stores !arg in 0x09bdd3ec; caller ui_open_word3_confirm_prompt
-0x098a6a8c,ui,FUN_098a6a8c,H,setter of the info-panel word 0x09bdd6c4 (read by ui_open_info_panel; ui_draw_info_panel); caller ui_duel_open_count_message
-0x098a6d44,ui,FUN_098a6d44,H,toggles the info-panel state 0x09bdd6b4 between 1/2 and 3/4 by bit 0 of the argument (state read by ui_update_info_panel; ui_is_info_panel_idle)
+0x098a35a0,ui,ui_duel_mode_allows_action,H,returns 1 unless ui_get_duel_ui_mode is 5; 8 or 9; in which case it returns arg == 6 (round 4)
+0x098a3db8,ui,ui_duel_set_card_list_picker_word,M,stores its argument in 0x09bdd0ec; only caller ui_duel_open_card_list_picker (round 4)
+0x098a6194,ui,ui_get_message_window_word_09bdd3e8,M,returns 0x09bdd3e8 (set by ui_set_message_window_word_09bdd3e8); no direct caller (round 4)
+0x098a61a0,ui,ui_is_message_window_word_09bdd3ec_clear,M,returns 0x09bdd3ec == 0 (set by ui_set_message_window_word_09bdd3ec_inverted); no direct caller (round 4)
+0x098a6550,ui,ui_set_message_window_word_09bdd3e8,M,stores its argument in 0x09bdd3e8; callers ui_duel_open_card_action_menu; ui_duel_open_card_info_menu (round 4)
+0x098a655c,ui,ui_set_message_window_word_09bdd3ec_inverted,M,stores !arg in 0x09bdd3ec; caller ui_open_word3_confirm_prompt (round 4)
+0x098a6a8c,ui,ui_set_info_panel_word,H,stores its argument in the info-panel word 0x09bdd6c4 read by ui_open_info_panel and ui_draw_info_panel; caller ui_duel_open_count_message (round 4)
+0x098a6d44,ui,ui_set_info_panel_state_bit0,H,moves the info-panel state 0x09bdd6b4 between 1/2 and 3/4 according to bit 0 of the argument (round 4)

@@ -2,7 +2,7 @@
 
 A game module calls `BOOT.BIN` (library `libehsys_rel`) and the duel modules (`libduel_eng_rel`, `libduel_draw_rel`, `libfield_rel`) through 8-byte import stubs in its `.sceStub.text`; the module loader patches each stub into a jump to the exported function. `tools/prx_imports.py` resolves every stub by library and NID and names it `thunk_<target>` (`docs/subsystems/system.md`, "The `libehsys_rel` export library"). A stub has no behaviour of its own, so once its target is documented the stub is documented with the target's prototype (renamed), a summary that names the target, and the stub's own callers in the module (in its Ghidra plate comment, `re/documented*.tsv`). This table lists, per documented target, the stubs that reached the `documented` stage this way and how many call sites each has.
 
-Stubs: 11341, for 2381 targets.
+Stubs: 11445, for 2394 targets.
 
 | Target | Program | Stubs (module address, direct callers) |
 | --- | --- | --- |
@@ -2387,3 +2387,16 @@ Stubs: 11341, for 2381 targets.
 | `world_field_update` (`0x090d8098`) | rel_field | rel_story `0x08eb1124` (1) |
 | `world_field_draw` (`0x090d8188`) | rel_field | rel_story `0x08eb112c` (1) |
 | `world_field_shutdown_step` (`0x090d82c4`) | rel_field | rel_story `0x08eb1134` (1) |
+| `world_get_blackjack_params` (`0x0885bd4c`) | BOOT.BIN | rel_deck `0x08ebb0e8` (0), rel_duel_draw `0x098bf234` (0), rel_duel_eng `0x09de706c` (0), rel_duel_mgr `0x08eb56ac` (0), rel_field `0x090f1b54` (0), rel_shop `0x090e8134` (0), rel_story `0x08eb0f8c` (1), rel_title `0x08ee1778` (1) |
+| `world_get_blackjack_params_end` (`0x0885bd58`) | BOOT.BIN | rel_deck `0x08ebb0f0` (0), rel_duel_draw `0x098bf23c` (0), rel_duel_eng `0x09de7074` (0), rel_duel_mgr `0x08eb56b4` (0), rel_field `0x090f1b5c` (0), rel_shop `0x090e813c` (0), rel_story `0x08eb0f94` (0), rel_title `0x08ee1780` (0) |
+| `world_get_dodge_params` (`0x0885bd64`) | BOOT.BIN | rel_deck `0x08ebb0f8` (0), rel_duel_draw `0x098bf244` (0), rel_duel_eng `0x09de707c` (0), rel_duel_mgr `0x08eb56bc` (0), rel_field `0x090f1b64` (0), rel_shop `0x090e8144` (0), rel_story `0x08eb0f9c` (1), rel_title `0x08ee1788` (1) |
+| `world_get_dodge_params_end` (`0x0885bd70`) | BOOT.BIN | rel_deck `0x08ebb100` (0), rel_duel_draw `0x098bf24c` (0), rel_duel_eng `0x09de7084` (0), rel_duel_mgr `0x08eb56c4` (0), rel_field `0x090f1b6c` (0), rel_shop `0x090e814c` (0), rel_story `0x08eb0fa4` (0), rel_title `0x08ee1790` (0) |
+| `world_get_connection_params` (`0x0885bd7c`) | BOOT.BIN | rel_deck `0x08ebb108` (0), rel_duel_draw `0x098bf254` (0), rel_duel_eng `0x09de708c` (0), rel_duel_mgr `0x08eb56cc` (0), rel_field `0x090f1b74` (0), rel_shop `0x090e8154` (0), rel_story `0x08eb0fac` (1), rel_title `0x08ee1798` (1) |
+| `world_get_connection_params_end` (`0x0885bd88`) | BOOT.BIN | rel_deck `0x08ebb110` (0), rel_duel_draw `0x098bf25c` (0), rel_duel_eng `0x09de7094` (0), rel_duel_mgr `0x08eb56d4` (0), rel_field `0x090f1b7c` (0), rel_shop `0x090e815c` (0), rel_story `0x08eb0fb4` (0), rel_title `0x08ee17a0` (0) |
+| `world_get_underground_params` (`0x0885bd94`) | BOOT.BIN | rel_deck `0x08ebb118` (0), rel_duel_draw `0x098bf264` (0), rel_duel_eng `0x09de709c` (0), rel_duel_mgr `0x08eb56dc` (0), rel_field `0x090f1b84` (0), rel_shop `0x090e8164` (0), rel_story `0x08eb0fbc` (0), rel_title `0x08ee17a8` (1) |
+| `world_get_underground_params_end` (`0x0885bda0`) | BOOT.BIN | rel_deck `0x08ebb120` (0), rel_duel_draw `0x098bf26c` (0), rel_duel_eng `0x09de70a4` (0), rel_duel_mgr `0x08eb56e4` (0), rel_field `0x090f1b8c` (0), rel_shop `0x090e816c` (0), rel_story `0x08eb0fc4` (0), rel_title `0x08ee17b0` (0) |
+| `world_get_reversi_params` (`0x0885bdac`) | BOOT.BIN | rel_deck `0x08ebb128` (0), rel_duel_draw `0x098bf274` (0), rel_duel_eng `0x09de70ac` (0), rel_duel_mgr `0x08eb56ec` (0), rel_field `0x090f1b94` (0), rel_shop `0x090e8174` (0), rel_story `0x08eb0fcc` (1), rel_title `0x08ee17b8` (1) |
+| `world_get_reversi_params_end` (`0x0885bdb8`) | BOOT.BIN | rel_deck `0x08ebb130` (0), rel_duel_draw `0x098bf27c` (0), rel_duel_eng `0x09de70b4` (0), rel_duel_mgr `0x08eb56f4` (0), rel_field `0x090f1b9c` (0), rel_shop `0x090e817c` (0), rel_story `0x08eb0fd4` (0), rel_title `0x08ee17c0` (0) |
+| `world_get_throw_params` (`0x0885bdc4`) | BOOT.BIN | rel_deck `0x08ebb138` (0), rel_duel_draw `0x098bf284` (0), rel_duel_eng `0x09de70bc` (0), rel_duel_mgr `0x08eb56fc` (0), rel_field `0x090f1ba4` (0), rel_shop `0x090e8184` (0), rel_story `0x08eb0fdc` (1), rel_title `0x08ee17c8` (1) |
+| `world_get_throw_params_end` (`0x0885bdd0`) | BOOT.BIN | rel_deck `0x08ebb140` (0), rel_duel_draw `0x098bf28c` (0), rel_duel_eng `0x09de70c4` (0), rel_duel_mgr `0x08eb5704` (0), rel_field `0x090f1bac` (0), rel_shop `0x090e818c` (0), rel_story `0x08eb0fe4` (0), rel_title `0x08ee17d0` (0) |
+| `world_get_minigame_score` (`0x0885bddc`) | BOOT.BIN | rel_deck `0x08ebb148` (0), rel_duel_draw `0x098bf294` (0), rel_duel_eng `0x09de70cc` (0), rel_duel_mgr `0x08eb570c` (0), rel_field `0x090f1bb4` (0), rel_shop `0x090e8194` (0), rel_story `0x08eb0fec` (1), rel_title `0x08ee17d8` (1) |

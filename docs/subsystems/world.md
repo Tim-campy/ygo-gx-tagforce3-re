@@ -583,10 +583,28 @@ State `0x2e` (`world_state_start_staff_roll`) → frame callbacks in `0x08ecd98c
 
 #### Open questions (rel_story)
 - Content of story block `+0x3570` (opcode 50141) and the exact role of `0x08ecd980` beyond "first map entry after a new game" (field request 27).
-- The BOOT functions `0x0885bddc` (mini-game / tournament score word), `0x0885bd4c`, `0x0885bd64`, `0x0885bd7c`, `0x0885bdac`, `0x0885bdc4` (scene parameter blocks of modes 5–11) and the scenes `0xf`, `0x11`, `0x13`, `0x15`, `0x18`, `0x19`, `0x1c` they open.
+- ~~The BOOT functions `0x0885bddc`, `0x0885bd4c`, … (scene parameter blocks of modes 5–11)~~: settled 2026-11-04, see "Mini-game parameter blocks" below. Still open: what each mini-game reads from its block beyond words 0 and 1, and the role of words 2–5 (-1 from the story, -1/0 from the menu).
 - Duel result values in deck block `T + 0x20` (1 = win?) and the meaning of tally word d.
 - System flag `0xc`/`0xd` (mode 8 return): which game mode it is.
 - Whether the restart branch of `world_story_init` (location `0xe`, player position) is reachable.
+
+## Mini-game parameter blocks (2026-11-04)
+
+The last 15 default-named `world` functions were named and documented in the 2026-11-04 round. Thirteen of them are constant-address getters in `BOOT.BIN` (`0x0885bd4c`–`0x0885bddc`) for a data area at `0x08dc16a8`–`0x08dc1743` that carries arguments from the story (`rel_story` `world_exit_story_scene`) and from the title's mini-game menu (`rel_title` `ui_minigame_menu_launch_game`) into the mini-game scenes. Which mini-game reads which block was established by scanning every mini-game module for `jal` instructions to its import stubs of these getters (the modules import the whole `libehsys_rel`, so the import tables alone do not tell). Confidence high for the layout and the callers; medium for the "end" words, which have no reader anywhere.
+
+| Getter | Address | Size | Scene / module | Filled by |
+| --- | --- | --- | --- | --- |
+| `world_get_blackjack_params` | `0x08dc16a8` | `0x18` | `0xf` `rel_blackjack` | story mode 5; menu entry 0 |
+| `world_get_dodge_params` | `0x08dc16c4` | `0x1c` | `0x11` `rel_dodge` | story mode 7 (`+0x18` = light period); menu entry 1 (`+0x18` = 1) |
+| `world_get_connection_params` | `0x08dc16e4` | `0x1c` | `0x13` `rel_connection` (4 call sites) | story mode 6 (`+0x18` = light period); menu entry 2 |
+| `world_get_underground_params` | `0x08dc1704` | 4 | `0x15` `rel_underground` (2 call sites) | menu entry 4 stores 0; story mode 10 leaves it |
+| `world_get_reversi_params` | `0x08dc170c` | `0x18` | `0x19` `rel_reversi` | story mode 9; menu entry 5 |
+| `world_get_throw_params` | `0x08dc1728` | `0x14` | `0x1c` `rel_throw`, also `rel_throw_starter` | story mode 0xb; menu entry 6 (`+0x10` = 1) |
+| `world_get_minigame_score` | `0x08dc1740` | 4 | every mini-game module (blackjack, dodge, connection, underground, quiz, reversi, throw) | the mini-game; `ui_mini_result_apply_score` stores the score; `world_story_init` reads it on return (score > 9999, or > 199 for mode 6, picks which partner event pair is queued) |
+
+Words `+0x00`/`+0x04` of each block are the opponent character and its variant (from the story: the partner; from the menu: the chosen character). Each block is followed by one word with its own getter (`world_get_<game>_params_end`: `0x0885bd58`, `…bd70`, `…bd88`, `…bda0`, `…bdb8`, `…bdd0`), which nothing calls in `BOOT.BIN`, in the Ghidra-imported modules or in the mini-game modules.
+
+In `rel_field`: `world_field_debug_line_to_location` (`0x090cf0b8`) maps the debug map-menu line 0–0x1d to a location id through the jump table at module `+0x24968` (each case loads its constant in a branch delay slot, so Ghidra shows empty cases; read from the disassembly); `world_get_map_variant_for_period` (`0x090d0c80`) maps light period 1 → 0, 2 → 1, 3 and 4 → 2 (else 0), the map variant whose group mask `world_bind_map_archive` applies to every map mesh.
 
 ## Open questions
 

@@ -645,5 +645,5 @@ address,group,name
 # family sandwich
 0x090e1dc4,world,world_get_sandwich_roulette_entry,M,returns &table 0x090f831c[8*i]; callers world_sandwich_roulette_start/draw_icon/spin
 # registry hygiene 2026-11-03: group only, default name kept (no name has an H/M basis); evidence per row
-0x090cf0b8,world,FUN_090cf0b8,M,switch over 0..0x20 with empty cases (debug stub); only caller world_field_debug_main
-0x090d0c80,world,FUN_090d0c80,M,maps 1..4 to 0/1/2/2; only caller world_bind_map_archive
+0x090cf0b8,world,world_field_debug_line_to_location,M,jump table (rel_field +0x24968) mapping the debug map-menu line 0..0x1d to a location id (1-5; 0xc-0x2a; 0x2a for larger values); read from the disassembly; caller world_field_debug_main stores the result as the map to load (round 4)
+0x090d0c80,world,world_get_map_variant_for_period,M,maps 1 -> 0; 2 -> 1; 3 and 4 -> 2; else 0; caller world_bind_map_archive passes scene params +0x08 (light period) and applies the result with field_3d_set_map_variant_group_mask (round 4)
