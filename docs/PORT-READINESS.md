@@ -60,6 +60,13 @@ FFmpeg 7.1.1 was used for the audio and movie steps (ATRAC decoding is delegated
 - **Link play** (ad-hoc duels, `rel_duel_eng` network packets) is out of the first port scope; nothing in single-player depends on it.
 - **Positional audio**: no sound on the disc uses the SHDS 3D, Doppler or reverb flags (`sound.md`, census), so the port needs no 3D audio.
 
+### Maintainer decisions (2026-11-04)
+
+- **Target hardware.** The port targets the New Nintendo 3DS XL. Running on the original 3DS is a bonus, not a requirement, so memory and performance budgets are measured against the New 3DS.
+- **Blind documentation test.** After the current stage closes, a reader with the documents only (no binary) answers implementation questions, and a second reader checks the answers against the code. Every wrong or missing answer is a documentation gap.
+- **Conformance testing.** Test the shared engine rather than every card one by one. Caveat from the registry: effects are not purely data-driven, because about 2,500 of the `duel_effects` handlers are per-card functions on top of the shared engine (239 of them are shared by several cards). The plan therefore has to add one representative per effect category to the engine tests, and it depends on how the port implements effects (`card-effect-spec.md`). The test design is still to be written.
+- **Public repository review.** After the current stage closes, sweep the committed content so that no game files or long excerpts are distributed (the legal boundary of `CLAUDE.md`).
+
 ## Blocking questions
 
 The blocking items of `open-questions-triage.md` (16 at the audit, 9 left), grouped into tasks, in order of value for the port. "S" = static reading of `BOOT.BIN`/modules (capstone and the docs are enough), "P" = PPSSPP check.
