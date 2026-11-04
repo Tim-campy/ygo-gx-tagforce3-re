@@ -201,14 +201,530 @@ Method as in the first round (`system.md`): the still-unnamed functions were re-
 
 The functions of this group that reached the `documented` stage in the 2026-10-31 documentation round (prototype, purpose, return value, side effects and callers, read from the decompilation) are listed in [`functions/field_3d.md`](functions/field_3d.md).
 
+## Functions documented in the 2026-11-04 round
+
+Method: every still-undocumented `field_3d` function (613: 34 in `BOOT.BIN`, 565 in `rel_duel_draw`, 14 in `rel_field`) was re-dumped from Ghidra with the current names and read in full, one row per function, in three address-ordered batches. This Ghidra project decodes the VFPU through the ghidra-allegrex processor module (pseudo-ops such as `vdot_q`, `vscl_t`); values computed under VFPU prefix instructions (`vpfxs`/`vpfxt`/`vpfxd`), which the decompiler does not apply, are marked lower confidence. Eleven functions whose decompilation hid register arguments or lost its stores (wrappers that move arguments into `t0`, an 8-byte tail jump, the map-variant mask builder) were read from the disassembly with capstone. Full rows: [`functions/field_3d.md`](functions/field_3d.md).
+
+Corrections to the sections above: the group mask `inst+0x64` is a **hide** mask (a set bit skips the material; `field_3d_update_visibility_mask` sets bit i when cut-in scene track 10 + i is 0.0); of the fx textures 0x19–0x22 only 0x19, 0x1b, 0x1d, 0x1f, 0x20 and 0x22 come from the `fmagic<card>.ehp` backdrop archives, the others from duel archive `0x80001`. In `rel_field`, `field_3d_set_map_variant_group_mask` (`0x090da484`, read from the disassembly) hides every group except the five of the chosen variant (variant 0: groups 0–4; 1: 5–9; 2: 10–14), and `world_get_map_variant_for_period` picks the variant from the light period (`world.md`, "Mini-game parameter blocks"). Findings by reading batch follow.
+
+### Findings from batch 1 (BOOT.BIN model pipeline, cut-in core, duel board, card effect tasks)
+
+Scope of this batch: 352 functions (BOOT.BIN model pipeline, rel_duel_draw cut-ins, duel board, backdrop scene, card effect tasks). All facts below come from the Ghidra decompilation of these functions; VFPU-heavy parts are marked.
+
+#### TGMS draw structures (BOOT.BIN, read in field_3d_draw_pass / field_3d_draw_material_batches)
+
+Material record (`0xa4` bytes, table TGMS `+0x0c`, count `+0x28`):
+
+| Offset | Meaning |
+| --- | --- |
+| `+0x00` | flags: bit 0 translucent (drawn in pass 2; clear = pass 1), bit 1 no back-face culling, bit 2 has an animated copy, bit 3 belongs to a visibility group |
+| `+0x04..+0x10` | emissive, ambient, diffuse, specular colours (GE model colours) |
+| `+0x14` | specular power (f32) |
+| `+0x18` | four layers of `0x20` bytes |
+| `+0x98` | index of the animated copy (instance material copies, `0xa4` each); the TGMA applier indexes the same array by TGMA entry number |
+| `+0x9c` / `+0x9e` | u16 batch count / first batch index |
+| `+0xa0` | visibility group number (bit of the group mask) |
+
+Layer (`0x20` bytes): `+0x00` flags (bit 0 present - a clear bit ends the layer list; bit 1 lighting; bit 2 alpha test; bit 3 blending; bit 4 depth write; bit 5 alpha write mask `0xff000000`), `+0x04` texture record pointer, `+0x08` texture-map callback (called with 0 before and 1 after the batches), `+0x0c` colour (alpha in the top byte, animated by TGMA), `+0x10/+0x11/+0x12` alpha func/ref/mask, `+0x13` depth func, `+0x14/+0x15/+0x16` blend op/src/dst, `+0x18/+0x1c` blend fixed colours.
+
+Batch (`0x18` bytes, table TGMS `+0x14`): eight u16 bone indices (0xffff ends), `+0x10` GE vertex type, `+0x14` primitive count, `+0x16` first primitive. Primitive (`0xc` bytes, TGMS `+0x04`): primitive type, vertex count, vertex offset from TGMS `+0x08`. Bone matrices are uploaded per batch into GE bone slots 0..7 with a cache of the last 8 bone indices at `0x08924b18` (reset to 0xffff at every pass).
+
+Texture record (`0x28` bytes, TGMS `+0x10`, count `+0x34`): `+0x00` name pointer, `+0x04` GIM, `+0x0a/+0x0b` texture function and component, `+0x0c` environment colour, `+0x10/+0x11` wrap u/v, `+0x14/+0x18` UV offset, `+0x1c/+0x20` UV scale, `+0x24` animated-copy index (-1 = none).
+
+Instance draw state (`inst + 0x54`, five words, also the `draw_state` argument of `field_3d_draw_pass`): `[0]` texture callback `(list_ptr, tms, material, layer, hook)` returning non-zero when it bound a texture itself; `[1]` batch hook `(list_ptr, tms, material, layer, stage 0/1, hook)`, a negative result at stage 0 skips the batches; `[2]` material copies; `[3]` texture copies; `[4]` group mask (`inst + 0x64`). **A set mask bit hides the group** (the material is skipped when its group bit is set). `field_3d_update_visibility_mask` sets bit i when the cut-in scene track `10 + i` is 0.0, so a track value of 0 hides the group (correction of the wording "visibility" in field_3d.md: the mask is a hide mask).
+
+Draw hook record (`0x34` bytes; default `0x08924b28`): `+0x00` layer of pass 1, `+0x04` layer of pass 2, byte `+0x08` bit 0 = render the EDRAM ramp textures first, `+0x0c..+0x20` ramp keys (see below), `+0x24` frustum test on, byte `+0x28` bit 0 = write the stencil (func always, ref 0xff, op replace on depth pass). Cut-ins also put the character at `+0x2c` and the slot pointer at `+0x30`.
+
+#### Texture-map callbacks and the EDRAM ramp (BOOT.BIN)
+
+- Type 1 (`0x0882ef50`): environment map driven by the camera: lights 2/3 positioned at camera `+0x80` and `-(camera +0x90)`, GE map mode 2 with lights 2 and 3; restored to the saved lights at stage 1.
+- Type 2 (`0x0882f050`): map mode 2 driven by light 0 (`0x08924c28`), colour = light 0 diffuse.
+- `field_3d_render_edram_ramp_textures` (`0x08830154`): when hook byte `+0x08` bit 0 is set, renders two 64 x 32 ramps into EDRAM offset `0x1f0000` (pixel formats 0 then 2) from key lists in the hook (ramp 1: positions f32 `+0x0c`, grey levels = high nibble of bytes `+0x10`, count `+0x14`; ramp 2: `+0x18`, `+0x1c`, `+0x20`; default 4-vertex ramps at `0x0889f770`/`0x0889f790` when a count is below 2) and installs `field_3d_setup_edram_texmap_layer`, which rebinds every type-2 layer to the EDRAM texture and swaps its callback to `field_3d_apply_texmap_edram` (adds a blend). Hypothesis (medium): a cel-shading / toon ramp looked up by environment mapping. For the port: this is a 1D lighting lookup; reproduce with a shader ramp.
+- EDRAM `0x160000` is a second scratch target: 128 x 256 card faces for cut-in props (`4006.iff`, `0000.iff`) and 128 x 128 off-screen renders (`field_3d_draw_spinning_coin_sprite`, `field_3d_render_model_to_texture_128`).
+
+#### TGMT / TGMA details confirmed
+
+- TGMT `+0x34` flags: bit 1 = every node's parent is identity (flat hierarchy); bit 2 = rotation keys stored as four s16 (`/ 32760.0`, 8 bytes) instead of four f32 (16 bytes). Rotation track = {key count, first key}; key frames u32 at `+0x14`, keys at `+0x18`. TGMT `+0x30` = frame count (end frame = count - 1 when looping).
+- Node record (TGMT `+0x04`, 8 bytes): u16 translation track, rotation track, scale track (0xffff = none); translation and scale use three consecutive 8-byte scalar tracks at TGMT `+0x08`.
+- TGMS hierarchy (`+0x18`, 8 bytes per node): parent, first child, next sibling; root at TGMS `+0x40`; bone offset matrices at TGMS `+0x1c`.
+- TGMA entry (`0x24` bytes, table `+0x04`, count `+0x10`): four 8-byte layer records (u16 UV-offset track, UV-scale track, alpha track; offset/scale tracks are pairs u, v), `+0x20` material index; frame count `+0x1c`. Missing UV offset gives 0, missing UV scale 1.0; alpha x 255 clamped into the top byte of the layer colour.
+- `field_3d_pose_nodes_blend` reads the previous animation's translation and scale tracks with the indices of the previous node record without checking them for 0xffff (only the current animation's indices are checked) - a latent bug when the two animations differ in channels.
+
+#### Lighting state and camera (BOOT.BIN)
+
+Lighting block `0x08924c24` (`0xf8` bytes): `+0x00` flags (bit 0 = lighting enabled, read by draw_pass), four light records of `0x3c` bytes at `0x08924c28`, `0x08924c64`, `0x08924ca0`, `0x08924cdc`, ambient colour `0x08924d18`.
+
+Light record (`0x3c` bytes, also used in the backdrop scene): `+0x00` type (0 directional, 1 point, 2 spot), `+0x04` ambient, `+0x08` diffuse, `+0x0c` specular (ABGR), `+0x10` position or direction (3 f32), `+0x1c` spot direction, `+0x28` spot exponent, `+0x2c` spot cutoff (cosine of half the cone angle), `+0x30..+0x38` attenuation (constant, linear, quadratic; default 1, 0, 0; the default backdrop scene uses 0.5).
+
+Camera record (`0xc0` bytes, default `0x08924b60`, current pointer `0x08924c20`): `+0x00` eye, `+0x10` target, `+0x20` up, `+0x30` normalised eye - target, `+0x40` view matrix, `+0x80` camera-to-world (inverse ortho of the view).
+
+#### Cut-in system (rel_duel_draw)
+
+Block `0x098d4d40` (`0x660` bytes): `+0x08` current slot pointer (`0x098d4d48`), `+0x0c` current index (`0x098d4d4c`, -1 none), `+0x10` "finished" override (`0x098d4d50`), four slots of `0x190` bytes from `0x098d4d60`. Fallback model instance pointer `0x098d53c0`.
+
+Slot layout (first `0x38` bytes = the descriptor):
+
+| Offset | Meaning |
+| --- | --- |
+| `+0x00` / `+0x04` | character id / variant |
+| `+0x08` | `duel_disc.gim` |
+| `+0x0c` / `+0x10` | `chr_voiceidchgtbl.bin`, language word table (member name from the table `0x098ccacc` indexed by `save_get_language`) |
+| `+0x14` | on-motion-start callback `(slot, index, arg)` |
+| `+0x18` | on-motion-end callback |
+| `+0x1c` | frame hook `(slot, index, frame, model_frame, advanced)` |
+| `+0x20` | resolve-motion callback `(slot, motion) -> animation index` |
+| `+0x24` | map-node callback (default `0x09843b64`) |
+| `+0x28` | attach-offset callback `(slot, pos_out, quat_out, attach_id) -> bool` |
+| `+0x2c` | voice-node callback (lip sync) |
+| `+0x34` | attach table (pairs id, node; 0 ends) |
+| `+0x38` | slot index / duellist index for voices |
+| `+0x3c` | assets loaded |
+| `+0x40` | model instance |
+| `+0x44` | scene list (`alletc-ptrs.txt`) |
+| `+0x48` | requested motion id |
+| `+0x4c` | current scene TGMT (`-etc`: camera and 32 visibility tracks) |
+| `+0x50` | animation index |
+| `+0x54` | elapsed seconds |
+| `+0x58` | `0x10000`-byte inflate buffer for a gzip scene TGMT |
+| `+0x5c` | start pending |
+| `+0x60` / `+0x64` / `+0x68` | lip-sync TGMT, its inflate buffer (`0x10000`), its time |
+| `+0x6c` | selects `voice02.vtmt.gz` for motions 0x15..0x1c and 0x88..0x90 |
+| `+0xd0` / `+0x110` / `+0x150` | saved projection, view, eye |
+| `+0x160` | card id shown on prop textures and in ATK/DEF panels |
+| `+0x164` | set for motion 9: when the scene leaves group 9 shown, hides group 9 and shows group 10 |
+| `+0x168` | hides the duel-disc texture swap |
+| `+0x16c` / `+0x170` | LP roll from / to values |
+| `+0x174` | frame advanced this tick |
+| `+0x178` / `+0x17c` | busy / fade started (frame events) |
+| `+0x180` / `+0x184` / `+0x188` | last group mask, override select, override values |
+
+Archive members used by a cut-in (extractor-relevant, all in the character's cut-in EHP from `field_3d_get_cutin_archive`): `info-ptrs.txt` (first entry = mesh) or `cutin_chara_base.tms`, `all-ptrs.txt` (animation list), `alletc-ptrs.txt` (scene list, same indices), `voice01.vtmt.gz` / `voice02.vtmt.gz` (lip-sync animation, nine face nodes from the table `0x098ccda0`), `duel_disc.gim`, `chr_voiceidchgtbl.bin`, per-language word tables, `bustup.gim` (in the base archive, portrait). Generic (player-avatar) characters read the voice tables from the nested member `voice/10000.txt`, and every texture named `DA_boy_R01.iff`, `DA_boy_Y01.iff`, `DA_boy_B01.iff` or `DA_girl01.iff` is redirected to the member `texture/10500.txt` (a nested archive or GIM; format not checked here). Texture names with special handling at draw time: `4006.iff` (rendered card face of slot `+0x160`), `0000.iff` (card back), `duel_disc_02.iff` (swapped for `duel_disc.gim`).
+
+Flow: `field_3d_cutin_setup_slot` (character, variant) -> default descriptor + per-character set-up routine (`field_3d_cutin_get_chara_setup`, about 40 routines; generic characters choose by `world_get_character_byte_09` = 5 or model id byte 1 = 3) -> assets loaded unless a network duel. Playing: `field_3d_cutin_select_slot` -> `field_3d_cutin_reset_current(motion)` -> `field_3d_cutin_set_motion` -> resolve -> `field_3d_cutin_start_motion` (play once, flags 0). Each frame: `field_3d_cutin_dispatch_motion_start` (deferred start callback), `field_3d_update_current_cutin` (dt 1/30), frame hook, `field_3d_draw_cutin_layer` (layers 8 and 9, far plane 10000).
+
+Motion resolution (`field_3d_cutin_default_resolve_motion`): ids >= `0x1000` are direct animation indices (`id - 0x1000`); otherwise the motion table `0x098ccdc4` (12 bytes per motion: ?, first index, last index) gives a range and a random present animation is chosen; motions 1, 0x12, 0x13, 0x14 use a fixed index from `0x098ccf20` per voice-bank range (six ranges between 0x1de and 0x2a9); fallbacks 8 -> 6, 0x10 -> 0xf, then the first present index below 0x199.
+
+Finish rule (`field_3d_cutin_is_motion_finished`): end frame reached, no cut-in voice playing, LP panel closed, slot not busy, and either 150 frames past the end or no SE/voice playing.
+
+Lip sync: `field_3d_cutin_pose_node_hook` overrides up to nine face nodes with the lip-sync TGMT sampled at `voice time x fps` while the duellist's queued voice is at level 10 or more (else at time 0 = closed mouth); skipped for non-generic characters in motions 1, 0x12, 0x13, 0x14 and (except characters 9, 0x13) 0x1a.
+
+Per-character attach-offset tables: five entries of `0x20` bytes (`+0x00` attach id, `+0x04` position, `+0x10` quaternion), sorted once on first use with a per-table flag word (`0x098d53c4` upwards), searched with `bsearch` (comparator `0x098a0d04`). Two families (`tbl098cd540`, `tbl098cdd10`) hold two tables chosen by variant. The default attach table `0x098ccbac` has six entries; ids below `0x29` are plain node indices. The family-to-character mapping of the generated rows comes from the set-up routine addresses returned by `field_3d_cutin_get_chara_setup` lying just before each family's first function (medium).
+
+Timed frame events (`field_3d_cutin_default_frame_events`), by motion id range: 0xd5..0xe6 LP roll at frame 10; 0x82..0x85 LP roll at frame 0x19 then a 60-frame fade-out (and a 16-frame fade-in when the motion ends); 0x32..0x3a and 0x3e..0x54 LP roll at frame 0x19; 0x104..0x114 and 0xba..0xc3 ATK/DEF panel of card `+0x160` on the last loop frame. Motion 0xe7 collects the deck card ids for its effect (`field_3d_cutin_collect_deck_card_ids`).
+
+#### Duel board (rel_duel_draw)
+
+Card object (`0xb0` bytes; pool of `0x140` at `0x098d5db0`, free list head `0x098e39b0`; zone list heads are full objects used as sentinels at `0x098e3a60 + duelist x 0xb00 + zone x 0xb0`, 4 duelists x 16 zones; view side -> duelist map `0x098e6664`):
+
+| Offset | Meaning |
+| --- | --- |
+| `+0x00` / `+0x04` | list links (next is `+0x04` in traversals) |
+| `+0x10` / `+0x20` / `+0x30` | current / start / target position (vec4) |
+| `+0x40` / `+0x50` / `+0x60` | current / start / target rotation (quaternion) |
+| `+0x70` / `+0x74` | motion time / duration (moving while time < duration) |
+| `+0x78` / `+0x7c` | queued destination code / move kind |
+| `+0x80` | card id (u16) |
+| `+0x82` | location code (u16) |
+| `+0x84` | location code copy (u16) used by effects |
+| `+0x88` | engine instance |
+| `+0x8c` | flags: bit 0 move queued, 2 card-set fx deferred, 3 summon fx deferred, 4 placed-summon fx deferred, 5 relayout/gather pending, 6 reveal flip, 7 busy |
+| `+0x8d` | flags: bit 0 busy, 1 raised, 2 flipping, 3 revealed hand card, 4 travel fx running / hidden from pile counts, 5 orientation, 6 slide-only motion, 7 destruction deferred |
+| `+0x8e` | bit 0 rotation unchanged, bit 1 raised |
+| `+0x90` / `+0x94` / `+0x98` | effect handles (-1 none; `+0x98` = card effect task) |
+
+Location code (u16): bit 0 side, bits 1..5 zone (engine location id: 0..4 monsters, 5..9 spell/trap, 10 field, 0x0b hand, 0x0c Extra Deck, 0x0d Deck, 0x0e Graveyard, 0x0f banished), bits 6..13 index, bit 14 face orientation, bit 15 battle position (hypothesis medium: set from `duel_core_view_get_slot_position`).
+
+Board transforms (`field_3d_board_get_location_transform`): positions table `0x098cec80` (vec4 per side x 16 zones), rotation quaternions `0x098ceea0` (base), `0x098ceeb0` (bit 14), `0x098ceec0` (bit 15), `0x098ceed0` (side 1). Piles rise by `field_3d_board_get_pile_height(n)` = `0x098c4be0 + 0x098c4bdc x n / 120` (constant `0x098c4be4` from 120 cards). Hand layout: side 0 spacing 65 units (400 units for 8+ cards), side 1 spacing 70 (420 units, step 420 / n), cursor card raised. Camera: perspective near 100, far 10000, eye `0x098cef70`, up `0x098cef7c`, viewport `(0x84a, 0x7fc, 0x3c0, 0x220)` (twice the screen size, offset), restored to `(0x800, 0x800, 0x1e0, 0x110)`. Duel object models: `0x10002` mat, `0x10003` pile (animation frame = card count), `0x10021` and `0x10026` off-screen renders. Deck record read by `field_3d_board_build_deck_objects`: `+0x00` main count, `+0x08` extra count, u16 main ids at `+0x0c`, u16 extra ids at `+0xa2` (cross-check with `docs/formats/deck.md`).
+
+#### Backdrop scene record (rel_duel_draw, manager `0x098e69a0 + 0x60` = `0x098e6a00`)
+
+`+0x00` eye, `+0x10` up, `+0x20` target, `+0x30` fov, `+0x34` near, `+0x38` far, `+0x3c` fog on, `+0x40/+0x44` fog near/far, `+0x48` fog colour, `+0x4c` ambient (alpha forced 0xff), `+0x50` four light-enable words, `+0x60` four `0x3c`-byte light records. Saved for effects: view matrix `0x098e6b60`, fov/aspect/near/far `0x098e6ba0..0x098e6bac`, eye `0x098e6bb0`; aspect constant `0x098c4c8c`.
+
+`-etc` scalar track map (from `field_3d_apply_scene_etc`): 0..3 lens (focal, film width, near, far), 4 fog on, 5..7 fog RGB, 8/9 fog near/far, 10..12 ambient RGB, per light i at base `0x14 + 16 i`: +0 type, +1 enable, +2..+4 ambient RGB, +5..+7 diffuse RGB, +8..+10 specular RGB, +11..+13 attenuation (hypothesis), +14 cone angle, +15 exponent; node 0 = camera, nodes 1..4 = lights. The backdrop draws are bracketed by fog off on layer 2; extra card effects for field spells 0x1bfc, 0x1aa7, 0x1a67, 0x169f, 0x1349, 0x1346, 0x1345, 0x1323 (hex card ids of the eight ids listed in field_3d.md).
+
+#### Card effect draw tasks (rel_duel_draw)
+
+Created with `ui_duel_create_draw_task(callback, completion, arg, data size)`; the update returns the next task state (2 run, 4 finished). Float arguments of the creators (yaw, size) travel in a0 as raw bits (medium). Data layouts:
+
+- Card set (`0xb8` bytes, 16 frames, SE `0x7a17`): `+0x00` frame, `+0x04` card id, `+0x08` position, `+0x14` rotation (0, yaw, 0), `+0x20` SE flag, `+0x24` texture value (`ui_get_zone_card_scale`), `+0x28` six fan vertices (type `0x19f`, 24 bytes).
+- Summon (`0xc4c` bytes, 24 frames, SE `0x7a1c`): `+0x20` variant (0 normal, 1 placed), `+0x24` SE flag, `+0x28` texture value, `+0x2c` ring quad, `+0x8c` spark cursor, `+0x90` eight 2-vertex sprites, `+0x1d0` 32 sparks x `0x18`, `+0x4d0` 17 x `0x30` column vertices, `+0x800` 8-byte strip index list, `+0x808` particle cursor, `+0x80c` six particle quads, `+0xa4c` 32 particles x `0x10`.
+- Destroy / shatter (`0x2508` bytes, 24 frames, SE `0x7a18`): `+0x04` card id, `+0x08` position, `+0x14` Euler rotation, `+0x20` scale, `+0x2c` SE flag, `+0x30` texture value, `+0x34..` 6 x 4 x 2 shards with start position, velocity and spin, `+0x21f4` group offset, `+0x2200` velocity, `+0x220c` gravity (0, -0.5, 0), flash fan `+0x2218`, 16 dust sprites `+0x22a8..`.
+- Shared card quad `0x098e7624`: 62 x 88 units, UV +-0.4921875 (texture offset 0.5).
+Texture value use: texture scale = value / 64 + 1 (a per-zone inset of the card art; meaning of the value not confirmed).
+
+#### Name mismatches
+
+- `field_3d_node_cb_set_card_texture` (`0x098562b8`) and `field_3d_node_cb_blink_tint` (`0x09856358`) are draw-state callbacks (texture callback and batch hook), not node callbacks.
+- `field_3d_copy_scene_header` (`0x0985b9e4`) copies a `0x3c`-byte light record, not a scene header.
+- `field_3d_copy_matrix_triple` (`0x0985de6c`) copies a `0xc0`-byte camera record (three vectors + direction + two matrices).
+- `field_3d_draw_scaled_model_10003` draws the pile model with an animation frame equal to the card count; "scaled" is right but the name hides the pile meaning.
+- `field_3d_cutin_set_value_range` stores the LP roll from/to values.
+- `field_3d_set_duel_scene` (`0x0985b0ec`, 8 bytes) decompiles as the body of `field_3d_backdrop_set_scene`; skipped.
+
+#### Open questions (batch 1 (BOOT.BIN model pipeline, cut-in core, duel board, card effect tasks))
+- `field_3d_set_duel_scene` (`0x0985b0ec`): 8 bytes; probably a jump into `field_3d_backdrop_set_scene` or a shared tail (disassembly needed).
+- `field_3d_call_draw_card_quad` (`0x09864ff4`) and `field_3d_start_material_send_fx` (`0x09862c44`): argument shuffling hidden by the decompiler.
+- Meaning of the value from `ui_get_zone_card_scale` used as texture scale `value / 64 + 1` in card effects.
+- EDRAM ramp textures: confirm the cel-shading hypothesis in PPSSPP (which models set hook byte `+0x08` bit 0, and how the ramp is sampled through map mode 2).
+- `field_3d_board_resync_piles` leaves objects that no engine entry claims on a stack-local list (they are not returned to the free pool): leak or impossible case?
+- `field_3d_cutin_collect_deck_card_ids`: the sign handling of the deck-size limit (cards 0x1a7f, 0x1c31, extra deck 0x1ab1) looks odd in the decompilation; check in the disassembly.
+- Member `texture/10500.txt` used as a GIM for generic avatars: format (nested EHP or list) not checked.
+- Bit 15 of the location code as battle position: confirm against `duel_core_view_get_slot_position` values.
+- `field_3d_draw_billboard_at`: how the computed billboard matrix reaches the GUM stack (VFPU registers).
+
+### Findings from batch 2 (effect tasks, backdrop extras and change-over, cut-in effect channels)
+
+#### Duel draw-task effects (rel_duel_draw): common shape
+
+All card/duel effects in this batch are draw tasks of the task manager at 0x098e7684 (254 entries of 0x1c bytes).
+`ui_duel_create_draw_task(callback, done_cb, done_arg, data_size)` allocates a zeroed data block; the two
+middle arguments are the completion callback and its argument (confirmed by the backdrop transition creator,
+which forwards `done_cb`/`arg`, and by `field_3d_on_summon_fx_show_card_popup`, which is passed as such a callback).
+
+- Creator: `int create_xxx_task(<params>, done_cb, done_arg)`: returns the handle (index in bits 24-31) or -1, fills
+  the data block.
+- Callback: `int update_xxx(int phase, void *data)`: `phase == 1` on the first call (task state 1 "start"), used to
+  build static vertex arrays inside the data block. Returns 2 to keep running, 4 when finished (task state 4 "free").
+- Timers advance by `ui_duel_get_anim_frame_step()` (integer frames per game frame, table 0x098cff74 indexed by the
+  duel animation-speed setting) or, for model-driven tasks (coin, dice, deck shuffle), by the float
+  `ui_duel_get_anim_speed_value()` (table 0x098cff64). Effects therefore run faster at higher speed settings by
+  skipping frames, not by shortening their tables.
+- Sounds: `audio_play_se_once_at_frame(se, timer, frame, &flags, bit)` plays once per flag bit.
+- Drawing: almost always display list 5 (3D effects in the duel camera) or 7 (screen-space overlay with its own
+  fx camera); list 3 for a full-screen darkening behind the Destiny Board letters.
+- Vertex arrays are built in the data block in GE format: vtype 0x183 (float UV + float XYZ, 5 words/vertex),
+  0x19f (float UV + 32-bit colour + float XYZ, 6 words/vertex); 0x983 / 0x99f are the same layouts drawn through an
+  8-bit index list (byte pairs built in the data block to walk a grid as strips). GE primitives used: 4 triangle
+  strip, 5 triangle fan, 6 sprites.
+  Grids that are rewritten every frame are double-buffered by frame parity (two copies in the data block) because
+  the GE reads the list asynchronously.
+- Alpha is passed as the top byte of the ambient colour (`alpha << 24 | 0xffffff`).
+- fx textures are bound by index with `field_3d_dl_bind_fx_texture(list, n)` (texture-name table 0x098cfe8c):
+  used indices in this batch: 3 (glow fan), 5 (small sparkle), 10, 12 (Tribute), 0xd (particle sprite atlas),
+  0xe (Synchro burst), 0x12 (ground glow), 0x1e (duel_ouija.gim letters), 0x23 (Synchro level ring),
+  0x24 (Synchro light beam).
+
+#### Per-effect parameters (for the port)
+
+| Effect | Data size | Duration | Sounds | Notes |
+| --- | --- | --- | --- | --- |
+| Tribute (`0x09867a20`) | 0x17c4 | 32 frames | 0x7a3c at 0 | card quad fades out; 128 particle ring; 17-segment double ring strip |
+| Fusion/Synchro material (`0x098683c0`) | 0x7050 | 32 frames | 0x7a38, 0x7a3c at 0 | card face on a 17x25 grid twisted into a swirl (inner vertices faster); 32 particles pulled in from radius 130 |
+| Card travel (`0x09869654`) | 0x490 | 24 frames | none | glow head on a lerp(from, to, ease_sine) path lifted by sin(pi t/24)*150; 8-entry trail |
+| Card pop-up (`0x09869e54`) | 0x6c | open 16 frames, close 8 after close flag | none | own fx camera on list 7 at the screen point; flips in about X |
+| Coin toss (`0x098723a4`) | 0x100 | 120 time units + fades | 0x7a39 at 38 | up to 3 coins, model ids from 0x098cfb20, result applied by node hook after time 54; model frame clamped at 88 |
+| Dice (`0x0987298c`) | 0x6c | model animation per die | 0x7a3f/40/41/42/37 at 19/28/36/45/80 | model 0x1001e (kind 1) or 0x1001f; die face set by node hook after time 25 |
+| Deck shuffle (`0x09872e14`) | 0x90 | lift 8, animation, lower 8 | four random of five at 0/10/20/31 | model 0x10020; deck height scale = count/40 |
+| Fusion Summon (`0x09873274`) | 0xb5ec + 4n | 5 phases, table 0x098cfb60 | 0x7a38 at 0 | off-screen 512x512 render (VRAM 0x174000) mapped onto a 33x33 polar vortex grid |
+| Synchro Summon (`0x09874924`) | 0x186bc + 4n | 9 phases, table 0x098cfb90 | 0x7a45/0x7a38/0x7a27 at 40/50/80 | level rings (card_db_get_level of the first material word, max 8), light beam, 512-particle burst |
+| Destiny Board letters (`0x09875d74`) | 0x219c | 120 frames (180 with all five letters) | none | letters at x = 314 + (k-2)*45, y about 157 - 40 |
+| Card fx (`0x09876c28`) | 0x4944 | kind 0x14 open-ended, else 100 frames | (see below) | used by the Final Countdown win |
+
+The Fusion and Synchro tasks share a technique worth reproducing on 3DS: each frame they draw the card sprites into
+an off-screen 512x512 RGBA8888 colour buffer at VRAM offset 0x174000 (`system_ge_set_render_targets(list, 0x174000,
+-1, 512, 512, 3)`, stencil cleared), switch back to the back buffer and use that buffer as a texture on a 33x33
+polar grid whose texture coordinates are the screen projections of the grid vertices (so with no distortion the grid
+reproduces the image exactly); the vortex is then just a per-ring angular offset of the vertex positions.
+
+#### Model node hooks
+
+`field_3d_update_model(model, params)` takes a parameter record `{float step, hook, value, 0}`; the hook is called
+per node as `hook(model?, float *matrix, params)` and the coin/dice tasks use `params+8` (value) to post-multiply a
+rotation that shows the required face (coin: value 1 = rotate by the constant at 0x098c4f38 about Y; die: values
+2-6 select fixed X/Y/Z rotations, 1 = identity). The first hook argument is not used by either hook (unknown).
+
+#### Final Countdown presentation (card fx task, `0x09876c28` / `0x09876ca8`)
+
+The "card fx" task is the Final Countdown turn counter: 20 glowing points on a circle of radius 150 (tilted about X)
+drawn with an own fx camera on list 7. `kind` 1..19 lights `kind` points (the newest after frame 39, duration 100
+frames); kind 0x14 (20) lights one point every 16 frames, requests backdrop 0x169c (5788, the Final Countdown field)
+at frame 360 through `field_3d_backdrop_request`, and at frame 510 enlarges the sparks and runs a 30-frame white flash;
+`field_3d_is_card_fx_task_finished` reports completion when the end counter (+0x4940) passes 29. This is the
+"effect animation that requests id 5788 once its time passes 360" mentioned in field_3d.md (call site 0x09876e08).
+The backdrop change-over for 0x169c is the plain 60-frame fade to/from black on list 2
+(`field_3d_update_final_countdown_transition`); every other field uses the swirl transition below.
+
+#### Backdrop change-over (swirl), `0x0987a604`
+
+16 frames. Each frame the finished screen is block-copied into VRAM 0x174000 (480x272 out of the front/back buffer,
+`field_3d_dl_copy_framebuffer_to_texture`) and redrawn through a 31x21 grid of 2D vertices (s16 UV/XYZ, vtype
+0x800902, through-mode) over a black sprite on list 3. Each vertex rotates about the screen centre by
+`rate * 24` (leaving) or towards 0 (entering), `rate = c1 + c2 * (76096 - min(r^2, 76096)) / 76096`, where
+76096 = 240^2 + 136^2, so the centre swirls most; the grid is also scaled. Alpha: entering fades in over frames 0-8,
+leaving fades out over frames 8-16. Sound 0x7a3a at frame 0 unless `ui_test_set_draw_flags(8, -1)` is set.
+Answers part of the open question "the change-over task 0x0987a604 (duration, fade or wipe)": a 16-frame swirl plus
+fade (high for the structure; c1, c2, the zoom constants 0x098c5050/0x098c5054 and the target angle 0x098c504c are
+float constants not read here).
+
+#### Field-spell backdrop extras (card-specific, `field_3d_backdrop_start_extra`)
+
+All eight creators have the shape `int start_xxx_extra(int slot?, done_cb, done_arg)` (first argument stored at
+data +0, never read by the update callbacks seen here; presumably the backdrop slot, low-medium). Their callbacks
+never return 4: they run until `field_3d_backdrop_stop_extra` stops them. All use the duel camera
+(`field_3d_push_backdrop_camera_matrices`: projection from `field_3d_get_duel_projection`, view from
+`field_3d_get_duel_view_matrix`) and draw into display list 2 (Venom Swamp: list 1), with a private LCG
+(`field_3d_backdrop_extra_rand_int/unit`, constants 0x41c64e6d / 0x3039, state address not resolved).
+
+| Card | Data | What it draws | Textures |
+| --- | --- | --- | --- |
+| 0x1323 | 0x2b4 | one floating sprite at a time anchored at node 4 of the backdrop model (life 30-45 frames, bobbing) | fx 0x1f (backdrop archive) |
+| 0x1345 | 0x24ac | 420-frame loop; during frames 308-318 and 346-356 ripples, splash columns and droplet bursts at two fixed points | fx 0xc, 9, 0x20 (backdrop) |
+| 0x1346 | 0x1680 | two 64-spark sets (life 64), a scrolling two-pass band (fx 9 then additive fx 0xc), embers every 4 frames | fx 5, 9, 0xc, 0x19 (backdrop) |
+| 0x1349 | 0x4a28 | lightning bolts every 5-34 frames (10 % wide bolts at the origin), 32-frame life, ground ripples every 3 frames | fx 0x1b (backdrop), 3 |
+| 0x169f | 0xbf8 | a 600-frame ribbon re-started every 620-639 frames, plus flames every 3 frames | fx 0x1d (backdrop), 3 |
+| 0x1a67 | 0x74c | rising motes, 32 records of two, life 32, colour 0xff1830ff | fx 5 |
+| 0x1aa7 | 0x169c | dust puffs every 4 frames (128 records, life 512), position 0x098d0000 | fx 5 |
+| 0x1bfc | 0x484 | bubbles in three rectangles every 30-59 frames, 8-frame sprite animation | fx 0x22 (backdrop) |
+
+Extractor-relevant: `field_3d_dl_bind_fx_texture` looks the name up in the 36-entry table 0x098cfe8c and takes the
+member from the backdrop archive `duel/bg/fmagic<card>.ehp` for indices 0x19 (0x1346), 0x1b (0x1349), 0x1d (0x169f),
+0x1f (0x1323), 0x20 (0x1345) and 0x22 (0x1bfc); index 0 from the icon archive; every other index (including 0x1a,
+0x1c, 0x1e = duel_ouija, 0x21) from duel archive 0x80001. Correction to field_3d.md ("0x19-0x22 are the per-card
+field textures"): only those six indices are; the others in that range come from the duel archive (high, from the
+code). There is no null check when the backdrop archive is not loaded yet.
+
+#### Cut-in effect channels
+
+A cut-in slot (400 bytes, 0x098d4d60) has three effect channels, each pointing at a 0x18-byte fx slot from the pool
+at 0x098e937c (4 slots; part of the 0x124-byte block 0x098e9370 cleared by `field_3d_clear_cutin_fx_slots`):
+
+| Channel | Start | Stop | "phase" setter |
+| --- | --- | --- | --- |
+| +0xb8 main | `field_3d_start_cutin_fx` (switch on animation id → creator family) | `field_3d_stop_cutin_fx` | `field_3d_set_cutin_fx_phase` |
+| +0xbc extra | `field_3d_start_cutin_extra_fx` (per character: 0x2b, 2, 9, 0xc, 0x29, 0x25) | `field_3d_stop_cutin_extra_fx` | `field_3d_set_cutin_extra_fx_phase` |
+| +0xc0 aux | `field_3d_start_cutin_aux_fx` (always `ui_start_anim_cue_task`) | `field_3d_stop_cutin_aux_fx` (also stops all SE) | `field_3d_set_cutin_aux_fx_phase` |
+
+fx slot layout: +0x00 task handle (-1 = free), +0x04 "advanced" flag written every tick by the phase setters
+(the fifth argument, t0, of the frame hook = cut-in +0x174, set when the integer animation frame advanced), +0x08
+character, +0x0c variant, +0x10 animation id, +0x14 cut-in pointer. The fx tasks step their timers only when +4 is 1,
+so they stay locked to the cut-in animation rather than to wall time (medium: the t0 mapping comes from the documented
+call `field_3d_cutin_call_frame_hook(cutin, +0x50, trunc(+0x54*fps), frame, +0x174)`).
+
+Words of the block 0x098e9370 used as creator arguments: +0 (0x098e9370) for anim3e_54, +4 (0x098e9374, set by
+`field_3d_set_cutin_fx_word_04`) for anim107_114, +8 (0x098e9378, `field_3d_set_cutin_fx_word_08`) gates animd5_e6.
+
+Speed lines: `field_3d_start_cutin_fx` ends with `ui_fade_speed_lines(0x60)` (0 for character 0x25's 0x1da-0x21e
+group) when an effect started, else `ui_fade_speed_lines(0xff)`, with exceptions listed in its row.
+
+The anim18_31 and anim55_71 effects are hand trails: positions of attach point 0x2a (and scene node 0x17) are kept as
+a history of up to 32 points, smoothed with `system_spline_build`/`system_spline_eval` (8 samples per segment) and
+extruded into 3- or 5-sided ribbons; their distortion halos sample the captured screen (VRAM 0x174000).
+
+#### Render-state helpers (rel_duel_draw)
+
+- Display lists (system_ge_select_layer indices): 1 and 2 backdrop/extras, 3 full-screen underlays, 5 duel 3D
+  (viewport centre 0x84a/0x7fc, size 0x3c0 x 0x220), 7 overlay (centre 0x800/0x800, 480x272), 8 cut-in effects.
+  `field_3d_reset_fx_display_lists` resets 1, 2, 3, 5, 7, 8 each frame (from `ui_duel_run_draw_tasks`).
+- Off-screen buffers in VRAM: 0x174000 (512x512 RGBA8888, effects and screen captures) and 0x160000 (128x256
+  RGBA8888, card face rendered by `field_3d_dl_bind_card_face_texture` mode 0). The two display buffers are at EDRAM
+  +0 and +0x88000 (512x272x4) and swap by frame-counter parity.
+- `field_3d_setup_fx_camera` viewport centre = (cx + 0x710, cy + 0x778); the effects pass (0x13a, 0x84), i.e. the
+  screen centre (0x84a, 0x7fc). The default fx lens: near 100, far 10000.
+- Billboards: `field_3d_make_rotation_only_matrix` = transpose of the view matrix with translation removed, from the
+  current view (`field_3d_get_view_rotation_matrix`), the cut-in camera (`..._main_camera_...`) or the duel camera
+  (`..._backdrop_view_...`).
+- Matrix save/restore around the cut-in layer: `field_3d_save_matrix_state` keeps the four GU matrices at
+  0x098e9260/0x098e92a0/0x098e92e0/0x098e9320 and the perspective at 0x098e9360..0x098e936c;
+  `field_3d_set_fx_perspective`/`field_3d_restore_fx_perspective` use a second copy at 0x098e924c..0x098e9258.
+
+#### Random generators
+
+Three copies of the same LCG (x = x * 0x41c64e6d + 0x3039, value = (x & 0x7fffffff) >> 16, unit = value / 32767):
+`field_3d_fx_rand_*` (duel effects), `field_3d_backdrop_extra_rand_*`, `field_3d_cutin_fx_rand_*`, plus
+`system_effect_rand_*` in the card tasks. The decompiler shows their state address as `*(0 * 0xc)`, so whether they
+share one state word is unknown (read from the disassembly).
+
+#### Name mismatches
+
+- `field_3d_mul_matrix3_by_axis_rotation` always rotates about X (same as `field_3d_mul_matrix4_by_rot_x`, 3x3).
+- `field_3d_set_cutin_fx_phase` / `_extra_fx_phase` / `_aux_fx_phase` store the per-tick "frame advanced" flag,
+  not a phase number (medium).
+- `field_3d_push_saved_matrices` only pushes and marks the current matrices dirty; no load of the matrices kept by
+  `field_3d_save_matrix_state` is visible (medium; a VFPU load could be hidden).
+- `field_3d_is_card_popup_shown` returns true once the pop-up has finished opening (or no longer exists).
+- `field_3d_card_fx` family (create/update/is_finished) is specific to the Final Countdown counter in practice
+  (only caller `ui_start_final_countdown_win_fx`); a name such as `field_3d_*_final_countdown_fx` would be clearer.
+
+#### Open questions (batch 2 (effect tasks, backdrop extras and change-over, cut-in effect channels))
+- The float constants that define several effects were not read (0x098c4ee4-0x098c5064, 0x098c5e48-0x098c5e64,
+  0x098cfb20 coin model ids, 0x098cfb30/40 deck positions, 0x098cff50 shuffle sounds, the timing tables 0x098cfb60
+  and 0x098cfb90): dump them from BOOT data to get exact sizes/angles/durations for the port.
+- Hidden float arguments: the lerp factor in `field_3d_update_deck_shuffle`, the bolt offset in the Mystic Plasma
+  extra, the drift vector in the Jurassic extra, the bubble position in the Venom Swamp extra, the texture
+  offset/scale passes in the Pandemonium and Mystic Plasma extras, and the rise-speed input in the Mausoleum extra.
+- `field_3d_create_material_fx_task_with_card` (0x09868478): which register carries the zone-scale word it stores at
+  +0x30 (skipped).
+- The first argument of the backdrop-extra creators (stored at +0, unused by the updates).
+- GE state indices used with `system_ge_enable/disable` (0..0x15) are the game's wrapper numbering; map them to GE
+  commands (state 7 is enabled by the Chorus and Venom Swamp extras, presumably fog; state 9 texturing, 1 depth test,
+  4 blending, 3 stencil) from the wrapper in BOOT.BIN.
+- What `ui_test_set_draw_flags(8, -1)` tests before the change-over sound.
+- Whether the three LCG copies share a state word.
+
+### Findings from batch 3 (cut-in effect animations, archive loading, rel_field rendering)
+
+Scope of this pack set: the end of `rel_duel_draw` (cut-in effect tasks `0x09884584`-`0x09895e08`, the cut-in
+aux/extra channels, backdrop and cut-in archive loading, view-matrix store, per-character cut-in callback
+blocks) and `rel_field`'s field render state, stencil shadows and map stencil passes. 129 functions read,
+7 skipped (hidden register arguments or a broken body).
+
+#### Cut-in effect slots and task protocol
+
+- Effect slots: 4 x `0x18` bytes at `0x098e937c` (allocated by `field_3d_alloc_cutin_fx_slot`, free when
+  `+0` is -1): `+0` task handle, `+4` run flag, `+8` character, `+0xc` variant, `+0x10` animation id,
+  `+0x14` cut-in (400-byte slot of `0x098d4d60`). Every effect task keeps a pointer to its slot in its data
+  (offset varies: `+0x10`, `+0x14`, `+0x18`, `+0x1c`, `+0x20`, `+8`).
+- Creation: `ui_duel_create_draw_task(update, a, b, size)`; `field_3d_start_cutin_fx` passes `a = b = 0`.
+  Data sizes range from `0x24` (sound-only) to `0x21a24` bytes (`anim3e_54_v1`, double-buffered tunnel).
+- Update callback `int update(int state, int *task)`: `state == 1` on the first call (meshes, index strips and
+  random tables are built then); returns **2** to keep running and **4** when finished (task-manager states
+  of `0x098e7684`: 2 run, 4 free). The aux/cue callbacks (`field_3d_draw_cutin_aux_fx`,
+  `field_3d_update_cutin_attach_flash`) take a third argument (the fx slot) and always return 2.
+- Common timing record at the start of the task data: `+0` wait counter, `+4` start frame, `+8` elapsed,
+  `+0xc` length, filled by a per-family `field_3d_get_cutin_fx_timing_*` function. The effect appears when
+  wait counter == start frame; afterwards elapsed counts up to the length. **Both counters advance only while
+  the slot's run flag (`+4`) is 1**, so a paused cut-in pauses its effects (high). Typical fades:
+  `ui_duel_ease_sine(elapsed, 8)` in, `1 - progress(elapsed - (length - 8), 8)` out (16 frames in some).
+- Families (animation id -> creator; timing in the rows): `0x18-0x31` (anim18_31, earlier pack),
+  `0x24-0x26/0x6a/0xce/0xcf/0xee/0xef` anim24_ef, `0x32-0x3a/0x44-0x47/0x84` anim32_47,
+  `0x3e-0x54/0x82-0x85` anim3e_54 in 9 variants chosen by the word `0x098e9370`, `0x81-0x97` anim81_8f,
+  `0x72-0x80/0x8e/0x8f/0xa3-0xb5` anima3_b5, `0xb1-0xb9` animb1 (only for the (character, variant) pairs of
+  `field_3d_cutin_has_fx_animb1`: 5/0, 0x14/2, 0x12, 0x19, 0x21), `0xba-0xc3/0x104-0x114` anim107_114 (mode
+  from `0x098e9374`, card id from cut-in `+0x160`), `0xd5-0xe6` animd5_e6 (only when `0x098e9378 == 1`),
+  `0xe7` anime7 (card burst, list at `0x098e93f0`/`0x098e93f4`, max 40), `0x1da-0x21e` anim1e3_21e (duel-disk
+  flash, sets the disc flag), `0x199-0x2b3` sound-only task (clears the disc flag).
+- Sound effects used: `0x7a28` (anim32_47, anim3e_54 variants), `0x7a1b` (anim81_8f, anima3_b5, animb1_v1 for
+  character 0x29/1), `0x7a27` (animb1), `0x7a1c` (anim107_114), `0x7a29` (animd5_e6, started and stopped),
+  `0x7a2a/0x7a2b/0x7a2c/0x7a2d` (disk flash / sound-only), `0x7a3d` (card burst), `0x7a45` (extra B),
+  `0x7a19` (attach flash), `0x7a17` (aux layer fade).
+- The "disc flag" (cut-in `+0x168`): set to 1 by `field_3d_update_cutin_fx_anim1e3_21e` at its start frame,
+  cleared by `field_3d_update_cutin_sound_fx` and by `field_3d_start_cutin_fx` before creating anim1e3_21e;
+  `field_3d_draw_cutin_aux_fx` turns its pulsing two-fan glow at attach point 0x2b on/off from it. That this is
+  the duel-disk light is a hypothesis (medium).
+
+#### Effect rendering recipes (for the port)
+
+- All effect geometry goes to GE layer 8 (`system_ge_select_layer(8)`), textures from the fx texture table
+  (`field_3d_dl_bind_fx_texture(list, i)`, names at `0x098cfe8c`); indices seen here: 3 (soft flash), 5
+  (debris), 9, 0xc (tunnel/streak textures), 0xd, 0xe (sparks), 0xf, 0x10, 0x14, 0x15 (beam), 0x17, 0xb.
+- Recurrent meshes built at `state == 1`: a "tunnel" of 49 rings x 33 vertices (radius 220, z 0 to -6000,
+  origin (0, 120, 160), 6-word vertices u, v, colour, x, y, z, vertex type `0x119f`, 16-bit index strips of
+  0x42 indices per ring pair) with a scrolling texture offset; a 33 x 33 screen disc (radius 800); 4 x 2
+  atlas-cell quads (u step 0.25, v step 0.5); ribbons of 7-9 vertex pairs.
+- Particles live in fixed rings of records (8, 12, 16, 24 or 32), one record filled per frame, each with a
+  frame counter and a live bit (bit 0 of word 1); a record dies after its ease length (8-32 frames).
+- Random numbers come from the local LCG copies `field_3d_cutin_fx_rand_int` / `_rand_unit`, so the effects are
+  not reproducible frame-for-frame unless the seed is matched.
+- Stencil masking for anim3e_54 (`field_3d_begin_cutin_fx_stencil_mask`, skipped for id 0x3f): a full-screen
+  sprite writes stencil 0xff where it passes depth function 2 against the current depth buffer, then effects
+  draw with stencil EQUAL 0xff. Interpretation (effects only where the character is not, medium).
+- Frame-buffer effects: radial blur (anim81_8f: 16 scaled redraws of a projected fan sampling the copied frame
+  buffer), heat haze (anim3e_54 v4/v5: 9 x 9 or 16 x 16 through-mode grids with +/-2 pixel jitter,
+  double-buffered by frame parity), zoom blur through the off-screen target `0x174000` (512 x 512, format 3)
+  in anim24_ef for id 0x6a, glow tiles (anim3e_54 v0: 8 x 9 tiles of 64 x 32).
+- Screen projection used by several effects: `x_screen = x/w * 240 + 2048 - 0x710`,
+  `y_screen = -y/w * 136 + 2048 - 0x778` (GE offset 0x710/0x778, viewport centre 0x800).
+- `field_3d_dl_disable_depth_test` ignores its second argument (callers pass the animation id).
+- GE enable/disable state numbers match the GU enums: 1 depth test, 2 scissor, 3 stencil, 4 blend, 5 cull,
+  7 fog, 8 clip planes, 9 texture, 10 lighting, 11-14 lights 0-3.
+
+#### Extra and aux channels
+
+- Extra channel (cut-in `+0xbc`, `field_3d_start_cutin_extra_fx`): A = bone glow on the main-scene duellist
+  model (node lists `0x098d00f0`, `0x098d0120`, `0x098d0130`, `0x098d0138`, `0x098d0148`; characters 2/2, 0x2b,
+  0xc, 0x29 and others; length -1 = until stopped), B = two glints transformed by main-scene nodes (nodes at
+  `0x098d015c`; characters 9 and 2/0), C = 60-frame screen flash plus two node glows (nodes at `0x098d0154`).
+  The per-character cut-in blocks start it in their motion-start callback, stop it in motion-end and set its
+  phase (`+0xbc` slot word +4) in the frame hook.
+- Aux channel (`+0xc0`): `ui_tick_anim_cue_task` calls `field_3d_draw_cutin_aux_fx` and
+  `field_3d_update_cutin_attach_flash` with the slot. `field_3d_cutin_aux_fx_layer_hook` is a model draw hook
+  that fades in model layer 0xb (lighting on, lights 0-3 off, ambient alpha ramp) with timing from
+  `field_3d_cutin_aux_fx_set_fade_timing` (globals `0x098e93dc`-`0x098e93ec`).
+
+#### Cut-in archive loading (extractor-relevant)
+
+- Loading slots: count `0x09bdcf50`, 0x2c-byte slots at `0x09bdcf54`: `+0` character, `+4` variant, `+8`
+  cut-in archive buffer, `+0xc` base archive buffer, `+0x10` cut-in loading, `+0x14` base loading, `+0x18`
+  cut-in loaded, `+0x1c` base loaded, `+0x20` face/voice pending, `+0x24` face loading, `+0x28` voice loading.
+  One heap block (`0x09bdd004`, 0x483000 bytes or 0x2ff000 in setup mode 2) holds all buffers.
+- Buffer sizes = maximum file sizes: base (portrait) archive 0x4800 bytes (0x20c00 for generic characters),
+  cut-in archive 0x17b000 bytes, backdrop archive 0x80000 bytes (`duel/bg/fmagic%04d.ehp`, fallback
+  `fmagic0000`). All cut-in files load from root 4, backdrops from root 3.
+- Base archive path = prefix `0x098d1e38` + `world_get_character_mini_bup_name` + suffix `0x098d1d4c`.
+  Cut-in archive name = `world_get_character_cutin_name(character, variant)` with fallbacks (variant 0, then
+  character 2/0) and two hard-coded names (character 0x29 variant 0, character 0x27).
+- Generic characters' cut-in archives contain two **placeholder members** that are overwritten at run time
+  (Ghidra labels `s_texture__10500_txt` and `s_voice__10000_txt`): a face texture of up to 0x10500 bytes loaded
+  from `cutin/da_faces/` + a body folder (`DA_girl`, `DA_boy_B`, `DA_boy_Y`, `DA_boy_R` by byte 1 of
+  `world_get_character_model_ids`) + a number from byte 2, and a voice archive of up to 0x10000 bytes (a
+  `zakov%02d`-style name with 0x32 + voice set index; a fixed message archive for character 0x29), which is
+  then bound as an EHP inside the member. The extractor must treat those members as slots, not content.
+  Exact punctuation of the labelled strings must be read from the binary (labels only seen here).
+- Characters equal to 1 never get a cut-in archive, and no cut-in archives are loaded during network play.
+- Possible overlap: for generic characters the cut-in buffer starts 0x20c00 bytes into the slot but the
+  cursor only advances 0x17f800, leaving 0x1c400 bytes shared with the next slot's base buffer (see open
+  questions).
+
+#### Duel object models and view matrices
+
+- Duel object table `0x098d0960`: 40 x 0x18 bytes (`+0` id, `+4` archive flag, `+8` TMS name, `+0xc` TMT name
+  (bound with `field_3d_set_animation` when its magic is 'TGMT', else passed to
+  `field_3d_create_model_instance` as its second argument), `+0x10` TMA name, `+0x14` cached instance).
+- Saved view matrices: 3 x 0x40 at `0x098e99e0` (board, backdrop, cut-in cameras via
+  `field_3d_store_view_matrix(index)`).
+- Cut-in camera (`field_3d_apply_cutin_camera`) matches the existing doc row; the aspect 1.7647 is at
+  `0x098c5f90` and the focal constant at `0x098c5f94`.
+
+#### rel_field: field render state and stencil passes
+
+- The free-roam field uses an **orthographic** projection (`ortho(-240, 240, -136, 136, -10000, 10000)`
+  times the scale vector `0x090fcb80`), depth function GEQUAL with depth range 0xffff..0 (reversed), fog
+  50..100 colour 0x404040 (state set but fog disabled), culling on (high).
+- Camera: target = player position, eye = target + offset `0x090f3e30`, up `0x090fcb90`, plus a shake vector
+  `0x09106730` while `0x09106710` is set; the eye is copied to `0x09106740`.
+- Stencil shadows (characters/objects): `field_3d_set_shadow_basis(light_dir)` builds a matrix at
+  `0x09105ac0`; `field_3d_begin_shadow_stencil` clears stencil and masks colour/depth writes;
+  `field_3d_draw_shadow_volume(radius, list, pos)` draws a fixed volume mesh (strip of 0x30 vertices at
+  `0x090fc200` + 0x48 triangle vertices at `0x090fc5c0`, vertex type 0x143) twice, INCR with front face 1 and
+  DECR with front face 0 (z-pass); `field_3d_resolve_shadow_stencil` fills stencil > 0 with 0x80000000.
+- Map stencil volumes: same scheme with the mesh at `0x090fd1d0`/`0x090fd248` (vertex type 0xa1), special
+  scales for map 3 and for maps 0xd-0x14/0x26 at one grid position; closed by a pulsing tint
+  (`field_3d_draw_stencil_pulse_overlay`: colour 0x8080ff, alpha 32..64 with a 40-frame period).
+- `field_3d_map_stencil_draw_callback` makes a map material write stencil 1 (colour/depth writes masked,
+  phase 0) and restores writes in phase 1; its phase arrives in t0 (fifth argument).
+
+#### Name mismatches
+
+- `field_3d_lookup_pose_table_b`..`_e` / `field_3d_search_pose_table_*`: these are attach-offset lookups (same
+  0x20-byte entries and comparator `0x098a0d04` as `field_3d_cutin_*_lookup_attach_offset`), not pose tables.
+- `field_3d_draw_cutin_aux_fx` both updates and draws (state from the disc flag); fine as is.
+- `field_3d_map_material_dd_callback`: "dd" is unexplained; it toggles one GE state for materials whose name
+  contains one of four substrings.
+- `field_3d_search_pose_table_*` return the bsearch result although Ghidra types them void.
+
+#### Open questions (batch 3 (cut-in effect animations, archive loading, rel_field rendering))
+- `field_3d_map_material_dd_callback`: which GE state is toggled (argument hidden) and what the four name
+  substrings at `0x090fd16c`-`0x090fd184` are.
+- `field_3d_set_map_variant_group_mask` (`rel_field:0x090da484`): body lost in the decompilation; read the
+  disassembly.
+- `field_3d_lookup_pose_table_a` (17 tables, `0x098d3e50`-`0x098d48b0`): which table is searched (hidden).
+- Cut-in loading block: is the 0x1c400-byte overlap for generic characters real (buffer 0x20c00 + 0x17b000 >
+  stride 0x17f800), or are generic cut-in archives always smaller than 0x15ec00 bytes? Check file sizes.
+- Backdrop archive slot `+0x10`: never set in the code read here, so the release-pending path may be dead.
+- `field_3d_get_cutin_sound_fx_timing`: ids 0x1bf, 0x24c, 0x294 set a start frame that is then overwritten
+  (start = previous sound frame + 8); a bug in the original (medium) — confirm in PPSSPP.
+- The off-screen render target `0x174000` used by anim24_ef (id 0x6a): what is read back from it.
+- Confirm in PPSSPP that anim3e_54's stencil mask keeps the effects behind the character.
+
 ## Open questions
 
 - Answered 2026-10-31 (static, high): `field_3d_update_model` advances 1.0 frame per game frame for backdrops and cut-ins, at a game rate capped at 29.97 per second ("Frame timing and playback rate"); the backdrop loops (flags 2), the cut-in plays once (flags 0). Still to confirm in PPSSPP (F10): the effective rate during a duel, which may drop under load.
 - Answered 2026-10-31: the loader of `duel/bg/fmagic<id>.ehp` and the caller of `field_3d_apply_scene_etc` ("Field-spell backdrop manager").
 - Which ids engine command `0x13` carries (the sender of draw command 7 is now known, "Field-spell backdrop manager"): field spell resolved, field spell leaves the field (presumably 0, low); trace the `0x13` pushes in `rel_duel_eng` or break on `0x09899cdc` in PPSSPP.
-- What the eight card-specific extras (`field_3d_backdrop_start_extra`) draw, and the change-over task `0x0987a604` (duration, fade or wipe).
-- Texture-mapping callbacks `0x0882ef50` / `0x0882f050` (layer types 1/2).
-- How the group mask `inst+0x64` reaches the draw hook (`hook+0x10`).
+- ~~The change-over task `0x0987a604`~~: answered 2026-11-04 (batch 2 findings): 16 frames, a screen capture redrawn through a 31 × 21 swirl grid while fading to or from black; backdrop `0x169c` uses a plain 60-frame fade. The eight card-specific extras are described per card in the same findings (static read; not every float constant is read).
+- ~~Texture-mapping callbacks `0x0882ef50` / `0x0882f050`~~: answered 2026-11-04 (batch 1 findings, "Texture-map callbacks and the EDRAM ramp"): type 1 is camera-driven environment mapping with lights 2/3, type 2 light-0-driven mapping, optionally against a 64 × 32 EDRAM ramp (cel-shading hypothesis, medium).
+- ~~How the group mask `inst+0x64` reaches the draw hook~~: answered 2026-11-04: it is word 4 of the instance draw state `inst+0x54` passed to `field_3d_draw_pass`, and it is a hide mask.
 - The unread `-etc` tracks (84-track 13–19, 42-track 4–9) and the purpose of `.vtmt`.
 - Role of `.tmf` (with `.ehf`, covered separately).
 - The remaining open fields listed in `docs/formats/tgm.md`.
+- The open questions of the 2026-11-04 batches (above, per batch): the state word of the cut-in effect random generators, float constants of the effect recipes, the possible `0x1c400`-byte slot overlap of generic characters' cut-in archives, and the latent `field_3d_pose_nodes_blend` track-index issue.
