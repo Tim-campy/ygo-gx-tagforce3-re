@@ -18,7 +18,7 @@ Two per-player blocks of `0xb3c` bytes; player `p` (0 or 1) starts at about `0x0
 | `0x09e2a54c` (`+0x24`) | Lost flag (deck-out): the other side wins with reason 2 when it is set | `duel_core_check_win`; written (= 1) by the draw command `0x56` handler `duel_core_cmd_draw_cards` (`0x09dbb7d8`) when the side must draw from an empty Deck (`+0x10` = 0), found in the 2026-10-31 documentation round (H, code). |
 | `0x09e2a554` (`+0x2c`) | Card id of a special-victory monster whose battle damage won the duel (reason 8) | `duel_core_cmd_lp_loss`. |
 | `0x09e2a558` (`+0x30`) | Win reason of this side after the duel is decided | `duel_core_check_duel_end`, command 5. |
-| `0x09e2a648` (`+0x120`) | Player flags word, laid out as a twelfth slot flag word (`+0x10 + 11 × 0x14`); the upper 16 bits are per-turn and cleared by command 2 together with the slots' upper halves. Bit 0 skip the draw; bit 16 a summon was declared; bit 17 Normal Summon used; bit 21 a monster was Normal Summoned face-up | `summon.md` (H for bits 0, 17 and the reset). |
+| `0x09e2a648` (`+0x120`) | Player flags word, laid out as a twelfth slot flag word (`+0x10 + 11 × 0x14`); bits 16–31 are per-turn and cleared by command 2 together with the slots' upper halves. Bits 0 skip the draw, 1 hand public, 2 hand card shown, 3 Deck must be shuffled, 16 summoned, 17 Normal Summon used, 18 attack declared, 19 a battle reached damage calculation, 20 Main Phase 1 no longer at its start, 21 Normal Summoned face-up, 22 Special Summon cap reached, 23 turn skipped, 24 own monster sent to the Graveyard, 25/26 Spell/Trap activated | `formats/duel-runtime.md`, "Player and slot flag bits" (H except bits 2, 19, 22 purpose: M). |
 | `+0x124`, `+0x304`, `+0x4e4`, `+0x55c`, `+0x7b4` | Hand, deck, extra deck, graveyard, banished lists: 4 bytes per card; capacities from the layout 120, 120, 30, 150, 150 (M) | `duel_core_get_location_entry`. |
 | `0x09e2a55c + i × 0x14` | Field slot `i`, 20 bytes each: slots 0–4 are the monster zones, 5–9 the spell/trap zones, 10 the field-spell zone | `duel_effects_target_filter` limits zone classes by these index ranges. |
 | slot `+0x00` | Card id (`u16`, low 14 bits) | Read with `& 0x3fff`. |
@@ -297,7 +297,7 @@ Workers documented in this round:
 
 - **Drawing.** `duel_core_draw_cards_ex(side, count, by_effect, quiet)` (`0x09c28f44`) is the body behind every draw. It returns 1 when the cards are drawn, −1 when the Deck is too small (command `0x56` still sets the lost flag), and 0 when the draw is replaced by a mill or blocked (commands `0x2e`/`0x2f`). It raises timing event `0x1a` per card, and the triggers that react to drawing run only when `quiet` is 0.
 - **Summon gate.** `duel_core_is_summon_kind_allowed(side, kind_mask, card)` (`0x09c0bdec`) is shared by the five `can_*_summon` checks. It covers rule modes 4, 5 and 6 of `0x09e02cac` (no Normal Summon or Set, no Special Summon, no Set) and about 40 lock cards.
-- **End of duel.** `duel_core_record_duel_result` (`0x09be4648`, exported to `rel_duel_mgr`) writes the result block, experience and save statistics. It calls `duel_core_check_duel_condition` (`0x09be3bc0`), which evaluates the challenge selected by the save's record table word `0xa4`: about 115 conditions over duel statistics, results, turn counts, cards used and save progress.
+- **End of duel.** `duel_core_record_duel_result` (`0x09be4648`, exported to `rel_duel_mgr`) writes the result block, experience and save statistics. It calls `duel_core_check_duel_condition` (`0x09be3bc0`), which evaluates the challenge selected by the save's record table word `0xa4` (byte `+0x290`): about 115 conditions over duel statistics, results, turn counts, cards used and save progress. The index is the Duel Record screen's active challenge; every condition, the writer and the reward are in "Duel challenges" below.
 - **View wrappers.** `duel_core_view_get_zone_highlight_states` returns the slot relation table of `duel_core_build_slot_relation_table` (`0x09c0a174`). The values are 7 blocked, 6 marked by the card, a link kind, and `| 0x100` targeted.
 
 ### The last default-named functions (2026-11-04, round 5)
@@ -319,7 +319,134 @@ The six `duel_core` and the one `duel_effects` function that still had Ghidra de
 - The direction of each forced position in `apply_forced_positions` (which cards force Attack and which force Defense) is read from the compare logic (M); confirm in PPSSPP.
 - `timing_event_allows_card_response` returns at once on event codes 1 and 5 (duelist kind 1, the CPU), so it does not look at later events in the queue. Is that intended?
 - The last two arguments that `duel_core_filter_valid_attack_target` passes to `is_valid_attack_target`, and the pass-through arguments of `duel_core_view_can_activate_slot_card` and `duel_core_call_face_change_hook`, are hidden by the decompiler; read the disassembly.
-- The extra duel result values 1–3 used by `record_duel_result` (`0x09e02cb0`). (The function `0x09be26f4` it calls is `duel_core_update_duel_records`, above.)
+- ~~The extra duel result values 1–3 used by `record_duel_result` (`0x09e02cb0`)~~: 1 won, 2 lost, 3 draw (`duel-runtime.md`; the win, loss and draw branches in "Duel challenges"). (The function `0x09be26f4` it calls is `duel_core_update_duel_records`, above.)
+
+## Duel challenges (`duel_core_check_duel_condition`)
+
+Settled statically on 2026-11-04 (port blocker B2; capstone on `rel_duel_eng`, `rel_duel_mgr`, `rel_duelrecord`, Ghidra C of `rel_duel_eng` and `rel_duel_mgr`). The condition index is the **active challenge** of the Duel Record screen. It is not a story feature and not a duel bonus.
+
+### The feature
+
+- **Choosing a challenge.** The Duel Record screen (`rel_duelrecord`, scene "duel record", text table `database/duelrecord.ehp` `strTbl_<l>.bin`) has three lists: records (49 entries, tab 0), bonuses (83 entries, tab 1) and challenges (104 entries, tab 2). The challenge list is built at `rel_duelrecord +0x2eb0`: for `i` = 0..`0x67` it stores the challenge index `i` at entry `+0`, the state byte record table `+0x14c + i` at entry `+4` bits 0–1, and the best value record table `+0x1b8 + 2i` at entry `+0xe` (16-byte entries, pointer at module `+0x9590`, count `u16` at `+0x9586`). On tab 2 the confirm button (`thunk_system_get_confirm_button`, prompt text "Set Challenge") calls `rel_duelrecord +0x3f70`, which stores the highlighted entry's `+0` into **record table `+0x290`** (`sh $v1, 0x290($a3)` at `+0x3fcc`) and plays sound `0x7a05`. A capstone scan of every module and of `BOOT.BIN` for `lh`/`lhu`/`sh` with offset `0x290` finds this as the only writer that changes the value (`rel_duel_mgr +0x8a10` stores back the value it has just read). Nothing initialises it, so a new save (record table cleared) starts with challenge 0 active (M: the zero fill of the record table by the new-game routine is assumed, not traced). Confidence H for the writer and the list layout.
+- **Text.** Each list has a parallel `u16` table (challenges: `rel_duelrecord +0x9270`, the same 116 values at `rel_duel_mgr +0x1e844`): bit 0 = shown, bits 1–15 = row of the duel-record string table. All 104 challenge entries have bit 0 set. The rows give the name the game shows for each index; the table below paraphrases them (the port takes the text from the extracted table, row = value >> 1).
+- **Evaluation.** `duel_core_record_duel_result` (`0x09be4648`) calls `duel_core_check_duel_condition` only for a **won** duel (extra result 1), offline (`system_get_net_active_flag` 0), with default rules (set-up bytes `+0x196` and `+0x197` both 0), with set-up `+0x190` = 1 and exactly one human duelist (`0x09e01e48` = its entry). Challenges `0x18` and `0x19` are also handled in the **draw** branch (extra result 3) under the same conditions: `0x18` when the match was won (`set-up +0x191 == 2` and `duel_core_get_match_result() == 1`), `0x19` always; both then call `duel_core_update_record_best(index)` and `duel_core_set_record_flag_once(2)`. The switch reads the index as `s16` from record table `+0x290` and copies it to the set-up tail block `+0x390`; the jump table covers 0..`0x75` (`sltiu $at, $s4, 0x76` at `0x09be3c1c`), other values do nothing.
+- **Record.** When the condition holds, `duel_core_update_record_best(index)` (`0x09be2644`) compares `v` = `0x09e01e44`, the **opponent's recipe level** (`deck_get_recipe_level` of the opponent's recipe; the mean of both opponents in a tag duel, set by `record_duel_result` before the call). It records when (`v` ≠ 0 and state byte record table `+0x14c + index` is 0) or `v` > the best value `s16` record table `+0x1b8 + 2·index`: state byte 0 → 1 (and tail `+0x3c +0x210 + index` = 1, "first time"), otherwise tail byte = 2 ("again"); tail `+0x3c +0x27c + 2·index` = `v`; returns 1. Otherwise returns 0 and records nothing. Confidence H (disassembly `0x09be2644`–`0x09be26f0`).
+- **Reward.** `ui_duel_result_init` (`rel_duel_mgr`, `0x08ea2f2c`) for a local default-rules duel reads the active index from tail `+0x390`. If the challenge's text-table bit 0 is set and the tail state is 1 or 2 and the new value differs from the stored best, it shows the "New Challenge Bonus" line (result-screen block `+0x24` = 1) and adds **200 DP** to the DP sum (block `+0x10`). It then writes the best value: record table `+0x1b8 + 2·index` = the new value when the challenge was met, the old value otherwise. The duel-bonus table adds bonus 2 ("Challenge Bonus", `duel_core_compute_duel_bonuses` case 8): 2 points per challenge whose state byte `+0x14c + i` (i < `0x68`) is non-zero. The shop's pack rules read the same state bytes (`shop-rules.md`). Confidence H for the code path, M for the reading "+0x10 is DP" (the four result words `+0x08`–`+0x14` are summed and passed to `save_add_dp`).
+- **"Card used in this duel".** `duel_core_was_card_used_in_duel(id)` (`0x09dcbbcc`) tests the instance bitmap at `0x09e02f24` (512 bits, one per card instance). It is cleared by `duel_core_reset` (`0x09dc7cb0`, which zeroes `0x09e02f20`–`0x09e02ff7` together with the duel statistics) and set by `duel_core_mark_card_used_in_duel` (`0x09dcbc54`), called from three places: `duel_core_cmd_summon_finalize` (`0x09dbe274`: the instance of the summoned card), `duel_core_chain_step` (`0x09c30d04`: the card of a resolving chain link when the link's controller is the local side `0x09e02994 & 1` and the test `0x09de4a24(card id)` is 0) and `duel_core_net_process_packet` (`0x09dcd1e4`, link play). The thunks in `rel_duel_draw` (`0x098bb46c`) and `rel_duel_mgr` (`0x08eb18e4`) have no caller. So "used" means summoned (either side; the instance is tested by card id) or resolved in a chain by the local player. Confidence H for the writers, M for the summary.
+
+### Statistic indices used by the challenges
+
+`duel_core_get_statistic(i)` (`0x09dcb734`): `i` < 10 → `u32` at `0x09e02f64 + 4i`; `i` < `0x3e` → `u16` at `0x09e02f76 + 2i`; otherwise bit `i − 0x3f` of `0x09e02ff4`. The meanings come from two independent pairings that agree: the record each statistic feeds in `duel_core_update_duel_records` (record names from the duel-record text table) and the challenge text of the index that tests it. Confidence M per index (no writer traced one by one); the writers are `duel_core_set_statistic`, `_set_statistic_max` and `_add_statistic`.
+
+| Stat | Meaning | Record (`update_duel_records`) |
+| --- | --- | --- |
+| 0 | effect damage dealt (total) | part of record 5 "total damage" (0 + 1 + 2) |
+| 1 | battle damage dealt | 6 |
+| 2 | deflected (reflected) battle damage | 7 |
+| 3 | direct damage | 8 |
+| 4 | damage dealt in one turn (maximum) | — |
+| 6 | direct damage with Toon monsters | `0x1c` |
+| 7 | Life Points restored | — |
+| `0xc`, `0xd`, `0xe` | largest single damage (three sources; the record takes the maximum) | 9 |
+| `0x12` / `0x13` | opponent's monsters destroyed by effects / in battle | `0xc` / `0xb` |
+| `0x17`, `0x18`, `0x1b`, `0x1c`, `0x28`, `0x29` | Normal, Flip, Tribute, Special, Fusion, Ritual Summons | `0xf`–`0x14` |
+| `0x1a` | Tokens Special Summoned | `0x15` |
+| `0x21` | Spell Cards used | `0x18` |
+| `0x23` | Quick-Play Spells used in the opponent's turn | — |
+| `0x25` | Trap Cards activated | `0x19` |
+| `0x26` | opponent's moves countered | `0x1a` |
+| `0x2b` | chains (the challenge reads it as chain links; L for which) | `0x1f` |
+| `0x2d` | opponent's monsters banished by effects | `0xd` |
+| `0x2e` | cards discarded from the opponent's hand | `0x21` |
+| `0x33` | opponent's monsters taken over | `0x1b` |
+| `0x35` | Spell Counters used | 4 |
+| `0x36` | Union monsters equipped | `0x17` |
+| `0x3a` | coin tosses won in a row | `0x1e` |
+| `0x3f` | bit 0 of `0x09e02ff4`: the player took damage | — |
+
+### Deck statistics
+
+Deck challenges test the 0x68-byte block at `0x09e01e4c` that `duel_core_build_deck_stats` fills from the human duelist's deck (set-up entry `+0x230 + 0x1ac · 0x09e01e48`, Main and Extra Deck) before the call (`functions/duel_core.md`, `duel_core_tally_deck_card_stats`). `u16` indices: `[0]` monsters; `[1 + kind]` per `card_db_get_kind` (kinds 2/3 Fusion, 13 Spell, 14 Trap); `[0x10 + race]`; `[0x26 + attribute]`; `[0x2e]` bit `level` set for each monster level present; `[0x2f]` flags (bit 0 a non-"LV" monster, 1 a non-Elemental Hero, 2 a non-Spirit, 3 a non-Toon, 4 a card whose current limit is not 3, 5 a duplicated id, 6 an Effect Monster); `[0x30]`/`[0x31]` maximum/minimum ATK (minimum preset to `0xffff`).
+
+### Condition table
+
+"≥ n" means the statistic reached n in the won duel. Result word = `0x09e02cb4` (`duel-runtime.md`; the end-of-duel reason). Every row: code H (`0x09be3bc0`, jump table and case bodies read); the paraphrased name M–H (text row matches the condition in every row checked; differences are listed).
+
+| Index | Condition (evaluated at the end of a won duel) | Text agrees? |
+| --- | --- | --- |
+| `0x00` | stat 1 ≥ 10,000 (battle damage) | yes |
+| `0x01` | stat 2 ≥ 4,000 (deflected battle damage) | yes |
+| `0x02` | stat 3 ≥ 20,000 (direct damage) | yes |
+| `0x03` | stat 0 + 1 + 2 ≥ 50,000 (total damage) | yes |
+| `0x04` | stat `0x13` ≥ 20 (destroyed in battle) | yes |
+| `0x05` | stat `0x12` ≥ 20 (destroyed by effects) | **text says 30**; the code tests 20 |
+| `0x06` | stat `0x2d` ≥ 10 (banished by effects) | yes |
+| `0x07` | stat `0x17` ≥ 10 (Normal Summons) | yes |
+| `0x08` | stat `0x18` ≥ 10 (Flip Summons) | yes |
+| `0x09` | stat `0x28` ≥ 10 (Fusion Summons) | yes |
+| `0x0a` | stat `0x29` ≥ 10 (Ritual Summons) | yes |
+| `0x0b` | stat `0x1c` ≥ 20 (Special Summons) | yes |
+| `0x0c` | stat `0x1a` ≥ 15 (Tokens) | yes |
+| `0x0d` | stat `0x36` ≥ 5 (Union equips) | yes |
+| `0x0e` | stat 6 ≥ 8,000 (Toon direct damage) | yes |
+| `0x0f` | stat `0x21` ≥ 20 (Spells used) | yes |
+| `0x10` | stat `0x23` ≥ 10 (Quick-Play in the opponent's turn) | yes |
+| `0x11` | stat `0x25` ≥ 10 (Traps activated) | yes |
+| `0x12` | stat `0x26` ≥ 10 (counters) | yes |
+| `0x13` | stat `0x33` ≥ 10 (take-overs) | yes |
+| `0x14` | stat `0x2b` ≥ 5 ("a chain of 5 links") | yes (stat meaning L) |
+| `0x15` | stat `0x35` ≥ 10 (Spell Counters used) | yes |
+| `0x16` | stat `0x2e` ≥ 20 (opponent's discards) | yes |
+| `0x17` | stat 7 ≥ 20,000 (LP restored) | yes |
+| `0x18` | match duel (set-up `+0x191` = 2) and `duel_core_get_match_result()` = 1 ("won the match"); also checked after a draw | yes |
+| `0x19` | no case here; set in the draw branch of `record_duel_result` ("ended in a draw") | yes |
+| `0x1a` | result word ≠ `0xc` and stat `0x3f` = 0 (won without taking damage) | yes |
+| `0x1b` | stat 4 ≥ 8,000 (damage in one turn) | yes |
+| `0x1c` | stat `0xc`, `0xd` or `0xe` ≥ 8,000 (one attack or effect) | yes |
+| `0x1d` | result word = 2 (opponent decked out) | yes |
+| `0x1e` / `0x1f` / `0x20` | turn counter `0x09e2d1e0` + 1 < 8 / 6 / 4 (won within 7 / 5 / 3 turns) | yes |
+| `0x21` | result word ≠ `0xc` and the turn player `0x09e2d1d8` ≠ the local side `0x09e02994 & 1` (won in the opponent's turn) | yes |
+| `0x22` | result word = 3 (Exodia, `0xfbb`) | yes |
+| `0x23` | result word = 4 (Destiny Board, `0x1468`) | yes |
+| `0x24` | result word = 7 (Final Countdown, `0x169c`) | yes |
+| `0x25` | match duel and result word = 8 (a match-winning effect) | yes |
+| `0x26` | result word = 5 (Yata-Garasu lock, `0x14ff`) | yes |
+| `0x27` | cards `0x15b1`, `0x15b4`, `0x15f9`, `0x15fa` all used (XYZ series) | yes |
+| `0x28` | `0x1954` used (VWXYZ-Dragon Catapult Cannon) | yes |
+| `0x29` / `0x2a` / `0x2b` | `0x19a3` / `0x19a4` / `0x19a5` used (Uria / Hamon / Raviel) | yes |
+| `0x2c` | `0x19a3`, `0x19a4` and `0x19a5` all used (Sacred Beasts) | yes |
+| `0x2d` | `0x16cf` used (Ojama Delta Hurricane!!) | yes |
+| `0x2e` | `0x15ef` used (Huge Revolution) | yes |
+| `0x2f` | `0xfe9` used (Perfectly Ultimate Great Moth) | yes |
+| `0x30` | `0x111c` used (Gate Guardian) | yes |
+| `0x31` | `0x138a` used (Valkyrion the Magna Warrior) | yes |
+| `0x32` | `0x146e` used (Dark Sage) | yes |
+| `0x33` | `0x16a3` used (Dark Scorpion Combination) | yes |
+| `0x34` | `0x143f` used (Dark Scorpion Retreat) | yes |
+| `0x35` | `0x09e2d1f8` = `0xfbe` (finishing card is Skull Servant) | yes; answers `battle.md`'s question on `0x09e2d1f8` (the card that dealt the final damage, M) |
+| `0x36` | deck flag bit 6 clear (no Effect Monsters) | yes |
+| `0x37` | no monster of Level 1–4 (`([0x2e] & 0x1f) >> 1` = 0) | yes |
+| `0x38` | no monster of Level 5–12 | yes |
+| `0x39` | no monster of Level 2–12 | yes |
+| `0x3a` | monsters of every Level 1–12 | yes |
+| `0x3b` | minimum ATK ≥ 1,500 | text "none with ATK 1500 or less": the code admits exactly 1,500 |
+| `0x3c` | maximum ATK ≤ 1,500 | text "none with ATK 1500 or more": the code admits exactly 1,500 |
+| `0x3d` | maximum ATK ≤ 1 | text "none with ATK 1 or more": the code admits 1 |
+| `0x3e`–`0x43` | every monster has Attribute `index − 0x3d` (`[0]` = `[0x26 + a]`): LIGHT, DARK, WATER, FIRE, EARTH, WIND | yes |
+| `0x44`–`0x57` | every monster has Type `index − 0x43` (`[0]` = `[0x10 + r]`): Dragon, Zombie, Fiend, Pyro, Sea Serpent, Rock, Machine, Fish, Dinosaur, Insect, Beast, Beast-Warrior, Plant, Aqua, Warrior, Winged Beast, Fairy, Spellcaster, Thunder, Reptile | yes |
+| `0x58` / `0x59` / `0x5a` / `0x5b` | deck flag bit 0 / 1 / 2 / 3 clear: only "LV" monsters / only Elemental Heroes / only Spirits / only Toons | yes |
+| `0x5c` | monsters = Fusion monsters (`[0]` = `[3] + [4]`): no Main Deck monster | yes ("not including Extra Deck"); a Synchro monster (kinds 17/18) would fail it |
+| `0x5d` | no monsters at all | yes |
+| `0x5e` / `0x5f` / `0x60` | no Trap / no Spell / neither (`[0xf]`, `[0xe]`) | yes |
+| `0x61` | Main Deck count (set-up entry `+0x230`) = 60 | yes |
+| `0x62` | deck flag bit 4 clear (every card at limit 3: no Forbidden/Limited/Semi-Limited) | yes |
+| `0x63` | deck flag bit 5 clear (no duplicate id) | yes |
+| `0x64` / `0x65` / `0x66` | stat `0x1b` / `0x1c` / `0x17` = 0 (no Tribute / Special / Normal Summon) | yes |
+| `0x67` | stat `0x3a` ≥ 10 (coin tosses won in a row) | yes |
+| `0x68`–`0x6a` | no case | — |
+| `0x6b`–`0x74` | save-progress tests (every duelable character's record word 0 non-zero; all sandwiches; Golden Egg Sandwich; every variant of category-2 / of every duelable character flagged; collection ≥ 30 / 50 / 100 %; 48 packs bought; 70 gallery flags after progress flag `e9` bit 4) | **unreachable**, see below |
+
+**Unreachable cases `0x68`–`0x75`.** The selector is written only from the 104-entry challenge list, and the save arrays it indexes (`+0x14c`, `+0x1b8`) hold 108 entries, so indices ≥ `0x68` never become active. The text tables carry 12 more entries after the 104 (`0x68`–`0x73`: Special Summons by banishing from the Graveyard, database complete, sandwiches, Golden Egg, story cleared for the main / all characters, collection 30 / 50 / 100 %, all packs, all movies, and "picked up all cards" with bit 0 clear), in an order shifted by two from the code cases `0x6c`–`0x74`. They are a cut "accomplishment" set; the port can drop them or implement them as achievements. Confidence M (static: one writer, list bound `0x68` in `rel_duelrecord +0x2fe8` and `+0x3ac8`).
 
 ## Open questions
 

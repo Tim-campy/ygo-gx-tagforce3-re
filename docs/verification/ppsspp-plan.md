@@ -921,6 +921,14 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 - **Record**: the new value and `pc` after each action.
 - **Expected**: every bit appears with the action listed, written by the command handlers named in the section.
 
+### G6. *(optional, confirmation)* An active duel challenge
+
+- **Hypothesis** (settled statically, B2; `duel_core.md`, "Duel challenges"): the challenge chosen on the Duel Record screen is stored in record table `+0x290` and checked by `duel_core_check_duel_condition` (`0x09be3bc0`) after a won offline duel with default rules; a first completion writes state byte `+0x14c + i` = 1 and the opponent's recipe level to `+0x1b8 + 2i`, and pays 200 DP.
+- **Breakpoints**: execute `0x09be3bc0` (the index is in `s4` after `0x09be3c0c`) and `0x09be2644` (`a0` = challenge index; `[0x09e01e44]` = opponent recipe level), **Log** only.
+- **Steps** (about 15 min): on the Duel Record screen, Challenges tab, set challenge `0x1e` (won within 7 turns); save (`G6-a`). Win an offline free duel with default rules within 7 turns; save (`G6-b`). Optionally repeat with challenge `0x07` (10 Normal Summons) to confirm statistic `0x17`.
+- **Record**: the record table bytes `+0x290`, `+0x14c + 0x1e`, `+0x1b8 + 0x3c` in `G6-a`/`G6-b` (`save.md`, record table); the result screen's bonus lines (in your words); DP before/after.
+- **Expected**: `+0x290` = `0x1e`; after the win `+0x14c + 0x1e` = 1, `+0x1b8 + 0x3c` = the opponent's recipe level, a "New Challenge Bonus" line and +200 DP on top of the other bonuses.
+
 **Session G results**
 
 | Check | Recorded | Expected | Pass? | Notes |
@@ -930,6 +938,7 @@ Added 2026-11-04 with `docs/PORT-READINESS.md`. Each check closes one item of it
 | G3 password machine | | 6989 refused, others accepted, bit 0 only, rental entry | | rental state byte |
 | G4 story duel result | | 1 win, 2 loss | | |
 | G5 flag bits per action | | bits 18–20, 24–26; slot 25/30 | | pcs |
+| G6 challenge `0x1e` record and bonus | | `+0x14c+0x1e` = 1, level stored, +200 DP | | |
 
 ## Reporting results
 

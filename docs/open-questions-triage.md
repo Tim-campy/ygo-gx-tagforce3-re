@@ -7,7 +7,7 @@ Every bullet of every "Open questions" list in `docs/subsystems/*.md` and `docs/
 - **W** non-blocking, part of the card-effect and AI fidelity workstream: a port can implement the behaviour from the official card text and the documented engine rules; the binary only adds the original's exact numbers and quirks.
 - **N** non-blocking: fidelity detail (timing, look, unused or dead code, debug paths, Sony library internals, zero bytes, naming, link play, UI layout the port redesigns).
 
-Totals: 573 items: B 13, R 151, W 18, N 391.
+Totals: 573 items: B 12, R 152, W 18, N 391.
 
 | Document | Items | B | R | W | N |
 | --- | --- | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ Totals: 573 items: B 13, R 151, W 18, N 391.
 | `subsystems/duel_effects.md` | 32 | 2 | 5 |  | 25 |
 | `subsystems/effect-classification.md` | 5 |  | 3 |  | 2 |
 | `subsystems/effect-helpers-deck.md` | 8 |  |  |  | 8 |
-| `subsystems/effect-helpers-misc.md` | 17 | 2 | 3 | 1 | 11 |
+| `subsystems/effect-helpers-misc.md` | 17 | 1 | 4 | 1 | 11 |
 | `subsystems/effect-helpers-movement.md` | 7 |  | 1 |  | 6 |
 | `subsystems/effect-helpers-predicates.md` | 9 |  |  |  | 9 |
 | `subsystems/effect-helpers-values.md` | 6 |  |  | 1 | 5 |
@@ -675,7 +675,7 @@ Totals: 573 items: B 13, R 151, W 18, N 391.
 | 352 | The 87 records still partial reach no effect category; they need categories (new `effect_categories.csv` rows or per-card reading), not names. | W | Card-effect / AI fidelity workstream (`PORT-READINESS.md`). |
 | 353 | `card_db_get_special_summon_condition_class` (BOOT `0x0886354c`): what classes 1-5 mean (stays L until a caller is read). | N |  |
 | 354 | Resolved: `0x09be2eac` is `duel_core_compute_duel_bonuses`; its body was repaired with `tools/ghidra/FixJumpTableFunction.java` (`battle.md`, … | R | `battle.md` "Function boundaries". |
-| 355 | `duel_core_check_duel_condition` / `duel_core_was_card_used_in_duel`: which game feature the condition index at `+0x290` belongs to (duel bonuses or … | B (S) | B2: decode the condition switch of `duel_core_check_duel_condition` (`0x09be3bc0`) and the writers of the challenge index (record table word `0xa4`). |
+| 355 | `duel_core_check_duel_condition` / `duel_core_was_card_used_in_duel`: which game feature the condition index at `+0x290` belongs to (duel bonuses or … | R | B2 settled statically (2026-11-04): the Duel Record screen's active challenge (record table `+0x290`, only writer `rel_duelrecord +0x3f70`); every condition, its parameters, the record and DP reward, and the writers of `0x09e02f24` in `subsystems/duel_core.md`, "Duel challenges". Optional confirmation: PPSSPP G6. |
 | 356 | `duel_core_is_destruction_substitute`: the BOOT list `0x08861d2c` and card `0x1f0d` (unreleased) are not identified. | N |  |
 | 357 | Resolved for the battle functions (third round). Still L: `duel_core_summon_step_flip`, `duel_effects_can_target_slot`, … | N |  |
 | 358 | Resolved (sixth round): the unnamed blockers of the fifth round are named (`duel_effects_resolve_magical_hats`, … | R | Resolved in the item. |
