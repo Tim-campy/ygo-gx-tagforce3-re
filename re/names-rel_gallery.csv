@@ -76,7 +76,7 @@ address,group,name
 0x000029c4,ui,ui_gallery_play_movie
 0x00002ab8,ui,ui_gallery_reset_cursor_pulse
 0x00002acc,ui,ui_gallery_reset_cursor
-0x00002b20,ui,ui_gallery_center_cursor
+0x00002b20,ui,ui_gallery_move_cursor_to_exit
 0x00002b48,ui,ui_gallery_update_cursor
 0x00002fac,ui,ui_gallery_draw_black_screen
 0x0000306c,ui,ui_gallery_draw_dim

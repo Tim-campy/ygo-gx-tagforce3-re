@@ -45137,7 +45137,7 @@ rel_dodge:0x00009be8,world_dodge_ball_set_grid,world,documented,8
 rel_dodge:0x00009bf0,world_dodge_ball_get_pos,world,documented,20
 rel_dodge:0x00009c04,world_dodge_ball_launch_base,world,documented,176
 rel_dodge:0x00009cb4,world_dodge_ball_collide_grid,world,documented,1376
-rel_dodge:0x0000a214,world_dodge_ball_a_stop,world,documented,8
+rel_dodge:0x0000a214,world_dodge_ball_on_hit,world,documented,8
 rel_dodge:0x0000a21c,thunk_world_dodge_ball_reset,world,documented,8
 rel_dodge:0x0000a224,thunk_world_dodge_ball_nop,world,documented,8
 rel_dodge:0x0000a22c,thunk_world_dodge_ball_update,world,documented,8
@@ -48490,7 +48490,7 @@ rel_gallery:0x000029bc,ui_gallery_set_black_screen,ui,documented,8
 rel_gallery:0x000029c4,ui_gallery_play_movie,ui,documented,244
 rel_gallery:0x00002ab8,ui_gallery_reset_cursor_pulse,ui,documented,20
 rel_gallery:0x00002acc,ui_gallery_reset_cursor,ui,documented,84
-rel_gallery:0x00002b20,ui_gallery_center_cursor,ui,documented,40
+rel_gallery:0x00002b20,ui_gallery_move_cursor_to_exit,ui,documented,40
 rel_gallery:0x00002b48,ui_gallery_update_cursor,ui,documented,1124
 rel_gallery:0x00002fac,ui_gallery_draw_black_screen,ui,documented,192
 rel_gallery:0x0000306c,ui_gallery_draw_dim,ui,documented,216
@@ -59854,7 +59854,7 @@ rel_recipeviewer:0x0000280c,deck_recipe_viewer_get_owner,deck,documented,12
 rel_recipeviewer:0x00002818,deck_recipe_viewer_get_tab_count,deck,documented,92
 rel_recipeviewer:0x00002874,deck_recipe_viewer_open_dialog,deck,documented,896
 rel_recipeviewer:0x00002bf8,deck_recipe_viewer_update_dialog,deck,documented,376
-rel_recipeviewer:0x00002d70,ui_card_list_draw_sort_menu,ui,documented,44
+rel_recipeviewer:0x00002d70,deck_recipe_viewer_draw_dialog,deck,documented,44
 rel_recipeviewer:0x00002d9c,deck_recipe_viewer_draw_menu_item,deck,documented,196
 rel_recipeviewer:0x00002e60,deck_recipe_viewer_draw,deck,documented,1228
 rel_recipeviewer:0x00003338,deck_recipe_viewer_draw_background,deck,documented,188

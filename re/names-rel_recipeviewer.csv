@@ -32,7 +32,7 @@ address,group,name
 0x00002818,deck,deck_recipe_viewer_get_tab_count
 0x00002874,deck,deck_recipe_viewer_open_dialog
 0x00002bf8,deck,deck_recipe_viewer_update_dialog
-0x00002d70,ui,ui_card_list_draw_sort_menu
+0x00002d70,deck,deck_recipe_viewer_draw_dialog
 0x00002d9c,deck,deck_recipe_viewer_draw_menu_item
 0x00003338,deck,deck_recipe_viewer_draw_background
 0x000033f4,deck,deck_recipe_viewer_draw_title
