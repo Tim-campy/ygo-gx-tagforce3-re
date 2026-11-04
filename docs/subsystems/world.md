@@ -138,14 +138,14 @@ The field save block (story block `+0x345c`, `0xa8` bytes) starts with the **sto
 | --- | --- |
 | 0–2 | Always. |
 | 3–8 | Pack `p − 3` at least 50% collected: `0x090d9cec(p)` = owned cards of the pack's four tiers × 1000 / total ≥ 500. |
-| 9–14 | A shop-local value `*(0x090faa70) >> 4` equals 1–6 (source not found; else demoted to 1). |
+| 9–14 | A shop-local value `*(0x090faa70) >> 4` equals 1–6: the weekday that `world_state_start_shop` passes to `shop_lib_start` (Monday–Saturday; settled 2026-11-04, `shop-rules.md`); else demoted to 1. |
 | 15, 16 | Save flag `+0x1c0e9` bit 4 and the partner's points < 2000 (15) or 2000–4000 (16). |
 | 17–23 | Partner is character 2–8 (else 1). |
 | 24–33 | Partner in a per-pack character list (ids from 9 to 120, some with a variant condition). |
 | 34, 47 | `0x08836e10()` > 599 / > 899 (presumably a collection count). |
 | 35–38, 40 | Save counters `+0x11444` > 49,999, `+0x11448` > 99,999, `+0x1144c` > 399, `+0x11460` > 49,999, `+0x11464` > 4,499 (meaning open). |
 | 39, 43, 44, 45 | Save flag bits `+0x1c0e9` bit 5, bit 1, bit 7, `+0x1c0ea` bit 0. |
-| 41, 42 | Character 26 (variant 0) / 27 (variant 1) has row flag bit 2, combined with bit 0 of the shop byte `0x0973ad50` (set by `0x090db590(mode)`): presumably which of the two counters is open (low). |
+| 41, 42 | Character 26 (variant 0) / 27 (variant 1) has row flag bit 2, combined with bit 0 of the shop clerk byte `0x0973ad50` (set by `shop_init_clerk` from system flag 4, the daily seller pick): pack 41 on days with flag 1, pack 42 with flag 0 (high, `shop-rules.md`). |
 | 46 | Shop byte `0x090facf6` bit 0. |
 | 9–33, 47 | Also: duelist level > 20 + (p − 9) for packs 9–33, level > 49 for 47. |
 | 9–47 | Also: `0x090d9dd4()` (per mille of the flagged entries of a 104-entry list at `0x090ef208` whose byte at duel-record block `+0x494 + 0x14c + n` is set; presumably opponents beaten) above 100–1000, a threshold per pack. |
@@ -613,6 +613,6 @@ In `rel_field`: `world_field_debug_line_to_location` (`0x090cf0b8`) maps the deb
 - Where the item menu's counts live: the counters at field state `+0x94` are only decremented in `rel_story`; the field module's Item menu (and the event items 101–104, bandanna, barrette, hat, autograph) was not read. PPSSPP (Session C): buying a sandwich and giving or eating it never writes them (an eaten sandwich gives a card at once); what the menu counts is still open.
 - Which driver result queues `(301, 8/9/10/11, …)` (duel win/loss, events) and the exact role of the story flags 21–29 in `world_driver_next_event`.
 - The character-table bytes `+0x44..+0x74` in `BOOT.BIN` (no caller found; not gifts).
-- The source of the shop value `*(0x090faa70) >> 4` (packs 9–14), the meaning of the save counters `+0x11444…`, and of `0x08836e10()`. (Character-row flag bit 2 = partner story finished, above.)
+- (The source of the shop value `*(0x090faa70) >> 4` is the weekday, settled 2026-11-04.) The meaning of the save counters `+0x11444…`, and of `0x08836e10()`. (Character-row flag bit 2 = partner story finished, above.)
 - The exact EXP table (`0x08855e08` was not read in full) and the month/date mapping of calendar `+0x08`/`+0x20`.
 - Confirmed in PPSSPP (Session C): the pairing (neighbouring spots, weekly), the gift points, the partner word, DP. Answered from the code: flag 2 is cleared on paired records ("Daily schedule"), and `save_add_dp` has no second argument. Record `+0x58` (6 and 1 in PPSSPP) is the day index of the last per-slot update. The low 4 bits of the partner word (3 for Jaden) are a flag (bit 0) and the story cycle (bits 1–3; `save.md`, "Partner word").

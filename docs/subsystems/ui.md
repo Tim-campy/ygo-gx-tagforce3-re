@@ -618,7 +618,7 @@ Action masks (`duel_core_view_get_card_action_mask`): bit 0x800 = valid attack t
 - `ui_draw_badge_number_at_position`: its callers pass only two visible arguments; where the badge number (third argument) comes from needs the disassembly.
 - `ui_draw_card_texture_quad_scaled` (`0x09856400`, skipped) and `ui_duel_create_value_popup_task_moving` (`0x09871dcc`, skipped): argument order hidden by the decompiler.
 - `ui_create_wait_object`'s update callback `0x09863a94`, the card display callbacks `0x0986221c`/`0x09862214`, the arrow draw callback `0x0985d004` and the popup hold callbacks `0x09863434`/`0x0986343c` are code labels, not functions, in Ghidra.
-- `0x0989ddb8` (unnamed duel-view test used by `ui_update_zone_highlights` to force highlight kind 7).
+- `0x0989ddb8` (the duel-view test used by `ui_update_zone_highlights` to force highlight kind 7): named `duel_core_view_is_zone_usable_lenient` on 2026-11-04.
 - Meaning of `ui_get_zone_card_scale`'s ranges 0x10-0x100, 0x200-0x2000 and 0x8000 (unreachable with side 0/1).
 - `0x098e6664` (per-side deck-set index for hand/Extra/Deck objects): confirm it is the active tag duellist.
 - Which counter types 0x00-0x13 map to which counters (Spell Counters, A-Counters, ...): needs the engine side (`duel_core_view_get_counter_count_type_*`).
@@ -643,6 +643,86 @@ Scope: `rel_duel_draw` (base `0x0983fb00`), second half by address (`0x09878324`
 - Chain markers: link 1 is only remembered (`0x098e9498`, `0x098e94b0`/`b4`/`b8`); the marker of link 1 is pushed when link 2 arrives (`0x098e9494` set), so a one-link chain shows no marker. A resolving link with the shown flag plays layout `0x2000c` and pops the marker in the completion callback (8-byte heap record: u16 location code, u32 card id at +4).
 - Prompt kinds of `ui_cmd_show_prompt` (also stored as the input prompt kind `0x098e9acc`): 0 confirm, 1 confirm with 600-frame timeout (not shown when the local human is asked), 2 confirm with card info, 3 chain-response card prompt, 4 effect option list (tabs), 5 6-icon choice (phase menu, see Name mismatches), 6 Type grid, 7 Attribute grid, 8 card position yes/no, 9 plain choice, 0xa card row, 0xb number choice (arg bits 16-19 base, 20-23 step, 24-31 count, 0-15 format string), 0xd info panel, 0xe Ritual level counter. The text argument is a dialog string number when its high half is 0.
 - List kinds of `ui_cmd_open_card_list`: 1-5 browse lists (titles dialog strings `0x246 + (kind - 1) * 2 + view side`, cursor moved to zone `0xc`-`0xf`), 6/`0x4a` single pick, 7-`0x26` exact pick count, `0x28`-`0x47` 1..limit, `0x48` 0..limit, `0x4b`-`0x4e` card name declaration (`0x4e` monsters, `0x4d` monsters with frame != 3, `0x4c` any card with frame != 3, `0x4b` any card; ids `0xe88`-`0x1f39` sorted by `card_db_get_sort_position`).
+
+- The 75 records (dumped from the module file on 2026-11-04; `{s32 event, s32 arg_kind, handler}`, handler 0 = no presentation). Events `0x42`/`0x43` are not in the table (ignored); the ten null entries `0x44`-`0x4c` and `0x4e` are the events only the duel manager's voice layer consumes (`audio.md`: `0x44` summon, `0x48` card placed, `0x4c` turn end, ...). Seven handlers had no function in Ghidra and were created in this round: six that only return 1 (`ui_cmd_noop_*`) and `ui_cmd_show_attack_declaration` for event `0xc` (attack declared: attack pointer, direct-attack banner `0x2000d`, attacker/target card info).
+
+| Event | Arg kind | Handler |
+| --- | --- | --- |
+| `0x01` | 0 | `ui_cmd_show_duel_start` (`0x098996f8`) |
+| `0x02` | 1 | `ui_cmd_show_duel_result` (`0x0989976c`) |
+| `0x04` | 3 | `ui_cmd_begin_player_input` (`0x098998e0`) |
+| `0x05` | 2 | `ui_cmd_show_phase_banner` (`0x09899ab4`) |
+| `0x06` | 1 | `ui_cmd_show_turn_change` (`0x09899c24`) |
+| `0x07` | 1 | `field_3d_cmd_set_backdrop` (`0x09899cdc`) |
+| `0x08` | 3 | `ui_cmd_move_field_cursor` (`0x09899cfc`) |
+| `0x09` | 0 | `ui_cmd_noop_09` (`0x09899d44`) |
+| `0x0a` | 1 | `ui_cmd_begin_attack_selection` (`0x09899d4c`) |
+| `0x0b` | 0 | `ui_cmd_noop_0b` (`0x09899d84`) |
+| `0x0c` | 12 | `ui_cmd_show_attack_declaration` (`0x09899da0`) |
+| `0x0d` | 4 | `ui_cmd_show_battle_damage` (`0x0989a180`) |
+| `0x0e` | 1 | `ui_cmd_end_battle_phase` (`0x0989a1c4`) |
+| `0x0f` | 2 | `ui_cmd_set_life_points` (`0x0989a1e4`) |
+| `0x10` | 4 | `ui_cmd_change_life_points` (`0x0989a274`) |
+| `0x11` | 0 | `ui_cmd_noop_11` (`0x0989a2b0`) |
+| `0x12` | 1 | `ui_cmd_shuffle_hand` (`0x0989a2b8`) |
+| `0x13` | 2 | `ui_cmd_reveal_hand_card` (`0x0989a2e0`) |
+| `0x14` | 3 | `ui_cmd_show_activation` (`0x0989a350`) |
+| `0x15` | 1 | `ui_cmd_shuffle_deck` (`0x0989a394`) |
+| `0x16` | 2 | `ui_cmd_sync_board_zone` (`0x0989a3bc`) |
+| `0x17` | 2 | `ui_cmd_flip_pile_top_card` (`0x0989a3f0`) |
+| `0x18` | 3 | `ui_cmd_move_list_card` (`0x0989a424`) |
+| `0x19` | 6 | `ui_cmd_point_at_location` (`0x0989a468`) |
+| `0x1a` | 9 | `ui_cmd_move_card` (`0x0989a500`) |
+| `0x1b` | 8 | `ui_cmd_swap_field_cards` (`0x0989a66c`) |
+| `0x1c` | 10 | `ui_cmd_change_card_position` (`0x0989a744`) |
+| `0x1d` | 11 | `ui_cmd_create_token` (`0x0989a798`) |
+| `0x1e` | 3 | `ui_cmd_show_card_set` (`0x0989a83c`) |
+| `0x1f` | 6 | `ui_cmd_show_destroy_by_effect` (`0x0989a88c`) |
+| `0x20` | 3 | `ui_cmd_show_destroy_by_battle` (`0x0989a8e8`) |
+| `0x21` | 6 | `ui_cmd_noop_21` (`0x0989a938`) |
+| `0x22` | 11 | `ui_cmd_show_announce_activation` (`0x0989a940`) |
+| `0x23` | 3 | `ui_cmd_show_negation` (`0x0989a994`) |
+| `0x24` | 13 | `ui_cmd_noop_24` (`0x0989a9f0`) |
+| `0x25` | 12 | `ui_cmd_advance_turn_counter` (`0x0989a9f8`) |
+| `0x26` | 0 | `ui_cmd_on_phase_banner_done` (`0x0989aa6c`) |
+| `0x27` | 12 | `ui_cmd_show_value_changes` (`0x0989aabc`) |
+| `0x28` | 4 | `ui_cmd_replace_slot_effect_value` (`0x0989ad30`) |
+| `0x29` | 2 | `ui_cmd_shuffle_monster_zones` (`0x0989ada8`) |
+| `0x2a` | 3 | `ui_cmd_mark_tribute_pick` (`0x0989addc`) |
+| `0x2b` | 0 | `ui_cmd_cancel_selection` (`0x0989ae38`) |
+| `0x2c` | 3 | `ui_cmd_show_tribute` (`0x0989ae58`) |
+| `0x2d` | 5 | `ui_cmd_mark_fusion_material` (`0x0989aed8`) |
+| `0x2e` | 0 | `ui_cmd_end_fusion_material_marks` (`0x0989af34`) |
+| `0x2f` | 5 | `ui_cmd_show_fusion_material_sent` (`0x0989af54`) |
+| `0x30` | 3 | `ui_cmd_mark_synchro_material` (`0x0989aff4`) |
+| `0x31` | 0 | `ui_cmd_end_synchro_material_marks` (`0x0989b050`) |
+| `0x32` | 3 | `ui_cmd_show_synchro_material_sent` (`0x0989b070`) |
+| `0x33` | 3 | `ui_cmd_show_chain_link_activated` (`0x0989b110`) |
+| `0x34` | 3 | `ui_cmd_show_chain_link_resolving` (`0x0989b250`) |
+| `0x35` | 2 | `ui_cmd_noop_35` (`0x0989b430`) |
+| `0x36` | 7 | `ui_cmd_show_prompt` (`0x0989b438`) |
+| `0x37` | 2 | `ui_cmd_open_card_list` (`0x0989b81c`) |
+| `0x38` | 11 | `ui_cmd_show_summon_complete` (`0x0989ba9c`) |
+| `0x39` | 10 | `ui_cmd_show_placed_monster_summon` (`0x0989bb0c`) |
+| `0x3a` | 5 | `ui_cmd_show_fusion_synchro_summon` (`0x0989bb64`) |
+| `0x3b` | 1 | `ui_cmd_show_card_info` (`0x0989bc8c`) |
+| `0x3c` | 11 | `ui_cmd_start_coin_toss` (`0x0989bcac`) |
+| `0x3d` | 3 | `ui_cmd_roll_dice` (`0x0989bd20`) |
+| `0x3e` | 2 | `ui_cmd_play_screen_burst_3e` (`0x0989bd54`) |
+| `0x3f` | 2 | `ui_cmd_dispatch_duel_end_scene` (`0x0989bdb0`) |
+| `0x40` | 4 | `ui_cmd_show_special_win` (`0x0989bdf8`) |
+| `0x41` | 1 | `ui_cmd_show_turn_limit_milestone` (`0x0989be3c`) |
+| `0x44` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x45` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x46` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x47` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x48` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x49` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4a` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4b` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4c` | 0 | none (null entry: ignored by the dispatcher) |
+| `0x4d` | 3 | `ui_cmd_play_lp_change_cutin` (`0x0989be84`) |
+| `0x4e` | 0 | none (null entry: ignored by the dispatcher) |
 
 #### HUD layout request (`ui_play_hud_layout_anim`, 0x44 bytes)
 
@@ -716,7 +796,7 @@ Topic from the phase / input mode (Draw 4, Standby 5, Main 6, Battle 7, End 8, c
 - The draw command handlers convert engine sides to view sides themselves; the dispatcher passes raw engine values.
 
 #### Open questions (batch 5 (rel_duel_draw command and mode tables, task pool, dialogs, help, options))
-- The event number and argument kind of each of the 75 records of `0x098d0180` (table data, not in the decompilation); a dump of the table would map every `ui_cmd_*` handler to its engine event.
+- ~~The event number and argument kind of each of the 75 records of `0x098d0180`~~: dumped on 2026-11-04 ("Draw command dispatcher" above).
 - The rows of the mode table `0x098d1f5c` for modes 2, 3, 4, 0xa and 0xc (which functions are enter/draw/update/exit).
 - Meaning of the HUD request fields `+0x0c`-`+0x40` and whether `+0x24` is a sound id.
 - Duel set-up buffer byte `+0x190` values 2 and 5 (auto-answer/tutorial modes?) and word `+0x854` (disables prompt input).
@@ -950,4 +1030,4 @@ Resources: module 0x1d (card picker `ui_select_card_*`), `cardh.cip` in a 0x1350
 - ~~How `ui_bind_ehf` patches the display lists~~: answered 2026-11-04: it does not; the player reads the primitive records itself, and `ui_bind_ehf` writes each texture slot's `.tmf` byte into slot word `+0x0c` after the texture callback (`ehf.md`).
 - ~~Who plays a layout~~: answered 2026-11-04 (batch 1): the caller's draw block word 0 is a tick, the layout advances once per new tick at stage `+0x08` vsyncs per frame, and menus select frame ranges with `ui_ehf_set_play_range` / `ui_ehf_seek_frame`.
 - See also the open questions in `docs/formats/ehf.md`.
-- From the 2026-11-04 round (details in the per-batch open questions above): the event number of each of the 75 draw-command handlers (table data `0x098d0180`, not code), the `ddstrtbl` index pair, the meaning of the room value words 0x1d/0x1e of the wireless lobby, and a PPSSPP check of the layout timing and of the mini-game scoring formula.
+- From the 2026-11-04 round (details in the per-batch open questions above): the `ddstrtbl` index pair, the meaning of the room value words 0x1d/0x1e of the wireless lobby, and a PPSSPP check of the layout timing and of the mini-game scoring formula.
