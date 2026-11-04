@@ -16,6 +16,7 @@ import ghidra.app.script.GhidraScript;
 import ghidra.app.util.cparser.C.CParser;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.FunctionDefinition;
+import ghidra.program.model.listing.CodeUnit;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;
 
@@ -46,18 +47,32 @@ public class ApplySignatures extends GhidraScript {
 			// Headless has no tool services, so parse with the program's own data types.
 			DataType parsed = new CParser(currentProgram.getDataTypeManager()).parse(f[1] + ";");
 			FunctionDefinition signature = parsed instanceof FunctionDefinition ? (FunctionDefinition) parsed : null;
-			if (signature == null || !signature.getName().equals(function.getName())) {
+			// A Ghidra thunk (an 8-byte "j target; nop") shows its target's name and shares the target's
+			// signature, so ExportFunctions.java writes it as "thunk_<target>". Such a row only gets the comment
+			// and the tag: applying the prototype would rename and retype the target.
+			boolean thunk = function.isThunk() && signature != null
+				&& signature.getName().equals("thunk_" + function.getName());
+			if (signature == null || (!thunk && !signature.getName().equals(function.getName()))) {
 				printerr("cannot parse, or name differs from the function's: " + f[1]);
 				continue;
 			}
-			if (!new ApplyFunctionSignatureCmd(function.getEntryPoint(), signature, SourceType.USER_DEFINED)
-					.applyTo(currentProgram)) {
-				printerr("cannot apply " + f[1]);
-				continue;
+			if (!thunk) {
+				if (!new ApplyFunctionSignatureCmd(function.getEntryPoint(), signature, SourceType.USER_DEFINED)
+						.applyTo(currentProgram)) {
+					printerr("cannot apply " + f[1]);
+					continue;
+				}
+				// The parsed prototype carries no calling convention; use the compiler's default (PSP o32).
+				function.setCallingConvention(
+					currentProgram.getCompilerSpec().getDefaultCallingConvention().getName());
 			}
-			// The parsed prototype carries no calling convention; use the compiler's default (PSP o32).
-			function.setCallingConvention(currentProgram.getCompilerSpec().getDefaultCallingConvention().getName());
-			function.setComment(f[2] + "\nDocumented in " + f[3]);
+			String comment = f[2] + "\nDocumented in " + f[3];
+			if (thunk) {  // the plate comment at the thunk's own entry, never the target's
+				currentProgram.getListing().setComment(function.getEntryPoint(), CodeUnit.PLATE_COMMENT, comment);
+			}
+			else {
+				function.setComment(comment);
+			}
 			function.addTag(TAG);
 			applied++;
 		}
