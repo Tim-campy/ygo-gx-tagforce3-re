@@ -1557,7 +1557,7 @@ address,group,name
 0x00014ac0,deck,thunk_deck_get_owner_current_recipe
 0x00014ac8,deck,thunk_deck_select_owner_variant
 0x00014ad0,system,thunk_system_duel_mgr_lib_init
-0x00014ad8,,thunk_FUN_08e9db7c
+0x00014ad8,system,thunk_system_duel_mgr_scene_shutdown
 0x00014ae0,,thunk_FUN_08e9db84
 0x00014ae8,system,thunk_system_duel_mgr_lib_run_frame
 0x00014af0,system,thunk_system_duel_mgr_lib_start_duel_draw

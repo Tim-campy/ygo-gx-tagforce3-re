@@ -118,3 +118,9 @@ sceUtility,0xbda7d894,sdk,sceUtilityHtmlViewerGetStatus,H,NID is the first 4 byt
 sceUtility,0xcdc3aa41,sdk,sceUtilityHtmlViewerInitStart,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x800
 sceUtility,0xe49bfe92,sdk,sceUtilityUnloadModule,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x808 and rel_usb_connect+0x54b0
 sceUtility,0xf5ce1134,sdk,sceUtilityHtmlViewerShutdownStart,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_html_view+0x810
+IoFileMgrForUser,0x6a638d83,sdk,sceIoRead,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; BOOT.BIN re-exports it only under libehsys_rel; imported by rel_umd_replace+0x357c
+IoFileMgrForUser,0x810c4bc3,sdk,sceIoClose,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; BOOT.BIN re-exports it only under libehsys_rel; imported by rel_umd_replace+0x3584
+IoFileMgrForUser,0x109f50bc,sdk,sceIoOpen,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; BOOT.BIN re-exports it only under libehsys_rel; imported by rel_umd_replace+0x358c
+IoFileMgrForUser,0x27eb27b8,sdk,sceIoLseek,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; BOOT.BIN re-exports it only under libehsys_rel; imported by rel_umd_replace+0x3594
+ThreadManForUser,0xea748e31,sdk,sceKernelChangeCurrentThreadAttr,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; imported by rel_umd_replace+0x35a4
+sceUmdUser,0x6b4a146c,sdk,sceUmdGetDriveStat,H,NID is the first 4 bytes (little-endian) of SHA-1 of the name; BOOT.BIN re-exports it only under libehsys_rel; imported by rel_umd_replace+0x35c4

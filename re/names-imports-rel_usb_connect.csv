@@ -1556,3 +1556,9 @@ address,group,name
 0x00005470,deck,thunk_deck_get_owner_recipe
 0x00005478,deck,thunk_deck_get_owner_current_recipe
 0x00005480,deck,thunk_deck_select_owner_variant
+0x00005488,sdk,thunk_sceUsbActivate
+0x00005490,sdk,thunk_sceUsbStart
+0x00005498,sdk,thunk_sceUsbStop
+0x000054a0,sdk,thunk_sceUsbDeactivate
+0x000054a8,sdk,thunk_sceUtilityLoadModule
+0x000054b0,sdk,thunk_sceUtilityUnloadModule
