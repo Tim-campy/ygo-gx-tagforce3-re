@@ -11,6 +11,7 @@ How to reproduce the analysis. You need your own copy of the game; nothing from 
 | `docs/subsystems/` | One document per subsystem (`container`, `card_db`, ...), with open questions. | yes |
 | `docs/PROGRESS.md` | Counting rules for the progress tool. | yes |
 | `docs/extractor-spec.md` | Extractor specification: every asset class, its tool, command, output and gaps. | yes |
+| `docs/platform-api.md` | Platform API map: every Sony interface the game uses and what the port provides instead. | yes |
 | `re/functions.csv`, `re/formats.csv` | Registries that feed the progress meter. | yes |
 | `re/names.csv`, `re/names-ppsspp.csv` | Function names applied to the Ghidra project. | yes |
 | `tools/` | Extractors and the progress tool. | yes |

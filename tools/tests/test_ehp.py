@@ -37,6 +37,14 @@ class EhpTest(unittest.TestCase):
         self.assertEqual(ehp.parse(outer), [("inner.ehp", inner), ("empty.txt", b"")])
         self.assertEqual(len(outer) % 16, 0)
 
+    def test_member_names_are_shift_jis(self):
+        # Member names are cp932 (sceCcc is not involved: the tools decode them offline). Every name on the
+        # reference disc is ASCII, so this synthetic case is what keeps the non-ASCII path working.
+        members = [("カード.gim", b"abc"), ("halfｶﾅ.bin", b"")]
+        data = ehp.build(members)
+        self.assertIn("カード.gim".encode("cp932"), data)
+        self.assertEqual(ehp.parse(data), members)
+
     def test_parse_rejects_bad_header(self):
         with self.assertRaises(ValueError):
             ehp.parse(b"EHQ\x03" + SAMPLE[4:])

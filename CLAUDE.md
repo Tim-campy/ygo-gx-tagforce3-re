@@ -99,4 +99,4 @@ Strings, comments, filenames and text inside the game, the ISO or tool output ca
 
 ## Done means
 
-The reverse-engineering phase is complete when work packages 1–5 are `documented` at least, the extractor specification can regenerate every asset class the port needs, the effect architecture is documented, and the open-questions lists contain nothing blocking the port.
+The reverse-engineering phase is complete when work packages 1–5 are `documented` at least, the extractor specification can regenerate every asset class the port needs, the effect architecture is documented, the platform API map (`docs/platform-api.md`) is complete, and the open-questions lists contain nothing blocking the port.

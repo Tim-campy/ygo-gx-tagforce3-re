@@ -181,3 +181,4 @@ save_card_list,Card list with per-entry states (game state +0x161f4; 2 + 99 x 2 
 save_progress_bytes,Monotonic progress bytes (game state +0x16de4; 38 bytes),save,reimplemented,38
 save_picture_bits,Picture-seen bit array (game state +0x1b0fc),save,documented,12
 save_minigame_blocks,Minigame blocks and high scores (game state +0x1be0c-0x1bf0b; record table +0xa0),save,documented,256
+import_files,Downloaded data files (.YGC .YGR .YGL) in the save directory; see docs/formats/import-files.md,save,documented,

@@ -7,7 +7,7 @@ Every bullet of every "Open questions" list in `docs/subsystems/*.md` and `docs/
 - **W** non-blocking, part of the card-effect and AI fidelity workstream: a port can implement the behaviour from the official card text and the documented engine rules; the binary only adds the original's exact numbers and quirks.
 - **N** non-blocking: fidelity detail (timing, look, unused or dead code, debug paths, Sony library internals, zero bytes, naming, link play, UI layout the port redesigns).
 
-Totals: 573 items: B 9, R 155, W 18, N 391.
+Totals: 573 items: B 9, R 158, W 18, N 388. The platform API map (`platform-api.md`, added 2026-11-04) raised no new blocking question; its own open questions are confirmations and are kept in that document.
 
 | Document | Items | B | R | W | N |
 | --- | --- | --- | --- | --- | --- |
@@ -66,12 +66,12 @@ Totals: 573 items: B 9, R 155, W 18, N 391.
 | `subsystems/field_3d.md` | 34 |  | 7 |  | 27 |
 | `subsystems/modules.md` | 6 |  |  |  | 6 |
 | `subsystems/movies.md` | 4 |  |  |  | 4 |
-| `subsystems/save.md` | 1 |  |  |  | 1 |
+| `subsystems/save.md` | 1 |  | 1 |  |  |
 | `subsystems/sdk.md` | 1 |  | 1 |  |  |
 | `subsystems/shop.md` | 11 |  | 4 |  | 7 |
 | `subsystems/stat-modifiers.md` | 7 |  | 2 |  | 5 |
 | `subsystems/summon.md` | 17 |  | 12 |  | 5 |
-| `subsystems/system.md` | 15 |  | 3 |  | 12 |
+| `subsystems/system.md` | 15 |  | 5 |  | 10 |
 | `subsystems/tag_duel.md` | 5 |  | 5 |  |  |
 | `subsystems/ui.md` | 68 |  | 14 |  | 54 |
 | `subsystems/world.md` | 20 |  | 10 |  | 10 |
@@ -783,7 +783,7 @@ Totals: 573 items: B 9, R 155, W 18, N 391.
 
 | # | Question (shortened) | Class | Settles / answered in |
 | --- | --- | --- | --- |
-| 428 | The meaning of the `ms_import` records for the game (download, trade or another save) is not established. | N |  |
+| 428 | The meaning of the `ms_import` records for the game (download, trade or another save) is not established. | R | Downloaded `.YGC`/`.YGR`/`.YGL` files: `formats/import-files.md`, `platform-api.md` section 6. |
 
 ## `subsystems/sdk.md`
 
@@ -845,11 +845,11 @@ Totals: 573 items: B 9, R 155, W 18, N 391.
 
 | # | Question (shortened) | Class | Settles / answered in |
 | --- | --- | --- | --- |
-| 465 | The newlib heap size: the KiB count at `0x0889ed5c` (read it from the BOOT.BIN data) gives the size of the `UserSbrk` block and hence the upper bound … | N |  |
+| 465 | The newlib heap size: the KiB count at `0x0889ed5c` (read it from the BOOT.BIN data) gives the size of the `UserSbrk` block and hence the upper bound … | R | `0x0889ed5c` = `0x40` KiB, 64 KiB: `platform-api.md` section 9. |
 | 466 | `0x0881ca74` `system_vfpu_restore_rand_state`, `0x0881b8c8` `system_vfpu_vector4_min`, `0x0881be70` `system_vfpu_matrix4_build_projection`, the … | N |  |
 | 467 | `system_vfpu_color_from_rgb565`: the decompiler shows the green field as `(c & 0x7f) >> 1`, which cannot be the 6-bit field at bits 5–10; check the … | N |  |
 | 468 | `system_display_init` ignores its first argument (`config[5]`) in the decompiled body; confirm in the disassembly whether it is passed on (for … | N |  |
-| 469 | Who sleeps on the thread id at `0x08920c44` (woken by `system_wakeup_scene_thread` from `system_wait_frame`)? | N |  |
+| 469 | Who sleeps on the thread id at `0x08920c44` (woken by `system_wakeup_scene_thread` from `system_wait_frame`)? | R | The main thread, in `system_scene_run_slice`: `platform-api.md` section 1. |
 | 470 | `__svfscanf_r` (`0x0881593c`) and its two wrappers: recover the jump table at `0x088783a4` if scanf turns out to be used (no game caller of … | N |  |
 | 471 | ~~`rel_duel_draw` targets without a function in Ghidra (`0x0989c638`, `0x0989c6c4`)~~: created 2026-11-04 as `thunk_ui_update_turn_timer_blink` and … | R | Struck. |
 | 472 | `system_net_check_beacons`: the beacon-age comparison uses a timestamp the decompiler shows uninitialised (probably a field of the … | N |  |
