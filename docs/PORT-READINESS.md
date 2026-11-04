@@ -2,7 +2,7 @@
 
 Audit of 2026-11-04 against the "Done means" criteria of `CLAUDE.md`: what is finished, what still blocks a 3DS port, and how each blocking item gets settled. It builds on `docs/extractor-spec.md` (per-asset detail), `docs/open-questions-triage.md` (every open question, classified) and `docs/verification/ppsspp-plan.md` (runtime checks).
 
-**Verdict.** Three of the four criteria are met. Work packages 1–5 are documented, the extractors regenerate every asset class the port can take from the disc (one command, run end to end on the reference dump on 2026-11-04), and the effect architecture is documented. The fourth criterion is not met yet: 16 of the 573 open questions still block the port. They form eight tasks (B1–B8 below): three need static reading, four a PPSSPP check (B1's static part is done), one both. None of them is a format or extraction gap. They are rules: event codes, duel conditions, flag bits, progression triggers.
+**Verdict.** Three of the four criteria are met. Work packages 1–5 are documented, the extractors regenerate every asset class the port can take from the disc (one command, run end to end on the reference dump on 2026-11-04), and the effect architecture is documented. The fourth criterion is not met yet: 9 of the 573 open questions still block the port (16 at the audit; the static blockers B2, B3, B4 and B8 were settled on 2026-11-04, see "Settled after the audit"). They form four tasks, all PPSSPP checks: B1 (G1), B5 (E15), B6 (G2), B7 (E23). None of them is a format or extraction gap.
 
 ## Done criteria
 
@@ -11,7 +11,7 @@ Audit of 2026-11-04 against the "Done means" criteria of `CLAUDE.md`: what is fi
 | Work packages 1–5 at least `documented` | **Met** | `python3 -I tools/progress.py`: formats 182/182 `documented` (125 `reimplemented`, 31 `verified`); functions 12,269/12,737 `documented` (96.3 %), and 100 % in every WP1–5 group: `container` 54/54, `card_db` 181/181, `deck` 155/155, `save` 248/248, `duel_core` 1,308/1,308, `duel_effects` 2,896/2,896, `tag_duel` 16/16. The 468 functions below the bar are in the AI, UI and SDK groups (WP6+). |
 | The extractor specification can regenerate every asset class the port needs | **Met** (with the port-side decisions listed below) | `docs/extractor-spec.md`; `tools/extract_all.py` runs all 51 extraction steps in one command. See "Asset classes". |
 | The effect architecture is documented | **Met** | `docs/subsystems/duel_effects.md` (native handlers in `rel_duel_eng`, id-sorted handler tables, compare chains; no script interpreter), `docs/formats/effect-tables.md` (tables, lookup and, since this audit, the per-card **variant rule**), `docs/formats/card-effect-spec.md` (per-card specification, `tools/card_effects.py`), `docs/formats/duel-runtime.md` (timing-event vocabulary, added in this audit). |
-| The open-question lists contain nothing blocking the port | **Not met: 16 items in 8 tasks** | `docs/open-questions-triage.md`: 573 items, of which 16 B (blocking), 145 R (resolved), 18 W (fidelity workstream), 394 N (non-blocking). The tasks are listed under "Blocking questions". |
+| The open-question lists contain nothing blocking the port | **Not met: 9 items in 4 tasks** (16 in 8 at the audit) | `docs/open-questions-triage.md`: 573 items, of which 9 B (blocking), 155 R (resolved), 18 W (fidelity workstream), 391 N (non-blocking). The tasks are listed under "Blocking questions". |
 
 ## Asset classes
 
@@ -54,6 +54,7 @@ FFmpeg 7.1.1 was used for the audio and movie steps (ATRAC decoding is delegated
 ### Port-side decisions (not reverse-engineering questions)
 
 - **Font.** Glyphs come from the PSP firmware font through `sceFont`; nothing on the disc holds them except the ruby glyphs `rubi_font00.gim`. The port needs its own font with the same advance metrics, the `$R`/`$f`/`$F`/`$C` control codes and both line-break rule sets (`system.md`, "Font renderer").
+- **Cards with no route.** Eight cards that are in no pack (`3752`, `3763`, `3787`, `3789`, `3790`, the Egyptian Gods `4998`–`5000`) come from neither lab machine, the story nor the underground (`packs.md`, "Cards in no pack"); the remaining candidates are the external/wireless card gifts of `rel_title` and downloadable content. The port decides whether and how to grant them.
 - **UMD-swap unlocks.** Save flags `+0x1c0e9` bit 7 and `+0x1c0ea` bit 0 (they gate shop packs) are set only by `rel_umd_replace`, which reads another UMD (`shop-rules.md`). The port must decide how to grant them.
 - **Video format** for the 3DS (`extractor-spec.md`, open questions); the converter produces MP4 as the neutral start.
 - **Link play** (ad-hoc duels, `rel_duel_eng` network packets) is out of the first port scope; nothing in single-player depends on it.
@@ -61,7 +62,7 @@ FFmpeg 7.1.1 was used for the audio and movie steps (ATRAC decoding is delegated
 
 ## Blocking questions
 
-The 16 blocking items of `open-questions-triage.md`, grouped into tasks, in order of value for the port. "S" = static reading of `BOOT.BIN`/modules (capstone and the docs are enough), "P" = PPSSPP check.
+The blocking items of `open-questions-triage.md` (16 at the audit, 9 left), grouped into tasks, in order of value for the port. "S" = static reading of `BOOT.BIN`/modules (capstone and the docs are enough), "P" = PPSSPP check.
 
 | Task | Items (triage #) | What is missing | Settled by | State after this audit |
 | --- | --- | --- | --- | --- |
@@ -73,6 +74,14 @@ The 16 blocking items of `open-questions-triage.md`, grouped into tasks, in orde
 | **B6** Lost chapter duel | 30 | Whether step 3 starts from the map after a lost step-2 duel, or the duel repeats | P: **G2**. Static note from B4 (M): chapter duels are must-win (retry, or the title when declined), so step 3 should never follow a loss | Open (static answer M) |
 | **B7** Minigame records | 103, 107 | Which minigame owns which of the nine high-score records (shop unlock rules read them) | P: E23 (differential save 6) | Open |
 | **B8** Password and conversion machines | (new; from 98), 97 | The rules of `rel_password` and `rel_conv_machine`, the only routes left for 19 cards that are in no pack (`packs.md`, "Cards in no pack") | S done: both modules read (`shop.md`, "Password machine and conversion machine"): a passcode registers any card except `6989` for the lab rental list (no copy, no cost); the conversion machine trades 10–99 cards for one card from 90 result lists (`6989` only with 59). Eight no-pack cards have no route in either machine (external gifts/DLC: port decision). **P: G3** (rewritten) confirms the rental entry | **Settled statically (H)**; G3 confirms |
+
+### Settled after the audit (static, capstone, 2026-11-04)
+
+- **B2 duel challenges** (`duel_core.md`, "Duel challenges"): the condition index is the active challenge chosen on the Duel Record screen; all 116 cases, the record and the 200 DP reward, the used-card bitmap writers. Triage 355.
+- **B3 flag bits** (`duel-runtime.md`, "Player and slot flag bits"): complete bit tables of the player word `+0x120` and the slot word with writers and readers. Triage 452, 455, 463 (and 175, 315).
+- **B4 world and story rules** (`world.md`, `field-maps.md`, `story.md`): partner-choice roster rule, maps 37/38 unused in play, `duel_rules`/`duel_option` bytes and the follow-up order. Triage 29, 75, 130; a static note on B6.
+- **B8 lab machines** (`shop.md`, "Password machine and conversion machine"): password and conversion rules, the routes of the 19 no-pack cards; save list `+0x161f4` is the lab rental list (triage 97). G3 rewritten.
+- Optional confirmations of these were added as PPSSPP checks G5 (flags), G6 (challenge) and G7 (partner list, must-win duels); G3 now tests the static password rule.
 
 ### Settled in this audit (static, capstone)
 
@@ -101,7 +110,7 @@ Only the checks that settle a blocking item or confirm a rule the port depends o
 1. **G1** timing-event codes of the computed raisers (B1): one duel with a logging breakpoint, about 30 min.
 2. **E23** minigame bases and high scores, differential save 6 (B7): about 40 min for all seven minigames.
 3. **G2** step 3 after a lost chapter duel (B6): builds on E13's set-up, about 20 min.
-4. **G3** the password machine (B8): about 10 min.
+4. **G3** the password machine (B8, settled statically; confirms the rental entry): about 10 min.
 5. **E15** story state 46 and what follows the staff roll (B5): needs a save at the end of a partner story.
 6. **F11** duel record, record table and recipe unlock: confirms the save fields B2 writes.
 7. **E13** (remainder) stage advance at the end of a chapter: confirms the chapter progression already specified.
