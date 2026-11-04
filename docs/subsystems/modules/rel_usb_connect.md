@@ -47,27 +47,30 @@ Scene 0x17. A one-shot USB link through Sony's PSP communication driver (`USBPSP
 
 ## Files loaded
 - Record table 0x00006f00 {u32 root, char *name}: entry 0 `database/usb_connect/data.ehp`.
-- data.ehp members: `usb_connect_bg.gim` (background, 480 x 256 plus a 32-pixel-wide area used for the bottom 16 lines), `usb_connect01.ehf` (animation, name table 0x00006ffc), string tables `usb_strtbl_<l>.bin` for languages 1-5 (g, f, i, s visible; language 1's name is at 0x00007000, probably `e`); language 0 has no table (null name passed). EHP magic check against 0x00006fd0.
+- data.ehp members: `usb_connect_bg.gim` (background, 480 x 256 plus a 32-pixel-wide area used for the bottom 16 lines), `usb_connect01.ehf` (animation, name table 0x00006ffc), string tables `usb_strtbl_<l>.bin` for languages 1-5 (e, g, f, i, s; language 1's name is the string at 0x00007000); language 0 has no table (null name passed). EHP magic check against 0x00006fd0.
 
 ## Rewards
 - Progress flag e8 bit 1 (one-time; later visits show word 1 and exit).
-- DP: `save_add_dp` is called with a constant the decompiler printed as the address of `thunk_system_gum_get_perspective_params`, so the amount is the numeric value of that symbol's address in the module; read the instruction to get it.
+- DP: `save_add_dp(10000)` in flow state 3 (an older decompilation printed the constant as the address of a symbol).
 - Characters: table of {int character, int variant} pairs at 0x00007064 terminated by a negative value; each gets `save_add_character_entry(character, deck_get_owner_recipe(character, 0))` and character flags bit 0 and bit 1.
 
 ## Name mismatches
 - 0x00000000 matches `shop_module_start` byte for byte but registers its own callbacks; named `system_usb_module_start`.
 
 ## Open questions
-- DP amount (see above) and the contents of the character table 0x00007064.
+- The contents of the character table 0x00007064.
 - What `0x00002288` returns (8-byte body hidden); the flow relies on it returning 1 when the list window has finished.
 - Peer device/software of the usbpspcm link.
 ## Task vtables
 | Vtable | Class | destructor | +0xc attach | +0x10 update | +0x14 draw | +0x18 detach |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0x0000709c | link | 0x054c | 0x04bc | 0x04f4 | 0x04fc (empty) | 0x0504 |
+| 0x0000709c | link | 0x054c | 0x04bc | 0x04f4 (jump stub to `system_usb_is_data_received`) | 0x04fc (empty) | 0x0504 |
+| 0x000070d0 | background | 0x1158 | 0x0eac | 0x0f2c | 0x1090 | 0x10ec |
 | 0x000070ec | base task | 0x15f0 | 0x1480 (empty) | 0x124c (empty) | 0x12a8 (empty) | 0x1590 (empty) |
 | 0x00007108 | message | 0x18a8 | 0x1638 | 0x17a4 (window transition done) | 0x17b4 | 0x186c (free window list) |
 | 0x00007124 | flow | 0x20bc | 0x1904 | 0x1a80 | 0x2078 (empty) | 0x2080 (empty) |
 | 0x00007140 | list | 0x238c | 0x2118 | 0x2290 (empty) | 0x2298 | 0x2350 (list window reset) |
 
+- All six task vtables share the layout {0, 0, destructor, attach, update, draw, detach}; `system_usb_attach_task` / `system_usb_detach_task` call exactly slots +0x0c / +0x18. `system_usb_message_task_reset` and `system_usb_list_task_reset` are the attach methods of their classes. The stub 0x000007b0 to `system_usb_free_slot` is what `system_usb_app_term` calls.
+- The ehf name table 0x00006ffc has one entry (the next word has no relocation and starts the string at 0x00007000), and only kind 0 is ever created (`system_usb_create_bg_task(0, 0)` from `system_usb_update`), so the kind != 0 paths of `system_usb_create_bg_task` and `system_usb_bg_task_update` are dead; a non-zero kind would index past the table.
 - Message and list tasks keep their window list / list window record at task +0x24; 0x00002288 (`ui_update_list_window(task + 0x24)`) is called directly by `system_usb_flow_update`.

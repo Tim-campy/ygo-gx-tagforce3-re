@@ -72,17 +72,17 @@ The list head is a base task at `0x00314bd8`; lists are sorted by ascending prio
 | app (not a task) | 0x30 | 0x149f0 at +0x2c | +0xaa4 | — |
 | resources (not a task) | 0x704 | 0x149fc at +0x700 | +0x1384 | — |
 | stage | 0xa4 | 0x14a40 | +0x5440 | +0x4d50 / +0x4da4 / +0x5138 / +0x5188 |
-| character | 0x144 | 0x14a08 | +0x485c | (setup +0x32f8 called explicitly) / +0x43f8 / +0x4508 / ? |
-| game | 0x81c | 0x14a78 | +0x709c | +0x5cc8 / +0x6348 / ? / +0x6794 |
-| radar | 0x28 | 0x14a5c | +0x5c38 | +0x54d0 / +0x54dc / +0x58f8 / ? |
-| HUD | 0x24 | 0x14ab0 | +0x88d0 | +0x7610 / +0x7618 / +0x769c / ? |
-| popup | 0x90 | 0x14a94 | +0x7580 | +0x71e4 / +0x729c / +0x74fc / ? |
-| combo display | 0xf0 | 0x14acc | +0x8c68 | +0x8a00 / +0x8a4c / +0x8bbc / ? |
-| bonus number | 0x4c | 0x14ae8 | +0x9198 | +0x8d60 / +0x8da0 / +0x8ee8 / ? |
-| partner pointer | 0x30 | 0x14b04 | +0x9c34 | +0x9274 / +0x9288 / +0x9b64 / ? |
-| result | 0x30 | 0x14b20 | +0xb704 | ? / +0xb6a4 / +0xb6cc / ? |
+| character | 0x144 | 0x14a08 | +0x485c | empty (setup +0x32f8 called explicitly) / +0x43f8 / +0x4508 / empty |
+| game | 0x81c | 0x14a78 | +0x709c | +0x5cc8 / +0x6348 / empty / +0x6794 |
+| radar | 0x28 | 0x14a5c | +0x5c38 | +0x54d0 / +0x54dc / +0x58f8 / empty |
+| HUD | 0x24 | 0x14ab0 | +0x88d0 | +0x7610 / +0x7618 / +0x769c / empty |
+| popup | 0x90 | 0x14a94 | +0x7580 | +0x71e4 / +0x729c / +0x74fc / empty |
+| combo display | 0xf0 | 0x14acc | +0x8c68 | +0x8a00 / +0x8a4c / +0x8bbc / empty |
+| bonus number | 0x4c | 0x14ae8 | +0x9198 | +0x8d60 / +0x8da0 / +0x8ee8 / empty |
+| partner pointer | 0x30 | 0x14b04 | +0x9c34 | +0x9274 / +0x9288 / +0x9b64 / empty |
+| result | 0x30 | 0x14b20 | +0xb704 | empty / +0xb6a4 / +0xb6cc / +0xb6fc |
 
-The method assignment comes from the code (what each function touches) and the module's layout (methods sit just before their constructor); the vtable contents were not read (hypothesis, medium). The "?" slots are presumably the 8-byte empty stubs listed in skipped.tsv.
+The assignment is confirmed by the vtable data at 0x14a08-0x14b20 (table "Task vtables" below); every "empty" slot is a true `jr ra; nop`.
 
 ## Key structures
 
@@ -154,12 +154,11 @@ Path table at module 0x136a0: 18 entries `{u32 root, char *path}`; slot 0 is `co
 ## Name mismatches
 
 - +0x0: the twin line names it rel_shop `shop_module_start`; kept as `world_connection_module_start` (same 3-instruction pattern, different callbacks).
-- +0x258 / +0x268: twin lines say BOOT `audio_heap_free`; these are the module heap's allocator pair handed to `field_3d_set_allocator` (`world_connection_heap_alloc` / `world_connection_heap_free`, medium).
+- +0x258 / +0x268: twin lines say BOOT `audio_heap_free`; these are the module heap's allocator pair handed to `field_3d_set_allocator` (`world_connection_heap_alloc` / `world_connection_heap_free`). +0x268 is `move a1, a0; lui v0, 0x31; j 0xe638; lw a0, 0x4b70(v0)`: a hidden tail jump to `thunk_system_heap_free` on the heap word `0x00314b70`, the same shape as `audio_heap_free` with another callee.
 - +0xb794..+0xe188: not flagged as twins, but they are copies of rel_title `ui_menu_ctx_*` / `ui_mini_result_*`; named `ui_connection_menu_ctx_*` / `ui_connection_result_*` to stay unique per module. If the project prefers one name per code body, rename them to the rel_title names.
 
 ## Open questions
 
-- The contents of the vtables 0x14a08-0x14b20 (which empty stub is which slot; the result task's init and term).
 - The strings of the path table 0x136a0 beyond slot 0 and of the popup layout table 0x1394c beyond `mini_sn_start.ehf` (read the module's data to confirm the slot meanings above).
 - The 16-byte function +0x15a0 called every frame by the stage update has an empty decompiled body.
 - `world_connection_game_spawn_students` measures both distance checks from the player; the second was probably meant for the partner (behaviour as coded: only the player's surroundings are kept free).

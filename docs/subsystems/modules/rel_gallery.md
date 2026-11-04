@@ -52,7 +52,7 @@ Scene 0x1e. The gallery shows unlocked event pictures and movies on a 6-column t
 | 0x0e | black rectangle zoom, blocking movie playback | 0x0f (BGM 0x1e restarts) |
 | 0x0f | dim fade out | 10 |
 | 0x10 | page slide | 10 |
-| 0x11 | 30-frame fade out, BGM stop, grid fly-out | 0x12 |
+| 0x11 | 30-frame fade out, BGM stop, grid fly-out, cursor sent to the exit point (224, 280) below the screen, lerp 0.15 (`ui_gallery_move_cursor_to_exit`) | 0x12 |
 | 0x12 | wait for fade, return 1 | — |
 
 - Input (pad edge word +0x0c): cancel = `system_get_confirm_button(1)` (sound 0x7a06), confirm = `system_get_confirm_button(0)` (0x7a05, buzzer 0x7a07 for locked items or while the cursor moves), L 0x100 previous page, R 0x200 or square 0x8000 next page (0x7a0d), d-pad cursor (0x7a04).
@@ -83,11 +83,11 @@ App object (0x110 bytes, vtable 0x00009974 at +0x10c, global 0x003099c8; scene p
 | +0x7c/+0x80, +0x84/+0x86 | page title / caption text pointers and alphas |
 | +0x88..+0x109 | 0x82 unlock bytes, one per item |
 
-Item numbering: item = column + row * 6 + byte table 0x00008a88[page]; per-page item counts in 0x00008a80 (cursor) and 0x00008a20 (grid; the grid start indices for the thumbnail sheet are the halfwords at 0x00008a28). Items 0..0x38 are pictures (resource slot item + 1); items >= 0x39 are movies (movie index item - 0x39).
+Item numbering: item = column + row * 6 + byte table 0x00008a88[page]; per-page item counts in 0x00008a80 (cursor) and 0x00008a20 (grid; the grid start indices for the thumbnail sheet are the halfwords at 0x00008a28). Table values by page 0-5: counts 15, 9, 33, 30, 30, 13 in both count tables (sum 130 = 0x82); first items (0x00008a88) 0, 15, 24, 57, 87, 117; grid starts (0x00008a28) 42, 33, 0, 57, 87, 117; page title words (0x00008ba4) 1, 2, 3, 3, 3, 3. Items 0..0x38 are pictures (resource slot item + 1); items >= 0x39 are movies (movie index item - 0x39).
 
 Unlock sources (`ui_gallery_compute_unlocks`): items 0-14 progress flag e9 bit 7; 15-23 progress flag ea bit 0 (the two flags set by rel_umd_replace when a disc of an earlier release is inserted); 24-56 `save_test_picture_seen` with 33 bit numbers at 0x0000953c; 57 always; 58 any character 2..0x8e variant with `save_test_character_flag_bit2`; 59 character 2 variants 0 and 1; 60-129 save-state bytes at +0x153e4 indexed by the table 0x00008a37.. .
 
-Task system (a small scheduler private to the module): manager object at 0x000099a0, two intrusive priority-sorted lists. Task base (vtable 0x0000990c at +0x1c): +0x00 update priority, +0x04/+0x08 prev/next; +0x0c draw priority, +0x10/+0x14 prev/next; +0x18 update enabled, +0x19 draw enabled. Vtable slots: +0x08 delete(this, flags), +0x0c attach, +0x10 update, +0x14 draw, +0x18 detach. Background task (0x90 bytes, vtable 0x00009928): +0x20 0x60-byte ehf draw parameters (frame at +0x20), +0x80 ehf player, +0x84 kind (index into the ehf name table 0x00008db0, first entry gallerybg_ehf), +0x88 end frame (399 for kind 0, looping), +0x8c done, +0x8d auto-delete.
+Task system (a small scheduler private to the module): manager object at 0x000099a0, two intrusive priority-sorted lists. Task base (vtable 0x0000990c at +0x1c): +0x00 update priority, +0x04/+0x08 prev/next; +0x0c draw priority, +0x10/+0x14 prev/next; +0x18 update enabled, +0x19 draw enabled. Vtable slots: +0x08 delete(this, flags), +0x0c attach, +0x10 update, +0x14 draw, +0x18 detach. Vtables read from the data: base 0x0000990c {0, 0, 0x58c, 0x41c, 0x1e8, 0x244, 0x52c} (the four methods are empty), background 0x00009928 {0, 0, 0x6b4, 0x710, 0x790, 0x8f4, 0x950}, grid 0x00009944 {0, 0, 0x1908, 0xe6c, 0x105c, 0x10c8}, thumbnail 0x0000995c {0, 0, 0xe0c, 0xc4c, 0xd10, 0xd44}. 0x00001db8 is an empty hook called once when loading finishes (state 1 of `ui_gallery_update`). Background task (0x90 bytes, vtable 0x00009928): +0x20 0x60-byte ehf draw parameters (frame at +0x20), +0x80 ehf player, +0x84 kind (index into the ehf name table 0x00008db0, first entry gallerybg_ehf), +0x88 end frame (399 for kind 0, looping), +0x8c done, +0x8d auto-delete.
 
 Thumbnail grid (0x128c bytes, vtable 0x00009944 at +0x1288: +0x08 delete, +0x0c setup, +0x10 update, +0x14 draw): 0x82 thumbnails of 0x24 bytes (+0x00 active, +0x02 page, +0x04/+0x08 position, +0x0c/+0x10 target, +0x14/+0x16 uv, +0x18 moving, +0x1c has image, +0x1e delay, +0x1f second sheet, +0x20 vtable 0x0000995c); +0x1248 + page * 8 first thumbnail of the page, +0x124c + page * 8 count; +0x127c/+0x1280/+0x1284 GIMs. Thumbnails are 52 x 28 cells (4 per row) in sheets of 72 (thumbnail1e for the first 72, thumbnail2e after); locked items use cell (0x68, 0x188).
 
@@ -112,7 +112,7 @@ Resource set (0xfc bytes, vtable 0x00009980 at +0xf4): 0x3b slot pointers (+0x00
 
 ## Open questions
 - What the header patch and tile transposition in `ui_gallery_prepare_picture` achieve (trace the buffer at 0x00709a00 in PPSSPP).
-- Contents of the tables 0x00008a20/0x00008a28/0x00008a80/0x00008a88 (page sizes and first items) and how many of the 73 items >= 0x39 are real movies; read the module's data section.
-- Which vtable slots the empty functions 0x000001e8, 0x00000244, 0x0000041c, 0x0000052c fill; and the purpose of the empty 0x00001db8.
+- How many of the 73 items >= 0x39 are real movies; read the module's data section.
 - Meaning of the save-state bytes at +0x153e4 used for items 60-129.
-- Base task vtable 0x0000990c `{0, 0, ui_gallery_task_destroy, 0x41c, 0x1e8, 0x244, 0x52c}`: all four methods are empty; the background task (vtable 0x00009928) overrides them. 0x00001db8 is an empty hook called once when loading finishes (state 1 of `ui_gallery_update`).
+- `ui_gallery_free_slots` (0x00003ea4) shows 0 callers; an older reading had `ui_gallery_app_term` calling it through a thunk that the audit did not see. Check the reference.
+- `ui_gallery_create_bg_task` runs attach and set_kind on a null task after an allocation failure; it only returns 0 if those calls do not fault.

@@ -67,6 +67,9 @@ Play phases `world_reversi_update_play` (0xf480): 1 start banner, 2 row choice, 
 - Best move = best row of per-row bests; random keys break ties. The AI "walks" its cursor along 1-2 stops (a random feint line first) before confirming.
 - `world_reversi_ai_opponents_cooperate`: round 1 only after 3 opponent misses, round 2 after 3 misses or 1/5, round 3 after 2 misses or 1/4, round 4 after 1 miss or 1/3, round 5+ always.
 - The partner computes the best move on the whole board and only steers the column; it ignores the row the player picked.
+- `world_reversi_state_to_side` (0x00003b64) maps the cell state (third argument, a2): 1 and 4 -> side 1, 2 and 3 -> side 2, 0 -> empty.
+- `world_reversi_sim_test_line` (0x000044ec): arguments side a0, row a1, col a2, d_row a3, d_col t0, board t1 (12-byte cells, 0x60 per row). It returns 1 when the run of the side's discs on both sides of (row, col) is open at one end and closed by the opponent at the other.
+- `world_reversi_sim_apply_flips` does not write the mover's disc on the board copy, so `world_reversi_sim_is_capturable` tests the lines around an empty cell. The result is the same, because `world_reversi_sim_test_line` starts from the neighbouring cells.
 
 ## Files
 
@@ -86,9 +89,6 @@ Play phases `world_reversi_update_play` (0xf480): 1 start banner, 2 row choice, 
 
 ## Open questions
 
-- 0x00003b64 (cell state -> side mapping) decompiles to an empty body; 0x000044ec (capturability test of a line) has hidden register arguments. Both skipped; the summaries of their callers say what they appear to do.
 - The leave callback 0x000001a0 is not in the packs; presumably it calls `world_reversi_term`.
 - The float constants K (0xe7b4, win multiplier) and the strings of the substring replacement (0xebcc/0xebd4) need a data read.
 - Whether placing a disc with no flips really stays on the board in play (PPSSPP check).
-- 0x00003b64 (`world_reversi_state_to_side`) confirms the state mapping: 1 and 4 -> side 1, 2 and 3 -> side 2, 0 -> empty; the state is the third argument (a2).
-- 0x000044ec (`world_reversi_sim_test_line`): arguments side a0, row a1, col a2, d_row a3, d_col t0, board t1 (12-byte cells, 0x60 per row). It returns 1 when the run of the side's discs on both sides of (row, col) is open at one end and closed by the opponent at the other.

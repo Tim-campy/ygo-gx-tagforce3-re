@@ -45,13 +45,13 @@ Scene 0x1b. Despite the name, this is the "insert another UMD" bonus: the player
 | 1 | request resource 0 | 2 (callback sets 3) |
 | 3 | swap mode 0, message word 8, BGM 4 | 4 |
 | 4 | run swap: 7 done, 8 aborted, 2 close message | 7 / 3 / 0x10→4 |
-| 5 | message word 7, swap mode 1 (no setter found) | 6 |
+| 5 | message word 7, swap mode 1 (unreachable: no code sets state 5, directly or through the next-state word, whose values are 4, 7 and 0xe; so `system_umd_replace_start_reinsert` and `system_umd_replace_run_reinsert` are dead) | 6 |
 | 6 | run swap | 0x10→7 or 0xe / 3 |
 | 7 | grant rewards by disc kind | 8, 0xc, 0xe, 10 |
 | 8, 9 | popup with three face-down cards | 3 |
 | 10, 0xb | list window word 1 (disc already used) | 3 |
 | 0xc, 0xd | reward popup per entry, `save_change_card_count` | next entry or 0xe |
-| 0xe, 0xf | list window word 2 (3 choices): 3/-2 restart, 2 leave | 3 / 0x11 |
+| 0xe, 0xf | list window word 2 (button style 3, buttons 2 and 3): 3/-2 restart, 2 leave | 3 / 0x11 |
 | 0x10 | wait for the message window to close | saved state 0x00008ea4 |
 | 0x11 | wait for the fade, teardown, BGM stop | end |
 
@@ -74,10 +74,10 @@ Reward list: u16 entries at 0x00008eb0 (bits 0-2 count, bits 3-15 card id), coun
 - Character flags (bit 1, `save_set_character_flag_bit1`): ea → (6,1), (8,1); e9 → (6,2), (6,3), (8,0); both → (0x18,0), (0x1a,0). These look like partner/opponent unlocks (hypothesis, medium). The gallery reads the same e9/ea flags to unlock its items 0-23.
 
 ## Key structures
-- 0x00008950 (0x550 bytes) card popup: state, model instance 0x00008954, slots of 0xd0 bytes from 0x00008960 (+0x80 matrix, +0xb4 slide value, +0xc0 card id), count 0x00008bd0, rotation timer 0x00008bd4, window list 0x00008bd8, message window 0x00008c24, text buffer 0x00008c9c.
+- 0x00008950 (0x550 bytes) card popup: state, model instance 0x00008954, slots of 0xd0 bytes from 0x00008960 (+0x80 matrix, +0xb4 its Y translation, element 13: face-down cards start at Y = slot * 5 + 10 and fall 0.25 per frame until the last one reaches -10; +0xc0 card id), count 0x00008bd0, rotation timer 0x00008bd4, window list 0x00008bd8, message window 0x00008c24, text buffer 0x00008c9c.
 - 0x00008ea0 (0x4f0 bytes) main block: state, next state +4, disc kind +8, rewards +0x10, list window 0x000090b8 (0x120-byte record), window list 0x000091d8, message window 0x00009224, ehf animations 0x000092a0/0x00009310 with params 0x000092b0/0x00009320, flag 0x00009380.
 - 0x00009390 (500 bytes) swap block: state, kind 0x00009394, mode 0x00009398, callback id 0x0000939c, list window 0x000093a0, window list 0x000094c0, message window 0x0000950c, sector buffer 0x00009590 (id at 0x00009903).
-- Module heap: 0x180000 bytes at 0x0000e590; cardh cip reader buffer 0x100000 bytes at 0x0018e590; globals 0x0028e5b4 heap, 0x0028e5b8 reader; resource table 0x0028e590 (0x24-byte entries {name[0x20], data}), pending index/callback/arg 0x0028e5bc..0x0028e5c4.
+- Module heap: 0x180000 bytes at 0x0000e590 (`system_umd_replace_heap_alloc` / `_free` are tail jumps to `system_heap_alloc` / `system_heap_free`, the latter returning 1); cardh cip reader buffer 0x100000 bytes at 0x0018e590; globals 0x0028e5b4 heap, 0x0028e5b8 reader; resource table 0x0028e590 (0x24-byte entries {name[0x20], data}), pending index/callback/arg 0x0028e5bc..0x0028e5c4.
 
 ## Files loaded
 - `database/umd_replace/%s`, root 3; file 0 is the language EHP named by the 0x20-byte table at 0x000086c8 (first entry `basic_lang_jpn.ehp`) indexed by `save_get_language()`.
@@ -93,7 +93,6 @@ Reward list: u16 entries at 0x00008eb0 (bits 0-2 count, bits 3-15 card id), coun
 
 ## Open questions
 - `sceIoLseek` offset (hidden register arguments); confirm sector 16 in PPSSPP.
-- Main state 5 has no setter in the module code read here; probably dead code.
 - The leave callback 0x0000017c is not a defined function in the packs (at most 8 bytes before 0x00000184, probably an empty stub); check in Ghidra. Note that the module teardown runs from state 0x11, not from the leave callback.
 - The 3-character suffix at 0x00008914 and the member names 1-10 (read the data section).
 - Meaning of the character flags set at the end of state 7.

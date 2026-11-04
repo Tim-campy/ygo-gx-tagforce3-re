@@ -69,6 +69,7 @@ About 60 functions are byte-identical copies of `rel_deck` (text search, filter,
 
 ## Open questions
 
+- `deck_select_card_draw_card_row_detailed` and `_compact` call `save_get_card_state` with `card id == 1` (`xori v0, v0, 1; sltiu a0, v0, 1`), not with the id, and pass the result as `is_new` to `shop_draw_card_badges`. The machine code is unambiguous; whether it is an original bug is open (hypothesis, medium). The `rel_deck` and `rel_shop` twins were not compared; check the badge in PPSSPP before copying this into the port.
 - Which of the four archive records is `labo/rental.ehp`, `labo/conv_machine.ehp` and the common set (read the path formats at 0x00019068 from the binary).
 - Meaning of save state `+0xfdf4` (the mode-0 card-list capacity grows with it).
 - Meaning of the card-list item states 1-4 (byte 5 bits 2-4; only state 4 can be moved in mode 0).

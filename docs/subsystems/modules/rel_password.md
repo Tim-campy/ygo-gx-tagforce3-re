@@ -47,7 +47,7 @@ Keypad codes (`shop_password_get_key_code`): rows 2-4 are digits 1-9, row 1 is {
 ## Open questions
 
 - The 9 excluded card ids at 0x000083f8 (read them from the binary; they are not content to dump, ids only).
-- The handlers of states 2, 5 and 6 (`0x00001d28`, `0x00002d4c`, `0x000030c0`) and the key animation helpers (`0x000033d4`-`0x00003688`) were not read in full.
+- The key animation helpers (`0x000033d4`-`0x00003688`) were not read in full.
 - Meaning of save card flag bit 0 versus the card count.
 ## Keypad (state 2, shop_password_handle_keypad)
 - Cursor bytes: 0x00016434 high nibble = column (0-2), low nibble = 1 while a key press animation runs; 0x00016435 low nibble = row (0 = OK key, 1 = {clear 10, digit 0, delete 11}, 2-4 = digits 1-9). Digits at 0x00016437 (8 bytes), count in the low nibble of 0x00016436.
@@ -56,6 +56,7 @@ Keypad codes (`shop_password_get_key_code`): rows 2-4 are digits 1-9, row 1 is {
 - Digit EHFs 0x1011-0x1018: frame = digit 0-9, 10 blank, 0xc-0x10 cursor mark, 0x10-0x33 a longer animation (value 0xd, used by the code check).
 
 ## States 5 and 6
+State handlers: `shop_password_handle_keypad` (2, 0x00001d28), `shop_password_run_wrong_code` (5, 0x00002d4c), `shop_password_run_quit_prompt` (6, 0x000030c0).
 - State 5 (code refused): strTbl word 10 formatted with the value at 0x00016440 (hypothesis: the entered number), then word 11 with sound 0x7a7a; cancel leaves the screen, confirm returns to state 1.
 - State 6 (quit prompt, from cancel on the keypad): strTbl word 9; confirm leaves, cancel returns to state 1.
 - Message buffers: 0x0001656c (message 1, typed count 0x00016448), 0x00016d6c (message 2, count 0x0001644a), visible-character total 0x00016444, frame counter 0x0001756e, typing flag bit 1 of 0x00017570.
