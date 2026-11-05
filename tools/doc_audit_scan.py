@@ -172,7 +172,7 @@ def decode(word, pc):
 class Func:
     __slots__ = ("program", "entry", "name", "group", "thunk", "size", "ranges", "ret", "nparams", "proto",
                  "ins", "args", "stack_args", "ret_evidence", "ret_defined", "row", "sites", "indirect", "frame",
-                 "fpass", "sp_unknown")
+                 "tails")
 
     def __init__(self, program, parts):
         entry, self.name, self.group, thunk, size, body, self.ret, nparams, self.proto = parts[:9]
@@ -183,7 +183,7 @@ class Func:
         self.ins, self.args, self.stack_args = None, 0, 0
         self.ret_evidence = self.ret_defined = False
         self.row, self.sites, self.indirect, self.frame = None, [], 0, 0
-        self.fpass, self.sp_unknown = False, False
+        self.tails = []
 
     def contains(self, addr):
         return any(lo <= addr <= hi for lo, hi in self.ranges)
@@ -269,12 +269,12 @@ class World:
             if f.thunk is not None and f.thunk in f.program.funcs and f.thunk != f.entry:
                 f = f.program.funcs[f.thunk]
                 continue
-            if f.name.startswith("thunk_") or f.size <= 8:
+            if f.name.startswith("thunk_"):
                 name = f.name
                 while name.startswith("thunk_"):
                     name = name[6:]
                 others = [g for g in self.by_name.get(name, ()) if g is not f]
-                if others and f.name.startswith("thunk_"):
+                if others:
                     f = next((g for g in others if g.program.name == "BOOT.BIN"), others[0])
                     continue
             break
@@ -315,7 +315,7 @@ def is_float(text):
 
 
 def is_wide(text):
-    return bool(re.search(r"\b(long long|longlong|u?int64|s64|u64|undefined8)\b", text)) and "*" not in text
+    return bool(re.search(r"\b(long long|u?longlong|u?int64|s64|u64|undefined8)\b", text)) and "*" not in text
 
 
 def proto_slots(params):
@@ -434,8 +434,8 @@ def walk_args(world, f):
 
 def walk_return(world, f):
     """(evidence, defined): evidence = some write of v0 by an instruction reaches `jr ra` unread, which a
-    compiler only leaves for a return value, or a tail jump/last call hands on a returning function's value;
-    defined = v0 written or received from any call on a path to a return."""
+    compiler only leaves for a return value (a tail call proves nothing: a void wrapper of a value-returning
+    function compiles to the same `j`); defined = v0 written or received from any call on a path to a return."""
     ins = decode_function(f)
     if not ins:
         return False, False
@@ -484,7 +484,6 @@ def walk_return(world, f):
                     returns = g.ret_evidence or (g.row is not None and not proto_args(g.row["proto"])[0].startswith("void")
                                                  or (g.row is not None and "*" in proto_args(g.row["proto"])[0]))
                     defined = defined or returns
-                    evidence = evidence or g.ret_evidence
                 break
             break  # ijump: not followed
     return evidence, defined
@@ -555,13 +554,13 @@ def analyse(world, documented):
             decode_function(f)
             funcs.append(f)
     # Stubs and functions outside the image take their argument set from the prototype.
-    stubs = [f for f in funcs if f.name.startswith("thunk_") or f.size <= 8 or not f.ins]
+    stubs = [f for f in funcs if f.name.startswith("thunk_") or not f.ins]
     for f in stubs:
         if f.row:
             _, params, _ = proto_args(f.row["proto"])
             ints, floats = proto_slots(params)
             f.args = sum(1 << r for r in INT_ARGS[:ints]) | sum(1 << r for r in FLOAT_ARGS[:floats])
-    code = [f for f in funcs if f not in set(stubs)] if False else [f for f in funcs if f.ins and f.size > 8 and not f.name.startswith("thunk_")]
+    code = [f for f in funcs if f.ins and not f.name.startswith("thunk_")]
     for _ in range(6):
         changed = 0
         for f in code:
@@ -589,6 +588,10 @@ def analyse(world, documented):
                     continue
                 read, through = result_reads(world, f, pc)
                 g.sites.append((f, pc, read, through))
+            elif i.kind == "jump" and i.target not in f.ins:
+                g = world.callee(f, i.target)
+                if g is not None:
+                    g.tails.append(f)
     return code
 
 
@@ -657,7 +660,8 @@ def scan_prototypes(world, code):
             yield dict(base, scan="float_args_unread", declared=floats, used=need_float, regs=describe_args(f.args))
 
 
-NOOP = re.compile(r"\b(no-?op|does nothing|empty (function|body|stub)|returns immediately|empty\.)", re.I)
+# A claim about the whole function, not "does nothing when ...".
+WHOLE_NOOP = re.compile(r"^(empty|no-?op|does nothing|stub)\b|\b(empty (function|body|stub)|is a no-?op|has no code)\b", re.I)
 PURE = re.compile(r"\bno side effects?\b|\bpure\b|\bread-only\b", re.I)
 CALLERS = re.compile(r"Callers?: (\d+)\b(?: \(([^)]*)\))?")
 NO_CALLER = re.compile(r"No (direct )?callers?\b")
@@ -669,16 +673,73 @@ GROUPS = ("container", "card_db", "deck", "duel_core", "duel_effects", "tag_duel
 
 
 def stores_outside_stack(f):
-    """Instructions that write memory through a register other than sp/fp, or any call (first 3 of each)."""
+    """Addresses of stores through anything but sp, fp or a register that holds a stack address."""
     hits = []
+    stacky = {SP, 30}
     for pc, i in sorted(f.ins.items()):
-        if i.store and i.base not in (SP, 30):
+        op = i.word >> 26
+        rs, rt = i.word >> 21 & 31, i.word >> 16 & 31
+        if op == 9 and rs in stacky:  # addiu r, sp, n
+            stacky.add(rt)
+        elif op == 0 and i.word & 63 == 33 and rs in stacky and rt == 0:  # move r, sp-derived
+            stacky.add(i.word >> 11 & 31)
+        elif i.writes:
+            for r in list(stacky - {SP, 30}):
+                if i.writes >> r & 1:
+                    stacky.discard(r)
+        if i.store and i.base not in stacky:
             hits.append(pc)
     return hits
 
 
+def caller_set(f, summary):
+    """The functions the summary's caller count is about: direct and tail callers; only those of the same
+    program when the row lists other modules' callers apart (exported functions)."""
+    callers = {c for c, _, _, _ in f.sites} | set(f.tails)
+    if re.search(r"exported|import stub|called from|module callers", summary, re.I):
+        callers = {c for c in callers if c.program is f.program}
+    return callers
+
+
+def reaches(world, code, names):
+    """{function: name of a direct callee on a path to one of `names`} over direct calls and tail jumps."""
+    callees = {f: {g for g in (world.callee(f, i.target) for i in f.ins.values()
+                               if i.kind in ("call", "jump") and i.target not in f.ins) if g is not None} for f in code}
+    found = {f: f.name for f in code if f.name in names}
+    changed = True
+    while changed:
+        changed = False
+        for f in code:
+            if f not in found:
+                for g in callees[f]:
+                    if g in found:
+                        found[f] = g.name
+                        changed = True
+                        break
+    return found
+
+
+def stub_targets(world):
+    """Number of import stubs of each function, over all programs."""
+    count = Counter()
+    for p in world.programs.values():
+        for f in p.funcs.values():
+            if f.name.startswith("thunk_") and f.thunk is None:
+                t = world.resolve(f)
+                if t is not f:
+                    count[t] += 1
+    return count
+
+
+RNG = {"duel_core_random"}
+NO_MODULE_CALLER = re.compile(r"no module callers?\b( found)?", re.I)
+STUB_COUNT = re.compile(r"\((\d+) import stubs?( without callers)?\)")
+
+
 def scan_summaries(world, code, all_names):
     """Claims of the summary that can be compared with the code."""
+    random_users = reaches(world, code, RNG)
+    stubs = stub_targets(world)
     for f in code:
         if f.row is None:
             continue
@@ -686,9 +747,8 @@ def scan_summaries(world, code, all_names):
         base = dict(id=f.row["id"], name=f.name, group=f.group, size=f.size)
         real = [p for p in f.ins.values() if p.kind in ("call", "calli", "jump", "ijump") or p.store]
         count = sum(1 for i in f.ins.values())
-        if NOOP.search(summary) and not re.search(r"no-?op (callback|handler|function|stub|variant)s?\b.*(set|pass|regist|install)", summary, re.I):
-            if count > 2 and real:
-                yield dict(base, scan="noop_claim_with_code", text=NOOP.search(summary).group(0), ins=count)
+        if WHOLE_NOOP.search(summary) and count > 2 and real:
+            yield dict(base, scan="noop_claim_with_code", text=WHOLE_NOOP.search(summary).group(0), ins=count)
         if PURE.search(summary):
             stores = stores_outside_stack(f)
             calls = [i for i in f.ins.values() if i.kind in ("calli",)]
@@ -697,15 +757,27 @@ def scan_summaries(world, code, all_names):
             elif calls:
                 yield dict(base, scan="no_side_effects_but_indirect_call", calls=len(calls))
         # Real callers from Ghidra's references, across modules through the stubs.
-        direct = {(c.program.name, c.entry) for c, _, _, _ in f.sites}
+        if PURE.search(summary) and f in random_users and not stores_outside_stack(f):
+            yield dict(base, scan="no_side_effects_reaches_rng", via=random_users[f])
+        outside = {c for c, _, _, _ in f.sites if c.program is not f.program} | {c for c in f.tails if c.program is not f.program}
+        if outside and NO_MODULE_CALLER.search(summary):
+            yield dict(base, scan="no_module_caller_claim", found=len(outside), names=sorted({c.name for c in outside})[:6])
+        m = STUB_COUNT.search(summary)
+        if m and int(m.group(1)) != stubs[f]:
+            yield dict(base, scan="stub_count", said=int(m.group(1)), found=stubs[f])
+        callers = caller_set(f, summary)
+        pointers = {x[1] for x in f.program.xrefs.get(f.entry, []) if "CALL" not in x[2]}
         m = CALLERS.search(summary)
+        names = sorted({c.name for c in callers})[:8]
         if m:
             said = int(m.group(1))
-            if said != len(direct) and (said < 6 or len(direct) < 6 or abs(said - len(direct)) > 1):
-                yield dict(base, scan="caller_count", said=said, found=len(direct))
-        elif NO_CALLER.search(summary) and direct:
-            yield dict(base, scan="no_caller_claim", found=len(direct),
-                       example=sorted(n for _, n in direct)[0] if False else None)
+            if not callers and said:
+                yield dict(base, scan="caller_unconfirmed", said=said, listed=m.group(2))
+            elif not len(callers) <= said <= len(callers) + len(pointers):
+                yield dict(base, scan="caller_count", said=said, direct=len(callers), pointers=len(pointers),
+                           names=names, listed=m.group(2))
+        elif NO_CALLER.search(summary) and callers:
+            yield dict(base, scan="no_caller_claim", direct=len(callers), names=names)
         for token in set(IDENT.findall(summary)):
             if token.split("_")[0] in GROUPS and token not in all_names and token != f.name:
                 yield dict(base, scan="stale_name", token=token)
@@ -718,9 +790,9 @@ def scan_summaries(world, code, all_names):
             word = (m.group(1) or m.group(4)).lower()
             value = int(m.group(2) or m.group(3), 16)
             r, g, b = value & 255, value >> 8 & 255, value >> 16 & 255
-            hi = max(r, g, b)
-            seen = tuple(1 if c * 2 > hi and hi else 0 for c in (r, g, b))
-            if seen != COLOUR_WORDS[word] and value >> 24 in (0, 0x80, 0xff, 0x40, 0xc0):
+            hi, lo = max(r, g, b), min(r, g, b)
+            seen = tuple(1 if c - lo > (hi - lo) // 2 else 0 for c in (r, g, b))
+            if hi > lo and seen != COLOUR_WORDS[word]:
                 yield dict(base, scan="colour_word_mismatch", text=m.group(0), abgr_rgb=[r, g, b])
         if re.search(r"\bRGB\b|\bRRGGBB\b", summary) and not re.search(r"ABGR|AABBGGRR|BGR", summary):
             yield dict(base, scan="colour_rgb_mention", text=re.search(r".{0,40}\b(RGB|RRGGBB)\b.{0,40}", summary).group(0))
