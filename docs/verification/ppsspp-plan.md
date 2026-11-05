@@ -90,6 +90,92 @@ Write the `int` at `P + 0x00` (side 0 `0x09e2a528`, side 1 `0x09e2b064`). Use it
 
 Write `[0x09e2d1e0]`. Use it only to leave turn 0 (where the first player cannot battle, `duel_core_can_conduct_battle`) in checks that do not test that rule (A4, A6), never in A2. Cautions: the turn-limit logic compares the counter with `[0x09e2d1e4]` (`0xffff` = not started) and posts command 9 at milestones; keep the new value small (1–3) and check that `[0x09e2d1e4]` is `0xffff`. The turn side `0x09e2d1d8` is never edited.
 
+## Hybrid runs
+
+Maintainer decision of 2026-11-04: tests stay hands-on, in a hybrid form. The maintainer plays and navigates in PPSSPP. `tools/ppsspp_ws.py` attaches to PPSSPP's built-in WebSocket debugger, sets the breakpoints, reads values and writes logs to files. The agent reads only a short summary. Nothing in the tool presses buttons or navigates: it can only send the events in its allow-list, and `input.*` and `game.reset` are not on it.
+
+**The tool has not yet been tried against a live PPSSPP.** It was written from the source of PPSSPP v1.20.4 (`Core/Debugger/WebSocket/*.cpp`, `Core/Debugger/Breakpoints.cpp`, `Core/WebServer.cpp`) and is tested only on a fake server (`tools/tests/test_ppsspp_ws.py`). The first run must be E7, which already passed by hand, so a difference from the hand results is a fault of the tool.
+
+### One-time set-up
+
+1. Open `external/ppsspp/PPSSPPWindows64.exe`.
+2. **Settings → Tools → Developer tools**: tick **Allow remote debugger**. PPSSPP remembers this (`RemoteDebuggerOnStartup = True` in `ppsspp.ini`, written when PPSSPP closes).
+3. On the same screen, leave **Enable Logging** ticked. Breakpoint hits reach the tool through the log, and it is already on in this install. Leave the log levels alone: `JITLevel` and `MEMMAPLevel` are 2 and any level from 1 up passes the hits.
+4. If Windows Firewall asks about PPSSPP, you can block it: the tool connects on `127.0.0.1`, which the firewall does not filter. The server itself listens on every network interface and PPSSPP tells `report.ppsspp.org` the local address and port every 9 minutes, so untick the option when you are on a network you do not trust.
+5. Close PPSSPP and open it again, start the game, and in a terminal at the repository root run:
+
+   ```
+   python -I tools/ppsspp_ws.py check
+   ```
+
+   It prints the PPSSPP version, the game id (`ULES01183`), `S` and the loaded modules, each compared with its documented base.
+
+**The port.** The debugger shares the web server of disc sharing, so its port is `RemoteISOPort` in `ppsspp.ini`, 58366 on this install. PPSSPP tries that port when the server starts. If the port is taken it listens on a random one, keeps it in memory and writes it to the ini only on exit. The port is not shown anywhere simple, so the tool tries, in order: `--port N` (then nothing else), `RemoteISOPort` from the ini, and every listening port of a `PPSSPP*` process found with `tasklist` and `netstat -ano`. `--port` goes before the command: `python -I tools/ppsspp_ws.py --port 58366 check`. A run from an agent worktree finds the ini in the main checkout.
+
+### How to run
+
+```
+python -I tools/ppsspp_ws.py list               # available tests
+python -I tools/ppsspp_ws.py run G1             # prints what to do, in Portuguese
+python -I tools/ppsspp_ws.py run G2 --allow-edits --set c=0x2
+python -I tools/ppsspp_ws.py watch-modules      # logs every module load until stopped
+python -I tools/ppsspp_ws.py summary <log>
+```
+
+Start `run` before or after the scene: breakpoints are armed only while the test's module is loaded. While it runs, type in the terminal: `m <text>` writes a note into the log (with the values logged since the previous note), `edit <id> [name=value]` applies a memory edit the test defines, and `q` or Ctrl+C ends the run. Every exit removes the breakpoints the tool made, and the summary says so or lists what stayed. If a run dies without cleaning up, its leftovers are log-only, and the next run removes them.
+
+Open only one client at a time. PPSSPP has one log callback: when any second client disconnects (another `check`, or the browser debugger), the log stops for the first one too, and the run goes on silently with no hits.
+
+`watch-modules` finds the runtime bases of the 27 modules imported at base 0 (`modules.md`, "All modules imported"): enter each scene once. Every run also adds to `build/ppsspp-runs/module-bases.csv`, with one row per module and base (`module,info_name,base,size,loads,first_seen,last_seen,documented_base`). The `base` column is what `analyzeHeadless -loader-imagebase` and the registry ids need later.
+
+### What to send back
+
+Only the `<run>.summary.txt` that `run` prints and saves: under 100 lines whatever the size of the log, with PASS, FAIL, NOT SEEN, RECORDED (no expected value) or MANUAL (a human fact, see the notes) per item, then notes, memory edits, warnings, breakpoints, samples and modules. The raw `.jsonl` logs stay in `build/ppsspp-runs/` (git-ignored, `--out` changes it). They hold addresses, card ids and small numbers but are never committed. The agent writes the results file from the summary and keeps the rule of "Reporting results": a run counts as evidence only with the PPSSPP version, the CPU core and every edit recorded.
+
+### What the debugger allows that differs from this plan
+
+| Plan | Debugger v1.20.4 | What the tool does |
+| --- | --- | --- |
+| Read memory in Memory View | `memory.read_*` stops the core for each read, and spins forever if the core is not running | Never sends it. Reads with `cpu.evaluate "[addr,size]"`, which does not stop the core; `memory.read*` is off the allow-list |
+| `[addr] & 0xffff` for a `u16` | `[addr,2]` and `[addr,1]` read 2 or 1 bytes, at any alignment | Uses the size form |
+| `a0 == 46` style conditions | Bare numbers in expressions are **hexadecimal**: 46 means 0x46 | Refuses bare numbers above 9. Write `0x2e`. This applies to hand-typed conditions too |
+| Break off, Log on | A breakpoint added without `enabled` pauses, and `memory.breakpoint.add` defaults to pausing and logging | Always sends both `enabled` and `log` |
+| Log text with braces | `logFormat` is not checked when added: a bad expression cuts every line short. A condition is checked | Evaluates each expression once before arming |
+| Conditions on memory breakpoints may not be accepted | They are accepted | Uses them (G5) |
+| `{[a0]}`-style reads in log text (A7) | Allowed, but the address is known only at run time | Refused, because the save key could not be excluded. Also refused: `:s`, `:p` and nested reads. Tests use constant addresses |
+| `{[addr]}` on a write breakpoint | Shows the value before the store, as this plan warns | Logs the writer `pc`, and polls the value (samples, every 0.1–0.5 s) |
+| Step Out, read `v0` | `cpu.stepOut` needs a pause per call and answers only with a broadcast | Not used. A log-only breakpoint on the `jr ra` (where `v0` is final) is joined to the entry breakpoint (G7) |
+| `hle.backtrace`, register dumps | Backtrace needs the core stopped | A pausing breakpoint reads, then resumes, at most `max_pauses` times, then turns log-only. Each pause costs a frame or two, so the game can stutter (only `staff_roll_movie` in E15) |
+| `.sym` export for module bases | `hle.module.list` gives name, base, size, and also unloaded modules, flagged `isActive` false | Keeps active modules only, and maps module-info names to files (`moddeck_swap` is `rel_deckswap`; both viewers are `modtemplate`, told apart by size). The base is expected to equal the `.sym` base (the kernel block address, hypothesis, high): `check` shows the comparison on the first live run |
+| Log Console | `log` broadcast, from a 1,024-line ring read about 60 times a second; level NOTICE, channels `JIT` and `MEMMAP` | Parses `BKP PC=…` and `CHK Write32(CPU) at …` lines tagged `tf3 <test>.<id>`. More than about 60,000 hits a second would lose lines without a trace |
+| Savestates, Save Map File, the FPS counter | No savestate or map-file event. The FPS is in `gpu.stats.get` | Savestates stay with the maintainer. E7 reads the FPS |
+
+**Shared module bases.** `rel_story`, `rel_duel_mgr`, `rel_title` and `rel_deck` share `0x08e9aa00`, and `rel_field` and `rel_shop` share `0x090ced00`. The tool polls `hle.module.list` every 0.1 s and arms a breakpoint only while its module is loaded. A hit is held until the next poll confirms the module is still there, otherwise it is tagged `suspect` and left out of the checks. Two consequences: a call in the first ~0.1 s after a module loads can be missed (a change also takes effect only at the next frame), and every change of a memory breakpoint clears the whole JIT cache, so arming them can stutter once. Breakpoints with `"module": "BOOT"` stay armed for the whole run. If a module loads at another base, its addresses are shifted for that run with a warning, as M1 prescribes reporting.
+
+**Per-frame functions.** Every distinct value set and every change from the previous hit reach the log; identical repeats beyond `max_per_second` (default 20) are only counted, so the counts stay exact. Values beyond `max_distinct` (default 2,000) per breakpoint are counted and reported as not kept.
+
+**Memory edits.** Off by default. With `--allow-edits`, only the edits a test defines can run (today E-X1 in G2). The tool pauses emulation (policy, rule 3), refuses while `u16 [0x09e27fee]` is non-zero in a duel, writes, logs address, old and new value, and resumes. The edits appear in the summary, ready for the results file (rule 4).
+
+**The save key.** The 16 bytes at `0x08879068` (`platform-api.md`) are never read or used. Every request passes one check that refuses any breakpoint, read, write, condition or log expression touching that range, in any RAM mirror, and any memory read whose address is not a constant. A definition that names it does not load.
+
+### Tests defined
+
+One file per test in `tools/ppsspp_tests/`: instructions in Portuguese, required module, breakpoints, samples, expected values and the steps that do not fit (`not_possible`). `python -I tools/ppsspp_ws.py list --check` compares every execute breakpoint with `re/functions.csv`.
+
+| Test | Module | Settles | Plan steps that cannot be done this way |
+| --- | --- | --- | --- |
+| E7 | `rel_story` | Proof of the tool: expected values are the hand results (`results/2026-10-31-sessionE-S.md`: 30.1 per second, `+0x04`–`+0x0b` zero, 30 FPS) | Saves `E7-a/b/c` and their diffs stay by hand. The stopwatch is the client's clock; 100 % speed is inferred from `gpu.stats.get`. The plan's `save_tick_frame_counter` is `system_run_frame_services` in the registry |
+| G1 | `rel_duel_eng` | B1 | Which action caused which code needs `m` notes. S1–S3 staging is not offered. `ra` is checked against the 52 call sites, recounted from `rel_duel_eng` |
+| E23 | any minigame | B7 | The score on screen and changed settings are notes. Saves are replaced by sampling the same offsets, so a block written only at save time would not show. Map-file exports are not needed for bases |
+| G2 | `rel_story` | B6 | Savestates and walking are the maintainer's; "offered again" is a note. The step byte is sampled throughout, because `rel_story` is unloaded during the duel |
+| G3 | `rel_password` | B8 | Passcodes are typed by hand; answers and the deck attempt are notes. Saves are replaced by sampling (card record index 3041 for `7332`, from `cardinfo`). The optional 59-card conversion is not covered |
+| E15 | `rel_story` | B5 | Needs the late save. Differential save 14 stays by hand. The movie name is not logged as text: pointer `a0` maps to it statically. The plan's `system_movie_create_player` is `system_movie_play` in the registry |
+| G5 *(optional)* | `rel_duel_eng` | B3 | A bit set and cleared within one 0.1 s poll is not seen. The check is written for side 0, as the plan; side 1 is recorded next to it |
+| G6 *(optional)* | `rel_duel_eng` | B2 | Choosing the challenge comes first and is by hand. Saves are replaced by sampling; bonus lines are notes |
+| G7 *(optional)* | `rel_charalist` | B4 | A new game and a finished-story save are two runs. Retry prompts are notes. The plan's single log with `{v0}` cannot work (`a0` and `a1` are gone at the return), so two breakpoints are joined: entry `0x088552cc`, `jr ra` `0x088552e8` |
+
+G4 and the other sessions have no definition yet. A new test is one JSON file; the item types are listed in `ITEM_TYPES` in the tool.
+
 ## Session 0: module bases and the save-state address
 
 Modules are loaded wherever the kernel allocator places them (`modules.md`, "Addresses: not fixed overlays"). The documented bases come from one session's load order. Every check below assumes them, so confirm them first, in every session or once per savestate family.

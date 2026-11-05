@@ -1,0 +1,125 @@
+{
+  "id": "G6",
+  "title": "An active duel challenge",
+  "plan": "docs/verification/ppsspp-plan.md, G6",
+  "blocks": "B2 (confirmation)",
+  "optional": true,
+  "required_module": "rel_duel_eng",
+  "params": {
+    "ch": "0x1e"
+  },
+  "instructions_pt": [
+    "Antes de rodar: na tela Duel Record, aba Challenges, escolha o desafio 0x1e (vencer em até 7 turnos). Para outro desafio: --set ch=0x07.",
+    "Vença um duelo livre offline com regras padrão dentro de 7 turnos.",
+    "Na tela de resultado, anote com m as linhas de bônus e o DP. Termine com q."
+  ],
+  "breakpoints": [
+    {
+      "id": "check",
+      "kind": "exec",
+      "address": "0x09be3c10",
+      "function": "duel_core_check_duel_condition",
+      "inside": true,
+      "record": {
+        "index": "s4"
+      }
+    },
+    {
+      "id": "best",
+      "kind": "exec",
+      "address": "0x09be2644",
+      "function": "duel_core_update_record_best",
+      "record": {
+        "index": "a0",
+        "level": "[0x09e01e44]"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "id": "active",
+      "address": "S+0x11634",
+      "size": 2,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "state",
+      "address": "S+0x114f0+$ch",
+      "size": 1,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "best_value",
+      "address": "S+0x1155c+2*$ch",
+      "size": 2,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "dp",
+      "address": "S+0x0fdfc",
+      "size": 4,
+      "every_s": 0.5,
+      "module": "BOOT"
+    }
+  ],
+  "expected": [
+    {
+      "type": "sample_final",
+      "sample": "active",
+      "what": "record table +0x290 holds the challenge",
+      "value": "$ch"
+    },
+    {
+      "type": "field_seen",
+      "bp": "check",
+      "field": "index",
+      "what": "condition checked with the challenge",
+      "values": [
+        "$ch"
+      ]
+    },
+    {
+      "type": "field_seen",
+      "bp": "best",
+      "field": "index",
+      "what": "completion recorded",
+      "values": [
+        "$ch"
+      ]
+    },
+    {
+      "type": "field_record",
+      "bp": "best",
+      "field": "level",
+      "what": "opponent recipe level"
+    },
+    {
+      "type": "sample_final",
+      "sample": "state",
+      "what": "state byte +0x14c + i is 1",
+      "value": 1
+    },
+    {
+      "type": "sample_record",
+      "sample": "best_value",
+      "what": "best value +0x1b8 + 2i (equal to the level)"
+    },
+    {
+      "type": "sample_changed",
+      "sample": "dp",
+      "what": "DP rose"
+    },
+    {
+      "type": "manual",
+      "what": "New Challenge Bonus line, +200 DP",
+      "note": "see the marks"
+    }
+  ],
+  "not_possible": [
+    "Choosing the challenge happens before the duel (rel_duel_eng is not loaded yet, but the samples run all the time).",
+    "Saves G6-a/G6-b are replaced by sampling the same offsets; the bonus lines are m notes."
+  ]
+}

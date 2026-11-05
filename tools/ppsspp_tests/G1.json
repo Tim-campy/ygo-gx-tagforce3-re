@@ -1,0 +1,148 @@
+{
+  "id": "G1",
+  "title": "Timing-event codes of the computed raisers",
+  "plan": "docs/verification/ppsspp-plan.md, G1",
+  "blocks": "B1",
+  "required_module": "rel_duel_eng",
+  "mark_field": "code",
+  "instructions_pt": [
+    "Comece um duelo contra a CPU com um deck que consiga fazer as ações abaixo.",
+    "Faça, na ordem que der: destruir um monstro em batalha; destruir uma carta com magia ou armadilha; Tribute Summon; descartar por custo e, se der, por efeito; Special Summon por efeito; mandar carta do Deck ao Cemitério e banir do Cemitério; deixar a CPU atacar.",
+    "Logo depois de cada ação, escreva nesta janela: m <o que você fez>. Ex.: m destruí por batalha. A nota pega os códigos desde a nota anterior.",
+    "Termine com q quando acabar (não precisa terminar o duelo)."
+  ],
+  "breakpoints": [
+    {
+      "id": "ev",
+      "kind": "exec",
+      "address": "0x09ccaae4",
+      "function": "duel_core_raise_timing_event",
+      "record": {
+        "code": "a0",
+        "arg": "a1",
+        "ra": "ra",
+        "snap": "[0x09e27fee,2]",
+        "turn": "[0x09e2d1e0]",
+        "phase": "[0x09e2d1e8]"
+      },
+      "volatile": [
+        "arg",
+        "turn",
+        "phase"
+      ]
+    }
+  ],
+  "samples": [],
+  "expected": [
+    {
+      "type": "hits",
+      "bp": "ev",
+      "what": "timing events logged"
+    },
+    {
+      "type": "field_in",
+      "bp": "ev",
+      "field": "ra",
+      "what": "ra - 8 is one of the 52 call sites",
+      "values": [
+        "0x09c15864",
+        "0x09c16368",
+        "0x09c16384",
+        "0x09c16c80",
+        "0x09c16c94",
+        "0x09c1755c",
+        "0x09c17908",
+        "0x09c17a60",
+        "0x09c18364",
+        "0x09c18414",
+        "0x09c1852c",
+        "0x09c18c84",
+        "0x09c19348",
+        "0x09c19358",
+        "0x09c196a8",
+        "0x09c19708",
+        "0x09c197a8",
+        "0x09c199e4",
+        "0x09c22114",
+        "0x09c28050",
+        "0x09c28c28",
+        "0x09c28f14",
+        "0x09c2931c",
+        "0x09c2a928",
+        "0x09c2b364",
+        "0x09c2b678",
+        "0x09c30cc0",
+        "0x09c83f00",
+        "0x09c83f10",
+        "0x09c8f004",
+        "0x09ca3c6c",
+        "0x09ca81c4",
+        "0x09ca9e80",
+        "0x09cb5edc",
+        "0x09dac5e8",
+        "0x09dae9dc",
+        "0x09dccb78",
+        "0x09dcd1a0",
+        "0x09dd4500",
+        "0x09dd4d30",
+        "0x09dd53e4",
+        "0x09dd5418",
+        "0x09dd6258",
+        "0x09dd7688",
+        "0x09ddaa88",
+        "0x09ddb974",
+        "0x09ddf6a8",
+        "0x09de05d4",
+        "0x09de067c",
+        "0x09de26b4",
+        "0x09de396c",
+        "0x09de3b20"
+      ]
+    },
+    {
+      "type": "field_seen",
+      "bp": "ev",
+      "field": "code",
+      "what": "battle and effect destruction give 0x16 and 0x1c",
+      "values": [
+        "0x16",
+        "0x1c"
+      ]
+    },
+    {
+      "type": "field_any",
+      "bp": "ev",
+      "field": "code",
+      "what": "effect Special Summon gives 0x23 or 0x24",
+      "values": [
+        "0x23",
+        "0x24"
+      ]
+    },
+    {
+      "type": "pairs_record",
+      "bp": "ev",
+      "fields": [
+        "code",
+        "ra"
+      ],
+      "names": true,
+      "what": "code by raiser"
+    },
+    {
+      "type": "field_record",
+      "bp": "ev",
+      "field": "snap",
+      "what": "AI snapshot depth at the events (non-zero: look-ahead)"
+    },
+    {
+      "type": "manual",
+      "what": "which code is which",
+      "note": "read the marks: each lists the codes since the mark before it"
+    }
+  ],
+  "not_possible": [
+    "Which action caused which code still needs the maintainer's m notes; the tool only adds turn and phase.",
+    "Staging with shortcuts S1-S3 is not offered here; play a deck that can do the actions, or edit by hand and record it."
+  ]
+}

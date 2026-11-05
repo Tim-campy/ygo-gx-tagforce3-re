@@ -1,0 +1,127 @@
+{
+  "id": "G7",
+  "title": "Partner list and must-win story duels",
+  "plan": "docs/verification/ppsspp-plan.md, G7",
+  "blocks": "B4 (confirmation)",
+  "optional": true,
+  "required_module": "rel_charalist",
+  "instructions_pt": [
+    "Jogo novo: abra a escolha de parceiro e anote com m os personagens oferecidos. Termine com q; esta é uma execução.",
+    "Rode de novo com um save depois de uma história de parceiro terminada e abra a escolha outra vez.",
+    "Com esta ferramenta ainda ligada, perca um duelo de capítulo: anote com m se oferece repetir, recuse, e anote para onde o jogo vai.",
+    "Perca um duelo livre comum: anote com m se oferece repetir e o que vem depois. Termine com q."
+  ],
+  "breakpoints": [
+    {
+      "id": "flag_in",
+      "kind": "exec",
+      "address": "0x088552cc",
+      "function": "save_test_character_flag_bit1",
+      "record": {
+        "char": "a0",
+        "var": "a1"
+      }
+    },
+    {
+      "id": "flag_ret",
+      "kind": "exec",
+      "address": "0x088552e8",
+      "function": "save_test_character_flag_bit1",
+      "inside": true,
+      "record": {
+        "ret": "v0"
+      },
+      "join": "flag_in"
+    },
+    {
+      "id": "scene_jump",
+      "kind": "exec",
+      "address": "0x0883dddc",
+      "function": "system_scene_jump",
+      "module": "BOOT",
+      "record": {
+        "from": "a0",
+        "to": "a1",
+        "arg": "a2"
+      }
+    },
+    {
+      "id": "queue",
+      "kind": "exec",
+      "address": "0x08ea5d18",
+      "function": "world_queue_event",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "a0": "a0",
+        "a1": "a1",
+        "a2": "a2"
+      }
+    },
+    {
+      "id": "duel_result",
+      "kind": "exec",
+      "address": "0x08ea4dac",
+      "function": "world_record_duel_result",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "result": "a0"
+      }
+    }
+  ],
+  "samples": [],
+  "expected": [
+    {
+      "type": "pairs_record",
+      "bp": "flag_ret",
+      "fields": [
+        "char",
+        "var"
+      ],
+      "filter": {
+        "ret": 1
+      },
+      "limit": 40,
+      "what": "(character, variant) with bit 1 set"
+    },
+    {
+      "type": "tuple_seen",
+      "bp": "flag_ret",
+      "fields": {
+        "char": 2,
+        "var": 0,
+        "ret": 1
+      },
+      "what": "a new game offers character 2 variant 0"
+    },
+    {
+      "type": "field_any",
+      "bp": "scene_jump",
+      "field": "to",
+      "what": "declining a lost chapter duel goes to the title (0xd)",
+      "values": [
+        "0xd"
+      ]
+    },
+    {
+      "type": "tuple_seen",
+      "bp": "queue",
+      "fields": {
+        "a0": "0x12d",
+        "a1": 3,
+        "a2": "0x2a"
+      },
+      "what": "generic duel loss runs (301, 3, 42)"
+    },
+    {
+      "type": "manual",
+      "what": "retry prompts; offered list",
+      "note": "see the marks"
+    }
+  ],
+  "not_possible": [
+    "New game and a finished-story save are two separate runs; the retry prompts are m notes.",
+    "The plan's single log with ret {v0} cannot work: a0 and a1 are gone at the return, so two breakpoints are joined (entry 0x088552cc, jr ra 0x088552e8)."
+  ]
+}

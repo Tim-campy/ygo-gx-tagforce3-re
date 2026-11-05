@@ -1,0 +1,134 @@
+{
+  "id": "G3",
+  "title": "The password machine and the collection-excluded cards",
+  "plan": "docs/verification/ppsspp-plan.md, G3",
+  "blocks": "B8",
+  "required_module": "rel_password",
+  "instructions_pt": [
+    "No mapa livre, abra o lab e a tela de senhas (password).",
+    "Digite a senha da carta 7332 (pegue no seu export do cardinfo; não cole no resultado), depois a da 6989, depois a de uma carta de pacote que você tem.",
+    "Depois de cada senha, anote com m se foi aceita, recusada ou outra coisa, com suas palavras.",
+    "Abra a tela de aluguel (rental) do lab, ponha a 7332 na lista, e tente colocá-la num deck. Anote com m se deu certo. Termine com q."
+  ],
+  "breakpoints": [
+    {
+      "id": "register",
+      "kind": "exec",
+      "address": "0x088564a8",
+      "function": "save_set_card_flag_bit0",
+      "record": {
+        "id": "a0",
+        "ra": "ra"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "id": "flags_7332",
+      "address": "S+0x14b28",
+      "size": 1,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "copies_7332",
+      "address": "S+0x14b29",
+      "size": 1,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "dp",
+      "address": "S+0x0fdfc",
+      "size": 4,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "list_count",
+      "address": "S+0x161f4",
+      "size": 2,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "list_ids",
+      "address": "S+0x161f6",
+      "size": 2,
+      "count": 4,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "list_state",
+      "address": "S+0x162bc",
+      "size": 2,
+      "count": 4,
+      "every_s": 0.5,
+      "module": "BOOT"
+    }
+  ],
+  "expected": [
+    {
+      "type": "field_seen",
+      "bp": "register",
+      "field": "id",
+      "what": "7332 registered",
+      "values": [
+        "0x1ca4"
+      ]
+    },
+    {
+      "type": "field_absent",
+      "bp": "register",
+      "field": "id",
+      "what": "6989 refused",
+      "values": [
+        "0x1b4d"
+      ]
+    },
+    {
+      "type": "bits_seen",
+      "sample": "flags_7332",
+      "bits": [
+        0
+      ],
+      "what": "flag bit 0 of 7332 set"
+    },
+    {
+      "type": "sample_constant",
+      "sample": "copies_7332",
+      "what": "no copy added"
+    },
+    {
+      "type": "sample_constant",
+      "sample": "dp",
+      "what": "no DP change"
+    },
+    {
+      "type": "sample_changed",
+      "sample": "list_count",
+      "what": "one rental entry added"
+    },
+    {
+      "type": "sample_record",
+      "sample": "list_ids",
+      "what": "ids in the card list"
+    },
+    {
+      "type": "sample_record",
+      "sample": "list_state",
+      "what": "state bytes of the list (open: 4, or 1-3)"
+    },
+    {
+      "type": "manual",
+      "what": "answers on screen; 7332 into a deck",
+      "note": "see the marks"
+    }
+  ],
+  "not_possible": [
+    "Passcodes are typed by the maintainer; the answer on screen and the deck attempt are m notes.",
+    "Saves G3-a/G3-b are replaced by sampling the same offsets in memory (collection record index 3041 of 7332, from cardinfo).",
+    "The optional 59-card conversion is not covered: it needs rel_conv_machine and 59 spare cards."
+  ]
+}

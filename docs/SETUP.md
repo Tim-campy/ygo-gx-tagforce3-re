@@ -17,11 +17,12 @@ How to reproduce the analysis. You need your own copy of the game; nothing from 
 | `tools/` | Extractors and the progress tool. | yes |
 | `tools/tests/` | Tests for the tools (synthetic data only). | yes |
 | `tools/ghidra/` | Ghidra scripts (`ApplyNames.java`, `ExportFunctions.java`). | yes |
+| `tools/ppsspp_ws.py`, `tools/ppsspp_tests/` | Hybrid PPSSPP runs: a client of PPSSPP's WebSocket debugger and its test definitions. The maintainer plays; logs go to `build/ppsspp-runs/` (not in git). Set-up: [`verification/ppsspp-plan.md`](verification/ppsspp-plan.md), "Hybrid runs". Not yet tried against a live PPSSPP. | yes |
 | `game/` | Your own disc image. | **no** |
 | `extracted/` | Files extracted from the disc image. | **no** |
 | `ghidra/` | The Ghidra project and PPSSPP symbol exports. | **no** |
 | `external/ppsspp/` | PPSSPP portable build. | **no** |
-| `build/` | Generated progress site. | **no** |
+| `build/` | Generated progress site, logs of hybrid PPSSPP runs. | **no** |
 
 ## Reference dump
 

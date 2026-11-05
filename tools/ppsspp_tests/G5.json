@@ -1,0 +1,149 @@
+{
+  "id": "G5",
+  "title": "Player and slot flag bits",
+  "plan": "docs/verification/ppsspp-plan.md, G5",
+  "blocks": "B3 (confirmation)",
+  "optional": true,
+  "required_module": "rel_duel_eng",
+  "instructions_pt": [
+    "Num duelo, no seu turno e no Main Phase 1, ative uma Magia da mão.",
+    "Vire uma Armadilha baixada, declare um ataque, deixe chegar ao cálculo de dano e perca um monstro em batalha.",
+    "Anote cada ação com m. Termine com q."
+  ],
+  "breakpoints": [
+    {
+      "id": "p0_flags",
+      "kind": "memory",
+      "address": "0x09e2a648",
+      "size": 4,
+      "access": "write",
+      "condition": "[0x09e27fee,2] == 0",
+      "record": {
+        "old": "[0x09e2a648]",
+        "pc": "pc"
+      },
+      "volatile": [
+        "old"
+      ]
+    },
+    {
+      "id": "slot0",
+      "kind": "memory",
+      "address": "0x09e2a56c",
+      "size": 4,
+      "access": "write",
+      "condition": "[0x09e27fee,2] == 0",
+      "record": {
+        "pc": "pc"
+      }
+    },
+    {
+      "id": "slot1",
+      "kind": "memory",
+      "address": "0x09e2a580",
+      "size": 4,
+      "access": "write",
+      "condition": "[0x09e27fee,2] == 0",
+      "record": {
+        "pc": "pc"
+      }
+    },
+    {
+      "id": "slot2",
+      "kind": "memory",
+      "address": "0x09e2a594",
+      "size": 4,
+      "access": "write",
+      "condition": "[0x09e27fee,2] == 0",
+      "record": {
+        "pc": "pc"
+      }
+    },
+    {
+      "id": "slot3",
+      "kind": "memory",
+      "address": "0x09e2a5a8",
+      "size": 4,
+      "access": "write",
+      "condition": "[0x09e27fee,2] == 0",
+      "record": {
+        "pc": "pc"
+      }
+    },
+    {
+      "id": "slot4",
+      "kind": "memory",
+      "address": "0x09e2a5bc",
+      "size": 4,
+      "access": "write",
+      "condition": "[0x09e27fee,2] == 0",
+      "record": {
+        "pc": "pc"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "id": "p0_flags",
+      "address": "0x09e2a648",
+      "size": 4,
+      "every_s": 0.1
+    },
+    {
+      "id": "p1_flags",
+      "address": "0x09e2b184",
+      "size": 4,
+      "every_s": 0.1
+    },
+    {
+      "id": "slots",
+      "address": "0x09e2a56c",
+      "size": 4,
+      "count": 5,
+      "stride": 20,
+      "every_s": 0.1
+    }
+  ],
+  "expected": [
+    {
+      "type": "bits_seen",
+      "sample": "p0_flags",
+      "bits": [
+        18,
+        19,
+        20,
+        24,
+        25,
+        26
+      ],
+      "what": "player bits 18-20, 24-26 (polled value)"
+    },
+    {
+      "type": "bits_seen",
+      "sample": "slots",
+      "bits": [
+        25,
+        30
+      ],
+      "what": "attacker slot bits 25 and 30 (polled value)"
+    },
+    {
+      "type": "field_record",
+      "bp": "p0_flags",
+      "field": "pc",
+      "what": "writers of the player word"
+    },
+    {
+      "type": "sample_record",
+      "sample": "p1_flags",
+      "what": "player word of side 1, for comparison"
+    }
+  ],
+  "not_possible": [
+    "A log line on a write shows the old value, so the new value comes from polling every 0.1 s; a bit set and cleared within one poll is not seen.",
+    "If the human is side 1, read p1_flags instead; the bits_seen check is written for side 0, as in the plan."
+  ],
+  "notes": [
+    "Hits during AI simulation are filtered by the condition on the snapshot depth."
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "id": "G2",
+  "title": "Step 3 after a lost chapter duel",
+  "plan": "docs/verification/ppsspp-plan.md, G2 (set-up of E13)",
+  "blocks": "B6",
+  "required_module": "rel_story",
+  "params": {
+    "c": "0x2"
+  },
+  "instructions_pt": [
+    "Prepare como no E13: no mapa livre, no estágio 1 passo 1, com o parceiro (Jaden = c 2; outro parceiro: --set c=<id>). Faça o savestate E13-pre você mesmo.",
+    "Se usar --allow-edits: escreva aqui edit E-X1 (põe os pontos em 990; a ferramenta pausa, edita e retoma). Para outro estágio: edit E-X1 value=<limite - 10 em hexa>.",
+    "Dê um sanduíche ao parceiro (sabor que não seja 4 ou 5) para chegar a 1.000 pontos. Encerre o dia e entre num mapa nos períodos 1-6: passo 1.",
+    "Abra o mapa da ilha, vá ao local destacado nos períodos 2-6: passo 2, que termina em duelo.",
+    "PERCA o duelo (renda-se ou deixe a CPU vencer). Se perguntar se quer repetir, responda e anote com m.",
+    "De volta ao mapa livre, vá ao local do passo e a outro mapa. Anote com m se o duelo foi oferecido de novo. Termine com q."
+  ],
+  "breakpoints": [
+    {
+      "id": "stage_step",
+      "kind": "memory",
+      "address": "S+0x1a270",
+      "size": 2,
+      "access": "write",
+      "module": "BOOT",
+      "record": {
+        "pc": "pc"
+      }
+    },
+    {
+      "id": "try_chapter",
+      "kind": "exec",
+      "address": "0x08e9cad0",
+      "function": "world_try_chapter_event",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "pts": "a0",
+        "loc": "a1",
+        "stage": "a2"
+      }
+    },
+    {
+      "id": "advance_step",
+      "kind": "exec",
+      "address": "0x08eab40c",
+      "function": "world_advance_chapter_step",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "ra": "ra"
+      }
+    },
+    {
+      "id": "advance_stage",
+      "kind": "exec",
+      "address": "0x08eab3c0",
+      "function": "world_advance_story_stage",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "ra": "ra"
+      }
+    },
+    {
+      "id": "points",
+      "kind": "exec",
+      "address": "0x08e9d9c0",
+      "function": "world_change_char_points",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "char": "a0",
+        "delta": "a1"
+      }
+    },
+    {
+      "id": "queue",
+      "kind": "exec",
+      "address": "0x08ea5d18",
+      "function": "world_queue_event",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "a0": "a0",
+        "a1": "a1",
+        "a2": "a2"
+      }
+    },
+    {
+      "id": "duel_result",
+      "kind": "exec",
+      "address": "0x08ea4dac",
+      "function": "world_record_duel_result",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "result": "a0"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "id": "stage",
+      "address": "S+0x1a270",
+      "size": 1,
+      "every_s": 0.2,
+      "module": "BOOT"
+    },
+    {
+      "id": "step",
+      "address": "S+0x1a271",
+      "size": 1,
+      "every_s": 0.2,
+      "module": "BOOT"
+    },
+    {
+      "id": "partner_points",
+      "address": "S+0x0fe0c+$c*0x18+0x16",
+      "size": 2,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "talk_pending",
+      "address": "S+0x1a394",
+      "size": 4,
+      "every_s": 0.5,
+      "module": "BOOT"
+    }
+  ],
+  "edits": [
+    {
+      "id": "E-X1",
+      "address": "S+0x0fe0c+$c*0x18+0x16",
+      "size": 2,
+      "value": "$value",
+      "params": {
+        "value": "0x3de"
+      },
+      "purpose": "partner points to cap - 10 so that the game's own gift reaches the cap (plan, E13)"
+    }
+  ],
+  "expected": [
+    {
+      "type": "field_seen",
+      "bp": "duel_result",
+      "field": "result",
+      "what": "the duel was lost (2)",
+      "values": [
+        "0x2"
+      ]
+    },
+    {
+      "type": "sample_record",
+      "sample": "step",
+      "what": "step byte over the run: the answer"
+    },
+    {
+      "type": "sample_record",
+      "sample": "stage",
+      "what": "stage byte over the run"
+    },
+    {
+      "type": "pairs_record",
+      "bp": "queue",
+      "fields": [
+        "a0",
+        "a1",
+        "a2"
+      ],
+      "what": "keys queued"
+    },
+    {
+      "type": "field_record",
+      "bp": "stage_step",
+      "field": "pc",
+      "what": "writers of the stage and step bytes"
+    },
+    {
+      "type": "manual",
+      "what": "duel offered again?",
+      "note": "see the marks"
+    }
+  ],
+  "not_possible": [
+    "Savestates and the walking are the maintainer's; whether the duel is offered again is a screen fact (m note).",
+    "Hits inside rel_story in the first ~0.1 s after it reloads can be missed (arming lags the module poll); the step byte is sampled all the time."
+  ]
+}

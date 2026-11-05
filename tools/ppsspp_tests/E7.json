@@ -1,0 +1,92 @@
+{
+  "id": "E7",
+  "title": "Frame counter and main-loop rate (proof of the tool)",
+  "plan": "docs/verification/ppsspp-plan.md, E7",
+  "blocks": "already passed by hand: docs/verification/results/2026-10-31-sessionE-S.md",
+  "required_module": "rel_story",
+  "instructions_pt": [
+    "Carregue um save e fique no mapa livre, com o PPSSPP a 100 % de velocidade (sem fast-forward).",
+    "Deixe o jogo rodando, sem pausar, por pelo menos 70 segundos.",
+    "Termine com q. Este teste não precisa de nenhuma ação no jogo."
+  ],
+  "breakpoints": [
+    {
+      "id": "frame",
+      "kind": "exec",
+      "address": "0x088359f4",
+      "function": "system_run_frame_services",
+      "record": {
+        "frame": "[S+0x0c]"
+      },
+      "volatile": [
+        "frame"
+      ],
+      "max_per_second": 2
+    }
+  ],
+  "samples": [
+    {
+      "id": "frame_counter",
+      "address": "S+0x0c",
+      "size": 4,
+      "every_s": 1.0
+    },
+    {
+      "id": "unknown04",
+      "address": "S+0x04",
+      "size": 4,
+      "count": 2,
+      "every_s": 5.0
+    },
+    {
+      "id": "fps",
+      "kind": "gpu_fps",
+      "every_s": 5.0,
+      "always": true
+    }
+  ],
+  "expected": [
+    {
+      "type": "hits",
+      "bp": "frame",
+      "what": "per-frame breakpoint logged",
+      "min": 100
+    },
+    {
+      "type": "hit_rate",
+      "bp": "frame",
+      "what": "main-loop calls per second",
+      "min": 29,
+      "max": 31,
+      "min_seconds": 30
+    },
+    {
+      "type": "sample_rate",
+      "sample": "frame_counter",
+      "what": "[S+0x0c] per second (by hand: 1,808 in 60 s = 30.1)",
+      "min": 29,
+      "max": 31,
+      "min_seconds": 30
+    },
+    {
+      "type": "sample_constant",
+      "sample": "unknown04",
+      "what": "+0x04..+0x0b stay zero (by hand: zero in all saves)",
+      "value": 0
+    },
+    {
+      "type": "sample_range",
+      "sample": "fps",
+      "what": "PPSSPP FPS (by hand: counter showed 30)",
+      "min": 29,
+      "max": 31
+    }
+  ],
+  "not_possible": [
+    "Saves E7-a/b/c and their diffs stay by hand (save.py); this run covers the in-memory counter only.",
+    "The 60 s stopwatch is the client's wall clock; 100 % speed is inferred from gpu.stats.get, not read."
+  ],
+  "notes": [
+    "The plan's save_tick_frame_counter is system_run_frame_services in re/functions.csv; the counter store is at 0x08835a38."
+  ]
+}

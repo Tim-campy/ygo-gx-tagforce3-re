@@ -1,0 +1,144 @@
+{
+  "id": "E23",
+  "title": "Minigame bases, high scores and blocks",
+  "plan": "docs/verification/ppsspp-plan.md, E23",
+  "blocks": "B7",
+  "required_module": [
+    "rel_blackjack",
+    "rel_connection",
+    "rel_dodge",
+    "rel_quiz",
+    "rel_reversi",
+    "rel_throw",
+    "rel_underground"
+  ],
+  "instructions_pt": [
+    "No mapa livre, jogue uma rodada de um minigame até a tela de resultado. Pode trocar alguma configuração dele, se tiver.",
+    "Saia do minigame e anote com m o nome, a pontuação na tela e o que mudou. Ex.: m quiz 120 pontos.",
+    "Repita com blackjack, connection, dodge, quiz, reversi, throw e underground, até onde der. Termine com q."
+  ],
+  "breakpoints": [
+    {
+      "id": "dp_add",
+      "kind": "exec",
+      "address": "0x08854ba0",
+      "function": "save_add_dp",
+      "module": "BOOT",
+      "record": {
+        "delta": "a0",
+        "ra": "ra"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "id": "score",
+      "address": "S+0x11444",
+      "size": 4,
+      "count": 9,
+      "every_s": 1.0,
+      "module": "BOOT"
+    },
+    {
+      "id": "new_bit",
+      "address": "S+0x11490",
+      "size": 1,
+      "count": 9,
+      "every_s": 1.0,
+      "module": "BOOT"
+    },
+    {
+      "id": "dp",
+      "address": "S+0x0fdfc",
+      "size": 4,
+      "every_s": 1.0,
+      "module": "BOOT"
+    },
+    {
+      "id": "block_blackjack",
+      "address": "S+0x1be0c",
+      "size": 4,
+      "every_s": 1.0,
+      "module": "BOOT"
+    },
+    {
+      "id": "block_dodge",
+      "address": "S+0x1be10",
+      "size": 4,
+      "every_s": 1.0,
+      "module": "BOOT"
+    },
+    {
+      "id": "block_underground",
+      "address": "S+0x1be18",
+      "size": 4,
+      "count": 12,
+      "every_s": 1.0,
+      "module": "BOOT"
+    },
+    {
+      "id": "block_throw",
+      "address": "S+0x1be50",
+      "size": 4,
+      "count": 47,
+      "every_s": 1.0,
+      "module": "BOOT"
+    }
+  ],
+  "expected": [
+    {
+      "type": "modules_record",
+      "what": "modules loaded (bases in module-bases.csv)"
+    },
+    {
+      "type": "sample_changed",
+      "sample": "score",
+      "what": "high-score word changed, with the module tag"
+    },
+    {
+      "type": "sample_changed",
+      "sample": "new_bit",
+      "what": "new-record bit changed, with the module tag"
+    },
+    {
+      "type": "hits",
+      "bp": "dp_add",
+      "what": "DP reward"
+    },
+    {
+      "type": "sample_record",
+      "sample": "dp",
+      "what": "DP over the run"
+    },
+    {
+      "type": "sample_record",
+      "sample": "block_blackjack",
+      "what": "block 0"
+    },
+    {
+      "type": "sample_record",
+      "sample": "block_dodge",
+      "what": "block 1"
+    },
+    {
+      "type": "sample_record",
+      "sample": "block_underground",
+      "what": "block 3"
+    },
+    {
+      "type": "sample_record",
+      "sample": "block_throw",
+      "what": "block 8"
+    },
+    {
+      "type": "manual",
+      "what": "score on screen against the word",
+      "note": "see the marks"
+    }
+  ],
+  "not_possible": [
+    "The score on screen and the settings changed are m notes.",
+    "Saves E23-<game>-a/b are replaced by sampling the same offsets; a block written only at save time would not show, then diff saves by hand.",
+    "Map-file exports are not needed for the bases (they come from hle.module.list); a .sym is still the way to get function starts."
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "id": "E15",
+  "title": "Story state 46 and what follows the staff roll",
+  "plan": "docs/verification/ppsspp-plan.md, E15",
+  "blocks": "B5",
+  "required_module": "rel_story",
+  "params": {
+    "row": "0x2"
+  },
+  "instructions_pt": [
+    "Precisa de um save no estágio 4, passo 4, de uma história de parceiro (ou logo antes do registro final). Sem ele, pule este teste.",
+    "A linha do parceiro na tabela de personagens vale 2 para o Jaden; outro parceiro: --set row=<linha>.",
+    "Jogue até o fim da história e deixe a staff roll passar. Há uma pausa de instante quando o filme começa.",
+    "Depois do filme, anote com m o que o jogo mostra (título, escolha de novo parceiro, mapa). Termine com q."
+  ],
+  "breakpoints": [
+    {
+      "id": "state_step",
+      "kind": "exec",
+      "address": "0x08ea0154",
+      "function": "world_story_state_step",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "state": "[0x08ecd978]"
+      },
+      "max_per_second": 2
+    },
+    {
+      "id": "state_write",
+      "kind": "memory",
+      "address": "0x08ecd978",
+      "size": 4,
+      "access": "write",
+      "record": {
+        "pc": "pc"
+      }
+    },
+    {
+      "id": "finish_partner",
+      "kind": "exec",
+      "address": "0x08ea2b38",
+      "function": "world_driver_finish_partner_story",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "ra": "ra"
+      }
+    },
+    {
+      "id": "staff_roll_start",
+      "kind": "exec",
+      "address": "0x08ea3984",
+      "function": "world_state_start_staff_roll",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "ra": "ra"
+      }
+    },
+    {
+      "id": "staff_roll_movie",
+      "kind": "exec",
+      "address": "0x08ea3ae8",
+      "function": "world_play_staff_roll_movie",
+      "module": "rel_story",
+      "registry_module": "rel_story",
+      "record": {
+        "ra": "ra"
+      },
+      "pause": true,
+      "backtrace": true,
+      "max_pauses": 3
+    },
+    {
+      "id": "movie_create",
+      "kind": "exec",
+      "address": "0x0882b964",
+      "function": "system_movie_play",
+      "module": "BOOT",
+      "record": {
+        "a0": "a0",
+        "ra": "ra"
+      }
+    }
+  ],
+  "samples": [
+    {
+      "id": "stage",
+      "address": "S+0x1a270",
+      "size": 1,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "step",
+      "address": "S+0x1a271",
+      "size": 1,
+      "every_s": 0.5,
+      "module": "BOOT"
+    },
+    {
+      "id": "partner_flags",
+      "address": "S+0x1bf8c+2*$row",
+      "size": 1,
+      "every_s": 0.5,
+      "module": "BOOT"
+    }
+  ],
+  "expected": [
+    {
+      "type": "hits",
+      "bp": "finish_partner",
+      "what": "finish_partner_story ran"
+    },
+    {
+      "type": "sequence",
+      "bp": "state_step",
+      "field": "state",
+      "what": "story states 46, 49, 48, 49, 50",
+      "values": [
+        "0x2e",
+        "0x31",
+        "0x30",
+        "0x31",
+        "0x32"
+      ]
+    },
+    {
+      "type": "hits",
+      "bp": "staff_roll_start",
+      "what": "state 46 handler ran"
+    },
+    {
+      "type": "hits",
+      "bp": "staff_roll_movie",
+      "what": "staff-roll movie handler ran"
+    },
+    {
+      "type": "field_record",
+      "bp": "movie_create",
+      "field": "a0",
+      "what": "movie pointer (maps to the name in rel_story)"
+    },
+    {
+      "type": "bits_seen",
+      "sample": "partner_flags",
+      "bits": [
+        2
+      ],
+      "what": "character-row bit 2 of the partner set"
+    },
+    {
+      "type": "sample_record",
+      "sample": "stage",
+      "what": "stage byte afterwards"
+    },
+    {
+      "type": "manual",
+      "what": "what follows the movie",
+      "note": "see the marks"
+    }
+  ],
+  "not_possible": [
+    "The late save itself must exist; the tool cannot reach it.",
+    "Differential save 14 (a new cycle: partner word, pack stocks) stays by hand with save.py.",
+    "The movie's name is not logged as text (:s log reads are refused): the pointer a0 is, and it maps to the string statically."
+  ],
+  "notes": [
+    "The plan's movie_create (system_movie_create_player) is system_movie_play in re/functions.csv."
+  ]
+}
